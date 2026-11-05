@@ -485,3 +485,68 @@ def test_a_second_path_is_refused_actionably(tmp_path: object) -> None:
         """
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_executor_settings_join_a_clause_the_planner_wrote() -> None:
+    from hypequery.execution.utils.settings_clause import with_settings
+
+    limits = {"max_execution_time": 30, "readonly": 2}
+    output = {"output_format_json_quote_64bit_integers": "1"}
+    planned = "SELECT 1 FROM t FINAL SETTINGS optimize_move_to_prewhere_if_final = 0"
+    # ClickHouse accepts one SETTINGS clause; readonly is still applied last.
+    assert with_settings(planned, limits, output) == (
+        "SELECT 1 FROM t FINAL SETTINGS optimize_move_to_prewhere_if_final = 0, "
+        "output_format_json_quote_64bit_integers = 1, max_execution_time = 30, readonly = 2"
+    )
+    assert with_settings("SELECT 1", limits, output) == "SELECT 1" + settings_clause(limits, output)
+
+
+@needs_chdb
+def test_a_resolved_source_runs_on_embedded_clickhouse(
+    database: str, executor: ChdbExecutor
+) -> None:
+    from hypequery.datasets import create_dataset_registry, dataset, resolved_rows
+    from hypequery.datasets.relationship_check_plan import plan_relationship_checks
+    from hypequery.datasets.relationships import belongs_to
+
+    admin_query(
+        f"CREATE TABLE {database}.accounts (id String, plan String, is_deleted UInt8, "
+        "version UInt32) ENGINE = ReplacingMergeTree(version) ORDER BY id"
+    )
+    admin_query(f"SYSTEM STOP MERGES {database}.accounts")
+    admin_query(
+        f"INSERT INTO {database}.accounts VALUES ('u1', 'free', 0, 1), ('u2', 'free', 0, 1)"  # noqa: S608 - generated name
+    )
+    admin_query(
+        f"INSERT INTO {database}.accounts VALUES ('u1', 'pro', 0, 2), ('u2', 'free', 1, 2)"  # noqa: S608 - generated name
+    )
+    admin_query(f"CREATE TABLE {database}.logins (account_id String) ENGINE = Memory")
+    admin_query(f"INSERT INTO {database}.logins VALUES ('u1'), ('u1'), ('u2')")  # noqa: S608 - generated name
+    accounts = dataset(
+        "accounts",
+        source=f"{database}.accounts",
+        dimensions={"id": dimension.string(), "plan": dimension.string()},
+        measures={"accounts": measure.count("id")},
+        row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+    )
+    logins = dataset(
+        "logins",
+        source=f"{database}.logins",
+        dimensions={"accountId": dimension.string(column="account_id")},
+        measures={"logins": measure.count("account_id")},
+        relationships={"account": belongs_to(accounts, from_field="account_id", to_field="id")},
+    )
+    registry = create_dataset_registry(accounts, logins)
+    client = create_dataset_client(executor=executor, registry=registry)
+    # The planner's SETTINGS clause and the executor's are one valid clause.
+    resolved = client.execute(accounts, DatasetQuery(dimensions=("plan",), measures=("accounts",)))
+    assert list(resolved.data) == [{"plan": "pro", "accounts": 1}]
+    joined = client.execute(
+        logins, DatasetQuery(dimensions=("account.plan",), measures=("logins",))
+    )
+    assert sorted(joined.data, key=lambda row: str(row["account.plan"])) == [
+        {"account.plan": None, "logins": 1},
+        {"account.plan": "pro", "logins": 2},
+    ]
+    (check,) = plan_relationship_checks(logins, registry, ExecutionContext(), None)
+    assert executor.execute(check.compiled).named_rows() == ({"__hq_rows": 1, "__hq_keys": 1},)
