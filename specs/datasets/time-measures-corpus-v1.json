@@ -609,16 +609,20 @@
             "operator": "lt",
             "value": "2026-01-06"
           }
+        ],
+        "orderBy": [
+          {
+            "field": "period",
+            "direction": "asc"
+          },
+          {
+            "field": "group",
+            "direction": "asc"
+          }
         ]
       },
       "expected": {
         "rows": [
-          {
-            "period": "2026-01-02 00:00:00",
-            "group": null,
-            "delta": "0",
-            "totalRevenue": "5"
-          },
           {
             "period": "2026-01-02 00:00:00",
             "group": "x",
@@ -626,9 +630,9 @@
             "totalRevenue": "32"
           },
           {
-            "period": "2026-01-03 00:00:00",
+            "period": "2026-01-02 00:00:00",
             "group": null,
-            "delta": null,
+            "delta": "0",
             "totalRevenue": "5"
           },
           {
@@ -638,7 +642,7 @@
             "totalRevenue": "32"
           },
           {
-            "period": "2026-01-04 00:00:00",
+            "period": "2026-01-03 00:00:00",
             "group": null,
             "delta": null,
             "totalRevenue": "5"
@@ -650,7 +654,7 @@
             "totalRevenue": "72"
           },
           {
-            "period": "2026-01-05 00:00:00",
+            "period": "2026-01-04 00:00:00",
             "group": null,
             "delta": null,
             "totalRevenue": "5"
@@ -660,6 +664,12 @@
             "group": "x",
             "delta": "-40",
             "totalRevenue": "79"
+          },
+          {
+            "period": "2026-01-05 00:00:00",
+            "group": null,
+            "delta": null,
+            "totalRevenue": "5"
           }
         ]
       }
@@ -973,6 +983,16 @@
             "field": "time",
             "operator": "lt",
             "value": "2026-04-01"
+          }
+        ],
+        "orderBy": [
+          {
+            "field": "period",
+            "direction": "asc"
+          },
+          {
+            "field": "group",
+            "direction": "asc"
           }
         ]
       },
