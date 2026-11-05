@@ -1957,6 +1957,7 @@
           "dev": {},
           "generate:datasets": {},
           "export:client-contract": {},
+          "skill": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1967,6 +1968,7 @@
                 "dev",
                 "generate:datasets",
                 "export:client-contract",
+                "skill",
                 "telemetry"
               ],
               "optional": true
