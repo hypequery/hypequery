@@ -18,6 +18,7 @@ from ..formulas import (
     formula_children,
 )
 from ..measures import Measure
+from ..time_measures import ShiftMeasure, WindowMeasure
 from .definition_projection import metadata
 
 
@@ -134,15 +135,17 @@ def validate_derived_measures(
                 raise ValueError("Derived measure requires a formula over local measures")
             stats = (dependency_depth + 1, nodes)
             visiting.remove(name)
-        elif isinstance(definition, Measure) and definition.aggregation in (
-            "min",
-            "max",
-            "argMin",
-            "argMax",
-        ):
-            dimension = dimensions.get(definition.field)
-            if dimension is None or dimension.field_type != "number":
-                raise ValueError("Derived formula input must be a numeric measure")
+        else:
+            # A window or shift yields its base measure's values, so check that.
+            base = (
+                measures.get(definition.measure)
+                if isinstance(definition, WindowMeasure | ShiftMeasure)
+                else definition
+            )
+            if isinstance(base, Measure) and base.aggregation in ("min", "max", "argMin", "argMax"):
+                dimension = dimensions.get(base.field)
+                if dimension is None or dimension.field_type != "number":
+                    raise ValueError("Derived formula input must be a numeric measure")
         complete[name] = stats
         return stats
 

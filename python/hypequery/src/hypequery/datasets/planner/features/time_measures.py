@@ -155,6 +155,11 @@ class TimeMeasureFeature(CompilerFeature):
         )
         if errors or axis is None:
             raise CompiledQueryError("input-invalid", " ".join(errors))
+        # The axis consumes the time bounds as SQL parameters rather than
+        # predicates, so check them as the caller filters they are.
+        for bound in query.filters:
+            if bound not in axis.filters:
+                compiler.filtering.checked_field(bound, request_filter=True)
         return axis
 
     # -- statement ---------------------------------------------------------
