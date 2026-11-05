@@ -108,7 +108,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="set no tenant_key, ignoring the tenant column recorded in schema.json",
     )
     _add_database_options(
-        datasets, "(default: the path recorded in schema.json, else analytics.chdb)"
+        datasets, "(default: the path init recorded in pyproject.toml, else analytics.chdb)"
     )
     datasets.add_argument("--check", action="store_true", help="exit 1 on drift without writing")
     datasets.add_argument("--diff", action="store_true", help="show drift without writing; exit 1")

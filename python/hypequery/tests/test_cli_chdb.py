@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -31,6 +32,18 @@ from test_cli_guided_init import Script, run_guide
 needs_chdb = pytest.mark.skipif(find_spec("chdb") is None, reason="chdb is not installed")
 
 
+def cli_environment() -> dict[str, str]:
+    """A bare environment for the CLI, except that coverage can still follow it.
+
+    The CLI runs in a subprocess here (chDB holds a database per process), so
+    the coverage hook's own variables are passed on, or the chDB code paths
+    would only ever be measured as unexecuted.
+    """
+
+    coverage = {key: value for key, value in os.environ.items() if key.startswith("COVERAGE")}
+    return {"PATH": "/usr/bin:/bin", "CI": "1", **coverage}
+
+
 def hypequery(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "hypequery", *args],
@@ -38,7 +51,7 @@ def hypequery(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=False,
-        env={"PATH": "/usr/bin:/bin", "CI": "1"},
+        env=cli_environment(),
     )
 
 
@@ -160,7 +173,7 @@ def test_hypequery_dev_serves_a_chdb_project_with_reload(tmp_path: Path) -> None
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env={"PATH": "/usr/bin:/bin", "CI": "1"},
+        env=cli_environment(),
     )
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=5) as http:
@@ -247,6 +260,23 @@ def test_a_database_another_process_holds_is_reported_actionably(tmp_path: Path)
     assert held.returncode == 1
     assert "Only one process can use it at a time" in held.stderr
     assert "hypequery dev" in held.stderr
+
+
+def test_a_missing_database_refuses_schema_options(tmp_path: Path) -> None:
+    # Like the parser does with --skip-connection: a mistyped path must not
+    # quietly produce the orders example in place of the requested schema.
+    for flags in (
+        ["--tables", "events"],
+        ["--exclude-tables", "events"],
+        ["--all-tables"],
+        ["--tenant-column", "org_id"],
+    ):
+        refused = hypequery(
+            "init", "project", "--database", "chdb", *flags, "--no-interactive", cwd=tmp_path
+        )
+        assert refused.returncode == 1, refused.stderr
+        assert "There is no chDB database at analytics.chdb yet" in refused.stderr
+        assert not (tmp_path / "project").exists()
 
 
 def test_a_missing_database_is_never_created_by_generate(tmp_path: Path) -> None:

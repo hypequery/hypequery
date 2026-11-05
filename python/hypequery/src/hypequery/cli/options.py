@@ -44,7 +44,8 @@ class GenerateDatasetsOptions:
     check: bool
     diff: bool
     force: bool
-    #: ``None`` when not given: the database schema.json records, else ClickHouse.
+    #: ``None`` when not given: chDB when init recorded a path in pyproject.toml
+    #: or a project ``analytics.chdb`` exists with no server configured, else ClickHouse.
     database: Database | None = None
     chdb_path: str | None = None
 

@@ -58,6 +58,17 @@ def _create(options: InitOptions, environ: Mapping[str, str] | None) -> Path:
     database_dir = (
         None if chdb_path is None else Path(os.path.normpath(scaffold.destination / chdb_path))
     )
+    schema_options = (
+        options.tables or options.exclude_tables or options.all_tables or options.tenant_column
+    )
+    if database_dir is not None and not database_dir.is_dir() and schema_options:
+        # The parser refuses these with --skip-connection; a missing database is
+        # the same situation, and must not quietly give the example instead.
+        raise CliError(
+            f"There is no chDB database at {chdb_path} yet, so table selection and "
+            "--tenant-column cannot be applied. Create and seed it first, or leave them "
+            "out to get the orders example."
+        )
     if options.skip_connection or (database_dir is not None and not database_dir.is_dir()):
         templates = offline_templates(load_templates(), framework)
         if chdb_path is not None:
