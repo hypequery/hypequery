@@ -76,7 +76,7 @@ npx hypequery dev
 | `hypequery generate:manifest <api>` | Write the route manifest React hooks use to call a TypeScript API |
 | `hypequery generate:client [contract]` | Generate typed React client types and routes from a Python client contract or the live cloud release |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
-| `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
+| `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio or Streamable HTTP (`--http`), or check an endpoint with `--self-test` |
 | `hypequery skill install` | Install hypequery's agent skills for Claude Code, Cursor and Codex |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
@@ -487,7 +487,8 @@ credential.
 
 ## `hypequery mcp [file]`
 
-Serves the project's datasets over stdio for a local MCP client.
+Serves the project's datasets over stdio for a local MCP client, or over Streamable HTTP with `--http`
+([Remote MCP over HTTP](/docs/mcp/remote)).
 
 Without `[file]`, the command looks for a Serve API file in the current directory: `hypequery.ts`,
 `analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, or
@@ -499,6 +500,11 @@ With an absolute `[file]` it runs from any directory: the file's imports resolve
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
 | `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
 | `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY` rather than a command argument |
+| `--http` | Serve over Streamable HTTP. Callers send `HYPEQUERY_MCP_KEY`, or without it are verified by `defineServe` auth, each with their own tenant |
+| `--port <n>`, `--host <address>` | With `--http`: where to listen (default `127.0.0.1:3333`) |
+| `--allowed-hosts <names>` | With `--http`: comma-separated `Host` names to answer (default: loopback; required for another bind address) |
+| `--allowed-origins <origins>` | With `--http`: comma-separated browser origins allowed to call |
+| `--resource <url>`, `--authorization-servers <urls>`, `--required-scopes <scopes>` | With `--http`: OAuth resource-server settings |
 
 Supply `HYPEQUERY_API_KEY` through your environment or secret manager before
 running the check; the command never takes the key as an argument.

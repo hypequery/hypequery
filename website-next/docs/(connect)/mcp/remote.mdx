@@ -1,0 +1,211 @@
+---
+title: Remote MCP over HTTP
+description: Serve hypequery MCP over Streamable HTTP from your own infrastructure, behind a static key or OAuth, in TypeScript or Python.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequery mcp` speaks stdio by default, so an MCP client launches it on the same machine. Add `--http` to serve the
+same tools over **Streamable HTTP** instead, so agents on other machines, or several users at once, can connect to one
+server you run. Both CLIs and both libraries (`@hypequery/mcp`, `hypequery.mcp`) support it, and the tools, schemas and
+errors are the same as over stdio.
+
+<Callout type="info">
+  hypequery Cloud hosts this for you, with OAuth sign-in for your users. This page is for running the server on your own infrastructure.
+</Callout>
+
+## Quick start: one shared key
+
+<CodeBlock>
+```bash
+# TypeScript project
+HYPEQUERY_MCP_KEY=$(openssl rand -hex 32) npx hypequery mcp --http --tenant acme
+
+# Python API
+HYPEQUERY_MCP_KEY=$(openssl rand -hex 32) hypequery mcp app:api --http
+```
+</CodeBlock>
+
+The server listens on `http://127.0.0.1:3333/mcp`. Clients send the key as `Authorization: Bearer <key>`:
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "type": "http",
+      "url": "http://127.0.0.1:3333/mcp",
+      "headers": { "Authorization": "Bearer ${HYPEQUERY_MCP_KEY}" }
+    }
+  }
+}
+```
+</CodeBlock>
+
+A static key is one principal, so every caller gets the same tenant (`--tenant` in TypeScript; the backend credential
+from `HYPEQUERY_API_KEY` or `--header` in Python). Use it for a single team or a single tenant. For per-user access,
+use your application's own auth or OAuth (below).
+
+## Every request is checked
+
+Both servers apply the same checks in the same order, pinned by a shared test fixture
+(`specs/mcp/http-transport-v1`):
+
+1. **Host.** The `Host` header must name an allowed host, or the answer is `421`. This stops DNS-rebinding attacks,
+   where a web page reaches a server on your machine or network. The default is loopback names only; set
+   `--allowed-hosts` when you bind to another interface.
+2. **Route.** Only `/mcp` (and the OAuth metadata document, when configured) is served.
+3. **Origin.** A request from a browser page must come from `--allowed-origins`, or the answer is `403`. MCP clients
+   send no `Origin` and are unaffected.
+4. **Credential.** A missing credential is `401`. A wrong or expired one is `401` with `error="invalid_token"`, and a
+   principal without the required scopes is `403` with `error="insufficient_scope"`. Responses never say more than that.
+5. **Session.** An MCP session belongs to the subject and tenant that opened it. A refreshed token for the same caller
+   continues it; anyone else using its id gets `404`, as if it did not exist.
+
+Request bodies (1 MiB), open sessions (100) and idle sessions (30 minutes) are bounded.
+
+## Reuse your application's auth
+
+Without `HYPEQUERY_MCP_KEY`, `--http` verifies callers with the auth your API already has, so each caller gets their
+own tenant, exactly as over REST.
+
+- **TypeScript:** the `auth` and `tenant` you pass to `defineServe`. Any strategy works, including `createJwtStrategy`.
+  If a dataset is tenant-scoped, a caller whose credential names no tenant is refused.
+- **Python:** the `Api`'s own authentication and tenant resolver. The caller's credential header is forwarded on every
+  discovery and query, so the API also checks endpoint policy, scopes and rate limits on each call. Header-credential
+  strategies (`bearer_token`, `api_key`, `jwt_strategy`) are supported; `from_context` strategies are not.
+
+<CodeBlock>
+```bash
+npx hypequery mcp --http        # defineServe({ auth, tenant, ... })
+hypequery mcp app:api --http    # create_api(auth=..., ...)
+```
+</CodeBlock>
+
+## OAuth
+
+MCP clients such as Claude and ChatGPT can sign users in with OAuth. hypequery is the **resource server**: it publishes
+where tokens come from and verifies them. Your identity provider (Auth0, Clerk, WorkOS, Keycloak, Cognito, ...) is the
+**authorization server**, which registers clients, shows the sign-in and consent screens, and issues tokens.
+
+<CodeBlock>
+```bash
+hypequery mcp app:api --http --host 0.0.0.0 \
+  --resource https://mcp.example.com/mcp \
+  --authorization-servers https://example.auth0.com/ \
+  --required-scopes analytics:read
+```
+</CodeBlock>
+
+With `--resource`, the server:
+
+- publishes [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) protected-resource metadata at
+  `https://mcp.example.com/.well-known/oauth-protected-resource/mcp`, naming your authorization servers;
+- answers `401` and `403` with a `WWW-Authenticate: Bearer ... resource_metadata="..."` challenge pointing at it, so
+  clients can start the OAuth flow;
+- requires every `--required-scopes` scope.
+
+Tokens are verified by your app's JWT strategy. **Its audience must be the resource URL**, so a token issued for
+another service is refused:
+
+<CodeBlock>
+```typescript
+// TypeScript: defineServe({ auth })
+createJwtStrategy({
+  jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
+  issuer: 'https://example.auth0.com/',
+  audience: 'https://mcp.example.com/mcp',
+});
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+# Python: create_api(auth=...)
+jwt_strategy(
+    jwks_url="https://example.auth0.com/.well-known/jwks.json",
+    issuer="https://example.auth0.com/",
+    audience="https://mcp.example.com/mcp",
+)
+```
+</CodeBlock>
+
+The Python server refuses to start if the API's `jwt_strategy` does not accept the resource URL as an audience. Tokens
+are never passed on to another service: in Python the credential goes only to the same in-process API that verified it.
+
+## Bridging a deployed API
+
+`--client-contract-url --http` serves a deployed API's client contract over HTTP. The backend credential
+(`HYPEQUERY_API_KEY`) is one principal and is never replaced by a caller's credential, so this mode accepts only
+`HYPEQUERY_MCP_KEY`.
+
+## In your own server
+
+The CLI is a thin layer over the libraries.
+
+<CodeBlock>
+```typescript
+import {
+  createMCPExecutor,
+  createMCPHttpHandler,
+  createMCPServeAuthenticator,
+  listenMCPHttpServer,
+} from '@hypequery/mcp';
+import { createJwtStrategy } from '@hypequery/serve';
+
+const handler = createMCPHttpHandler({
+  authenticate: createMCPServeAuthenticator({
+    strategies: createJwtStrategy({ jwksUri, issuer, audience: 'https://mcp.example.com/mcp' }),
+  }),
+  // Called once per session, with the verified caller.
+  createExecutor: principal => createMCPExecutor({ datasets, analytics, tenantId: principal.tenantId }),
+  allowedHosts: ['mcp.example.com'],
+  oauth: {
+    resource: 'https://mcp.example.com/mcp',
+    authorizationServers: ['https://example.auth0.com/'],
+    requiredScopes: ['analytics:read'],
+  },
+});
+
+await listenMCPHttpServer(handler, { host: '0.0.0.0', port: 3333 });
+```
+</CodeBlock>
+
+`handler.handle(request)` takes a Fetch `Request` and returns a `Response`, so it also runs in Hono, Bun, Deno or
+Workers, and `createMCPNodeRequestListener(handler)` mounts it on an existing Node or Express server.
+`createMCPStaticKeyAuthenticator({ key, tenantId })` is the shared-key option. To verify credentials any other way,
+pass your own `authenticate(request)`. It returns `{ subject, tenantId, scopes }`, returns `null` when there is no
+credential, or throws `MCPHttpAuthError`.
+
+<CodeBlock>
+```python
+from hypequery.mcp import (
+    ApiAuthenticator,
+    ApiExecutorFactory,
+    ProtectedResource,
+    check_resource_audience,
+    create_mcp_asgi_app,
+)
+
+resource = ProtectedResource(
+    resource="https://mcp.example.com/mcp",
+    authorization_servers=("https://example.auth0.com/",),
+    required_scopes=("analytics:read",),
+)
+authenticate = ApiAuthenticator(api)
+check_resource_audience(authenticate, resource)
+mcp_app = create_mcp_asgi_app(
+    ApiExecutorFactory(api),
+    authenticate,
+    allowed_hosts=("mcp.example.com",),
+    protected_resource=resource,
+)
+# Serve with any ASGI server (it runs the lifespan protocol), or mount it in
+# another app and enter `mcp_app.run()` from that app's lifespan.
+```
+</CodeBlock>
+
+<Callout type="warning">
+  Sessions are held in memory. Run one process per server, or route each session's requests to the process that opened it.
+</Callout>

@@ -78,7 +78,7 @@ The URL is the full discovery endpoint, including its mount prefix. HTTPS is
 required except for loopback development. URLs cannot contain credentials,
 queries or fragments. Keep one executor/session per principal; a headers resolver
 may rotate credentials for that same principal. Browser code must never contain
-this server credential. Remote MCP hosting/OAuth is a separate transport concern.
+this server credential. To serve the bridge to remote agents, see "Serve over Streamable HTTP" below.
 
 The four tool names stay the same. HTTP mode preserves each authorized endpoint's
 own dimensions, filters, defaults, time controls and limits. Metric-only groups
@@ -223,11 +223,49 @@ const server = createMCPProtocolServer({
 await server.connect(hostTransport);
 ```
 
-`hostTransport` can be an MCP SDK in-memory, stdio, or hosted transport. This
-package does not create an HTTP endpoint; authentication, routing, and network
-lifecycle remain responsibilities of the host. For an explicit local adapter,
-use `startStdioMCPServer(config)`. The existing `createMCPServer(config)` and
-`HypequeryMCPServer.start()` APIs remain available for compatibility.
+`hostTransport` can be an MCP SDK in-memory, stdio, or hosted transport. For an
+explicit local adapter, use `startStdioMCPServer(config)`. The existing
+`createMCPServer(config)` and `HypequeryMCPServer.start()` APIs remain available
+for compatibility.
+
+## Serve over Streamable HTTP
+
+`createMCPHttpHandler` serves the same tools to remote agents. It answers Fetch
+`Request`s, so it runs on Node (`listenMCPHttpServer`,
+`createMCPNodeRequestListener`), Bun, Deno or Workers:
+
+```ts
+import {
+  createMCPExecutor,
+  createMCPHttpHandler,
+  createMCPServeAuthenticator,
+  listenMCPHttpServer,
+} from '@hypequery/mcp';
+import { createJwtStrategy } from '@hypequery/serve';
+
+const handler = createMCPHttpHandler({
+  authenticate: createMCPServeAuthenticator({
+    strategies: createJwtStrategy({ jwksUri, issuer, audience: 'https://mcp.example.com/mcp' }),
+  }),
+  createExecutor: principal => createMCPExecutor({ datasets, analytics, tenantId: principal.tenantId }),
+  allowedHosts: ['mcp.example.com'],
+  oauth: {
+    resource: 'https://mcp.example.com/mcp',
+    authorizationServers: ['https://example.auth0.com/'],
+    requiredScopes: ['analytics:read'],
+  },
+});
+await listenMCPHttpServer(handler, { host: '0.0.0.0', port: 3333 });
+```
+
+Every request checks `Host` and `Origin` (DNS-rebinding protection), then its
+credential. Each session belongs to the principal that opened it and gets its
+own executor for that principal's tenant. With `oauth`, the server publishes
+RFC 9728 protected-resource metadata and answers with RFC 6750 challenges that
+point at it; your identity provider remains the authorization server.
+`createMCPStaticKeyAuthenticator({ key, tenantId })` is the shared-key
+alternative. From the CLI: `hypequery mcp --http`. See
+[Remote MCP over HTTP](https://hypequery.com/docs/mcp/remote).
 
 ## Learn more
 
