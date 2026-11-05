@@ -33,10 +33,10 @@ class FilterFeature(CompilerFeature):
 
         compiler = self.compiler
         dataset, where = compiler.dataset, compiler.node.where
-        current = current_row_predicate(dataset)
+        current = current_row_predicate(dataset, BASE_ALIAS)
         if current is not None:
             # Every other filter, the tenant's included, applies to current rows only.
-            where.append(f"{BASE_ALIAS.sql}.{current}")
+            where.append(current)
         for filter_value in compiler.query.filters:
             field = resolve_filter_field(dataset, filter_value.field)
             if scope is not None and self._filters_a_tenant_column(field):

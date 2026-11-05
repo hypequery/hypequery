@@ -105,6 +105,23 @@ describe('final: true datasets', () => {
     expect(sql).toContain('FROM `hq_saas`.`tenants` FINAL)');
   });
 
+  it('never names the join marker after the target\'s deleted column', () => {
+    const Owners = dataset('owners', {
+      source: 'hq_saas.owners',
+      rowResolution: { kind: 'final', engine: 'replacing', deletedColumn: '_hq_match' },
+      dimensions: { id: dimension.string({ column: 'owner_id' }), plan: dimension.string() },
+    });
+    const Accounts = dataset('accounts', {
+      source: 'hq_saas.accounts',
+      dimensions: { status: dimension.string() },
+      measures: { accounts: measure.count('status') },
+      relationships: { owner: belongsTo(() => Owners, { from: 'owner_id', to: 'owner_id' }) },
+    });
+    const sql = client.toSQL(Accounts, { dimensions: ['owner.plan'], measures: ['accounts'] });
+    // The WHERE reads the column, not a marker alias of the same name.
+    expect(sql).toContain('AS `_hq_match_` FROM `hq_saas`.`owners` FINAL WHERE `_hq_match` = 0)');
+  });
+
   it('refuses a builder that cannot apply FINAL', () => {
     const real = createQueryBuilder({ host: 'http://localhost:8123' });
     const withoutFinal: QueryBuilderFactoryLike = {
