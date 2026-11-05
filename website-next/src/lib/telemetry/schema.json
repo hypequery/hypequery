@@ -237,6 +237,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -286,6 +287,8 @@
             "--draft",
             "--client",
             "--release",
+            "--agent",
+            "--scope",
             "--no-telemetry",
             "--help",
             "--version"
@@ -888,6 +891,7 @@
         "diff": {},
         "version": {},
         "telemetry": {},
+        "skill": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -913,7 +917,8 @@
               "diff",
               "help",
               "version",
-              "telemetry"
+              "telemetry",
+              "skill"
             ],
             "optional": true
           }
@@ -945,6 +950,7 @@
               "help",
               "version",
               "telemetry",
+              "skill",
               "unknown"
             ],
             "optional": true
@@ -1468,6 +1474,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -1633,6 +1640,12 @@
       "--project",
       "--environment",
       "--endpoint"
+    ],
+    "skill": [
+      "--agent",
+      "--scope",
+      "--force",
+      "--check"
     ],
     "help": [],
     "version": [],

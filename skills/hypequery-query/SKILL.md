@@ -18,7 +18,7 @@ pass a tenant — neither is accepted.
    dimensions (which are groupable/orderable), measures, filters with their
    operators, time grains and limits. Read descriptions before choosing fields.
 3. Query:
-   - `query_dataset`: `{ "dataset", "dimensions"?, "measures"?, "filters"?, "having"?, "grain"?, "timezone"?, "orderBy"?, "limit"?, "offset"?, "includeMeta"? }`
+   - `query_dataset`: `{ "dataset", "dimensions"?, "measures"?, "filters"?, "having"?, "grain"?, "timezone"?, "orderBy"?, "limit"?, "offset"? }`
    - `query_metric`: `{ "dataset", "metric", "dimensions"?, "filters"?, "grain"?, "orderBy"?, "limit"?, "offset"? }`
 
 ```json
@@ -29,8 +29,7 @@ pass a tenant — neither is accepted.
   "filters": [{ "field": "status", "operator": "eq", "value": "paid" }],
   "grain": "month",
   "orderBy": [{ "field": "revenue", "direction": "desc" }],
-  "limit": 20,
-  "includeMeta": true
+  "limit": 20
 }
 ```
 
@@ -41,8 +40,11 @@ pass a tenant — neither is accepted.
   the measure must be selected.
 - With a `grain`, rows carry a `period` field; order by `"period"` for a time series.
 - Measure values may arrive as strings to keep decimals exact; convert before arithmetic.
-- Pagination: request `includeMeta: true`; if `meta.pagination.hasMore`, repeat
-  with `offset` increased by `limit`.
+- Pagination: if `meta.pagination.hasMore`, repeat with `offset` increased by
+  `limit`. A local server (`npx hypequery mcp`) always returns `meta`. A server
+  over a client contract (Python's `hypequery mcp`, or `--client-contract-url`)
+  returns it only when you pass `includeMeta: true`, and only for endpoints
+  whose schema allows it; do not send `includeMeta` otherwise.
 
 ## Errors
 
