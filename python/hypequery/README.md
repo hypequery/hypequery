@@ -11,8 +11,9 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 
 With only [uv](https://docs.astral.sh/uv/) installed, this serves a sample
 semantic layer to an AI agent over MCP, on ClickHouse embedded in the process
-(chDB, Linux and macOS). There's no server, no configuration and no network
-access at run time:
+(chDB, Linux and macOS). There's no server, no configuration and no database
+connection; the demo's data ships in the package. The CLI sends anonymous usage
+telemetry after the command; add `--no-telemetry` to skip it:
 
 ```bash
 uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
