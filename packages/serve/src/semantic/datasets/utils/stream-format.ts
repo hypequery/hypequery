@@ -5,10 +5,12 @@ export const ARROW_STREAM_MEDIA_TYPE = 'application/vnd.apache.arrow.stream';
 
 export type DatasetStreamFormat = 'ndjson' | 'arrow';
 
-const FORMATS: Record<string, DatasetStreamFormat> = {
-  [NDJSON_MEDIA_TYPE]: 'ndjson',
-  [ARROW_STREAM_MEDIA_TYPE]: 'arrow',
-};
+// A Map, not an object literal: a media type such as `constructor` must not
+// match an inherited property.
+const FORMATS = new Map<string, DatasetStreamFormat>([
+  [NDJSON_MEDIA_TYPE, 'ndjson'],
+  [ARROW_STREAM_MEDIA_TYPE, 'arrow'],
+]);
 
 /**
  * The stream an `Accept` header asks for, or `undefined` for a JSON page. The
@@ -18,7 +20,7 @@ export function requestedStreamFormat(accept: string | undefined): DatasetStream
   if (!accept) return undefined;
   for (const range of accept.split(',')) {
     const [type, ...params] = range.trim().toLowerCase().split(';').map(part => part.trim());
-    const format = FORMATS[type ?? ''];
+    const format = FORMATS.get(type ?? '');
     if (!format) continue;
     const quality = params.find(param => param.startsWith('q='));
     if (quality !== undefined && Number(quality.slice(2)) === 0) continue;
