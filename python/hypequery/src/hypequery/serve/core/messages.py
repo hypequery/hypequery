@@ -9,8 +9,16 @@ through the core's body policy.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass, field
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+)
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .utils.json_body import render_json
@@ -113,6 +121,9 @@ class ServeRequest:
     wait_disconnected: Callable[[], Awaitable[None]] | None = None
     run_on_request_thread: RequestThreadRunner | None = None
     scheme: str = "http"
+    #: Set by a host that writes a streamed `ServeResponse` as it is produced
+    #: (`to_asgi_app`). An endpoint that can stream answers others with a page.
+    streaming: bool = False
 
     def __post_init__(self) -> None:
         if type(self.query) is not QueryParams or type(self.headers) is not Headers:
@@ -123,11 +134,33 @@ class ServeRequest:
 
 @dataclass(frozen=True, slots=True)
 class ServeResponse:
-    """A status, lowercase headers, and the encoded body."""
+    """A status, lowercase headers, and the encoded body.
+
+    *stream*, when set, is the body instead: chunks a streaming host writes as
+    they are produced, and closes (``aclose``) if the caller goes away first.
+    Only a request marked ``streaming`` is answered with one.
+    """
 
     status: int
     headers: Mapping[str, str] = field(default_factory=dict)
     body: bytes = b""
+    stream: AsyncGenerator[bytes, None] | None = None
+
+    @classmethod
+    def streamed(
+        cls,
+        stream: AsyncGenerator[bytes, None],
+        content_type: str,
+        *,
+        status: int = 200,
+        headers: Mapping[str, str] | None = None,
+    ) -> ServeResponse:
+        """A response whose body *stream* produces, never cached."""
+
+        merged = {name.lower(): value for name, value in (headers or {}).items()}
+        merged["content-type"] = content_type
+        merged["cache-control"] = "no-store"
+        return cls(status=status, headers=merged, stream=stream)
 
     @classmethod
     def json(
@@ -152,9 +185,9 @@ class ServeResponse:
 
         merged = dict(self.headers)
         merged.update({name.lower(): value for name, value in headers.items()})
-        return ServeResponse(status=self.status, headers=merged, body=self.body)
+        return replace(self, headers=merged)
 
     def without_headers(self, *names: str) -> ServeResponse:
         drop = {name.lower() for name in names}
         kept = {name: value for name, value in self.headers.items() if name not in drop}
-        return ServeResponse(status=self.status, headers=kept, body=self.body)
+        return replace(self, headers=kept)

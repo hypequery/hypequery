@@ -151,6 +151,7 @@ def _serve_request(scope: Scope, body: AsgiBody) -> ServeRequest:
         scheme=scope.get("scheme", "http"),
         raw=scope,
         wait_disconnected=body.wait_disconnected,
+        streaming=True,
     )
 
 
@@ -160,4 +161,14 @@ async def _write(response: ServeResponse, send: Send) -> None:
         for name, value in response_headers(response)
     ]
     await send({"type": "http.response.start", "status": response.status, "headers": headers})
-    await send({"type": "http.response.body", "body": response_body(response)})
+    if response.stream is None:
+        await send({"type": "http.response.body", "body": response_body(response)})
+        return
+    # A streamed body goes out chunk by chunk. Closing the stream (a caller
+    # who has gone, a deadline) stops the query behind it.
+    try:
+        async for chunk in response.stream:
+            await send({"type": "http.response.body", "body": chunk, "more_body": True})
+        await send({"type": "http.response.body", "body": b""})
+    finally:
+        await response.stream.aclose()

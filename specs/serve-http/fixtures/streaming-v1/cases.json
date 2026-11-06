@@ -1,0 +1,334 @@
+{
+  "version": 1,
+  "app": {
+    "credential": "reader",
+    "dataset": "orders",
+    "source": "private_orders",
+    "dimension": "country",
+    "column": "private_country",
+    "measure": "total",
+    "measureField": "private_id",
+    "maxResultSize": 10,
+    "pageCap": 2,
+    "streamMaxRows": 4,
+    "batchSize": 2,
+    "rows": [
+      {
+        "country": "US",
+        "total": 10
+      },
+      {
+        "country": "DE",
+        "total": 20
+      },
+      {
+        "country": "FR",
+        "total": 30
+      },
+      {
+        "country": "JP",
+        "total": 40
+      },
+      {
+        "country": "BR",
+        "total": 50
+      }
+    ],
+    "arrowBytesBase64": "/////xAAAABmaXh0dXJlLWFycm93LWJ5dGVz/////wAAAAA="
+  },
+  "forbiddenPublicKeys": [
+    "sql",
+    "tenant",
+    "tenantKey",
+    "requiresTenant",
+    "source",
+    "column",
+    "field",
+    "argField",
+    "from",
+    "to",
+    "parameters",
+    "diagnostics"
+  ],
+  "cases": [
+    {
+      "id": "ndjson-batches",
+      "accept": "application/x-ndjson",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/x-ndjson",
+        "rows": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          },
+          {
+            "country": "FR",
+            "total": "30"
+          },
+          {
+            "country": "JP",
+            "total": "40"
+          }
+        ],
+        "batches": 2,
+        "end": {
+          "rowCount": 4
+        },
+        "meta": false
+      }
+    },
+    {
+      "id": "ndjson-limit",
+      "accept": "application/x-ndjson",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 3
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/x-ndjson",
+        "rows": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          },
+          {
+            "country": "FR",
+            "total": "30"
+          }
+        ],
+        "end": {
+          "rowCount": 3
+        }
+      }
+    },
+    {
+      "id": "ndjson-limit-capped-at-stream-max-rows",
+      "accept": "application/x-ndjson",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 9
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/x-ndjson",
+        "rows": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          },
+          {
+            "country": "FR",
+            "total": "30"
+          },
+          {
+            "country": "JP",
+            "total": "40"
+          }
+        ],
+        "end": {
+          "rowCount": 4
+        }
+      }
+    },
+    {
+      "id": "ndjson-meta-opt-in",
+      "accept": "application/x-ndjson",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/x-ndjson",
+        "rows": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          },
+          {
+            "country": "FR",
+            "total": "30"
+          },
+          {
+            "country": "JP",
+            "total": "40"
+          }
+        ],
+        "end": {
+          "rowCount": 4
+        },
+        "meta": true
+      }
+    },
+    {
+      "id": "ndjson-failure-after-first-batch",
+      "accept": "application/x-ndjson",
+      "failAfterBatches": 1,
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/x-ndjson",
+        "rows": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ],
+        "errorFrame": "QUERY_FAILURE",
+        "forbiddenText": [
+          "private detail",
+          "DB::Exception"
+        ]
+      }
+    },
+    {
+      "id": "arrow-bytes",
+      "accept": "application/vnd.apache.arrow.stream",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/vnd.apache.arrow.stream",
+        "bodyBase64": "/////xAAAABmaXh0dXJlLWFycm93LWJ5dGVz/////wAAAAA="
+      }
+    },
+    {
+      "id": "stream-not-enabled-answers-a-page",
+      "accept": "application/x-ndjson",
+      "stream": false,
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "no-accept-answers-a-page",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "refused-stream-type-answers-a-page",
+      "accept": "application/x-ndjson;q=0, application/json",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "data": [
+          {
+            "country": "US",
+            "total": "10"
+          },
+          {
+            "country": "DE",
+            "total": "20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-query-fails-before-the-stream",
+      "accept": "application/x-ndjson",
+      "json": {
+        "dimensions": [
+          "missing"
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/json",
+        "errorType": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "id": "unauthenticated-fails-before-the-stream",
+      "accept": "application/x-ndjson",
+      "credential": "none",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/json",
+        "errorType": "UNAUTHORIZED"
+      }
+    }
+  ]
+}
