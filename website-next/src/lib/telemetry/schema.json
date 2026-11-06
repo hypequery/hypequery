@@ -1874,6 +1874,7 @@
               "export:client-contract",
               "mcp",
               "skill",
+              "demo",
               "help",
               "version",
               "unknown"
@@ -1909,6 +1910,7 @@
               "--print-config",
               "--agent",
               "--scope",
+              "--tenant",
               "--no-telemetry",
               "--help",
               "--version"
@@ -1999,6 +2001,7 @@
           "export:client-contract": {},
           "mcp": {},
           "skill": {},
+          "demo": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -2011,6 +2014,7 @@
                 "export:client-contract",
                 "mcp",
                 "skill",
+                "demo",
                 "telemetry"
               ],
               "optional": true
@@ -2028,6 +2032,7 @@
                 "export:client-contract",
                 "mcp",
                 "skill",
+                "demo",
                 "help",
                 "telemetry"
               ],
@@ -2085,6 +2090,11 @@
         "--scope",
         "--force",
         "--check"
+      ],
+      "demo": [
+        "--tenant",
+        "--self-test",
+        "--print-config"
       ],
       "help": [],
       "version": [],

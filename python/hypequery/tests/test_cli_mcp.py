@@ -210,6 +210,12 @@ def test_env_files_are_read_from_the_project_for_mcp(
     assert env_root(["mcp", f"--project={project}"]) == project.resolve()
     assert env_root(["mcp", "--project", str(launch / "missing")]) == Path.cwd()
     assert env_root(["dev", "--project", str(project)]) == Path.cwd()
+    # Global flags may come first, and a repeated --project resolves like argparse: last wins.
+    assert env_root(["--no-telemetry", "mcp", "--project", str(project)]) == project.resolve()
+    assert env_root(["mcp", "--project", str(launch), "--project", str(project)]) == (
+        project.resolve()
+    )
+    assert env_root(["mcp", f"--project={project}", "--project", str(launch)]) == launch.resolve()
 
 
 LIFESPAN_APP = """

@@ -89,6 +89,7 @@ def _events(stderr: str) -> list[dict[str, Any]]:
         (["--no-telemetry", "telemetry", "status"], "telemetry"),
         (["mcp", "app:api", "--project", "PRIVATE", "--self-test"], "mcp"),
         (["skill", "install", "--agent", "claude"], "skill"),
+        (["demo", "--tenant", "globex", "--self-test"], "demo"),
         (["PRIVATE-command"], "unknown"),
         (["--version", "init"], "version"),
         (["-V", "dev", "--port", "1"], "version"),
@@ -115,6 +116,7 @@ def test_flags_are_canonical_names_and_values_are_never_read() -> None:
     assert flags_used(
         "skill", ["skill", "install", "--agent", "--check", "--scope", "user", "--force"]
     ) == ["--agent", "--force", "--scope"]
+    assert flags_used("demo", ["demo", "--tenant", "--self-test"]) == ["--tenant"]
     assert has_unknown_option("init", ["init", "--bogus"])
     assert not has_unknown_option("dev", ["dev", "--port", "-1"])
     assert not has_unknown_option("dev", ["dev", "app:app", "--", "--bogus"])

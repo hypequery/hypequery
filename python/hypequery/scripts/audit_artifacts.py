@@ -72,6 +72,8 @@ REQUIRED_WHEEL_ENTRIES = (
     "hypequery/__main__.py",
     "hypequery/py.typed",
     "hypequery/cli/__init__.py",
+    # `hypequery demo` seeds its database from this, with no network access.
+    "hypequery/cli/demo/seed.sql",
     *REQUIRED_TEMPLATE_ENTRIES,
 )
 
