@@ -193,6 +193,8 @@ Pagination metadata is present when a query sets `limit`. hypequery over-fetches
 <CodeBlock>
 ```typescript
 import { createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 const { data, meta } = await analytics.stream(Orders, {
   dimensions: ['country', 'status'],
@@ -201,11 +203,16 @@ const { data, meta } = await analytics.stream(Orders, {
   runtime: { tenant: 'tenant_123' },
 });
 
-const out = createWriteStream('orders.ndjson');
-for await (const rows of data) {
-  for (const row of rows) out.write(`${JSON.stringify(row)}\n`);
-}
-out.end();
+// pipeline() waits for the file to keep up, so rows never pile up in memory.
+await pipeline(
+  Readable.from(data),
+  async function* (batches) {
+    for await (const rows of batches) {
+      for (const row of rows) yield `${JSON.stringify(row)}\n`;
+    }
+  },
+  createWriteStream('orders.ndjson'),
+);
 ```
 </CodeBlock>
 
