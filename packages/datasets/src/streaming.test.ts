@@ -248,4 +248,51 @@ describe('dataset client streaming', () => {
       .rejects.toThrow('needs a query builder factory with rawStream()');
     expect(execute).not.toHaveBeenCalled();
   });
+
+  describe('limits.maxStreamRows', () => {
+    const Exports = dataset('exports', {
+      source: 'analytics.orders',
+      dimensions: { status: dimension.string(), customerId: dimension.number({ column: 'customer_id' }) },
+      measures: { revenue: measure.sum('amount_cents') },
+      limits: { maxResultSize: 500, maxStreamRows: 5000 },
+    });
+    const exportRevenue = Exports.metric('exportRevenue', { measure: 'revenue' });
+    const grouped = { dimensions: ['customerId'], measures: ['revenue'] } as const;
+
+    it('raises the ceiling for streams alone, and reports it', async () => {
+      const { adapter, calls } = fakeAdapter();
+      const client = clientFor(adapter);
+
+      const result = await client.stream(Exports, grouped);
+      expect(calls.stream[0]!.sql).toMatch(/LIMIT 5000\b/);
+      expect(result.meta.resultLimit).toEqual({ maxResultSize: 5000, applied: 5000 });
+
+      await client.streamArrow(Exports, { ...grouped, limit: 2000 });
+      expect(calls.streamArrow[0]!.sql).toMatch(/LIMIT 2000\b/);
+      // Pages keep the dataset's own ceiling.
+      await expect(async () => client.execute(Exports, { ...grouped, limit: 2000 })).rejects.toThrow(/Too many results/);
+      await expect(client.stream(Exports, { ...grouped, limit: 5001 })).rejects.toThrow(/Too many results/);
+    });
+
+    it('applies to metric streams too', async () => {
+      const { adapter, calls } = fakeAdapter([[{ customerId: 1, exportRevenue: 2 }]]);
+      await clientFor(adapter).stream(exportRevenue, { dimensions: ['customerId'], limit: 2000 });
+      expect(calls.stream[0]!.sql).toMatch(/LIMIT 2000\b/);
+    });
+
+    it('defaults to maxResultSize', async () => {
+      const { adapter, calls } = fakeAdapter();
+      const result = await clientFor(adapter).stream(Orders, { dimensions: ['status'], measures: ['revenue'] }, TENANT);
+      expect(calls.stream[0]!.sql).toMatch(/LIMIT 500\b/);
+      expect(result.meta.resultLimit).toEqual({ maxResultSize: 500, applied: 500 });
+    });
+
+    it('is validated like the other limits', () => {
+      expect(() => dataset('bad', {
+        source: 'orders',
+        dimensions: { status: dimension.string() },
+        limits: { maxStreamRows: 0 },
+      })).toThrow(/limits.maxStreamRows must be a positive integer/);
+    });
+  });
 });
