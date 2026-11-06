@@ -877,3 +877,12 @@ def test_streams_take_their_own_byte_ceiling() -> None:
         create_dataset_client(
             executor=executor, stream_max_result_bytes=STREAM_MAX_RESULT_BYTES + 1
         )
+
+
+def test_deployment_contracts_refuse_max_stream_rows() -> None:
+    from hypequery.datasets import create_dataset_registry
+    from hypequery.datasets.deployment import build_protocol_deployment_contract
+
+    with pytest.raises(ValueError, match="limits.max_stream_rows, which is not part of"):
+        build_protocol_deployment_contract(create_dataset_registry(exports()))
+
