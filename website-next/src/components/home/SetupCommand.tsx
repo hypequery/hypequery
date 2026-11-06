@@ -12,7 +12,16 @@ const LANGUAGES = [
 export type Language = (typeof LANGUAGES)[number]['id'];
 
 /** The setup command, with a switch between the TypeScript and Python SDKs. */
-export function SetupCommand({ className = '', defaultLanguage = 'typescript' }: { className?: string; defaultLanguage?: Language }) {
+export function SetupCommand({
+  className = '',
+  defaultLanguage = 'typescript',
+  location,
+}: {
+  className?: string;
+  defaultLanguage?: Language;
+  /** Passed through to the `code_copy` event. */
+  location?: string;
+}) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const active = LANGUAGES.find((option) => option.id === language) ?? LANGUAGES[0];
 
@@ -37,7 +46,7 @@ export function SetupCommand({ className = '', defaultLanguage = 'typescript' }:
           );
         })}
       </div>
-      <InstallCommand command={active.command} />
+      <InstallCommand command={active.command} location={location} />
     </div>
   );
 }
