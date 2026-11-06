@@ -226,13 +226,79 @@ def test_a_stream_cap_above_the_dataset_ceiling_is_refused() -> None:
         limits=DatasetLimits(max_result_size=10),
     )
     api = create_api(auth=lambda credential: None)
-    with pytest.raises(ValueError, match=r"stream_max_rows \(11\) exceeds"):
+    with pytest.raises(
+        ValueError, match=r"stream_max_rows \(11\) exceeds the dataset's max_result_size"
+    ):
         add_dataset_endpoint(
             api,
             "/q",
             dataset=dataset,
             client=create_dataset_client(executor=Executor()),
             policy=EndpointPolicy(stream_max_rows=11),
+        )
+
+
+def test_streams_reach_max_stream_rows_while_pages_keep_max_result_size() -> None:
+    rows: list[tuple[ResultScalar, ResultScalar]] = [(f"C{i}", i) for i in range(30)]
+
+    class Many(Executor):
+        def execute(self, compiled: CompiledQuery) -> Rows:
+            columns, _ = _selected(compiled)
+            limit = int(re.search(r"LIMIT (\d+)", compiled.sql)[1])  # type: ignore[index]
+            return Rows(columns, tuple(rows[:limit]))
+
+        def stream(self, compiled: CompiledQuery) -> Any:
+            page = self.execute(compiled)
+
+            class _Stream:
+                columns = page.columns
+
+                def __iter__(self) -> Iterator[Rows]:
+                    yield page
+
+                def close(self) -> None:
+                    pass
+
+            return _Stream()
+
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+        limits=DatasetLimits(max_result_size=10, max_stream_rows=25),
+    )
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_dataset_client(executor=Many()),
+        policy=EndpointPolicy(max_limit=10, stream_max_rows=25),
+    )
+    http = serve_client("asgi", api)
+
+    def post(accept: str | None) -> Any:
+        headers = {"authorization": "Bearer x", "content-type": "application/json"}
+        if accept:
+            headers["accept"] = accept
+        body = json.dumps({"dimensions": [APP["dimension"]], "limit": 20}).encode()
+        return http.post(PATH, headers=headers, content=body)
+
+    frames = [json.loads(line) for line in post("application/x-ndjson").text.splitlines()]
+    assert frames[-1] == {"type": "end", "rowCount": 20}
+    assert len(post(None).json()["data"]) == 10
+
+    with pytest.raises(ValueError, match=r"exceeds the dataset's max_stream_rows \(25\)"):
+        add_dataset_endpoint(
+            api,
+            "/other",
+            dataset=dataset,
+            client=create_dataset_client(executor=Many()),
+            policy=EndpointPolicy(stream_max_rows=26),
         )
 
 

@@ -100,7 +100,8 @@ fetches one extra row to compute `hasMore`, then drops it from the returned data
 ## Streaming
 
 An endpoint can stream its result for exports and other large reads. Set `stream_max_rows` on its policy; it caps one
-streamed response and may not exceed the dataset's `max_result_size`:
+streamed response and may not exceed the dataset's `max_stream_rows` (else its `max_result_size`), so an export can
+return more rows than the same endpoint's pages:
 
 <CodeBlock>
 ```python

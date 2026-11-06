@@ -128,7 +128,12 @@ class DatasetEndpointCore:
                 # Its client contract could not express the time range it needs.
                 raise ValueError(f"metric measure {measure!r}: {CLIENT_TIME_MEASURE_REFUSAL}")
         self._default_measures = default_measures(dataset, self.include_related)
-        ceiling = dataset.limits.max_result_size if dataset.limits else None
+        limits = dataset.limits
+        ceiling_name = "max_stream_rows"
+        ceiling = limits.max_stream_rows if limits else None
+        if ceiling is None:
+            ceiling_name = "max_result_size"
+            ceiling = limits.max_result_size if limits else None
         if (
             policy.stream_max_rows is not None
             and ceiling is not None
@@ -136,7 +141,7 @@ class DatasetEndpointCore:
         ):
             raise ValueError(
                 f"stream_max_rows ({policy.stream_max_rows}) exceeds the dataset's "
-                f"max_result_size ({ceiling})"
+                f"{ceiling_name} ({ceiling})"
             )
 
     def renamed(self, name: str) -> Self:

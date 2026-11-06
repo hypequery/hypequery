@@ -1,5 +1,6 @@
 - Dataset endpoints can stream their results. With
-  `EndpointPolicy(stream_max_rows=...)`, a request that asks with
+  `EndpointPolicy(stream_max_rows=...)` (at most the dataset's
+  `max_stream_rows`, else `max_result_size`), a request that asks with
   `Accept: application/x-ndjson` gets row batches as NDJSON frames (`start`,
   `rows`…, then `end` with `rowCount`, or an `error` frame if the query fails
   after the response began), and `Accept: application/vnd.apache.arrow.stream`
