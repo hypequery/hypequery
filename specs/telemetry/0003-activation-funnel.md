@@ -9,10 +9,14 @@ is `install_id`), so one developer on two machines counts twice.
 | Step | TypeScript CLI | Python CLI |
 |------|----------------|------------|
 | 1. Setup completed | `cli_command_completed`, `command = init`, `outcome = success` | `python_cli_command_completed`, `command = init`, `outcome = success` |
-| 2. First value | `cli_command_completed` for any `generate*` command with `outcome = success`, **or** `cli_session_started` (dev or MCP) | `python_cli_command_completed`, `command in (dev, mcp)`, `outcome != failure` |
+| 2. First value | `cli_command_completed` for any `generate*` command with `outcome = success`, **or** `cli_session_started` (dev, or MCP with `mode != self_test`) | `python_cli_command_completed`, `command in (dev, mcp)`, `outcome != failure`, and `flags_used` contains neither `--print-config` nor `--self-test` |
 | 3. Deployed | `cli_command_completed`, `command in (deploy, deployment:release)`, `outcome = success` | not yet instrumented |
 
 Conversion window: 14 days, ordered.
+
+First value means actually serving queries or agents. MCP self-tests and
+`--print-config` finish successfully without starting a session, so they count
+as setup checks, not activation.
 
 Each step uses a different event or command. PostHog needs a separate event
 for each funnel step, so an "init started → init completed" funnel would count
