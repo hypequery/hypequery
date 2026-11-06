@@ -422,3 +422,103 @@ def test_closing_a_streamed_body_before_reading_ends_its_query() -> None:
 
     asyncio.run(run())
     assert ended == [True]
+
+
+def test_a_cancelled_open_returns_at_once_and_holds_its_work_until_closed() -> None:
+    import asyncio
+    import time
+
+    from hypequery.serve.core.work import RequestWork
+    from hypequery.serve.utils.stream_batches import client_batches
+
+    events: list[str] = []
+
+    class SlowStream:
+        def __enter__(self) -> SlowStream:
+            time.sleep(0.3)
+            events.append("entered")
+            return self
+
+        def __iter__(self) -> Iterator[Rows]:
+            return iter(())
+
+        def close(self) -> None:
+            events.append("closed")
+
+    async def run() -> None:
+        work = RequestWork()
+        batches = client_batches(work, object(), lambda client: SlowStream())  # type: ignore[arg-type]
+        opening = asyncio.ensure_future(anext(batches))
+        await asyncio.sleep(0.05)
+        started = time.perf_counter()
+        opening.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await opening
+        # The request stops waiting now; the driver call has not returned.
+        assert time.perf_counter() - started < 0.15
+        assert events == []
+        assert work.tasks
+        await work.drain()
+        assert events == ["entered", "closed"]
+
+    asyncio.run(run())
+
+
+def test_the_closing_frame_counts_against_the_byte_ceiling() -> None:
+    from hypequery.serve.utils.stream_frames import frame
+
+    budget = 1024
+    start = frame({"type": "start"})
+
+    def rows_frame(pad: int) -> bytes:
+        return frame({"type": "rows", "data": [{APP["dimension"]: "x" * pad, APP["measure"]: "1"}]})
+
+    # Rows that leave three bytes: room for no closing frame.
+    pad = next(p for p in range(2000) if len(start) + len(rows_frame(p)) == budget - 3)
+
+    class Padded(Executor):
+        def stream(self, compiled: CompiledQuery) -> Any:
+            columns, _ = _selected(compiled)
+
+            class _Stream:
+                def __init__(self) -> None:
+                    self.columns = columns
+
+                def __iter__(self) -> Iterator[Rows]:
+                    yield Rows(columns, (("x" * pad, 1),))
+
+                def close(self) -> None:
+                    pass
+
+            return _Stream()
+
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+    )
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(max_result_bytes=budget),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_dataset_client(executor=Padded()),
+        policy=EndpointPolicy(stream_max_rows=10),
+    )
+    response = serve_client("asgi", api).post(
+        PATH,
+        headers={
+            "accept": "application/x-ndjson",
+            "authorization": "Bearer x",
+            "content-type": "application/json",
+        },
+        content=json.dumps({"dimensions": [APP["dimension"]]}).encode(),
+    )
+    frames = [json.loads(line) for line in response.text.splitlines()]
+    assert [f["type"] for f in frames] == ["start", "rows", "error"]
+    assert frames[-1]["error"]["type"] == "PAYLOAD_TOO_LARGE"

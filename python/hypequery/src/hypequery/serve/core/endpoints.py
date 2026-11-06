@@ -294,11 +294,15 @@ class DatasetEndpointCore:
                     rows += count
                     sent += len(chunk)
                     yield chunk
-                yield (
+                final = (
                     encoder.end()
                     if encoder is not None
                     else frame({"type": "end", "rowCount": rows})
                 )
+                # The closing frame counts too: a body over the ceiling never succeeds.
+                if budget is not None and sent + len(final) > budget:
+                    raise CompiledQueryError("too-large", TOO_LARGE)
+                yield final
             except (Exception, asyncio.CancelledError) as exc:
                 failure = exc
                 state.work.cancel()

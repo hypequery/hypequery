@@ -51,7 +51,13 @@ async def client_batches(
         closing = asyncio.ensure_future(_close_after(work, stream, pending))
         _CLOSING.add(closing)
         closing.add_done_callback(_CLOSING.discard)
-        await asyncio.shield(closing)
+        # The close holds the request's admission until it has run. Waiting
+        # for it here is quick unless a worker call is still in flight: then
+        # it waits for that call in the background, so a timed-out or
+        # disconnected request is not held until the driver returns.
+        work.track(closing)
+        if pending is None or pending.done():
+            await asyncio.shield(closing)
 
 
 #: Closes still running, kept referenced until they finish.
