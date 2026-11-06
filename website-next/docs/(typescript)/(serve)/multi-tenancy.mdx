@@ -70,12 +70,12 @@ Use `extract` to read a tenant ID from your auth object.
 
 ### `column`
 
-Set the database column used for tenant filtering when you use `mode: 'auto-inject'`.
+Set the database column used for tenant filtering. Setting a `column` turns on `auto-inject` unless you set `mode` yourself.
 
 ### `mode`
 
-- `auto-inject` automatically applies tenant filters to compatible builders in context
-- `manual` leaves tenant filtering up to your query logic
+- `auto-inject` automatically applies tenant filters to compatible builders in context. This is the default when `column` is set.
+- `manual` leaves tenant filtering up to your query logic. This is the default when no `column` is set.
 
 ### `required`
 

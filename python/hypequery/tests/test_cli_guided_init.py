@@ -18,7 +18,7 @@ import pytest
 
 from hypequery.cli import main
 from hypequery.cli.commands import init as init_command
-from hypequery.cli.errors import CliError
+from hypequery.cli.errors import CliError, DatabaseOpenError
 from hypequery.cli.generators import schema as schema_module
 from hypequery.cli.generators.schema import (
     CatalogOverview,
@@ -36,6 +36,8 @@ from hypequery.cli.guided_init import (
     guide,
 )
 from hypequery.cli.options import InitOptions
+from hypequery.cli.telemetry import init_funnel
+from hypequery.cli.telemetry.catalog import COMPLETED_EVENT, contract
 from hypequery.cli.utils.env_files import load_env_files, parse_env
 from hypequery.cli.utils.prompts import Prompter, SetupCancelledError
 
@@ -692,3 +694,113 @@ def test_a_typed_tenant_column_is_checked_against_the_selected_tables(
     # Or insist, when the column is known to exist elsewhere.
     insisted = run_guide(Script("", "", "2", "acount_id", "y", "", ""), tmp_path, environ=environ)
     assert insisted.options.tenant_column == "acount_id"
+
+
+# --- where init stops (telemetry) ------------------------------------------------------------
+
+
+@pytest.fixture
+def funnel_metrics(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """What ``InitFunnel`` reports, as the command's telemetry would merge it."""
+
+    reported: dict[str, Any] = {}
+    monkeypatch.setattr(
+        init_funnel, "update_command_telemetry", lambda **metrics: reported.update(metrics)
+    )
+    return reported
+
+
+def test_the_funnel_stages_are_the_contract_values() -> None:
+    init = contract()["EVENT_CATALOG"][COMPLETED_EVENT]["variants"]["init"]
+    assert tuple(init["stage_reached"]["values"]) == init_funnel.INIT_STAGES
+
+
+def test_a_completed_offline_init_reports_every_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, funnel_metrics: dict[str, Any]
+) -> None:
+    _guided_run(monkeypatch, Script("project", "", "", ""), tmp_path)
+    assert main(["init"]) == 0
+    assert funnel_metrics == {"stage_reached": "completed", "connection_result": "skipped"}
+
+
+def test_a_failed_connection_is_reported_even_when_init_goes_offline(
+    tmp_path: Path,
+    catalog: Callable[..., list[Mapping[str, str]]],
+    funnel_metrics: dict[str, Any],
+) -> None:
+    catalog(DiscoveryConnectionError("Cannot inspect ClickHouse. unreachable"))
+    environ = {"CLICKHOUSE_HOST": "ch.example"}
+    funnel = init_funnel.InitFunnel()
+    script = Script("", "", "3", "", "")  # folder, use env, offline, framework, create
+    guide(options(), script.prompter(), cwd=tmp_path, environ=environ, funnel=funnel)
+    funnel.offline()  # what _create does for the offline example
+    assert funnel_metrics == {"stage_reached": "confirmed", "connection_result": "failed"}
+
+
+def test_a_retried_connection_that_succeeds_is_ok(
+    tmp_path: Path,
+    catalog: Callable[..., list[Mapping[str, str]]],
+    funnel_metrics: dict[str, Any],
+) -> None:
+    catalog(DiscoveryConnectionError("Cannot inspect ClickHouse. unreachable"), SMALL)
+    environ = {"CLICKHOUSE_HOST": "ch.example"}
+    script = Script("", "", "1", "", "", "")  # folder, use env, retry, tenant, framework, create
+    run_guide(script, tmp_path, environ=environ)
+    assert funnel_metrics == {"stage_reached": "confirmed", "connection_result": "ok"}
+
+
+def test_declining_the_summary_reports_the_last_answered_stage(
+    tmp_path: Path, funnel_metrics: dict[str, Any]
+) -> None:
+    with pytest.raises(SetupCancelledError):
+        run_guide(Script("", "", "", "n"), tmp_path)  # folder, URL (offline), framework, no
+    # Skipping the connection was already chosen, so the cancelled run still says so.
+    assert funnel_metrics == {"stage_reached": "framework_selected", "connection_result": "skipped"}
+
+
+def test_a_chdb_database_that_cannot_be_opened_is_a_failed_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, funnel_metrics: dict[str, Any]
+) -> None:
+    (tmp_path / "project" / "analytics.chdb").mkdir(parents=True)
+
+    def locked(**_: object) -> CatalogOverview:
+        raise DatabaseOpenError("Cannot open the chDB database. Only one process can use it.")
+
+    monkeypatch.setattr(schema_module, "discover_catalog", locked)
+    with pytest.raises(DatabaseOpenError):
+        run_guide(Script("project"), tmp_path, database="chdb", framework="standalone")
+    assert funnel_metrics["connection_result"] == "failed"
+
+
+def test_a_missing_driver_without_a_terminal_is_a_failed_connection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    funnel_metrics: dict[str, Any],
+) -> None:
+    monkeypatch.setattr(schema_module, "find_spec", lambda _name: None)
+    assert main(["init", str(tmp_path / "project"), "--no-interactive"]) == 1
+    assert 'pip install "hypequery[clickhouse]"' in capsys.readouterr().err
+    assert funnel_metrics == {"stage_reached": "started", "connection_result": "failed"}
+
+
+def test_a_schema_error_after_connecting_is_not_a_connection_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, funnel_metrics: dict[str, Any]
+) -> None:
+    def missing(**_: object) -> Schema:
+        raise CliError("Requested tables do not exist: nope")
+
+    monkeypatch.setattr(schema_module, "discover_schema", missing)
+    assert main(["init", str(tmp_path / "project"), "--no-interactive"]) == 1
+    assert "connection_result" not in funnel_metrics
+
+
+def test_an_unreachable_database_reports_where_init_stopped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, funnel_metrics: dict[str, Any]
+) -> None:
+    def unreachable(**_: object) -> Schema:
+        raise DiscoveryConnectionError("Cannot inspect ClickHouse. ClickHouse is unreachable.")
+
+    monkeypatch.setattr(schema_module, "discover_schema", unreachable)
+    assert main(["init", str(tmp_path / "project"), "--no-interactive"]) == 1
+    assert funnel_metrics == {"stage_reached": "started", "connection_result": "failed"}

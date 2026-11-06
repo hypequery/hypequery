@@ -86,6 +86,13 @@ class SkillOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class DemoOptions:
+    tenant: str
+    self_test: bool
+    print_config: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TelemetryOptions:
     action: str
     #: ``--no-telemetry`` was passed, so ``status`` reports this invocation's opt-out.
@@ -100,6 +107,7 @@ CommandOptions = (
     | TelemetryOptions
     | McpOptions
     | SkillOptions
+    | DemoOptions
 )
 
 
@@ -155,6 +163,10 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         )
     if args.command == "skill":
         return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
+    if args.command == "demo":
+        return DemoOptions(
+            tenant=args.tenant, self_test=args.self_test, print_config=args.print_config
+        )
     if args.command == "telemetry":
         return TelemetryOptions(action=args.action, flag_disabled=args.no_telemetry)
     raise ValueError(f"unknown command {args.command!r}")

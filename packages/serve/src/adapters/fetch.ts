@@ -1,5 +1,6 @@
 import type { FetchHandler, HttpMethod, ServeHandler, ServeRequest } from "../types.js";
 import {
+  isNullBodyStatus,
   normalizeHeaders,
   parseQueryParams,
   parseRequestBody,
@@ -27,7 +28,9 @@ export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
       ...response.headers,
     };
 
-    const body = serializeResponseBody(response.body);
+    const body = isNullBodyStatus(response.status)
+      ? null
+      : serializeResponseBody(response.body);
 
     return new Response(body, {
       status: response.status,

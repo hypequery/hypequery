@@ -108,7 +108,7 @@ export default function CookieConsentBanner({
             consentModal: {
               title: 'We value your privacy',
               description:
-                'We use cookies and similar tools to understand traffic and improve the site. Analytics and marketing trackers only run with your consent.',
+                'We count visits with anonymous, cookieless analytics (Umami). Other analytics and marketing trackers use cookies and only run with your consent.',
               acceptAllBtn: 'Accept all',
               acceptNecessaryBtn: 'Reject all',
               showPreferencesBtn: 'Manage preferences',
@@ -123,13 +123,13 @@ export default function CookieConsentBanner({
                 {
                   title: 'Strictly necessary',
                   description:
-                    'Required for the site to function (e.g. remembering your theme). Always on.',
+                    'Required for the site to function (e.g. remembering your theme), plus anonymous, cookieless visit counts (Umami) that store nothing on your device. Always on.',
                   linkedCategory: 'necessary',
                 },
                 {
                   title: 'Analytics',
                   description:
-                    'Helps us understand how visitors use the site so we can improve it.',
+                    'Google Analytics, which uses cookies to help us understand how visitors use the site.',
                   linkedCategory: 'analytics',
                 },
                 {

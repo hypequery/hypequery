@@ -7,6 +7,31 @@ A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics
 > change before 1.0. Please report problems on
 > [GitHub](https://github.com/hypequery/hypequery/issues).
 
+## Try it in one command
+
+With only [uv](https://docs.astral.sh/uv/) installed, this serves a sample
+semantic layer to an AI agent over MCP, on ClickHouse embedded in the process
+(chDB, Linux and macOS). There's no server, no configuration and no database
+connection; the demo's data ships in the package. The CLI sends anonymous usage
+telemetry after the command; add `--no-telemetry` to skip it:
+
+```bash
+uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
+```
+
+`--self-test` answers the demo's questions in the terminal. Each answer sits
+beside what a query that ignores ClickHouse's table engines gets: every row
+version of a ReplacingMergeTree counted, or daily distinct users summed. To
+let Claude Code query it, run:
+
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]" hypequery demo
+```
+
+For Cursor or another client, `hypequery demo --print-config` prints the
+`mcpServers` entry. The sample database lives in a temporary directory and is
+deleted when the client disconnects.
+
 ## Python → React → MCP example
 
 The [complete client tutorial](https://github.com/hypequery/hypequery/blob/main/python/hypequery/examples/client_dashboard/README.md) shares one
@@ -478,6 +503,43 @@ both a dimension and a measure is rejected.
 
 Catalog relationship entries list the safe names under `measures`, they are
 orderable, and discovery includes them. This matches `@hypequery/datasets`.
+
+### ClickHouse-native measures and sources
+
+```python
+from hypequery.datasets import dataset, filter, measure, resolved_rows, segment
+
+events = dataset(
+    "events",
+    source="events",  # ReplacingMergeTree(version, is_deleted)
+    time_key="event_time",
+    row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+    dimensions={...},
+    measures={
+        "revenue": measure.sum("amount"),
+        "visitors": measure.approx_count_distinct("user_id"),  # uniq
+        "revenue_7d": measure.trailing("revenue", 7, "day"),
+        "revenue_mtd": measure.to_date("revenue", "month"),
+        "revenue_last_year": measure.shift("revenue", 1, "year"),
+    },
+    segments={"paid": segment(filter.eq("status", "paid"))},
+)
+```
+
+- `row_resolution` reads `ReplacingMergeTree` / `CollapsingMergeTree` sources
+  with `FINAL`, so superseded and cancelled rows never count.
+- `measure.merge("uniq", "users_state")` finalizes `AggregatingMergeTree`
+  state columns.
+- `approx_count_distinct` uses `uniq` and is marked `approximate` in catalogs.
+- Window (`trailing`, `to_date`, `cumulative`) and `shift` measures need a
+  `by` grain and one bounded time range. Every bucket is returned, and results
+  match `@hypequery/datasets` on the shared corpus in
+  `specs/datasets/time-measures-corpus-v1.json`.
+- Segments are named row filters callers select with
+  `DatasetQuery(segments=("paid",))`.
+
+Approximate counts, segments, windows and shifts plan and run locally, but
+publishing them needs deployment contract 3, as in TypeScript.
 
 ## DataFrames
 

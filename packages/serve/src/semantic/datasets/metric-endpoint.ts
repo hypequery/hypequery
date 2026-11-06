@@ -33,6 +33,7 @@ import {
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
+import { endpointMaxLimit } from './utils/client-endpoint-profile.js';
 import { assertRelatedDatasetAccess, type RelatedDatasetPolicies } from './utils/related-dataset-policy.js';
 
 // ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   ) as AnyDatasetInstance;
   // Page-size cap, mirroring datasets: clamp (don't reject) and apply a default
   // so a metric query is never unbounded.
-  const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
+  const effectiveMaxLimit = endpointMaxLimit(ds, resolved.maxLimit);
   const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name, {
     includeMeta: true,
     timeKey: true,

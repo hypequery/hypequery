@@ -322,6 +322,9 @@ importers:
       '@hypequery/datasets':
         specifier: ^0.29.0
         version: link:../datasets
+      '@hypequery/protocol':
+        specifier: ^0.24.2
+        version: link:../protocol
       jose:
         specifier: ^6.2.14
         version: 6.2.14

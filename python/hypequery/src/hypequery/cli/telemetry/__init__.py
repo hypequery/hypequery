@@ -3,6 +3,7 @@
 Standard library only, so it adds nothing to ``hypequery --help`` imports.
 """
 
+from .init_funnel import InitFunnel
 from .lifecycle import (
     CommandTelemetry,
     activate,
@@ -12,6 +13,7 @@ from .lifecycle import (
 
 __all__ = [
     "CommandTelemetry",
+    "InitFunnel",
     "activate",
     "cancel_command_telemetry",
     "update_command_telemetry",

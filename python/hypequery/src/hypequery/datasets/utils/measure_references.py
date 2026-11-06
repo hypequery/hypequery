@@ -11,6 +11,7 @@ from collections.abc import Iterator
 
 from ..dataset import Dataset
 from ..derived_measures import DerivedMeasure
+from ..time_measures import ShiftMeasure, WindowMeasure
 from .derived_measures import formula_references
 
 
@@ -27,6 +28,8 @@ def measure_filter_fields(dataset: Dataset, name: str) -> Iterator[str]:
         measure = dataset.measures.get(current)
         if isinstance(measure, DerivedMeasure):
             pending.extend(formula_references(measure.formula))
+        elif isinstance(measure, WindowMeasure | ShiftMeasure):
+            pending.append(measure.measure)
         elif measure is not None:
             for item in measure.filters or ():
                 definition = dataset.filters.get(item.field)

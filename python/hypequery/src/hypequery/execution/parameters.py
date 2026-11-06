@@ -40,7 +40,10 @@ def bound_parameters(compiled: CompiledQuery) -> dict[str, object]:
 
     if compiled.operation != "query":
         raise CompiledQueryError("internal", "unsupported operation", query_id=compiled.query_id)
-    if type(compiled.sql) is not str or not compiled.sql.lstrip().upper().startswith("SELECT "):
+    # A window or shift query is one `WITH ... SELECT` statement.
+    if type(compiled.sql) is not str or not compiled.sql.lstrip().upper().startswith(
+        ("SELECT ", "WITH ")
+    ):
         raise CompiledQueryError("internal", "invalid compiled query", query_id=compiled.query_id)
     matches = _PLACEHOLDER.findall(compiled.sql)
     found = dict(matches)

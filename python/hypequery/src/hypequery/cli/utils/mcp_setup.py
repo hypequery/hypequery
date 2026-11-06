@@ -143,3 +143,23 @@ def mcp_server_config(
         # Never the key itself: the client fills it from its own environment.
         server["env"] = {API_KEY_VARIABLE: f"${{{API_KEY_VARIABLE}}}"}
     return json.dumps({"mcpServers": {"hypequery": server}}, indent=2)
+
+
+#: The one-command install the demo's config launches, as the docs show it.
+DEMO_REQUIREMENT = "hypequery[chdb,mcp]"
+
+
+def demo_command(tenant: str, *, default_tenant: str) -> list[str]:
+    """`hypequery demo` through uvx: nothing to install first but uv."""
+
+    command = ["uvx", "--from", DEMO_REQUIREMENT, "hypequery", "demo"]
+    if tenant != default_tenant:
+        command += ["--tenant", tenant]
+    return command
+
+
+def demo_server_config(command: Sequence[str]) -> str:
+    """An `mcpServers` entry that launches the demo with *command*."""
+
+    server = {"command": command[0], "args": list(command[1:])}
+    return json.dumps({"mcpServers": {"hypequery-demo": server}}, indent=2)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createFetchHandler } from "./fetch";
+import { createAPI } from "../server/create-api";
 import type { ServeHandler } from "../types";
 
 const createHandler = (): ServeHandler => {
@@ -40,6 +41,29 @@ describe("createFetchHandler", () => {
       query: { foo: ["bar", "baz"] },
       body: { hello: "world" },
     });
+  });
+
+  it.each([204, 205, 304])("sends no body for a %i response", async (status) => {
+    const fetchHandler = createFetchHandler(async () => ({ status, headers: { "x-test": "ok" }, body: "" }));
+
+    const response = await fetchHandler(new Request("https://example.com/metrics", { method: "OPTIONS" }));
+
+    expect(response.status).toBe(status);
+    expect(response.headers.get("x-test")).toBe("ok");
+    expect(response.body).toBeNull();
+  });
+
+  it("answers a CORS preflight through createAPI", async () => {
+    const api = createAPI({ basePath: "", cors: true, queries: { ping: { query: async () => ({ ok: true }) } } });
+    const fetchHandler = createFetchHandler(api.handler);
+
+    const response = await fetchHandler(new Request("https://example.com/queries/ping", {
+      method: "OPTIONS",
+      headers: { origin: "https://app.example.com", "access-control-request-method": "GET" },
+    }));
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
   });
 
   describe("Error handling", () => {
