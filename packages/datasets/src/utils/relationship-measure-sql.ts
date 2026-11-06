@@ -28,14 +28,16 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
       if (field && field !== '*') columns.add(target.dimensions[field]?.column ?? field);
     }
   }
+  const current = currentRowPredicate(target);
   let marker = '_hq_match';
-  while (columns.has(marker)) marker += '_';
+  // The WHERE below reads the current-row column unqualified, so the marker
+  // alias must not take its name either.
+  while (columns.has(marker) || marker === current?.column) marker += '_';
   const quote = dialect.quoteIdentifier;
   const source = relationshipTargetTable(target, dialect);
   // Sorted so the SQL is byte-identical however the target's dimensions are
   // ordered (authored vs. rehydrated catalogs declare them differently).
   const projection = [...columns].sort().map(quote);
-  const current = currentRowPredicate(target);
   const where = current ? ` WHERE ${quote(current.column)} = ${current.value}` : '';
   return { source: `(SELECT ${[...projection, `${dialect.toNullable('1')} AS ${quote(marker)}`].join(', ')} FROM ${source}${where})`, marker };
 }

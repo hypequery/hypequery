@@ -107,4 +107,6 @@ class DatasetQueryCompiler:
 
         self.node.source = safe_qualified_identifier(self.dataset.source, what="dataset source").sql
         self.node.base_alias = BASE_ALIAS
+        self.node.resolved_source = self.dataset.row_resolution is not None
+        self.node.reads_resolved_rows = self.node.resolved_source or self.joins.reads_resolved_rows
         return DatasetSql(self.dialect.render_select(self.node), self.binder.parameters)

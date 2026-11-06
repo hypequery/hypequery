@@ -15,7 +15,10 @@ from .immutability import freeze_mapping
 from .measures import Measure
 from .query_helpers import FilterOperator
 from .relationships import Relationship
+from .row_resolution import RowResolution
+from .segments import Segment
 from .utils.derived_measures import validate_derived_measures
+from .utils.segments import segment_errors
 from .validation import (
     validate_identifier,
     validate_identifier_map,
@@ -48,7 +51,7 @@ class DatasetLimits(DefinitionModel):
 
 
 DefinitionMap: TypeAlias = Mapping[
-    str, Dimension | Measure | DerivedMeasure | FilterDefinition | Relationship
+    str, Dimension | Measure | DerivedMeasure | FilterDefinition | Relationship | Segment
 ]
 
 
@@ -68,6 +71,10 @@ class Dataset(DefinitionModel):
     limits: DatasetLimits | None = None
     label: str | None = None
     description: str | None = None
+    #: Read the source with FINAL, so superseded row versions never count (RFC 0021).
+    row_resolution: RowResolution | None = None
+    #: Named row filters a query selects by name (RFC 0015).
+    segments: Mapping[str, Segment] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -121,7 +128,7 @@ class Dataset(DefinitionModel):
             return None
         return validate_non_empty(value, field=info.field_name or "value")
 
-    @field_serializer("dimensions", "measures", "filters", "relationships")
+    @field_serializer("dimensions", "measures", "filters", "relationships", "segments")
     def _serialize_definition_map(self, value: Mapping[str, object]) -> dict[str, object]:
         return dict(value)
 
@@ -134,9 +141,13 @@ class Dataset(DefinitionModel):
             cast(DefinitionMap, self.measures),
             cast(DefinitionMap, self.filters),
             cast(DefinitionMap, self.relationships),
+            cast(DefinitionMap, self.segments),
         )
         for definitions in maps:
             validate_identifier_map(definitions)
+        segment_error = segment_errors(self.segments, self.dimensions, self.tenant_key)
+        if segment_error is not None:
+            raise ValueError(segment_error)
         if self.source in self.relationships:
             raise ValueError("relationship name must not match the dataset source")
         validate_derived_measures(self.measures, self.dimensions)
@@ -144,6 +155,7 @@ class Dataset(DefinitionModel):
         object.__setattr__(self, "measures", freeze_mapping(self.measures))
         object.__setattr__(self, "filters", freeze_mapping(self.filters))
         object.__setattr__(self, "relationships", freeze_mapping(self.relationships))
+        object.__setattr__(self, "segments", freeze_mapping(self.segments))
         return self
 
 
@@ -161,12 +173,16 @@ def dataset(
     limits: DatasetLimits | None = None,
     label: str | None = None,
     description: str | None = None,
+    row_resolution: RowResolution | None = None,
+    segments: Mapping[str, Segment] | None = None,
 ) -> Dataset:
     """Define a dataset, matching TypeScript's dataset authoring entrypoint.
 
     Keyword arguments use Python spelling. Declared filters add to the
     dimensions marked filterable rather than replacing them (RFC 0024); set
     ``filterable=False`` on a dimension to keep it out of filters.
+    ``row_resolution`` reads a ReplacingMergeTree or CollapsingMergeTree source
+    with ``FINAL``: ``row_resolution=resolved_rows.replacing(deleted_column="is_deleted")``.
     """
     options: dict[str, object] = {
         "name": name,
@@ -180,6 +196,8 @@ def dataset(
         "limits": limits,
         "label": label,
         "description": description,
+        "row_resolution": row_resolution,
+        "segments": {} if segments is None else segments,
     }
     if filters is not None:
         options["filters"] = filters

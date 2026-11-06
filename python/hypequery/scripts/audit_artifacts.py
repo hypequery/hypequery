@@ -63,6 +63,8 @@ REQUIRED_TEMPLATE_ENTRIES = tuple(
         "django/urls.py",
         "fastapi/app.py",
         "flask/app.py",
+        "skills/hypequery-datasets/SKILL.md",
+        "skills/hypequery-query/SKILL.md",
     )
 )
 REQUIRED_WHEEL_ENTRIES = (

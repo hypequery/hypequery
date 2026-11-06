@@ -13,6 +13,7 @@ from hypequery.datasets import (
     create_dataset_registry,
     dimension,
     measure,
+    segment,
 )
 from hypequery.datasets.aggregations import (
     sum as sum_,
@@ -105,20 +106,52 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
         build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
         assert support == {"local": True, "publish": True}
         return
-    assert support == {"local": False, "publish": False}
+    if feature == "approxCountDistinct":
+        ds = orders()
+        approximate = Dataset(
+            name=ds.name,
+            source=ds.source,
+            tenant_key=ds.tenant_key,
+            dimensions=ds.dimensions,
+            measures={**ds.measures, "buyers": measure.approx_count_distinct("status")},
+        )
+        compiled = plan_dataset_query(
+            approximate,
+            DatasetQuery(measures=("buyers",)),
+            context=ExecutionContext(tenant=tenant("acme")),
+        )
+        assert "uniq(`__hq_base`.`status`)" in compiled.sql
+        # Approximate aggregations need deployment contract 3 (RFC 0015).
+        with pytest.raises(ValueError, match="approxCountDistinct"):
+            build_protocol_deployment_contract(create_dataset_registry(approximate))
+        assert support == {"local": True, "publish": False}
+        return
     if feature == "segments":
-        definition = orders().model_dump()
-        definition["segments"] = {"paid": {"filters": [eq("status", "paid")]}}
-        with pytest.raises(ValidationError):
-            Dataset.model_validate(definition)
-    elif feature == "approxCountDistinct":
-        with pytest.raises(ValidationError):
-            Measure.model_validate({"aggregation": "approxCountDistinct", "field": "amount"})
-    else:
-        kinds = {"derivedMeasures": "derived", "windowMeasures": "window", "shiftMeasures": "shift"}
-        assert feature in kinds  # New matrix features need an executable probe.
-        with pytest.raises(ValidationError):
-            Measure.model_validate({"kind": kinds[feature], "measure": "revenue"})
+        ds = orders()
+        segmented = Dataset(
+            name=ds.name,
+            source=ds.source,
+            tenant_key=ds.tenant_key,
+            dimensions=ds.dimensions,
+            measures=ds.measures,
+            segments={"paid": segment(eq("status", "paid"))},
+        )
+        compiled = plan_dataset_query(
+            segmented,
+            DatasetQuery(segments=("paid",)),
+            context=ExecutionContext(tenant=tenant("acme")),
+        )
+        assert "`__hq_base`.`status` = " in compiled.sql
+        # Segments need deployment contract 3 (RFC 0015).
+        with pytest.raises(ValueError, match="segments"):
+            build_protocol_deployment_contract(create_dataset_registry(segmented))
+        assert support == {"local": True, "publish": False}
+        return
+    assert support == {"local": False, "publish": False}
+    kinds = {"windowMeasures": "window", "shiftMeasures": "shift"}
+    assert feature in kinds  # New matrix features need an executable probe.
+    with pytest.raises(ValidationError):
+        Measure.model_validate({"kind": kinds[feature], "measure": "revenue"})
 
 
 def test_protocol_v3_acceptance_does_not_imply_python_authoring_support() -> None:

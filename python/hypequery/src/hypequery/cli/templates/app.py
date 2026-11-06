@@ -6,12 +6,13 @@ Starlette or Litestar can mount it.
 
 from datasets import datasets
 
-from hypequery.datasets import create_dataset_client, create_dataset_registry
+from hypequery.datasets import ClientQueryProfile, create_dataset_client, create_dataset_registry
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 from hypequery.serve import (
     HttpSecurity,
     Principal,
     ServeRequest,
+    add_client_contract_endpoint,
     create_api,
     create_dataset_endpoint,
     from_context,
@@ -47,8 +48,11 @@ api = create_api(
     development_docs=True,
 )
 for name, definition in datasets.items():
-    create_dataset_endpoint(dataset=definition, client=client).install(
-        api, f"/datasets/{name}/query"
-    )
+    create_dataset_endpoint(
+        dataset=definition, client=client, client_profile=ClientQueryProfile()
+    ).install(api, f"/datasets/{name}/query")
+# `GET /client-contract`: what typed React clients pin and what
+# `hypequery mcp app:api` serves to AI agents.
+add_client_contract_endpoint(api)
 
 app = to_asgi_app(api)

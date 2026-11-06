@@ -30,7 +30,7 @@ from .parameters import query_arguments
 from .results import QueryRows, decode_result
 from .utils.json_compact import JSON_COMPACT_SETTINGS, decode_json_compact
 from .utils.parameter_text import parameter_text
-from .utils.settings_clause import settings_clause, within_deadline
+from .utils.settings_clause import with_settings, within_deadline
 
 #: chDB's own name for a database that lives only as long as the process.
 IN_MEMORY = ":memory:"
@@ -88,7 +88,7 @@ class ChdbExecutor:
             if reason is not None:
                 raise reason
             limits = within_deadline(settings, None if deadline is None else deadline.remaining())
-            sql = compiled.sql + settings_clause(limits, JSON_COMPACT_SETTINGS)
+            sql = with_settings(compiled.sql, limits, JSON_COMPACT_SETTINGS)
             try:
                 result = self._connection.query(sql, "JSONCompact", params=params)
             except Exception as exc:
