@@ -101,6 +101,11 @@ flask = [
     "certifi>=2026.10.19",
 ]
 
+# The official MCP SDK behind `hypequery mcp` and `hypequery.mcp.serve_stdio`.
+# 2.3.0 is the release the server is built and tested against; its own floors
+# (pydantic 2.12, starlette, uvicorn) are why it has a floor job of its own.
+mcp = ["mcp>=2.3.0,<3"]
+
 [project.scripts]
 hypequery = "hypequery.cli:main"
 
@@ -245,11 +250,12 @@ root_package = "hypequery"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layered: contrib -> cli -> serve -> execution -> datasets -> protocol"
+name = "Layered: contrib -> cli -> mcp -> serve -> execution -> datasets -> protocol"
 type = "layers"
 layers = [
   "hypequery.contrib",
   "hypequery.cli",
+  "hypequery.mcp",
   "hypequery.serve",
   "hypequery.execution",
   "hypequery.datasets",
@@ -285,6 +291,27 @@ name = "Serve imports no web framework; Django and Flask adapters live in contri
 type = "forbidden"
 source_modules = ["hypequery.serve"]
 forbidden_modules = ["fastapi", "starlette", "django", "flask", "werkzeug", "asgiref"]
+
+# The MCP SDK is optional and heavy (it brings starlette and uvicorn): only
+# the protocol adapter imports it, so the executor and both backends work, and
+# test, without it.
+[[tool.importlinter.contracts]]
+name = "Only hypequery.mcp.server imports the MCP SDK"
+type = "forbidden"
+source_modules = [
+  "hypequery.protocol",
+  "hypequery.datasets",
+  "hypequery.execution",
+  "hypequery.serve",
+  "hypequery.mcp.backends",
+  "hypequery.mcp.budgets",
+  "hypequery.mcp.errors",
+  "hypequery.mcp.executor",
+  "hypequery.mcp.manifest",
+  "hypequery.mcp.responses",
+  "hypequery.mcp.utils",
+]
+forbidden_modules = ["mcp", "mcp_types"]
 
 [[tool.importlinter.contracts]]
 name = "Dataset SQL compilation stays independent of client orchestration and execution"

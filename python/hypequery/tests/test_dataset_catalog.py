@@ -22,6 +22,7 @@ from hypequery.datasets import (
     DatasetLimits,
     DatasetRegistry,
     FilterDefinition,
+    Segment,
     belongs_to,
     create_dataset_registry,
     dimension,
@@ -35,6 +36,7 @@ from hypequery.datasets import (
     serialize_semantic_contract,
 )
 from hypequery.datasets.aggregations import (
+    approx_count_distinct,
     arg_max,
     count,
     count_distinct,
@@ -81,11 +83,13 @@ Orders = Dataset(
         "revenue": measure(sum("amount"), label="Revenue"),
         "orderCount": measure(count("id")),
         "uniqueCustomers": measure(count_distinct("customerId")),
+        "approxCustomers": measure(approx_count_distinct("customerId")),
         "topStatus": measure(arg_max("status", "amount")),
         "p95Amount": measure(percentile("amount", 0.95)),
         "paidRevenue": measure(sum("amount"), filters=(eq("status", "paid"),)),
     },
     filters={"status": FilterDefinition(field="status", operators=("eq", "in"))},
+    segments={"paid": Segment(filters=(eq("status", "paid"),), label="Paid orders")},
     relationships={
         "customer": belongs_to(Customers, from_field="customerId", to_field="id"),
         "primaryContact": has_one(Customers, from_field="id", to_field="id"),

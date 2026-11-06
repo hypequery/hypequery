@@ -23,6 +23,7 @@ class QueryRequest(BaseModel):
     measures: list[StrictStr] | None = Field(default=None, max_length=100)
     filters: list[dict[str, object]] = Field(default_factory=list, max_length=100)
     having: list[dict[str, object]] = Field(default_factory=list, max_length=100)
+    segments: list[StrictStr] = Field(default_factory=list, max_length=100)
     order_by: list[dict[str, object]] = Field(default_factory=list, alias="orderBy", max_length=100)
     by: StrictStr | None = None
     limit: StrictInt | None = Field(default=None, ge=1)
@@ -38,6 +39,7 @@ class QueryRequest(BaseModel):
             else (tuple(self.measures) if self.measures is not None else None),
             filters=decode_filters(self.filters),
             having=decode_having(self.having),
+            segments=tuple(self.segments),
             order_by=decode_orders(self.order_by),
             by=self.by,
             limit=limit,

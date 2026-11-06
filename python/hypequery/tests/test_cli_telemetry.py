@@ -87,6 +87,8 @@ def _events(stderr: str) -> list[dict[str, Any]]:
         (["generate:datasets"], "generate:datasets"),
         (["export", "client-contract", "--factory", "a:b"], "export:client-contract"),
         (["--no-telemetry", "telemetry", "status"], "telemetry"),
+        (["mcp", "app:api", "--project", "PRIVATE", "--self-test"], "mcp"),
+        (["skill", "install", "--agent", "claude"], "skill"),
         (["PRIVATE-command"], "unknown"),
         (["--version", "init"], "version"),
         (["-V", "dev", "--port", "1"], "version"),
@@ -106,6 +108,13 @@ def test_flags_are_canonical_names_and_values_are_never_read() -> None:
         "--tables",
     ]
     assert flags_used("unknown", ["x", "--tables", "a"]) == []
+    # Header and project values are never read, even when they look like flags.
+    argv = ["mcp", "--header", "--self-test", "--project=/PRIVATE", "--print-config"]
+    assert flags_used("mcp", argv) == ["--header", "--print-config", "--project"]
+    # The agent and scope values are never read, so "--check" here is a value.
+    assert flags_used(
+        "skill", ["skill", "install", "--agent", "--check", "--scope", "user", "--force"]
+    ) == ["--agent", "--force", "--scope"]
     assert has_unknown_option("init", ["init", "--bogus"])
     assert not has_unknown_option("dev", ["dev", "--port", "-1"])
     assert not has_unknown_option("dev", ["dev", "app:app", "--", "--bogus"])
@@ -439,3 +448,36 @@ def test_unreachable_endpoint_never_delays_or_changes_the_command(tmp_path: Path
     on = _run(["--version"], env, tmp_path)
     assert (on.returncode, on.stdout, on.stderr) == (off.returncode, off.stdout, off.stderr)
     assert time.monotonic() - started < 5
+
+
+def test_every_classified_command_has_a_complete_contract_entry(tmp_path: Path) -> None:
+    from hypequery.cli.telemetry.catalog import COMMANDS, contract
+    from hypequery.cli.telemetry.invocation import _HELP_TOPICS, _TOP_LEVEL
+
+    completed = contract()["EVENT_CATALOG"][COMPLETED_EVENT]
+    commands = completed["properties"]["command"]["values"]
+    variants = completed["variants"]
+    help_topics = variants["help"]["help_topic"]["values"]
+    suggestions = variants["unknown"]["suggested_command"]["values"]
+    # A command missing from any of these has its events refused by validate_event.
+    for command in set(_TOP_LEVEL.values()) - {"telemetry"}:
+        assert command in COMMANDS, command
+        assert command in commands, command
+        assert command in variants, command
+        assert command in contract()["COMMAND_FLAGS"], command
+    for topic in _HELP_TOPICS:
+        assert topic in help_topics, topic
+    for name in _TOP_LEVEL.values():
+        assert name in suggestions, name
+
+    telemetry = CommandTelemetry(["mcp", "--self-test"], environ=_clean_env(tmp_path), cwd=tmp_path)
+    telemetry.begin()
+    assert telemetry._common is not None
+    event = {
+        **telemetry._common,
+        "command": "mcp",
+        "flags_used": ["--self-test"],
+        "outcome": "success",
+        "duration_bucket": "<100ms",
+    }
+    assert validate_event(COMPLETED_EVENT, event)

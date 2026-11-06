@@ -59,6 +59,7 @@ const Orders = dataset('orders', {
     revenue: measure.sum('amount', { label: 'Revenue' }),
     orderCount: measure.count('id'),
     uniqueCustomers: measure.countDistinct('customerId'),
+    approxCustomers: measure.approxCountDistinct('customerId'),
     topStatus: measure.argMax('status', 'amount'),
     p95Amount: measure.percentile('amount', 0.95),
     paidRevenue: measure.sum('amount', {
@@ -67,6 +68,9 @@ const Orders = dataset('orders', {
   },
   filters: {
     status: { __type: 'filter_definition', field: 'status', operators: ['eq', 'in'] },
+  },
+  segments: {
+    paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }], label: 'Paid orders' },
   },
   relationships: {
     customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
