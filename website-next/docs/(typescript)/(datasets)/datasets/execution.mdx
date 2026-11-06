@@ -230,6 +230,8 @@ const Exports = dataset('orders_export', {
 ```
 </CodeBlock>
 
+`maxStreamRows` is not yet part of deployment contracts: publishing a dataset that sets it fails rather than silently falling back to `maxResultSize`.
+
 `streamArrow` returns the result as Arrow IPC stream bytes instead of rows. Columns keep their ClickHouse types, so measures are not converted to strings, and wide integers and decimals stay exact. Decode the bytes with any Arrow library, or pass them on unchanged, for example as an HTTP response body:
 
 <CodeBlock>
