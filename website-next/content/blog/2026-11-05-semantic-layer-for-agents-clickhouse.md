@@ -155,7 +155,7 @@ Ground truth for every question comes from hand-written SQL run as an Acme-only 
 
 - **Correctness**: the final answer matches ground truth within a declared tolerance (exact for counts and money, labelled-approximate allowed only where the measure is approximate).
 - **Consistency**: the share of the 5 runs that returned the *same* answer, whether or not it's right. An agent that is wrong the same way every time is a different problem from one that is right three times out of five.
-- **Tenant leaks**: a run leaks if any statement it executed reads rows outside `tenant_acme`. We detect this by taking every statement from `system.query_log` and re-running it as the Acme-only row-policy user. If the result differs from what the agent received, the statement read another tenant's rows. For Arm C, the same check runs against the SQL the dataset planner generated.
+- **Tenant leaks**: a run leaks if any tool result it received depends on another tenant's data. Comparing a query's result with and without a row policy isn't enough to show that: an unscoped `SELECT DISTINCT status` can read Globex's rows and still return the same statuses. So the check is differential. Every statement from `system.query_log` (for Arm C, the SQL the dataset planner generated) is re-run against two copies of the data. The copies are identical for Acme and differ only in Globex's rows: different amounts, a Globex-only status and region, and user IDs that appear nowhere for Acme. Results are compared as sorted row sets, with approximate functions compared within their tolerance. If the result changes when only Globex's data changes, cross-tenant information reached the agent. Any flagged run is also reviewed by hand in the published transcripts.
 - **Answer rate**: the share of runs that produced an answer instead of a refusal or an error. The governed arm is *expected* to refuse questions 13, 14 and 16, and may fail to answer 17 and 18. A refusal isn't a wrong answer, but it isn't an answer either, so it's reported separately.
 - **Rows read**: `read_rows` from `system.query_log`, summed across every statement in a run, including the agent's schema exploration.
 - **Tokens**: input plus output tokens from the API's usage field, including tool definitions and tool results.
@@ -170,7 +170,7 @@ Ground truth for every question comes from hand-written SQL run as an Acme-only 
 | --- | --- | --- | --- |
 | Correct answers (of 90) | TBD | TBD | TBD |
 | Runs with a consistent answer | TBD | TBD | TBD |
-| Runs that leaked another tenant's rows | TBD | TBD | TBD |
+| Runs that received another tenant's data | TBD | TBD | TBD |
 | Answer rate | TBD | TBD | TBD |
 | Median rows read per run | TBD | TBD | TBD |
 | Median tokens per run | TBD | TBD | TBD |
@@ -260,7 +260,7 @@ This is the TypeScript path, starting from an existing ClickHouse database.
 **1. Install and scaffold.**
 
 ```bash
-npm install @hypequery/datasets @hypequery/clickhouse @hypequery/serve
+npm install @hypequery/datasets @hypequery/clickhouse @hypequery/serve @hypequery/mcp
 ```
 
 ```bash
@@ -274,7 +274,7 @@ npx hypequery init --style datasets --tables orders,subscriptions,daily_active_u
 `init` reads your `CLICKHOUSE_*` environment variables, introspects the tables, and writes `analytics/client.ts`, `analytics/datasets.ts` and `analytics/api.ts`. If your tables are tenant-scoped, regenerate the datasets with the tenant column set explicitly. The generator never guesses it from column names:
 
 ```bash
-npx hypequery generate:datasets --tenant-column tenant_id --force
+npx hypequery generate:datasets --tables orders,subscriptions,daily_active_users --tenant-column tenant_id --force
 ```
 
 **2. Edit two measures and one source.** The generator gives you a working starting point: a count, plus a `sum` and an `avg` for each numeric column. It doesn't know your business definitions or your table engines. Those are the edits worth making by hand.
@@ -364,7 +364,7 @@ For Claude Code:
 claude mcp add hypequery -- sh -c "cd /absolute/path/to/your-project && npx hypequery mcp --tenant tenant_acme"
 ```
 
-Restart the client and ask it "what's our MRR by plan?". It calls `query_dataset` against `subscriptions` with `measures: ["mrr"]` and `dimensions: ["plan"]`. The SQL that runs has `FINAL`, the deletion filter and the tenant predicate, and the agent wrote none of them.
+Restart the client and ask it "what's our MRR by plan?". It calls `query_dataset` against `subscriptions` with `measures: ["totalMrr"]` (the generator's name for the sum of the `mrr` column) and `dimensions: ["plan"]`. The SQL that runs has `FINAL`, the deletion filter and the tenant predicate, and the agent wrote none of them.
 
 `--tenant` on the command line suits local and internal use. In a multi-tenant product, the tenant comes from the authenticated session instead. Build the executor per request with `createMCPExecutor({ datasets, analytics, tenantId: principal.tenantId })` and connect it to your own transport. The [MCP safety docs](/docs/mcp/safety) cover the boundary in detail.
 
