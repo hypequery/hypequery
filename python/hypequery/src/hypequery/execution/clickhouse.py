@@ -216,10 +216,6 @@ class _AsyncControlClient(Protocol):
 
 _KILL_QUERY = "KILL QUERY WHERE query_id = {id:String} SYNC"
 
-#: Output settings an Arrow stream sends ahead of the planner's, ``readonly``
-#: last: text columns as Arrow strings rather than binary.
-_ARROW_SETTINGS: dict[str, int | str] = {"output_format_arrow_string_as_string": 1}
-
 #: The ClickHouse header naming the tag of a mid-stream exception block.
 _EXCEPTION_TAG_HEADER = "X-ClickHouse-Exception-Tag"
 
@@ -449,7 +445,7 @@ class ClickHouseExecutor:
         response: Any = None
         try:
             response = client.raw_stream(
-                compiled.sql, parameters, {**_ARROW_SETTINGS, **query_settings}, fmt="ArrowStream"
+                compiled.sql, parameters, query_settings, fmt="ArrowStream"
             )
             decoder = ArrowIpcDecoder(
                 compiled.query_id, response.headers.get(_EXCEPTION_TAG_HEADER)
@@ -617,8 +613,21 @@ class AsyncClickHouseExecutor:
             context = await run_with_policy(
                 opened(), compiled, self._cancel_on_server, retries=self._retries
             )
+
+            async def built() -> AsyncBatchStream[_B]:
+                # Building can read the first batch (an Arrow schema), so it
+                # waits under the same deadline and cancellation as any batch.
+                try:
+                    return await build(context)
+                except CompiledQueryError:
+                    raise
+                except Exception as exc:
+                    raise _driver_failure(exc, compiled, self._readonly_policy) from None
+
             try:
-                stream = await build(context)
+                stream = await run_with_policy(
+                    built(), compiled, self._cancel_on_server, retries=self._retries
+                )
             except BaseException:
                 with suppress(Exception):
                     await context.__aexit__(None, None, None)
@@ -641,10 +650,11 @@ class AsyncClickHouseExecutor:
     async def stream(self, compiled: CompiledQuery) -> AsyncBatchStream[QueryRows]:
         """Run *compiled* and hand its rows over block by block; close the stream to stop it."""
 
+        client = cast(_AsyncStreamingClient, _streaming(self._client))
+
         async def open_context(
             parameters: dict[str, object], settings: dict[str, int | str]
         ) -> Any:
-            client = cast(_AsyncStreamingClient, _streaming(self._client))
             return await client.query_row_block_stream(
                 compiled.sql,
                 parameters,
@@ -671,15 +681,13 @@ class AsyncClickHouseExecutor:
     async def stream_arrow(self, compiled: CompiledQuery) -> AsyncBatchStream[pa.RecordBatch]:
         """Run *compiled* and hand its result over as Arrow batches; see the sync executor."""
 
+        client = cast(_AsyncStreamingClient, _streaming(self._client))
         decoder = ArrowIpcDecoder(compiled.query_id)
 
         async def open_context(
             parameters: dict[str, object], settings: dict[str, int | str]
         ) -> Any:
-            client = cast(_AsyncStreamingClient, _streaming(self._client))
-            return await client.raw_stream(
-                compiled.sql, parameters, {**_ARROW_SETTINGS, **settings}, fmt="ArrowStream"
-            )
+            return await client.raw_stream(compiled.sql, parameters, settings, fmt="ArrowStream")
 
         async def build(context: Any) -> AsyncBatchStream[pa.RecordBatch]:
             # The async driver hides the response headers; the block names its own tag.
