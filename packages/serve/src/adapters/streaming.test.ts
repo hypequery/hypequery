@@ -1,8 +1,8 @@
-import { request as httpRequest } from "http";
+import { createServer, request as httpRequest } from "http";
 import type { AddressInfo } from "net";
 import { describe, expect, it, vi } from "vitest";
 
-import { startNodeServer } from "./node";
+import { createNodeHandler, startNodeServer } from "./node";
 import { createFetchHandler } from "./fetch";
 import { streamBody } from "../utils/stream-body";
 import type { ServeHandler } from "../types";
@@ -83,6 +83,53 @@ describe("streamed response bodies", () => {
       expect(state.sent).toBeLessThan(100_000);
     } finally {
       await server.stop();
+    }
+  });
+
+  it("cancels a stream whose client left while the handler was opening it", async () => {
+    const { stream, state } = lines(10);
+    let opened!: () => void;
+    const handlerDone = new Promise<void>(resolve => { opened = resolve; });
+    const server = await serve(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      opened();
+      return { status: 200, body: streamBody(stream, "application/x-ndjson") };
+    });
+    try {
+      const req = httpRequest(server.url);
+      req.on("error", () => undefined);
+      req.end();
+      setTimeout(() => req.destroy(), 20);
+      await handlerDone;
+      await vi.waitFor(() => expect(state.cancelled).toBe(true));
+      // A ReadableStream pulls one chunk ahead of any reader; nothing past it.
+      expect(state.sent).toBeLessThanOrEqual(1);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("does not accumulate listeners across backpressure waits", async () => {
+    const { stream } = lines(20_000);
+    const nodeHandler = createNodeHandler(async () => ({ status: 200, body: streamBody(stream, "application/x-ndjson") }));
+    let maxListeners = 0;
+    const server = createServer((req, res) => {
+      const sample = setInterval(() => {
+        maxListeners = Math.max(maxListeners, res.listenerCount("close"), res.listenerCount("drain"));
+      }, 1);
+      res.on("finish", () => clearInterval(sample));
+      res.on("close", () => clearInterval(sample));
+      void nodeHandler(req, res);
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const response = await get(`http://127.0.0.1:${port}/stream`);
+      expect(response.body.trimEnd().split("\n")).toHaveLength(20_000);
+      // Node's own listeners plus ours, never one per wait.
+      expect(maxListeners).toBeLessThan(10);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
     }
   });
 

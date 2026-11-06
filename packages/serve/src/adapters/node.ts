@@ -144,35 +144,58 @@ const sendResponse = async (res: ServerResponse, response: ServeResponse) => {
 };
 
 /**
- * Writes a streamed body with backpressure. A client that disconnects cancels
- * the stream, which stops the query behind it; a stream that fails partway
- * destroys the response, since its status has already been sent.
+ * Writes a streamed body with backpressure. A client that disconnects, even
+ * before the first chunk, cancels the stream, which stops the query behind
+ * it; a stream that fails partway destroys the response, since its status has
+ * already been sent.
  */
 const sendStream = async (res: ServerResponse, body: ServeStreamBody) => {
   const reader = body.stream.getReader();
   let settled = false;
-  const onClose = () => {
-    if (!settled) reader.cancel().catch(() => undefined);
+  const cancel = () => {
+    if (settled) return;
+    settled = true;
+    reader.cancel().catch(() => undefined);
   };
-  res.on("close", onClose);
+  if (res.destroyed || res.writableEnded) {
+    // The client left while the handler was opening the stream.
+    cancel();
+    return;
+  }
+  res.on("close", cancel);
   try {
     for (;;) {
       const { done, value } = await reader.read();
-      if (done) break;
-      if (res.destroyed) return;
-      if (!res.write(value)) {
-        await Promise.race([once(res, "drain"), once(res, "close")]);
+      if (done) {
+        settled = true;
+        res.end();
+        return;
       }
+      if (res.destroyed) {
+        cancel();
+        return;
+      }
+      if (!res.write(value)) await drained(res);
     }
-    settled = true;
-    res.end();
   } catch (error) {
     settled = true;
     res.destroy(error instanceof Error ? error : undefined);
   } finally {
-    res.off("close", onClose);
+    res.off("close", cancel);
   }
 };
+
+/** Resolves on `drain` or `close`, removing both listeners either way. */
+const drained = (res: ServerResponse) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      res.off("drain", done);
+      res.off("close", done);
+      resolve();
+    };
+    res.on("drain", done);
+    res.on("close", done);
+  });
 
 const sendError = (res: ServerResponse, error: unknown) => {
   if (res.writableEnded) return;

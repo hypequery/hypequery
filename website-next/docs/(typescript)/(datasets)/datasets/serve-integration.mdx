@@ -177,6 +177,7 @@ const response = await fetch('https://api.example.com/datasets/orders/query', {
 });
 
 let buffered = '';
+let complete = false;
 for await (const text of response.body!.pipeThrough(new TextDecoderStream())) {
   buffered += text;
   const lines = buffered.split('\n');
@@ -185,8 +186,11 @@ for await (const text of response.body!.pipeThrough(new TextDecoderStream())) {
     const frame = JSON.parse(line);
     if (frame.type === 'rows') console.log(frame.data.length, 'rows');
     if (frame.type === 'error') throw new Error(frame.error.message);
+    if (frame.type === 'end') complete = true;
   }
 }
+// A stream that stops without its `end` frame was cut short.
+if (!complete) throw new Error('The export ended before its last frame.');
 ```
 </CodeBlock>
 
