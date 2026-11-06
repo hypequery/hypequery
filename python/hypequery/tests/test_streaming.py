@@ -591,6 +591,41 @@ def test_the_bridge_executor_kills_a_stream_closed_early() -> None:
     asyncio.run(run())
 
 
+@dataclass
+class HangingControl:
+    """A KILL that never answers, so its caller is cancelled while waiting."""
+
+    def command(self, cmd: str, parameters: dict[str, str]) -> object:
+        threading.Event().wait(5)
+        return "ok"
+
+
+def test_a_close_cancelled_during_its_kill_still_frees_the_slot() -> None:
+    async def run() -> None:
+        executor = AsyncFromSyncClickHouseExecutor(
+            FakeClient(rows=FakeRowContext(("n",), [[(1,)], [(2,)]])),
+            HangingControl(),
+            max_concurrent=1,
+        )
+        try:
+            stream = await executor.stream(compiled())
+            await anext(aiter(stream))
+            closing = asyncio.create_task(stream.aclose())
+            await asyncio.sleep(0.05)
+            closing.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await closing
+            for _ in range(100):
+                if not executor._semaphore.locked():
+                    break
+                await asyncio.sleep(0.01)
+            assert not executor._semaphore.locked()
+        finally:
+            executor.close()
+
+    asyncio.run(run())
+
+
 def test_the_bridge_executor_streams_on_its_workers() -> None:
     async def run() -> None:
         rows = FakeRowContext(("n",), [[(1,)], [(2,)]])

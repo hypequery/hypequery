@@ -270,16 +270,18 @@ class ThreadedBatchStream(Generic[_T]):
         if self._closed:
             return
         self._closed = True
-        if not self._finished and self._cancel_on_server is not None:
-            with suppress(Exception):
-                await self._cancel_on_server(self._compiled.query_id)
+        # Scheduled before anything is awaited: a caller cancelled during the
+        # KILL below must not skip it, or the slot never comes back.
         try:
             future = self._worker.submit(self._sync.close)
         except RuntimeError:
             # The worker pool shut down with its executor.
             self._release_slot()
-            return
-        future.add_done_callback(lambda _: self._release_slot())
+        else:
+            future.add_done_callback(lambda _: self._release_slot())
+        if not self._finished and self._cancel_on_server is not None:
+            with suppress(Exception):
+                await self._cancel_on_server(self._compiled.query_id)
 
 
 async def open_threaded(
