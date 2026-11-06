@@ -588,3 +588,72 @@ def test_the_closing_frame_counts_against_the_byte_ceiling() -> None:
     frames = [json.loads(line) for line in response.text.splitlines()]
     assert [f["type"] for f in frames] == ["start", "rows", "error"]
     assert frames[-1]["error"]["type"] == "PAYLOAD_TOO_LARGE"
+
+
+def test_an_interrupted_stream_is_reported_as_a_failed_query() -> None:
+    import asyncio
+
+    from hypequery.serve import QueryEvents, to_asgi_app
+
+    events: list[dict[str, object]] = []
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+        limits=DatasetLimits(max_result_size=APP["maxResultSize"]),
+    )
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        events=QueryEvents(target={"project": "sdk", "environment": "test"}, sink=events.append),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_dataset_client(executor=Executor()),
+        policy=EndpointPolicy(stream_max_rows=APP["streamMaxRows"]),
+    )
+    body = json.dumps({"dimensions": [APP["dimension"]]}).encode()
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": PATH,
+        "raw_path": PATH.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "scheme": "http",
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+        "headers": [
+            (b"host", b"testserver"),
+            (b"content-type", b"application/json"),
+            (b"accept", b"application/x-ndjson"),
+            (b"authorization", b"Bearer x"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+    }
+
+    async def run() -> None:
+        delivered = False
+        never = asyncio.Event()
+
+        async def receive() -> dict[str, object]:
+            nonlocal delivered
+            if not delivered:
+                delivered = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await never.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message: Any) -> None:
+            if message["type"] == "http.response.body":
+                raise OSError("client gone")
+
+        with pytest.raises(OSError, match="client gone"):
+            await to_asgi_app(api)(scope, receive, send)
+
+    asyncio.run(run())
+    assert [event["outcome"] for event in events] == ["failure"]
+    assert events[0]["errorCategory"] == "aborted"

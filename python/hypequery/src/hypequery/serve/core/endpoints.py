@@ -256,6 +256,7 @@ class DatasetEndpointCore:
         rows = 0
         answering = False
         failure: BaseException | None = None
+        completed = False
         async with RequestLifetime(request, state.work) as lifetime:
             context = ExecutionContext(
                 tenant=auth.tenant if auth else None,
@@ -308,6 +309,7 @@ class DatasetEndpointCore:
                 if budget is not None and sent + len(final) > budget:
                     raise CompiledQueryError("too-large", TOO_LARGE)
                 yield final
+                completed = True
             except (Exception, asyncio.CancelledError) as exc:
                 failure = exc
                 state.work.cancel()
@@ -322,6 +324,12 @@ class DatasetEndpointCore:
                     yield error_frame("QUERY_FAILURE", QUERY_FAILED)
             finally:
                 await batches.aclose()
+                if failure is None and not completed:
+                    # Closed before its last frame went out (the host could not
+                    # write it, the caller left): the caller has part of a result.
+                    failure = CompiledQueryError(
+                        "aborted", "The response was interrupted before it ended."
+                    )
                 if self.events:
                     if failure is not None:
                         await self._emit_failure(state, self.events, failure, started)
