@@ -17,7 +17,7 @@ authenticated caller, never from the request.
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse,server]==0.1.0b2"
+pip install "hypequery[clickhouse,server]==0.1.0b3"
 ```
 </CodeBlock>
 
@@ -69,7 +69,8 @@ app = to_asgi_app(api)
 </CodeBlock>
 
 `datasets={"orders": ...}` serves `POST /datasets/orders/query`, and `GET /discovery` lists the served datasets. A
-plain `Dataset` works too (`datasets={"orders": orders}` with `client=client`), under the default policy. Endpoints
+plain `Dataset` works too (`datasets={"orders": orders}` with `client=client`), under the default policy; add
+`client_profile=` to put it in the client contract for [typed React hooks](/docs/python/client-endpoints). Endpoints
 take a sync or an async dataset client; a sync one runs on worker threads. To verify
 JWTs, use [`jwt_strategy`](/docs/python/authentication#jwt) as `auth=` instead of writing your own.
 

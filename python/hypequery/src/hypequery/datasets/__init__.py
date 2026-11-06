@@ -38,6 +38,7 @@ from .client import (
 from .client_contract import ClientEndpointDefinition, ClientQueryProfile, export_client_contract
 from .constants import (
     SEMANTIC_FILTER_OPERATORS,
+    SEMANTIC_NULL_CHECK_OPERATORS,
     SUPPORTED_TIME_GRAINS,
     is_supported_time_grain,
 )
@@ -98,6 +99,8 @@ from .relationships import (
     has_many,
     has_one,
 )
+from .row_resolution import RowResolution, resolved_rows
+from .segments import Segment, segment
 from .sql_portability import (
     DEFAULT_SQL_PORTABILITY_LIMITS,
     SqlPortabilityFailure,
@@ -114,6 +117,7 @@ __all__ = [
     "DEFAULT_SQL_PORTABILITY_LIMITS",
     "SEMANTIC_CONTRACT_VERSION",
     "SEMANTIC_FILTER_OPERATORS",
+    "SEMANTIC_NULL_CHECK_OPERATORS",
     "SUPPORTED_TIME_GRAINS",
     "Aggregation",
     "AggregationType",
@@ -168,6 +172,8 @@ __all__ = [
     "RelationshipKind",
     "ResultCache",
     "ResultColumnType",
+    "RowResolution",
+    "Segment",
     "SqlPortabilityFailure",
     "SqlPortabilityIssue",
     "SqlPortabilityIssueCode",
@@ -208,6 +214,8 @@ __all__ = [
     "order",
     "plan_dataset_query",
     "prepare_dataset_bundle",
+    "resolved_rows",
+    "segment",
     "serialize_semantic_contract",
     "tenant",
     "tenants",

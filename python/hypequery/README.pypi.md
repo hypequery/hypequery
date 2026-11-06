@@ -26,7 +26,8 @@ pip install "hypequery[clickhouse]"
 ```
 
 Python 3.11 or later. Extras: `clickhouse-async`, `server`, `jwt`, `django`,
-`flask`, `pandas`, `polars`, `arrow`.
+`flask`, `pandas`, `polars`, `arrow`, and `chdb` to run on embedded ClickHouse
+with no server (Linux and macOS).
 
 ## Define a dataset and query it
 
@@ -114,8 +115,13 @@ app.mount("/analytics", to_asgi_app(api))
 
 `POST /analytics/datasets/orders/query` now runs the same validated, tenant-scoped
 query as the Python call above. The same endpoints feed generated, type-safe React
-hooks (`@hypequery/react`) and a governed MCP server (`@hypequery/mcp`) that gives
-agents named metrics instead of raw SQL.
+hooks (`@hypequery/react`) and a governed MCP server that gives agents named
+metrics instead of raw SQL:
+
+```bash
+pip install "hypequery[mcp]"
+hypequery mcp app:api --print-config   # paste into Claude or Cursor
+```
 
 ## Learn more
 

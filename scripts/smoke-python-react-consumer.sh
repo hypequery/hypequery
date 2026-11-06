@@ -32,7 +32,7 @@ cd "$HQ_SMOKE/frontend"
 cat > package.json <<'JSON'
 {"name":"python-client-browser-qualification","private":true,"type":"module"}
 JSON
-npm install "${HQ_REACT[0]}" react@19.3.0 react-dom@19.3.0 @tanstack/react-query@5.104.1 @types/react@19.3.0 @types/react-dom@19.3.0
+npm install "${HQ_REACT[0]}" react@19.3.0 react-dom@19.3.0 @tanstack/react-query@5.105.1 @types/react@19.3.0 @types/react-dom@19.3.0
 node "$HQ_ROOT/packages/cli/dist/bin/cli.js" --no-telemetry generate:client client-contract.json --output client.generated.ts
 node "$HQ_ROOT/packages/cli/dist/bin/cli.js" --no-telemetry generate:client client-contract.json --output client.generated.ts --check
 "$HQ_ROOT/packages/cli/node_modules/.bin/tsc" app.tsx client.generated.ts --noEmit --strict --skipLibCheck --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom
