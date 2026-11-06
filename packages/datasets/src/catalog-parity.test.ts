@@ -69,6 +69,9 @@ const Orders = dataset('orders', {
   filters: {
     status: { __type: 'filter_definition', field: 'status', operators: ['eq', 'in'] },
   },
+  segments: {
+    paid: { filters: [{ field: 'status', operator: 'eq', value: 'paid' }], label: 'Paid orders' },
+  },
   relationships: {
     customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
     primaryContact: hasOne(() => Customers, { from: 'id', to: 'id' }),

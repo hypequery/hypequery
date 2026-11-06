@@ -21,11 +21,11 @@ The Python SDK is in beta. This table tracks coverage against the TypeScript pac
 | Framework integrations | Next.js, Node.js, Vite guides | Django, Flask, SQLAlchemy (`hypequery.contrib`) |
 | `approxCountDistinct` measures | Available | Available locally (`measure.approx_count_distinct`, ClickHouse `uniq`, marked `approximate` in catalogs); publishing needs deployment contract 3, like TypeScript |
 | `measure.merge` over `AggregatingMergeTree` state columns | Available | Available (`measure.merge("uniq", "users")`), published with its `stateFunction` |
-| `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Planned |
+| `final: true` for `ReplacingMergeTree` / `CollapsingMergeTree` sources | Available | Available as `row_resolution=resolved_rows.replacing(deleted_column=...)` (or `.final()`, `.collapsing(sign_column=...)`, `.versioned_collapsing(...)`) |
 | Derived measures | Available | Available (`measure.derived` with `formula.*`) |
 | Window measures (trailing, to-date, cumulative) | Available | Planned |
 | Period comparisons (`shift`) | Available | Planned |
-| Segments | Available | Planned |
+| Segments | Available | Available locally (`dataset(segments={"paid": segment(filter.eq(...))})`, `DatasetQuery(segments=...)`); publishing needs deployment contract 3, like TypeScript |
 | Relationship checks | Available | Available (`check_relationships`) |
 | Cloud publishing | Not yet | hypequery cloud is not live. Bundle export works today (`write_dataset_bundle`); one-step publish is planned |
 | MCP server for AI agents | Available | Available: `hypequery mcp` over stdio, in-process from an `Api` or bridging a served client contract (`mcp` extra; [setup](/docs/mcp/overview#datasets-served-from-python)) |

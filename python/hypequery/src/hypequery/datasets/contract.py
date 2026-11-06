@@ -133,6 +133,8 @@ def _limits(limits: dict[str, int]) -> dict[str, object]:
 
 def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]:
     result: dict[str, object] = {"name": catalog["name"], "source": catalog["source"]}
+    if "rowResolution" in catalog:
+        result["rowResolution"] = dict(catalog["rowResolution"])
     for key in ("tenantKey", "timeKey"):
         if key in catalog:
             result[key] = catalog[key]
@@ -158,6 +160,10 @@ def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]
     result["filters"] = sorted_record(
         {name: _filter(entry) for name, entry in catalog["filters"].items()}
     )
+    if "segments" in catalog:
+        result["segments"] = sorted_record(
+            {name: dict(entry) for name, entry in catalog["segments"].items()}
+        )
     result["relationships"] = sorted_record(
         {name: _relationship(entry) for name, entry in catalog["relationships"].items()}
     )

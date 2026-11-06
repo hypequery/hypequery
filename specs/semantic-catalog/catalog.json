@@ -190,6 +190,11 @@
       }
     },
     "metrics": {},
+    "segments": {
+      "paid": {
+        "label": "Paid orders"
+      }
+    },
     "filters": {
       "status": {
         "field": "status",

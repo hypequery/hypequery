@@ -196,6 +196,11 @@
           "valueType": "string"
         }
       },
+      "segments": {
+        "paid": {
+          "label": "Paid orders"
+        }
+      },
       "relationships": {
         "customer": {
           "kind": "belongsTo",
@@ -237,5 +242,5 @@
       }
     }
   },
-  "contentHash": "241419921eead8f3f8275c83d85e1ca691b91765df27b6d9194a2ef5f954f4a0"
+  "contentHash": "a1a3ee5feb735b12bccac3479e756069f529ba44e42e19b693b3726a6b3dbdc2"
 }

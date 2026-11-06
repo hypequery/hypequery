@@ -139,8 +139,10 @@ def build_protocol_dataset_contract(
     # Contract datasets carry a description but no label, as in TypeScript.
     if dataset.description is not None:
         result["description"] = dataset.description
+    result["source"] = dataset.source
+    if dataset.row_resolution is not None:
+        result["rowResolution"] = dataset.row_resolution.to_protocol()
     result |= {
-        "source": dataset.source,
         "tenant": (
             {"kind": "required", "field": dataset.tenant_key}
             if dataset.tenant_key is not None
@@ -172,6 +174,13 @@ def validate_deployable(dataset: Dataset) -> None:
     dataset and measure (``orders.doubled: ...``) instead of a contract path.
     """
 
+    if dataset.segments:
+        # Mirrors TypeScript's `assertNoPublishedSegments`.
+        raise ValueError(
+            f'Dataset "{dataset.name}" declares segments ({", ".join(dataset.segments)}), which '
+            "cannot be published yet: segments need deployment contract 3 (RFC 0015). Use them "
+            "for local queries until publishing emits contract 3."
+        )
     for name, definition in dataset.measures.items():
         if isinstance(definition, Measure) and definition.aggregation == "approxCountDistinct":
             # Mirrors TypeScript's `requirePublishableMeasureAggregation`.
