@@ -133,8 +133,9 @@ export default function RootLayout({
 })();`,
           }}
         />
-        {/* Optional analytics and marketing trackers are injected only after
-            opt-in by CookieConsentBanner. */}
+        {/* Umami is anonymous and cookieless, so it loads without consent. Cookie-based
+            analytics and marketing trackers are injected only after opt-in by
+            CookieConsentBanner. */}
         <UmamiScript />
       </head>
       <body
