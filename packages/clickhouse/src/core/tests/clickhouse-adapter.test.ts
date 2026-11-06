@@ -501,19 +501,32 @@ describe('ClickHouseAdapter.streamArrow', () => {
   const exec = (headers: Record<string, string> = {}, body = 'arrow-bytes') =>
     vi.fn().mockResolvedValue({ stream: Readable.from([Buffer.from(body)]), response_headers: headers });
 
-  it('requests uncompressed ArrowStream with the parameters substituted', async () => {
+  it('requests uncompressed ArrowStream, sending the statement as written', async () => {
     const execMock = exec();
     const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any });
 
-    const stream = await adapter.streamArrow('SELECT ? AS x;', [1], { queryId: 'arrow-1' });
+    const stream = await adapter.streamArrow('SELECT ? AS x; -- export', [1], { queryId: 'arrow-1' });
     const bytes = Buffer.from((await stream.getReader().read()).value!).toString();
 
     expect(bytes).toBe('arrow-bytes');
     expect(execMock).toHaveBeenCalledWith(expect.objectContaining({
-      query: 'SELECT 1 AS x\nFORMAT ArrowStream',
-      clickhouse_settings: { output_format_arrow_compression_method: 'none' },
+      query: 'SELECT 1 AS x; -- export',
+      clickhouse_settings: { output_format_arrow_compression_method: 'none', default_format: 'ArrowStream' },
       query_id: 'arrow-1',
     }));
+  });
+
+  it('applies connection-level settings to a caller-supplied client', async () => {
+    const execMock = exec();
+    const adapter = new ClickHouseAdapter({
+      client: { exec: execMock } as any,
+      clickhouse_settings: { final: 1, max_threads: 2 },
+    });
+    await adapter.streamArrow('SELECT 1', [], { clickhouseSettings: { max_threads: 4 } });
+
+    expect(execMock.mock.calls[0]![0].clickhouse_settings).toEqual({
+      output_format_arrow_compression_method: 'none', final: 1, max_threads: 4, default_format: 'ArrowStream',
+    });
   });
 
   it('lets connection-level and per-call compression outrank the default', async () => {
@@ -523,11 +536,13 @@ describe('ClickHouseAdapter.streamArrow', () => {
       clickhouse_settings: { output_format_arrow_compression_method: 'lz4_frame' },
     });
     await configured.streamArrow('SELECT 1');
-    expect(execMock.mock.calls[0]![0].clickhouse_settings).toEqual({});
+    expect(execMock.mock.calls[0]![0].clickhouse_settings)
+      .toEqual({ output_format_arrow_compression_method: 'lz4_frame', default_format: 'ArrowStream' });
 
     const perCall = new ClickHouseAdapter({ client: { exec: execMock } as any });
     await perCall.streamArrow('SELECT 1', [], { clickhouseSettings: { output_format_arrow_compression_method: 'zstd' } });
-    expect(execMock.mock.calls[1]![0].clickhouse_settings).toEqual({ output_format_arrow_compression_method: 'zstd' });
+    expect(execMock.mock.calls[1]![0].clickhouse_settings)
+      .toEqual({ output_format_arrow_compression_method: 'zstd', default_format: 'ArrowStream' });
   });
 
   it("fails the stream with ClickHouse's error when the response carries an exception block", async () => {
@@ -562,8 +577,8 @@ describe('ClickHouseAdapter.streamArrow', () => {
     await db.table('events').select(['id']).settings({ max_threads: 2 }).streamArrow();
 
     expect(execMock).toHaveBeenCalledWith(expect.objectContaining({
-      query: expect.stringMatching(/FROM events\nFORMAT ArrowStream$/),
-      clickhouse_settings: { output_format_arrow_compression_method: 'none', max_threads: 2 },
+      query: expect.stringMatching(/FROM events$/),
+      clickhouse_settings: { output_format_arrow_compression_method: 'none', max_threads: 2, default_format: 'ArrowStream' },
     }));
   });
 });

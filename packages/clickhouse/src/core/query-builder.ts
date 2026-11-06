@@ -1558,8 +1558,9 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       return resolvedAdapter.stream<TResult>(sql, params, options);
     },
     /**
-     * Streams a raw statement's result as Arrow IPC stream bytes. Do not add a
-     * `FORMAT` clause; the adapter sets it. See {@link QueryBuilder.streamArrow}.
+     * Streams a raw statement's result as Arrow IPC stream bytes. Leave out a
+     * `FORMAT` clause: it would override the Arrow format the adapter requests.
+     * See {@link QueryBuilder.streamArrow}.
      */
     async rawArrowStream(
       sql: string,

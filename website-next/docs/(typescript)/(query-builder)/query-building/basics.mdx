@@ -207,7 +207,7 @@ for await (const batch of await RecordBatchReader.from(bytes)) {
 
 Batches are uncompressed by default, because JavaScript Arrow readers don't include the LZ4 codec ClickHouse would otherwise use; enable HTTP response compression to shrink the transfer. If ClickHouse fails after sending part of the result, the stream errors with ClickHouse's own error.
 
-For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Don't add a `FORMAT` clause; the adapter sets it.
+For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Leave out a `FORMAT` clause: it would override the format the adapter requests.
 
 ### streamForEach()
 

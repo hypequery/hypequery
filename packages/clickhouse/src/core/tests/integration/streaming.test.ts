@@ -267,8 +267,8 @@ async function collectPartialStreamRows(stream: WebReadableStream<any[]>, chunkL
       expect(bytes.readUInt32LE(0)).toBe(0xffffffff);
     });
 
-    it('accepts a raw statement ending in a semicolon or a comment', async () => {
-      for (const sql of ['SELECT 1 AS x;', 'SELECT 1 AS x -- trailing comment']) {
+    it('accepts a raw statement ending in a semicolon, a comment, or both', async () => {
+      for (const sql of ['SELECT 1 AS x;', 'SELECT 1 AS x -- trailing comment', 'SELECT 1 AS x; -- export', 'SELECT 1 AS x;\n/* done */']) {
         const { error } = await readBytes(await db.rawArrowStream(sql));
         expect(error).toBeUndefined();
       }

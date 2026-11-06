@@ -192,16 +192,20 @@ Pagination metadata is present when a query sets `limit`. hypequery over-fetches
 
 <CodeBlock>
 ```typescript
+import { createWriteStream } from 'node:fs';
+
 const { data, meta } = await analytics.stream(Orders, {
-  dimensions: ['customerId', 'country'],
+  dimensions: ['country', 'status'],
   measures: ['revenue', 'orderCount'],
 }, {
   runtime: { tenant: 'tenant_123' },
 });
 
+const out = createWriteStream('orders.ndjson');
 for await (const rows of data) {
-  await writeToFile(rows);
+  for (const row of rows) out.write(`${JSON.stringify(row)}\n`);
 }
+out.end();
 ```
 </CodeBlock>
 
@@ -214,8 +218,10 @@ Streams run the same query `execute` would: the same validation, tenant filter a
 import { RecordBatchReader } from 'apache-arrow';
 
 const { data } = await analytics.streamArrow(Orders, {
-  dimensions: ['customerId'],
+  dimensions: ['country'],
   measures: ['revenue'],
+}, {
+  runtime: { tenant: 'tenant_123' },
 });
 
 for await (const batch of await RecordBatchReader.from(data)) {
