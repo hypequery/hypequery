@@ -1,0 +1,30 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/hypequery/hypequery",
+  "public_key": "pk_nWGjGhFIPNn4AmjXN8Z8k",
+  "projectTitle": "hypequery",
+  "description": "Type-safe ClickHouse toolkit for TypeScript and Python: query builder, semantic layer (datasets), HTTP serving, React hooks, CLI and MCP server.",
+  "folders": ["website-next/docs", "skills"],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "changelog.md",
+    "CHANGELOG.mdx",
+    "changelog.mdx",
+    "LICENSE.md",
+    "license.md",
+    "CODE_OF_CONDUCT.md",
+    "code_of_conduct.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "BRANCH_SUMMARY.md",
+    "release-commands.md",
+    "security_best_practices_report.md"
+  ],
+  "rules": [
+    "TypeScript: import the query builder from @hypequery/clickhouse. Generate schema types with `npx hypequery generate` (from @hypequery/cli) before writing queries.",
+    "Datasets: create clients with createDatasetClient({ queryBuilder }) from @hypequery/datasets. createBackend is an advanced, deprecated path.",
+    "Python: the PyPI package is `hypequery` (install extras such as `hypequery[clickhouse]`). Scaffold a project with `hypequery init`."
+  ]
+}
