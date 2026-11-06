@@ -172,6 +172,26 @@ describe("streamed response bodies", () => {
     }
   });
 
+  it.each([204, 205, 304])("cancels a stream returned with bodyless status %i", async (status) => {
+    const viaFetch = lines(3);
+    const fetchHandler = createFetchHandler(async () => ({ status, body: streamBody(viaFetch.stream, "application/x-ndjson") }));
+    const response = await fetchHandler(new Request("http://localhost/stream", { method: "POST", body: "{}", headers: { "content-type": "application/json" } }));
+    expect(response.status).toBe(status);
+    expect(response.body).toBeNull();
+    expect(viaFetch.state.cancelled).toBe(true);
+
+    const viaNode = lines(3);
+    const server = await serve(async () => ({ status, body: streamBody(viaNode.stream, "application/x-ndjson") }));
+    try {
+      const reply = await get(server.url);
+      expect(reply.status).toBe(status);
+      expect(reply.body).toBe("");
+      expect(viaNode.state.cancelled).toBe(true);
+    } finally {
+      await server.stop();
+    }
+  });
+
   it("passes the stream through the fetch adapter", async () => {
     const { stream } = lines(3);
     const handler = createFetchHandler(async () => ({ status: 200, headers: { "x-request-id": "r" }, body: streamBody(stream, "application/x-ndjson") }));

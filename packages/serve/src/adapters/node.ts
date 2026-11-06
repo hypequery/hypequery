@@ -9,6 +9,7 @@ import type {
   StartServerOptions,
 } from "../types.js";
 import {
+  isNullBodyStatus,
   normalizeHeaders,
   parseQueryParams,
   parseRequestBody,
@@ -130,6 +131,12 @@ const sendResponse = async (res: ServerResponse, response: ServeResponse) => {
   }
 
   if (isServeStreamBody(response.body)) {
+    if (isNullBodyStatus(response.status)) {
+      // These statuses carry no body: stop the stream rather than read it into nothing.
+      await response.body.stream.cancel().catch(() => undefined);
+      res.end();
+      return;
+    }
     res.setHeader("content-type", response.body.contentType);
     await sendStream(res, response.body);
     return;
