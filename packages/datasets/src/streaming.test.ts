@@ -3,6 +3,7 @@ import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import type { DatabaseAdapter } from '../../clickhouse/src/core/adapters/database-adapter.js';
 import { belongsTo, createDatasetClient, dataset, dimension, divide, measure, nullIfZero, subtract } from './index.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
+import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import type { DatasetQuery, ExecutionContext, MetricFilter } from './types.js';
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 
@@ -285,6 +286,12 @@ describe('dataset client streaming', () => {
       const result = await clientFor(adapter).stream(Orders, { dimensions: ['status'], measures: ['revenue'] }, TENANT);
       expect(calls.stream[0]!.sql).toMatch(/LIMIT 500\b/);
       expect(result.meta.resultLimit).toEqual({ maxResultSize: 500, applied: 500 });
+    });
+
+    it('is refused by deployment contracts, which cannot carry it yet', () => {
+      expect(() => buildProtocolDatasetContract(Exports)).toThrow(
+        'Dataset "exports" limits.maxStreamRows is not part of deployment contracts yet',
+      );
     });
 
     it('is validated like the other limits', () => {

@@ -595,7 +595,8 @@ export interface DatasetLimits {
    * keep memory flat, so an export can be allowed far more rows than a page or
    * an agent; this raises that ceiling for streams alone. Defaults to
    * `maxResultSize`, so streams get no more than pages unless the dataset says
-   * so. Bounded streams report it in `meta.resultLimit.maxResultSize`.
+   * so. Bounded streams report it in `meta.resultLimit.maxResultSize`. Not
+   * yet part of deployment contracts, which refuse a dataset that sets it.
    */
   maxStreamRows?: number;
 }
