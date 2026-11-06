@@ -344,7 +344,7 @@ async function generateDatasetForTable(
         continue;
       }
       const fieldName = fieldNameByColumn.get(column.name);
-      if (!fieldName || !isNumericColumn(column)) continue;
+      if (!fieldName) continue;
       // A declared function wins over name heuristics: a SimpleAggregateFunction
       // column is read with its own function, and a SummingMergeTree's listed
       // columns are summed on merge. Without a list it sums every numeric
@@ -358,6 +358,8 @@ async function generateDatasetForTable(
             ? engine.summingColumns.includes(column.name) ? 'sum' : undefined
             : numericColumns.includes(column) && !engine.sortingKeyColumns?.includes(column.name) ? 'sum' : undefined;
       if (fn !== 'sum' && fn !== 'min' && fn !== 'max') continue;
+      // min and max read any scalar dimension (a latest timestamp); a sum needs numbers.
+      if (fn === 'sum' && !isNumericColumn(column)) continue;
       const prefix = fn === 'sum' ? { name: 'total', label: 'Total' } : { name: fn, label: fn === 'min' ? 'Min' : 'Max' };
       measureLines.push(
         `    ${nameField(`${prefix.name}${pascal(fieldName)}`)}: measure.${fn}('${fieldName}', { label: '${prefix.label} ${label}' }),`

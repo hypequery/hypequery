@@ -412,6 +412,8 @@ describe('generateDatasets', () => {
         { name: 'last_status', type: 'SimpleAggregateFunction(anyLast, String)' },
         // Named like a coordinate, but the declared function says how to read it.
         { name: 'latitude', type: 'SimpleAggregateFunction(max, Float64)' },
+        // min/max read timestamps too.
+        { name: 'latest_at', type: 'SimpleAggregateFunction(max, DateTime)' },
       ],
       daily_totals: [
         { name: 'day', type: 'Date' },
@@ -485,6 +487,7 @@ describe('generateDatasets', () => {
     );
     expect(rollup).toContain("maxPeakAmount: measure.max('peakAmount', { label: 'Max Peak Amount' }),");
     expect(rollup).toContain("maxLatitude: measure.max('latitude', { label: 'Max Latitude' }),");
+    expect(rollup).toContain("maxLatestAt: measure.max('latestAt', { label: 'Max Latest At' }),");
     expect(rollup).not.toContain('no dimension type describes');
     expect(rollup).not.toMatch(/measure\.(?:sum|avg)\(/);
 
