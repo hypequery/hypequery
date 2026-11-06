@@ -56,8 +56,9 @@ class DimensionCatalogEntry(TypedDict):
 
 
 class MeasureCatalogEntry(TypedDict):
-    aggregation: str
-    field: str
+    # Absent on a shift over a formula, which has no single base measure.
+    aggregation: NotRequired[str]
+    field: NotRequired[str]
     argField: NotRequired[str]
     level: NotRequired[float]
     stateFunction: NotRequired[str]

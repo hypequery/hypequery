@@ -17,6 +17,14 @@ from ..measures import Measure
 from ..time_measures import MeasureTimeInterval, ShiftMeasure, WindowMeasure
 from .derived_measures import formula_references
 
+#: Shifts reset the derived-measure depth and expansion limits, and each
+#: shifted parent gets its own child contexts, so a few dozen definitions can
+#: fan out into thousands of contexts. Each context scans the source, so cap
+#: the graph before any SQL is built. The context check runs on the way down,
+#: which also bounds recursion.
+MAX_EVALUATION_CONTEXTS = 64
+MAX_EVALUATION_NODES = 1024
+
 
 @dataclass(frozen=True, slots=True)
 class EvaluationContext:
@@ -66,6 +74,11 @@ def build_measure_evaluation_graph(
             context_key = (context, interval.amount, interval.unit)
             shifted = shifted_contexts.get(context_key)
             if shifted is None:
+                if len(contexts) >= MAX_EVALUATION_CONTEXTS:
+                    raise ValueError(
+                        f"Query needs more than {MAX_EVALUATION_CONTEXTS} shifted contexts; "
+                        "select fewer nested shifts."
+                    )
                 shifted = len(contexts)
                 contexts.append(EvaluationContext(shifted, context, interval))
                 shifted_contexts[context_key] = shifted
@@ -81,6 +94,11 @@ def build_measure_evaluation_graph(
             if isinstance(definition, DerivedMeasure)
             else {}
         )
+        if len(nodes) >= MAX_EVALUATION_NODES:
+            raise ValueError(
+                f"Query needs more than {MAX_EVALUATION_NODES} evaluated measures; "
+                "select fewer nested shifts."
+            )
         node = EvaluationNode(len(nodes), name, context, definition, inputs)
         nodes.append(node)
         memo[key] = node.id
@@ -91,6 +109,8 @@ def build_measure_evaluation_graph(
 
 
 __all__ = [
+    "MAX_EVALUATION_CONTEXTS",
+    "MAX_EVALUATION_NODES",
     "EvaluationContext",
     "EvaluationGraph",
     "EvaluationNode",

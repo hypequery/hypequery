@@ -5,4 +5,7 @@
   over derived measures that read windows or shifts are now planned too,
   instead of refused. Definitions reject dependency cycles through shifts and
   formulas, and catalogs report the grains both the shift and its input
-  support.
+  support. A shifted formula has no single aggregation, so its catalog and
+  semantic contract entries omit `aggregation` and `field`, hashing the same as
+  TypeScript. A query is refused as `input-invalid` when nested shifts would
+  need more than 64 evaluation contexts or 1024 evaluated measures.

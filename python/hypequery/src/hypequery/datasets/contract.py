@@ -90,8 +90,11 @@ def _measure(entry: MeasureCatalogEntry, *, include_sql: bool) -> dict[str, obje
         )
         if key in entry
     }
-    result["aggregation"] = entry["aggregation"]
-    result["field"] = entry["field"]
+    # JSON drops TypeScript's `undefined`, so a shift over a formula omits both.
+    if "aggregation" in entry:
+        result["aggregation"] = entry["aggregation"]
+    if "field" in entry:
+        result["field"] = entry["field"]
     if "argField" in entry:
         result["argField"] = entry["argField"]
     if "level" in entry:

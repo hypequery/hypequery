@@ -734,9 +734,12 @@ class TimeMeasureFeature(CompilerFeature):
 
         compiler = self.compiler
         dialect = compiler.dialect
-        graph = build_measure_evaluation_graph(
-            compiler.dataset.measures, compiler.query.measures or ()
-        )
+        try:
+            graph = build_measure_evaluation_graph(
+                compiler.dataset.measures, compiler.query.measures or ()
+            )
+        except ValueError as error:
+            raise CompiledQueryError("input-invalid", str(error)) from error
         leaves = [node for node in graph.nodes if not isinstance(node.definition, DerivedMeasure)]
         base_names = list(
             dict.fromkeys(
