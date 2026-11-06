@@ -170,7 +170,8 @@ When someone asks "What was revenue by region last month?", a typical agent list
     "metric": "revenue",
     "dimensions": ["region"],
     "filters": [
-      { "field": "createdAt", "operator": "between", "value": ["2026-10-01", "2026-10-31"] }
+      { "field": "createdAt", "operator": "gte", "value": "2026-10-01" },
+      { "field": "createdAt", "operator": "lt", "value": "2026-11-01" }
     ],
     "orderBy": [{ "field": "revenue", "direction": "desc" }],
     "limit": 10
@@ -244,7 +245,7 @@ MCP is a capability boundary, not an authentication layer. The stdio server trus
 
 ## Adding fields and metrics
 
-You don't register tools by hand. To give the agent something new, change the dataset and republish it:
+You don't register tools by hand. To give the agent something new, change the dataset and republish it. This example extends the Step 1 dataset with a `channel` dimension and an average-order-value metric. If your dataset is tenant-scoped, keep its `tenantKey`: removing it removes the tenant filter, even when the server still has a `tenantId`.
 
 ```typescript
 // analytics/datasets.ts
@@ -252,6 +253,7 @@ import { dataset, dimension, measure } from "@hypequery/datasets"
 
 export const Orders = dataset("orders", {
   source: "orders",
+  // Keep tenantKey: "tenant_id" here if your dataset is tenant-scoped.
   timeKey: "created_at",
   dimensions: {
     region: dimension.string({ label: "Region" }),
