@@ -10,11 +10,15 @@ import pytest
 from hypequery.datasets import (
     DatasetQuery,
     FilterDefinition,
+    belongs_to,
     create_dataset_client,
+    create_dataset_registry,
     dataset,
     dimension,
     filter,  # noqa: A004
     measure,
+    resolved_rows,
+    segment,
 )
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
@@ -66,12 +70,75 @@ def admin() -> Iterator[object]:
         "('pro', true, '2026-02-01 00:00:00'), ('pro', NULL, NULL), "
         "('free', false, NULL), ('free', NULL, '1969-07-20 20:17:00')"
     )
+    client.command(
+        "CREATE TABLE hq_feature_port.visits (user_id UInt64, kind String) ENGINE = Memory"
+    )
+    # 200,000 distinct users: well past where uniq stops being exact.
+    client.command(
+        "INSERT INTO hq_feature_port.visits SELECT number, "
+        "if(number % 3 = 0, 'purchase', 'view') FROM numbers(200000)"
+    )
+    # An AggregatingMergeTree a materialized view would feed: one state per day
+    # and region, written in three parts that merges have not yet combined.
+    client.command(
+        "CREATE TABLE hq_feature_port.daily_users (day Date, region String, "
+        "users AggregateFunction(uniq, UInt64), events AggregateFunction(count), "
+        "revenue AggregateFunction(sum, Float64)) "
+        "ENGINE = AggregatingMergeTree ORDER BY (day, region)"
+    )
+    client.command("SYSTEM STOP MERGES hq_feature_port.daily_users")
+    for offset in ("0", "10000", "20000"):
+        client.command(
+            "INSERT INTO hq_feature_port.daily_users SELECT toDate('2026-01-01') + number % 7, "
+            "if(number % 2 = 0, 'EU', 'US'), uniqState(toUInt64(number % 5000)), countState(), "
+            "sumState(toFloat64(number % 100)) FROM numbers({offset:UInt64}, 10000) "
+            "GROUP BY 1, 2",
+            parameters={"offset": offset},
+        )
+    # Row versions merges have not yet removed: u1 moved from free to pro,
+    # u2 was soft-deleted, u3 has one version. Merges stay stopped so FINAL
+    # does the work at query time.
+    client.command(
+        "CREATE TABLE hq_feature_port.accounts (id String, plan String, is_deleted UInt8, "
+        "version UInt32) ENGINE = ReplacingMergeTree(version) ORDER BY id"
+    )
+    client.command("SYSTEM STOP MERGES hq_feature_port.accounts")
+    client.command(
+        "INSERT INTO hq_feature_port.accounts VALUES ('u1', 'free', 0, 1), ('u2', 'free', 0, 1), "
+        "('u3', 'pro', 0, 1)"
+    )
+    client.command(
+        "INSERT INTO hq_feature_port.accounts VALUES ('u1', 'pro', 0, 2), ('u2', 'free', 1, 2)"
+    )
+    client.command(
+        "CREATE TABLE hq_feature_port.logins (account_id String, n UInt32) ENGINE = Memory"
+    )
+    client.command(
+        "INSERT INTO hq_feature_port.logins VALUES ('u1', 1), ('u1', 2), ('u2', 3), ('u3', 4)"
+    )
+    client.command(
+        "CREATE TABLE hq_feature_port.balances (id String, amount Int64, sign Int8) "
+        "ENGINE = CollapsingMergeTree(sign) ORDER BY id"
+    )
+    client.command("SYSTEM STOP MERGES hq_feature_port.balances")
+    client.command("INSERT INTO hq_feature_port.balances VALUES ('a', 10, 1), ('b', 5, 1)")
+    # a's 10 is cancelled and replaced by 30; b's cancel row has no match yet.
+    client.command(
+        "INSERT INTO hq_feature_port.balances VALUES ('a', 10, -1), ('a', 30, 1), ('c', 7, -1)"
+    )
+    client.command(
+        "CREATE TABLE hq_feature_port.vbalances (id String, amount Int64, sign Int8, "
+        "version UInt32) ENGINE = VersionedCollapsingMergeTree(sign, version) ORDER BY id"
+    )
+    client.command("SYSTEM STOP MERGES hq_feature_port.vbalances")
+    client.command("INSERT INTO hq_feature_port.vbalances VALUES ('a', 10, 1, 1)")
+    client.command("INSERT INTO hq_feature_port.vbalances VALUES ('a', 10, -1, 1), ('a', 25, 1, 2)")
     yield client
     client.command(f"DROP DATABASE IF EXISTS {DATABASE}")
 
 
 @pytest.fixture(scope="module")
-def client(admin: object) -> Iterator[object]:
+def executor(admin: object) -> Iterator[object]:
     executor = create_clickhouse_executor(
         ClickHouseConnection(
             host=os.environ["HYPEQUERY_TEST_CLICKHOUSE_HOST"],
@@ -81,8 +148,13 @@ def client(admin: object) -> Iterator[object]:
             password=os.environ["HYPEQUERY_TEST_CLICKHOUSE_PASSWORD"],
         )
     )
-    yield create_dataset_client(executor=executor)
+    yield executor
     executor.close()
+
+
+@pytest.fixture(scope="module")
+def client(executor: object) -> object:
+    return create_dataset_client(executor=executor)  # type: ignore[arg-type]
 
 
 def _truth(admin: object, sql: str) -> list[tuple[object, ...]]:
@@ -116,3 +188,190 @@ def test_null_checks_match_is_null_including_a_pre_1971_date(admin: object, clie
         DatasetQuery(measures=("customers",), filters=(filter.is_not_null("churnedAt"),)),
     )
     assert str(churned[0][0]) == "2"
+
+
+visits = dataset(
+    "visits",
+    source="visits",
+    dimensions={"userId": dimension.number(column="user_id"), "kind": dimension.string()},
+    measures={
+        "visitors": measure.count_distinct("userId"),
+        "estimatedVisitors": measure.approx_count_distinct("userId"),
+        "estimatedBuyers": measure.approx_count_distinct(
+            "userId", filters=(filter.eq("kind", "purchase"),)
+        ),
+    },
+)
+
+
+def test_approx_count_distinct_is_uniq_and_count_distinct_stays_exact(
+    admin: object, client: object
+) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        visits, DatasetQuery(measures=("visitors", "estimatedVisitors", "estimatedBuyers"))
+    )
+    row = result.data[0]
+    truth = _truth(
+        admin,
+        "SELECT uniqExact(user_id), uniq(user_id), uniqIf(user_id, kind = 'purchase') "
+        "FROM hq_feature_port.visits",
+    )[0]
+    assert [str(row["visitors"]), str(row["estimatedVisitors"]), str(row["estimatedBuyers"])] == [
+        str(value) for value in truth
+    ]
+    assert str(row["visitors"]) == "200000"
+
+
+daily_users = dataset(
+    "dailyUsers",
+    source="daily_users",
+    time_key="day",
+    dimensions={"day": dimension.timestamp(), "region": dimension.string()},
+    measures={
+        "activeUsers": measure.merge("uniq", "users"),
+        "events": measure.merge("count", "events"),
+        "revenue": measure.merge("sum", "revenue"),
+    },
+)
+
+
+def test_merge_measures_finalize_states_across_unmerged_parts(
+    admin: object, client: object
+) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        daily_users,
+        DatasetQuery(
+            dimensions=("region",),
+            measures=("activeUsers", "events", "revenue"),
+            order_by=(),
+        ),
+    )
+    actual = sorted(
+        (row["region"], str(row["activeUsers"]), str(row["events"]), str(row["revenue"]))
+        for row in result.data
+    )
+    expected = _truth(
+        admin,
+        "SELECT region, uniqMerge(users), countMerge(events), sumMerge(revenue) "
+        "FROM hq_feature_port.daily_users GROUP BY region ORDER BY region",
+    )
+    assert actual == [tuple(str(value) for value in row) for row in expected]
+    # Counting the state rows instead (the trap) gives a different, meaningless number.
+    rows = _truth(admin, "SELECT count() FROM hq_feature_port.daily_users")[0][0]
+    assert str(rows) != str(expected[0][2])
+
+
+accounts = dataset(
+    "accounts",
+    source="accounts",
+    dimensions={"id": dimension.string(), "plan": dimension.string()},
+    measures={"accounts": measure.count("id")},
+    row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+)
+logins = dataset(
+    "logins",
+    source="logins",
+    dimensions={"accountId": dimension.string(column="account_id")},
+    measures={"logins": measure.count("account_id")},
+    relationships={"account": belongs_to(accounts, from_field="account_id", to_field="id")},
+)
+
+
+def _strings(rows: object) -> list[tuple[str, ...]]:
+    return sorted(tuple(str(value) for value in row) for row in rows)  # type: ignore[attr-defined]
+
+
+def test_final_counts_current_versions_only(admin: object, client: object) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        accounts, DatasetQuery(dimensions=("plan",), measures=("accounts",))
+    )
+    expected = _truth(
+        admin,
+        "SELECT plan, count(id) FROM hq_feature_port.accounts FINAL WHERE is_deleted = 0 "
+        "GROUP BY plan",
+    )
+    assert _strings(tuple(row.values()) for row in result.data) == _strings(expected)
+    # The physical table still holds five versions: a plain read counts them all.
+    assert _truth(admin, "SELECT count() FROM hq_feature_port.accounts")[0][0] == 5
+    assert _strings(expected) == [("pro", "2")]
+
+
+def test_a_filter_never_matches_a_superseded_version(admin: object, client: object) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        accounts,
+        DatasetQuery(measures=("accounts",), filters=(filter.eq("plan", "free"),)),
+    )
+    # u1 was free in version 1 and u2 is deleted: no current account is free.
+    assert str(result.data[0]["accounts"]) == "0"
+
+
+def test_a_joined_target_is_resolved_before_the_join(admin: object, executor: object) -> None:
+    registry = create_dataset_registry(accounts, logins)
+    with_registry = create_dataset_client(executor=executor, registry=registry)  # type: ignore[arg-type]
+    result = with_registry.execute(
+        logins, DatasetQuery(dimensions=("account.plan",), measures=("logins",))
+    )
+    expected = _truth(
+        admin,
+        "SELECT a.plan, count(l.account_id) FROM hq_feature_port.logins AS l LEFT ANY JOIN "
+        "(SELECT id, plan FROM hq_feature_port.accounts FINAL WHERE is_deleted = 0) AS a "
+        "ON l.account_id = a.id GROUP BY a.plan",
+    )
+    actual = [
+        ("None" if row["account.plan"] is None else row["account.plan"], str(row["logins"]))
+        for row in result.data
+    ]
+    assert sorted(actual) == sorted(
+        ("None" if plan == "" else plan, str(count)) for plan, count in expected
+    )
+
+
+_COLLAPSED = {
+    "balances": "SELECT id, sum(amount), count(id) FROM hq_feature_port.balances FINAL "
+    "WHERE sign = 1 GROUP BY id",
+    "vbalances": "SELECT id, sum(amount), count(id) FROM hq_feature_port.vbalances FINAL "
+    "WHERE sign = 1 GROUP BY id",
+}
+
+
+@pytest.mark.parametrize(
+    ("source", "policy"),
+    [
+        ("balances", resolved_rows.collapsing(sign_column="sign")),
+        ("vbalances", resolved_rows.versioned_collapsing(sign_column="sign")),
+    ],
+)
+def test_collapsing_engines_keep_surviving_positive_rows(
+    admin: object, client: object, source: str, policy: object
+) -> None:
+    balances = dataset(
+        source,
+        source=source,
+        dimensions={"id": dimension.string()},
+        measures={"total": measure.sum("amount"), "rows": measure.count("id")},
+        row_resolution=policy,  # type: ignore[arg-type]
+    )
+    result = client.execute(  # type: ignore[attr-defined]
+        balances, DatasetQuery(dimensions=("id",), measures=("total", "rows"))
+    )
+    expected = _truth(admin, _COLLAPSED[source])
+    assert _strings(tuple(row.values()) for row in result.data) == _strings(expected)
+
+
+def test_a_segment_matches_its_hand_written_predicate(admin: object, client: object) -> None:
+    churned_pros = dataset(
+        "customers",
+        source="customers",
+        dimensions=dict(customers.dimensions),
+        measures={"customers": measure.count("plan")},
+        segments={"churnedPro": segment(filter.eq("plan", "pro"), filter.is_not_null("churnedAt"))},
+    )
+    result = client.execute(  # type: ignore[attr-defined]
+        churned_pros, DatasetQuery(measures=("customers",), segments=("churnedPro",))
+    )
+    expected = _truth(
+        admin,
+        "SELECT count(plan) FROM hq_feature_port.customers "
+        "WHERE plan = 'pro' AND churned_at IS NOT NULL",
+    )
+    assert str(result.data[0]["customers"]) == str(expected[0][0]) == "1"

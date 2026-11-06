@@ -23,7 +23,7 @@ from ..relationships import Relationship
 
 #: Aggregates whose result is unchanged when an input row repeats.
 DUPLICATE_INSENSITIVE_AGGREGATIONS: Final[frozenset[str]] = frozenset(
-    ("countDistinct", "min", "max", "argMax", "argMin")
+    ("countDistinct", "approxCountDistinct", "min", "max", "argMax", "argMin")
 )
 
 
@@ -53,6 +53,11 @@ def relationship_measure_error(
         )
     if isinstance(measure, DerivedMeasure):
         return "Relationship traversal of derived measures is not supported."
+    if measure.aggregation == "merge":
+        return (
+            f'Measure "{qualified}" cannot merge aggregate states through a relationship: '
+            "joined rows would repeat or drop states. Query the target dataset directly."
+        )
     if (
         relationship.kind == "belongsTo"
         and measure.aggregation not in DUPLICATE_INSENSITIVE_AGGREGATIONS

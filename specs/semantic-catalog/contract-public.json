@@ -152,6 +152,11 @@
         }
       },
       "measures": {
+        "approxCustomers": {
+          "aggregation": "approxCountDistinct",
+          "field": "customerId",
+          "approximate": true
+        },
         "orderCount": {
           "aggregation": "count",
           "field": "id"
@@ -189,6 +194,11 @@
             "in"
           ],
           "valueType": "string"
+        }
+      },
+      "segments": {
+        "paid": {
+          "label": "Paid orders"
         }
       },
       "relationships": {
@@ -232,5 +242,5 @@
       }
     }
   },
-  "contentHash": "0e2d882db072516f4965019031f8a7db56f0a25518fba5a1a15bb32f30fa453d"
+  "contentHash": "a1a3ee5feb735b12bccac3479e756069f529ba44e42e19b693b3726a6b3dbdc2"
 }

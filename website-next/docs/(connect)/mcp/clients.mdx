@@ -45,6 +45,33 @@ Add `--tenant <id>` to the command if any dataset is tenant-scoped. Cursor accep
 
 Restart Claude Desktop after changing the config.
 
+## A Python API with `hypequery mcp`
+
+The Python CLI prints the entry for you, with the project's interpreter and directory as absolute paths:
+
+<CodeBlock>
+```bash
+hypequery mcp app:api --print-config
+```
+</CodeBlock>
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "command": "/absolute/path/to/.venv/bin/python",
+      "args": ["-m", "hypequery", "mcp", "app:api", "--project", "/absolute/path/to/your-project"],
+      "env": { "HYPEQUERY_API_KEY": "${HYPEQUERY_API_KEY}" }
+    }
+  }
+}
+```
+</CodeBlock>
+
+`env` appears when a credential is configured; replace the placeholder with the key, or keep it in clients that
+expand environment variables. The ClickHouse settings come from the project's `.env`, as for `hypequery dev`.
+
 ## Standalone server
 
 ### Claude Desktop

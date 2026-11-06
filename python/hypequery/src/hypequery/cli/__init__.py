@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from importlib import import_module
-from pathlib import Path
 from typing import Any, Protocol, cast
 
 from .errors import CliError
@@ -13,7 +12,7 @@ from .options import command_options
 from .parser import parse_args
 from .telemetry import CommandTelemetry, activate
 from .telemetry.lifecycle import error_code
-from .utils.env_files import load_env_files
+from .utils.env_files import env_root, load_env_files
 
 
 class _Command(Protocol):
@@ -25,8 +24,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     raw = list(sys.argv[1:] if argv is None else argv)
     # Like the TypeScript CLI: the launch directory's .env files fill in unset
-    # variables, before telemetry so an opt-out set there is honored.
-    load_env_files(Path.cwd())
+    # variables (the project's, for `mcp --project`), before telemetry so an
+    # opt-out set there is honored.
+    load_env_files(env_root(raw))
     telemetry = CommandTelemetry(raw, flag_disabled="--no-telemetry" in raw)
     telemetry.begin()
     activate(telemetry)
