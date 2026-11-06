@@ -56,6 +56,14 @@ export function createContextQueryBuilder(): ContextQueryBuilder {
     ) {
       return target().rawQuery<T>(sql, params, options);
     },
+    // Optional on the protocol: present only when the bound builder can
+    // stream, so a builder that cannot still gets its clear error.
+    get rawStream() {
+      return bound?.rawStream?.bind(bound);
+    },
+    get rawArrowStream() {
+      return bound?.rawArrowStream?.bind(bound);
+    },
   };
 
   return {

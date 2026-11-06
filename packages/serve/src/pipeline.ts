@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isServeStreamBody } from './utils/stream-body.js';
 
 import type {
   AuthContext,
@@ -566,14 +567,16 @@ export const executeEndpoint = async <
     ];
 
     const handled = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
-    const result = clientSchema.kind === 'pinned'
+    const streamed = isServeStreamBody(handled);
+    // A streamed body goes out as produced; the client-contract envelope is for JSON pages.
+    const result = clientSchema.kind === 'pinned' && !streamed
       ? clientResponse(handled, requestId, clientSchema.input)
       : handled;
     const headers = withManagedTraceHeaders(endpoint.defaultHeaders, requestId, correlationId);
     // Authenticated and tenant-aware responses must never be shared by an
     // intermediary cache. Endpoint TTLs only opt public, tenant-independent
-    // responses into shared caching.
-    if (requiresAuth || authContext || activeTenantConfig) {
+    // responses into shared caching. A stream is one query's live result.
+    if (streamed || requiresAuth || authContext || activeTenantConfig) {
       headers['cache-control'] = 'no-store';
     } else if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
