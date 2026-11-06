@@ -1,0 +1,372 @@
+{
+  "version": 1,
+  "app": {
+    "credential": "reader",
+    "basePath": "/api",
+    "mountPath": "/edge",
+    "dataset": {
+      "name": "orders",
+      "source": "private_orders",
+      "description": "One row per order.",
+      "timeKey": "private_created_at",
+      "timeGrains": [
+        "month",
+        "day"
+      ],
+      "dimensions": {
+        "country": {
+          "type": "string",
+          "column": "private_country",
+          "label": "  Country  "
+        },
+        "amount": {
+          "type": "number",
+          "column": "private_amount"
+        },
+        "paid": {
+          "type": "boolean",
+          "column": "private_paid"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "column": "private_created_at",
+          "groupable": false
+        }
+      },
+      "measures": {
+        "revenue": {
+          "aggregation": "sum",
+          "field": "amount",
+          "description": "Gross revenue"
+        },
+        "orders": {
+          "aggregation": "count",
+          "field": "country"
+        },
+        "latestCountry": {
+          "aggregation": "max",
+          "field": "country"
+        },
+        "average": {
+          "divide": [
+            "revenue",
+            "orders"
+          ]
+        }
+      },
+      "filters": {
+        "country": {
+          "field": "country",
+          "operators": [
+            "like",
+            "eq",
+            "in"
+          ]
+        },
+        "minimumAmount": {
+          "field": "amount",
+          "operators": [
+            "gte",
+            "like"
+          ]
+        },
+        "paid": {
+          "field": "paid"
+        },
+        "closed": {
+          "field": "country",
+          "operators": []
+        },
+        "paidKnown": {
+          "field": "paid",
+          "operators": [
+            "isNotNull",
+            "gt",
+            "isNull"
+          ]
+        }
+      },
+      "limits": {
+        "maxResultSize": 500,
+        "maxMeasures": 10
+      }
+    },
+    "metric": {
+      "name": "totalRevenue",
+      "measure": "revenue"
+    },
+    "rows": [
+      {
+        "country": "US",
+        "revenue": 10,
+        "orders": 1,
+        "latestCountry": "US",
+        "totalRevenue": 10
+      },
+      {
+        "country": "DE",
+        "revenue": 20,
+        "orders": 2,
+        "latestCountry": "DE",
+        "totalRevenue": 20
+      },
+      {
+        "country": "FR",
+        "revenue": 30,
+        "orders": 3,
+        "latestCountry": "FR",
+        "totalRevenue": 30
+      }
+    ]
+  },
+  "contract": {
+    "contentHash": "6e2f34ef98129a2f8d8437be8d4105b200cc7de09d563b25a28f44aa35977d99",
+    "canonical": "{\"contentHash\":\"6e2f34ef98129a2f8d8437be8d4105b200cc7de09d563b25a28f44aa35977d99\",\"endpoints\":[{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"revenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"defaultMeasures\":[\"revenue\",\"orders\",\"latestCountry\"],\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"},\"paidKnown\":{\"operators\":[\"isNotNull\",\"isNull\"],\"type\":\"boolean\"}},\"id\":\"orders\",\"kind\":\"dataset\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"average\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"latestCountry\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"},\"orders\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"},\"revenue\":{\"having\":true,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/datasets/orders/query\",\"schemaHash\":\"90cb59183b1bcaf882c0572f732e6c4911e3faf961f2409aa67c4b074e3a1815\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}},{\"annotations\":{\"description\":\"One row per order.\",\"fields\":{\"country\":{\"label\":\"Country\"},\"totalRevenue\":{\"description\":\"Gross revenue\"}}},\"dataset\":\"orders\",\"dimensions\":{\"amount\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"number\",\"wireType\":\"number-or-string\"},\"country\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"string\",\"wireType\":\"string\"},\"createdAt\":{\"groupable\":false,\"nullable\":\"unknown\",\"orderable\":false,\"type\":\"timestamp\",\"wireType\":\"string\"},\"paid\":{\"groupable\":true,\"nullable\":\"unknown\",\"orderable\":true,\"type\":\"boolean\",\"wireType\":\"boolean\"}},\"filters\":{\"country\":{\"operators\":[\"eq\",\"in\",\"like\"],\"type\":\"string\"},\"minimumAmount\":{\"operators\":[\"gte\"],\"type\":\"number\"},\"paid\":{\"operators\":[\"eq\",\"in\",\"neq\",\"notIn\"],\"type\":\"boolean\"},\"paidKnown\":{\"operators\":[\"isNotNull\",\"isNull\"],\"type\":\"boolean\"}},\"id\":\"totalRevenue\",\"kind\":\"metric\",\"limits\":{\"defaultLimit\":500,\"maxDimensions\":100,\"maxFilterValues\":10000,\"maxLimit\":500,\"maxMeasures\":10,\"maxOffset\":1000000,\"maxOrderBy\":100,\"maxPredicates\":100},\"measures\":{\"totalRevenue\":{\"having\":false,\"nullable\":true,\"wireType\":\"string\"}},\"metadata\":true,\"path\":\"/edge/api/metrics/totalRevenue\",\"schemaHash\":\"f3d7b685b3310d9e172c1105ec67b79bd71cf2d4f2056da5d6b9d5ad96675be0\",\"time\":{\"defaultTimezone\":\"UTC\",\"grains\":[\"day\",\"month\"],\"periodFormat\":\"calendar-date-or-local-datetime-v1\",\"timezone\":true}}],\"kind\":\"hypequery-client-contract\",\"version\":1,\"view\":\"build\"}"
+  },
+  "cases": [
+    {
+      "id": "pinned-dataset-query",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "measures": [
+          "revenue"
+        ],
+        "limit": 2,
+        "includeMeta": true
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "revenue": "10"
+          },
+          {
+            "country": "DE",
+            "revenue": "20"
+          }
+        ],
+        "meta": {
+          "rowCount": 2,
+          "pagination": {
+            "limit": 2,
+            "offset": 0,
+            "hasMore": true
+          }
+        }
+      }
+    },
+    {
+      "id": "pinned-dataset-default-measures",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 1
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "revenue": "10",
+            "orders": "1",
+            "latestCountry": "US"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "pinned-metric-query",
+      "path": "/api/metrics/totalRevenue",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "limit": 1
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "totalRevenue": "10"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "pinned-boolean-null-check",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "measures": [
+          "revenue"
+        ],
+        "filters": [
+          {
+            "field": "paidKnown",
+            "operator": "isNull"
+          }
+        ],
+        "limit": 1
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "revenue": "10"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "unpinned-query",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "json": {
+        "dimensions": [
+          "country"
+        ],
+        "measures": [
+          "revenue"
+        ],
+        "limit": 1
+      },
+      "expect": {
+        "status": 200,
+        "data": [
+          {
+            "country": "US",
+            "revenue": "10"
+          }
+        ],
+        "meta": false
+      }
+    },
+    {
+      "id": "stale-pin",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "0000000000000000000000000000000000000000000000000000000000000000",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "error": {
+          "type": "VALIDATION_ERROR",
+          "message": "Client endpoint schema changed.",
+          "details": {
+            "code": "CLIENT_SCHEMA_CHANGED"
+          }
+        }
+      }
+    },
+    {
+      "id": "stale-pin-precedes-body-validation",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "0000000000000000000000000000000000000000000000000000000000000000",
+      "json": {
+        "dimensions": [
+          "removedField"
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "error": {
+          "type": "VALIDATION_ERROR",
+          "message": "Client endpoint schema changed.",
+          "details": {
+            "code": "CLIENT_SCHEMA_CHANGED"
+          }
+        }
+      }
+    },
+    {
+      "id": "stale-metric-pin",
+      "path": "/api/metrics/totalRevenue",
+      "credential": "valid",
+      "pin": "0000000000000000000000000000000000000000000000000000000000000000",
+      "json": {},
+      "expect": {
+        "status": 409,
+        "error": {
+          "type": "VALIDATION_ERROR",
+          "message": "Client endpoint schema changed.",
+          "details": {
+            "code": "CLIENT_SCHEMA_CHANGED"
+          }
+        }
+      }
+    },
+    {
+      "id": "pinned-body-outside-client-profile",
+      "path": "/api/datasets/orders/query",
+      "credential": "valid",
+      "pin": "current",
+      "json": {
+        "dimensions": [
+          "createdAt"
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "error": {
+          "type": "VALIDATION_ERROR",
+          "message": "Invalid client query.",
+          "details": {
+            "issues": [
+              {
+                "path": [
+                  "dimensions",
+                  0
+                ],
+                "message": "Invalid client query.",
+                "code": "HQ_CLIENT_QUERY"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "denial-precedes-drift",
+      "path": "/api/datasets/orders/query",
+      "credential": "none",
+      "pin": "0000000000000000000000000000000000000000000000000000000000000000",
+      "json": {
+        "dimensions": [
+          "country"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "error": {
+          "type": "UNAUTHORIZED"
+        }
+      }
+    }
+  ]
+}

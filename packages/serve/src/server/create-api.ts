@@ -34,6 +34,11 @@ import {
   buildSemanticContractSource,
 } from "../semantic/datasets/index.js";
 import { attachServeMcpSource } from "./mcp-source.js";
+import { exportClientContract, resolveClientMountPath } from "./client-contract.js";
+import { createClientEndpointBinding, type ClientEndpointBinding } from "../semantic/datasets/utils/client-endpoint-binding.js";
+import { endpointClientProfile } from "../semantic/datasets/utils/client-endpoint-profile.js";
+import { resolveDatasetEntry } from "../semantic/datasets/utils/dataset-entry.js";
+import { resolveMetricEntry } from "../semantic/datasets/metric-endpoint.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 import { createContextQueryBuilder, type ContextQueryBuilder } from "./context-query-builder.js";
 
@@ -95,6 +100,16 @@ export const createAPI = <
 > => {
   const basePath = config.basePath ?? "/api/analytics";
   const router = new ServeRouter(basePath);
+  const clientMountPath = resolveClientMountPath(config.clientContract?.mountPath);
+  // Dataset and metric endpoints in registration order; each is exported at the
+  // path the manifest names, so it resolves through `api` once that exists.
+  const clientBindings: ClientEndpointBinding[] = [];
+  // Client contract routes are POST. An `api.route()` override with another
+  // method can't be advertised, but the endpoint's own POST route stays live.
+  const clientPath = (key: string, routePath: string) => {
+    const entry = api.manifest()[key];
+    return entry?.method === 'POST' && entry.path ? entry.path : applyBasePath(basePath, routePath);
+  };
   const globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[] = [
     ...((config.middlewares ?? []) as ServeMiddleware<any, any, TContext, TAuth>[]),
   ];
@@ -255,10 +270,32 @@ export const createAPI = <
       const metricEndpoint = createMetricEndpoint(name, entry, analytics, builderFactory, relatedPolicies);
       const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
       const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
+      const { metric, maxLimit } = resolveMetricEntry(entry);
+      const clientEndpoint = createClientEndpointBinding(clientMountPath, () => {
+        // A fixed grain always returns a period, which the contract cannot say.
+        if (metric.__type === 'grained_metric_ref') return undefined;
+        // Rows carry the value under the metric's name and React keys the hook
+        // by the entry's key; as in Python's create_api, the two are one name.
+        if (metric.name !== name) {
+          throw new Error(
+            `Client export: metrics entry "${name}" serves metric "${metric.name}". `
+            + `Register it under its own name to export a client contract.`,
+          );
+        }
+        return {
+          dataset: metric.dataset,
+          metric,
+          name,
+          path: clientPath(name, routePath),
+          profile: endpointClientProfile(metric.dataset, maxLimit),
+        };
+      });
+      clientBindings.push(clientEndpoint);
 
       const registeredEndpoint = {
         ...metricEndpoint,
         metadata: { ...metricEndpoint.metadata, path: routePath },
+        clientEndpoint,
       };
 
       (queryEntries as Record<string, any>)[name] = registeredEndpoint;
@@ -290,10 +327,28 @@ export const createAPI = <
       );
       const datasetsPath = config.semanticPaths?.datasets ?? '/datasets';
       const routePath = normalizeRoutePath(`${datasetsPath}/${name}/query`);
+      const { dataset: served, maxLimit } = resolveDatasetEntry(entry);
+      const clientEndpoint = createClientEndpointBinding(clientMountPath, () => {
+        // React keys a dataset hook `dataset:<id>`, and a dataset endpoint's
+        // contract ID is its dataset's name, so the two must agree.
+        if (served.name !== name) {
+          throw new Error(
+            `Client export: datasets entry "${name}" serves dataset "${served.name}". `
+            + `Register it under its own name to export a client contract.`,
+          );
+        }
+        return {
+          dataset: served,
+          path: clientPath(`dataset:${name}`, routePath),
+          profile: endpointClientProfile(served, maxLimit),
+        };
+      });
+      clientBindings.push(clientEndpoint);
 
       const registeredEndpoint = {
         ...datasetEndpoint,
         metadata: { ...datasetEndpoint.metadata, path: routePath },
+        clientEndpoint,
       };
 
       (queryEntries as Record<string, any>)[`dataset:${name}`] = registeredEndpoint;
@@ -367,6 +422,7 @@ export const createAPI = <
     handler,
     basePath,
     cacheObservability,
+    () => exportClientContract(clientBindings, clientMountPath),
   ) as HypeQueryAPI<
     ServeEndpointMap<TQueries, TContext, TAuth>
       & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,

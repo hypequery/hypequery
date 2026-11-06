@@ -1,5 +1,7 @@
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { CacheObservability } from "./cache-observability.js";
+import type { PreparedProtocolClientContract } from "@hypequery/protocol";
+import type { ClientEndpointBinding } from "./semantic/datasets/utils/client-endpoint-binding.js";
 import type {
   DatasetInstance,
   DatasetQueryableDimensions,
@@ -479,6 +481,12 @@ export interface ServeEndpoint<
   requiredRoles?: string[];
   /** Scopes required to access this endpoint. Checked after authentication. */
   requiredScopes?: string[];
+  /**
+   * The client-contract descriptor of a dataset or metric endpoint. A request
+   * carrying `X-Hypequery-Client-Schema` is checked against it before input
+   * validation. Set by `createAPI`; not for hand-written endpoints.
+   */
+  clientEndpoint?: ClientEndpointBinding;
 }
 
 
@@ -774,6 +782,17 @@ export type ServeSemanticEndpointMap<
 // ServeConfig
 // ---------------------------------------------------------------------------
 
+export interface ClientContractConfig {
+  /**
+   * Where the API itself is mounted, such as `/app` for an Express app that
+   * serves it with `app.use('/app', toNodeHandler(api))`: absolute, no
+   * trailing slash. Client contract paths are this, then `basePath`, then the
+   * route. It is trusted configuration, never read from a proxy header, and
+   * part of every endpoint's schema hash.
+   */
+  mountPath?: string;
+}
+
 export interface ServeConfig<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
@@ -838,6 +857,10 @@ export interface ServeConfig<
    */
   queryBuilder?: QueryBuilderFactoryInput;
   basePath?: string;
+  /**
+   * Client contract settings; see `api.clientContract()`.
+   */
+  clientContract?: ClientContractConfig;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
   /** Global tenant configuration applied to all queries (can be overridden per-query) */
@@ -1094,6 +1117,16 @@ export interface HypeQueryAPI<
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
   manifest(): RouteManifest;
+  /**
+   * The build view of this API's semantic client contract (RFC 0018): every
+   * dataset endpoint and measure-backed metric endpoint, with typed fields,
+   * full paths and schema hashes. Write `canonical` to a file and run
+   * `hypequery generate:client` on it to type React hooks in another repo, or
+   * use `hypequery export:client-contract`. Throws when a registered endpoint
+   * cannot be described; metrics with a fixed grain (`metric.by(grain)`) are
+   * not advertised.
+   */
+  clientContract(): PreparedProtocolClientContract;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],
@@ -1180,6 +1213,8 @@ export interface ServeBuilder<
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
   manifest(): RouteManifest;
+  /** The build view of this API's client contract; see {@link HypeQueryAPI.clientContract}. */
+  clientContract(): PreparedProtocolClientContract;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],
