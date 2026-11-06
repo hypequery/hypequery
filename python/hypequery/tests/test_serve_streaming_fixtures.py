@@ -325,3 +325,100 @@ class _Wide(Executor):
                 pass
 
         return _Stream()
+
+
+# --- cleanup races -------------------------------------------------------------
+
+
+def test_a_stream_cancelled_while_opening_closes_only_after_it_opened() -> None:
+    import asyncio
+    import time
+
+    from hypequery.serve.core.work import RequestWork
+    from hypequery.serve.utils.stream_batches import client_batches
+
+    events: list[str] = []
+
+    class SlowStream:
+        def __enter__(self) -> SlowStream:
+            time.sleep(0.2)
+            events.append("entered")
+            return self
+
+        def __iter__(self) -> Iterator[Rows]:
+            return iter(())
+
+        def close(self) -> None:
+            events.append("closed")
+
+    async def run() -> None:
+        work = RequestWork()
+        batches = client_batches(work, object(), lambda client: SlowStream())  # type: ignore[arg-type]
+        opening = asyncio.ensure_future(anext(batches))
+        await asyncio.sleep(0.05)
+        work.cancel()
+        opening.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await opening
+        for _ in range(100):
+            if "closed" in events:
+                break
+            await asyncio.sleep(0.01)
+
+    asyncio.run(run())
+    # Closing first would have found nothing open and left the stream open.
+    assert events == ["entered", "closed"]
+
+
+def test_asgi_closes_a_stream_whose_headers_could_not_be_sent() -> None:
+    import asyncio
+
+    from hypequery.serve.asgi import _write
+    from hypequery.serve.core.messages import ServeResponse
+
+    closed: list[bool] = []
+
+    class Body:
+        def __aiter__(self) -> Any:
+            return self
+
+        async def __anext__(self) -> bytes:
+            raise StopAsyncIteration
+
+        async def aclose(self) -> None:
+            closed.append(True)
+
+    async def send(message: Any) -> None:
+        raise OSError("client gone")
+
+    async def run() -> None:
+        with pytest.raises(OSError, match="client gone"):
+            await _write(ServeResponse.streamed(Body(), "application/x-ndjson"), send)
+
+    asyncio.run(run())
+    assert closed == [True]
+
+
+def test_closing_a_streamed_body_before_reading_ends_its_query() -> None:
+    import asyncio
+    from collections.abc import AsyncGenerator
+
+    from hypequery.serve.core.endpoints import _Prefixed
+
+    ended: list[bool] = []
+
+    async def body() -> AsyncGenerator[bytes, None]:
+        try:
+            yield b"start"
+            yield b"rows"
+        finally:
+            ended.append(True)
+
+    async def run() -> None:
+        rest = body()
+        first = await anext(rest)
+        # A host that never iterates still closes the response.
+        await _Prefixed(first, rest).aclose()
+
+    asyncio.run(run())
+    assert ended == [True]

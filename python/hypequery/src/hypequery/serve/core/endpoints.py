@@ -237,7 +237,7 @@ class DatasetEndpointCore:
         body = self._stream_body(call, query, stream_format, include_meta)
         first = await anext(body)
         media = NDJSON_MEDIA_TYPE if stream_format == "ndjson" else ARROW_STREAM_MEDIA_TYPE
-        return ServeResponse.streamed(_prefixed(first, body), media)
+        return ServeResponse.streamed(_Prefixed(first, body), media)
 
     async def _stream_body(
         self, call: Call, query: DatasetQuery, stream_format: StreamFormat, include_meta: bool
@@ -529,12 +529,26 @@ def _query_handler(endpoint: DatasetEndpointCore) -> Handler:
     return metric_query
 
 
-async def _prefixed(first: bytes, rest: AsyncGenerator[bytes, None]) -> AsyncGenerator[bytes, None]:
-    """*first*, already read, then the rest of *rest*; closing it closes *rest*."""
+class _Prefixed:
+    """*first*, already read, then the rest of *rest*.
 
-    try:
-        yield first
-        async for chunk in rest:
-            yield chunk
-    finally:
-        await rest.aclose()
+    Closing it always closes *rest*, which has started: an unstarted async
+    generator's ``aclose`` would skip the ``finally`` that ends the query.
+    """
+
+    def __init__(self, first: bytes, rest: AsyncGenerator[bytes, None]) -> None:
+        self._first: bytes | None = first
+        self._rest = rest
+
+    def __aiter__(self) -> _Prefixed:
+        return self
+
+    async def __anext__(self) -> bytes:
+        if self._first is not None:
+            first, self._first = self._first, None
+            return first
+        return await anext(self._rest)
+
+    async def aclose(self) -> None:
+        self._first = None
+        await self._rest.aclose()

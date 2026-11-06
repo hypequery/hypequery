@@ -31,14 +31,41 @@ async def client_batches(
                 yield batch
         return
     stream = await run_sync(work, open_stream, client)
+    # The worker call in flight, if any. A cancelled caller stops waiting for
+    # it, but the stream may only close once it has returned: closing while it
+    # still runs could miss the response it is about to open.
+    pending: asyncio.Task[Any] | None = None
+
+    async def call(function: Callable[..., Any], *args: Any) -> Any:
+        nonlocal pending
+        pending = work.start_sync(function, *args)
+        return await asyncio.shield(pending)
+
     try:
-        await run_sync(work, stream.__enter__)
+        await call(stream.__enter__)
         yield stream
         batches = iter(stream)
-        while (batch := await run_sync(work, next, batches, _END)) is not _END:
+        while (batch := await call(next, batches, _END)) is not _END:
             yield batch
     finally:
-        # A cancelled request's work starts no new task but cleanup, and a
-        # stream must always close: it holds a response, or chDB's connection.
-        closing = work.start_cleanup(stream.close)
-        await asyncio.shield(closing if closing is not None else asyncio.to_thread(stream.close))
+        closing = asyncio.ensure_future(_close_after(work, stream, pending))
+        _CLOSING.add(closing)
+        closing.add_done_callback(_CLOSING.discard)
+        await asyncio.shield(closing)
+
+
+#: Closes still running, kept referenced until they finish.
+_CLOSING: set[asyncio.Task[None]] = set()
+
+
+async def _close_after(work: RequestWork, stream: Any, pending: asyncio.Task[Any] | None) -> None:
+    """Close *stream* once *pending* has returned, whatever it returned.
+
+    A cancelled request's work starts no new task but cleanup, and a stream
+    must always close: it holds a response, or chDB's connection.
+    """
+
+    if pending is not None and not pending.done():
+        await asyncio.wait((pending,))
+    closing = work.start_cleanup(stream.close)
+    await (closing if closing is not None else asyncio.to_thread(stream.close))

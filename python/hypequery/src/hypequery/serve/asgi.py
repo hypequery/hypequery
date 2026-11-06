@@ -160,13 +160,15 @@ async def _write(response: ServeResponse, send: Send) -> None:
         (name.encode("latin-1"), value.encode("latin-1"))
         for name, value in response_headers(response)
     ]
-    await send({"type": "http.response.start", "status": response.status, "headers": headers})
     if response.stream is None:
+        await send({"type": "http.response.start", "status": response.status, "headers": headers})
         await send({"type": "http.response.body", "body": response_body(response)})
         return
-    # A streamed body goes out chunk by chunk. Closing the stream (a caller
-    # who has gone, a deadline) stops the query behind it.
+    # A streamed body goes out chunk by chunk, its query already open. Closing
+    # it (a caller who has gone, a deadline, even before the headers went out)
+    # stops that query.
     try:
+        await send({"type": "http.response.start", "status": response.status, "headers": headers})
         async for chunk in response.stream:
             await send({"type": "http.response.body", "body": chunk, "more_body": True})
         await send({"type": "http.response.body", "body": b""})

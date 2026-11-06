@@ -10,8 +10,8 @@ through the core's body policy.
 from __future__ import annotations
 
 from collections.abc import (
-    AsyncGenerator,
     AsyncIterable,
+    AsyncIterator,
     Awaitable,
     Callable,
     Iterable,
@@ -19,7 +19,7 @@ from collections.abc import (
     Mapping,
 )
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, Protocol
 
 from .utils.json_body import render_json
 
@@ -132,6 +132,18 @@ class ServeRequest:
             raise TypeError("ServeRequest.scheme must be a string")
 
 
+class ResponseStream(Protocol):
+    """A streamed response body: chunks as they are produced, and a close.
+
+    A host must call ``aclose`` however the write ends, even before the first
+    chunk: closing stops the query behind the stream.
+    """
+
+    def __aiter__(self) -> AsyncIterator[bytes]: ...
+
+    async def aclose(self) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ServeResponse:
     """A status, lowercase headers, and the encoded body.
@@ -144,12 +156,12 @@ class ServeResponse:
     status: int
     headers: Mapping[str, str] = field(default_factory=dict)
     body: bytes = b""
-    stream: AsyncGenerator[bytes, None] | None = None
+    stream: ResponseStream | None = None
 
     @classmethod
     def streamed(
         cls,
-        stream: AsyncGenerator[bytes, None],
+        stream: ResponseStream,
         content_type: str,
         *,
         status: int = 200,
