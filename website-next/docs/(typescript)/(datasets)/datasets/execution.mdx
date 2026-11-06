@@ -216,7 +216,19 @@ await pipeline(
 ```
 </CodeBlock>
 
-Streams run the same query `execute` would: the same validation, tenant filter and row types, and the same `limits.maxResultSize` ceiling. When the ceiling bounds a query that set no `limit`, `meta.resultLimit` says so before the first row arrives. Streams never read or fill the result cache, and they report no pagination.
+Streams run the same query `execute` would: the same validation, tenant filter and row types. Their row ceiling is the dataset's `limits.maxResultSize`, unless it declares `limits.maxStreamRows`: streams keep memory flat, so an export can be allowed far more rows than a page or an agent. When the ceiling bounds a query that set no `limit`, `meta.resultLimit` says so before the first row arrives. Streams never read or fill the result cache, and they report no pagination.
+
+<CodeBlock>
+```typescript
+const Exports = dataset('orders_export', {
+  source: 'orders',
+  dimensions: { country: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  // Pages and agents get 1,000 rows; streams up to 5 million.
+  limits: { maxResultSize: 1_000, maxStreamRows: 5_000_000 },
+});
+```
+</CodeBlock>
 
 `streamArrow` returns the result as Arrow IPC stream bytes instead of rows. Columns keep their ClickHouse types, so measures are not converted to strings, and wide integers and decimals stay exact. Decode the bytes with any Arrow library, or pass them on unchanged, for example as an HTTP response body:
 

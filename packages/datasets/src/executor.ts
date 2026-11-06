@@ -25,6 +25,7 @@ import { hasSelectedDerivedMeasure } from './utils/dataset-derived-query.js';
 import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
 import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
 import { semanticStreamMeta, serializeMeasureBatches } from './utils/semantic-stream.js';
+import { datasetForStream, metricForStream } from './utils/stream-ceiling.js';
 import { resolveDatasetCacheRuntime, type ClientCacheDefaults } from './utils/dataset-cache-policy.js';
 import {
   SemanticQueryCache,
@@ -428,7 +429,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
    * rejects rather than producing a stream that fails on its first read.
    */
   private async openStream(
-    target: SemanticTarget,
+    requested: SemanticTarget,
     input: DatasetQuery | MetricQuery,
     inputContext: ExecutionContext | undefined,
     format: 'rows' | 'arrow',
@@ -438,6 +439,14 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     }
     const query = this.withTimezone(structuredClone(input));
     const context = snapshotExecutionContext(inputContext);
+    // Streams answer to `limits.maxStreamRows` where the dataset declares one.
+    let target: SemanticTarget;
+    if (isDatasetInstance(requested)) {
+      target = datasetForStream(requested);
+    } else {
+      assertMetricHandle(requested);
+      target = metricForStream(requested);
+    }
 
     if (isDatasetInstance(target)) {
       const validation = this.validate(target, query as DatasetQuery, context);

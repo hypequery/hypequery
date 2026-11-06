@@ -589,6 +589,15 @@ export interface DatasetLimits {
    * that requests more is capped and says so in `meta.resultLimit`.
    */
   maxResultSize?: number;
+  /**
+   * Ceiling on the rows one stream (`stream()`, `streamArrow()`, or a
+   * streaming serve endpoint) may return, in place of `maxResultSize`. Streams
+   * keep memory flat, so an export can be allowed far more rows than a page or
+   * an agent; this raises that ceiling for streams alone. Defaults to
+   * `maxResultSize`, so streams get no more than pages unless the dataset says
+   * so. Bounded streams report it in `meta.resultLimit.maxResultSize`.
+   */
+  maxStreamRows?: number;
 }
 
 /**
