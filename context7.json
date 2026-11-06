@@ -1,0 +1,23 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "folders": ["website-next/docs", "skills"],
+  "excludeFolders": ["node_modules"],
+  "excludeFiles": [
+    "AGENTS.md",
+    "BRANCH_SUMMARY.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "release-commands.md",
+    "SECURITY.md",
+    "security_best_practices_report.md"
+  ],
+  "rules": [
+    "Build dataset clients with createDatasetClient({ queryBuilder }) from @hypequery/datasets, passing a builder from createQueryBuilder in @hypequery/clickhouse. The createBackend / plan-backend path is deprecated and frozen; do not use it in new code.",
+    "Pass the tenant from trusted server-side context (runtime: { tenant }), never from request input. Datasets with a tenantKey reject queries without one.",
+    "Scaffold datasets from the live ClickHouse schema (TypeScript: npx hypequery generate:datasets; Python: hypequery generate datasets), then rename fields to product language, remove meaningless measures and add descriptions.",
+    "ReplacingMergeTree and CollapsingMergeTree sources need row resolution (FINAL) or measures double count.",
+    "Measure values can be returned as strings to keep decimals exact; convert them before doing arithmetic.",
+    "When querying through hypequery MCP tools, do not write SQL: call list_datasets, then get_dataset_schema, then query_dataset or query_metric with the dimensions, measures and filters the schema lists."
+  ]
+}
