@@ -24,6 +24,7 @@ import type {
 } from '@hypequery/datasets';
 import { buildDatasetInputSchema } from '@hypequery/datasets/schemas';
 import type { DatasetQuery } from '@hypequery/datasets/internal';
+import { datasetForStream } from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
@@ -146,7 +147,12 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     };
     assertRelatedDatasetAccess(ds, query, ctx.auth ?? null, relatedPolicies);
     const validationContext = runtime ? { runtime } : undefined;
-    const validation = analytics.validate(ds, query, validationContext);
+    // A stream is validated against the dataset's stream ceiling (maxStreamRows).
+    const validation = analytics.validate(
+      streamFormat ? datasetForStream(ds) : ds,
+      query,
+      validationContext,
+    );
     if (!validation.valid) {
       throw new ServeHttpError(
         400,

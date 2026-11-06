@@ -151,7 +151,8 @@ export const api = serve({
 ## Stream large results
 
 A dataset endpoint can stream its result for exports and other large reads. Opt the entry in with `stream`; `maxRows`
-caps one streamed response, defaults to `maxLimit`, and may not exceed the dataset's `limits.maxResultSize`:
+caps one streamed response, defaults to `maxLimit`, and may not exceed the dataset's stream ceiling,
+`limits.maxStreamRows` (else `limits.maxResultSize`):
 
 <CodeBlock>
 ```typescript

@@ -134,6 +134,50 @@ describe('shared streaming HTTP fixtures (streaming-v1)', () => {
     }
   });
 
+  it('allows a stream cap up to the dataset\'s maxStreamRows', () => {
+    const orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { country: dimension.string() },
+      measures: { total: measure.count('id') },
+      limits: { maxResultSize: 10, maxStreamRows: 1000 },
+    });
+    const api = (maxRows: number) => createAPI({
+      basePath: '',
+      datasets: { orders: { dataset: orders, stream: { maxRows } } },
+      queryBuilder: semanticFixtureBuilder([]),
+    });
+    expect(() => api(1000)).not.toThrow();
+    expect(() => api(1001)).toThrow('stream.maxRows (1001) exceeds the dataset\'s limits.maxStreamRows (1000)');
+  });
+
+  it('streams past maxResultSize up to maxStreamRows, while pages keep maxResultSize', async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ country: `C${i}`, total: i }));
+    const orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { country: dimension.string() },
+      measures: { total: measure.count('id') },
+      limits: { maxResultSize: 10, maxStreamRows: 25 },
+    });
+    const api = createAPI({
+      basePath: '',
+      datasets: { orders: { dataset: orders, stream: { maxRows: 25 } } },
+      queryBuilder: semanticFixtureBuilder(rows, { batchSize: 10 }),
+    });
+    const post = (accept?: string, limit?: number) => api.handler({
+      method: 'POST', path: '/datasets/orders/query', query: {},
+      headers: { 'content-type': 'application/json', ...(accept ? { accept } : {}) },
+      body: { dimensions: ['country'], ...(limit === undefined ? {} : { limit }) },
+    });
+
+    const streamed = await post('application/x-ndjson', 20);
+    expect(streamed.status).toBe(200);
+    const text = await new Response((streamed.body as { stream: ReadableStream<Uint8Array> }).stream).text();
+    expect(JSON.parse(text.trimEnd().split('\n').at(-1)!)).toEqual({ type: 'end', rowCount: 20 });
+
+    const page = await post(undefined, 20);
+    expect((page.body as { data: unknown[] }).data).toHaveLength(10);
+  });
+
   it('refuses a stream cap above the dataset ceiling at startup', () => {
     const orders = dataset('orders', {
       source: 'orders',

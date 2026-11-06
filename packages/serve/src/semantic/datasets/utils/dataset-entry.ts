@@ -29,7 +29,8 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
        * frames) or `Accept: application/vnd.apache.arrow.stream` (an Arrow IPC
        * stream); without this option those requests get a JSON page. `maxRows`
        * caps one streamed response and defaults to `maxLimit`; it may not exceed
-       * the dataset's `limits.maxResultSize`.
+       * the dataset's stream ceiling, `limits.maxStreamRows` (else
+       * `limits.maxResultSize`).
        */
       stream?: boolean | { maxRows?: number };
     };
@@ -77,7 +78,7 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
 
 /**
  * The row cap of a streaming endpoint, or `undefined` when it does not stream.
- * A cap above the dataset's own ceiling is refused here rather than failing
+ * A cap above the dataset's stream ceiling is refused here rather than failing
  * every request's validation.
  */
 export function resolveStreamMaxRows(
@@ -91,10 +92,12 @@ export function resolveStreamMaxRows(
   if (!Number.isInteger(maxRows) || maxRows < 1) {
     throw new Error(`Dataset endpoint "${name}": stream.maxRows must be a positive integer.`);
   }
-  const ceiling = dataset.limits?.maxResultSize;
+  const limits = dataset.limits;
+  const ceiling = limits?.maxStreamRows ?? limits?.maxResultSize;
   if (ceiling !== undefined && maxRows > ceiling) {
+    const source = limits?.maxStreamRows !== undefined ? 'maxStreamRows' : 'maxResultSize';
     throw new Error(
-      `Dataset endpoint "${name}": stream.maxRows (${maxRows}) exceeds the dataset's limits.maxResultSize (${ceiling}).`,
+      `Dataset endpoint "${name}": stream.maxRows (${maxRows}) exceeds the dataset's limits.${source} (${ceiling}).`,
     );
   }
   return maxRows;
