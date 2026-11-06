@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import copy
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
+from importlib.util import find_spec
 from typing import Self, cast
 
 from pydantic import BaseModel, TypeAdapter
@@ -29,7 +30,7 @@ from ..models import (
     QueryResponse,
 )
 from ..utils.metric_alias import MetricAlias
-from ..utils.query_response import public_response
+from ..utils.query_response import public_response, public_rows
 from ..utils.query_schema import endpoint_query_model
 from ..utils.related_fields import (
     checked_related,
@@ -37,6 +38,14 @@ from ..utils.related_fields import (
     refuse_unlisted_related,
     refuse_unservable_metric,
 )
+from ..utils.stream_batches import client_batches
+from ..utils.stream_format import (
+    ARROW_STREAM_MEDIA_TYPE,
+    NDJSON_MEDIA_TYPE,
+    StreamFormat,
+    requested_stream_format,
+)
+from ..utils.stream_frames import QUERY_FAILED, ArrowIpcEncoder, error_frame, frame
 from .api import Api, Call, Handler, Route
 from .auth import Principal, RequestAuth
 from .client_contract import ClientEndpointBinding
@@ -45,6 +54,7 @@ from .lifetime import RequestLifetime
 from .messages import ServeRequest, ServeResponse
 from .policy import DEFAULT_ENDPOINT_POLICY, EndpointPolicy
 from .production import ProductionProfile
+from .production_limits import TOO_LARGE
 from .rate_limit import RateLimit
 from .state import RequestState
 from .work import run_sync
@@ -118,6 +128,21 @@ class DatasetEndpointCore:
                 # Its client contract could not express the time range it needs.
                 raise ValueError(f"metric measure {measure!r}: {CLIENT_TIME_MEASURE_REFUSAL}")
         self._default_measures = default_measures(dataset, self.include_related)
+        limits = dataset.limits
+        ceiling_name = "max_stream_rows"
+        ceiling = limits.max_stream_rows if limits else None
+        if ceiling is None:
+            ceiling_name = "max_result_size"
+            ceiling = limits.max_result_size if limits else None
+        if (
+            policy.stream_max_rows is not None
+            and ceiling is not None
+            and policy.stream_max_rows > ceiling
+        ):
+            raise ValueError(
+                f"stream_max_rows ({policy.stream_max_rows}) exceeds the dataset's "
+                f"{ceiling_name} ({ceiling})"
+            )
 
     def renamed(self, name: str) -> Self:
         """This metric endpoint under *name*, its client ID and output alias."""
@@ -168,9 +193,154 @@ class DatasetEndpointCore:
         return response
 
     async def respond(self, call: Call, payload: QueryRequest) -> ServeResponse:
+        stream_format = self._stream_format(call.request)
+        if stream_format is not None:
+            return await self._stream(call, payload, stream_format)
         response = await self.query(call.request, call.state, call.auth, payload)
         validated = _RESPONSE.validate_python(response, from_attributes=True)
         return ServeResponse.encoded(_RESPONSE.dump_json(validated, exclude_none=True))
+
+    def _stream_format(self, request: ServeRequest) -> StreamFormat | None:
+        """The stream *request* asks for, when this endpoint and its host can send one.
+
+        Metric and strict client endpoints answer with pages; so does every
+        endpoint for a host that cannot write a stream, and an Arrow request
+        when pyarrow is not installed.
+        """
+
+        if (
+            self.policy.stream_max_rows is None
+            or self.measure is not None
+            or self.client_profile is not None
+            or not request.streaming
+        ):
+            return None
+        found = requested_stream_format(request.headers.get("accept"))
+        if found == "arrow" and find_spec("pyarrow") is None:
+            return None
+        return found
+
+    async def _stream(
+        self, call: Call, payload: QueryRequest, stream_format: StreamFormat
+    ) -> ServeResponse:
+        """Answer with the query's result as it arrives.
+
+        The first chunk is read before answering, so a query that fails to
+        start is an ordinary error response with its status.
+        """
+
+        self.policy.authorize(call.auth)
+        profile = call.state.production
+        cap = self.policy.stream_max_rows or self.policy.max_limit
+        if profile is not None:
+            cap = min(cap, profile.max_result_rows)
+        query = payload.semantic(min(payload.limit if payload.limit is not None else cap, cap))
+        if query.measures is None and self._default_measures is not None:
+            query = query.model_copy(update={"measures": self._default_measures})
+        refuse_unlisted_related(self.dataset, query, self.include_related)
+        include_meta = payload.include_meta or call.request.headers.get("x-include-meta") == "true"
+        body = self._stream_body(call, query, stream_format, include_meta)
+        first = await anext(body)
+        media = NDJSON_MEDIA_TYPE if stream_format == "ndjson" else ARROW_STREAM_MEDIA_TYPE
+        return ServeResponse.streamed(_Prefixed(first, body), media)
+
+    async def _stream_body(
+        self, call: Call, query: DatasetQuery, stream_format: StreamFormat, include_meta: bool
+    ) -> AsyncGenerator[bytes, None]:
+        request, state, auth = call.request, call.state, call.auth
+        profile = state.production
+        budget = profile.max_result_bytes if profile else None
+        measures = selected_measure_names(self.dataset, query)
+        started = time.perf_counter()
+        sent = 0
+        rows = 0
+        answering = False
+        failure: BaseException | None = None
+        completed = False
+        async with RequestLifetime(request, state.work) as lifetime:
+            context = ExecutionContext(
+                tenant=auth.tenant if auth else None,
+                correlation_id=state.request_id,
+                cancellation=lifetime.cancellation,
+                deadline=Deadline.after(profile.timeout_seconds) if profile else None,
+                settings=profile.query_settings() if profile else None,
+            )
+            open_name = "stream" if stream_format == "ndjson" else "stream_arrow"
+            batches = client_batches(
+                state.work,
+                self.client,
+                lambda client: getattr(client, open_name)(self.dataset, query, context=context),
+            )
+            try:
+                stream = await anext(batches)
+                encoder = ArrowIpcEncoder(stream.schema) if stream_format == "arrow" else None
+                start = (
+                    encoder.start()
+                    if encoder is not None
+                    else frame(
+                        {"type": "start", "meta": {"requestId": state.request_id}}
+                        if include_meta
+                        else {"type": "start"}
+                    )
+                )
+                answering = True
+                sent += len(start)
+                yield start
+                async for batch in batches:
+                    if encoder is not None:
+                        chunk = encoder.batch(batch)
+                        count = batch.num_rows
+                    elif batch:
+                        chunk = frame({"type": "rows", "data": public_rows(batch, measures)})
+                        count = len(batch)
+                    else:
+                        continue
+                    if budget is not None and sent + len(chunk) > budget:
+                        raise CompiledQueryError("too-large", TOO_LARGE)
+                    rows += count
+                    sent += len(chunk)
+                    yield chunk
+                final = (
+                    encoder.end()
+                    if encoder is not None
+                    else frame({"type": "end", "rowCount": rows})
+                )
+                # The closing frame counts too: a body over the ceiling never succeeds.
+                if budget is not None and sent + len(final) > budget:
+                    raise CompiledQueryError("too-large", TOO_LARGE)
+                yield final
+                completed = True
+            except (Exception, asyncio.CancelledError) as exc:
+                failure = exc
+                state.work.cancel()
+                # Before the first byte, the request fails with its status; an
+                # Arrow stream breaks off; NDJSON ends with an error frame.
+                if not answering or encoder is not None or not isinstance(exc, Exception):
+                    raise
+                # Over the byte ceiling, or over the server's own result limits.
+                if isinstance(exc, CompiledQueryError) and exc.category == "too-large":
+                    yield error_frame("PAYLOAD_TOO_LARGE", TOO_LARGE)
+                else:
+                    yield error_frame("QUERY_FAILURE", QUERY_FAILED)
+            finally:
+                await batches.aclose()
+                if failure is None and not completed:
+                    # Closed before its last frame went out (the host could not
+                    # write it, the caller left): the caller has part of a result.
+                    failure = CompiledQueryError(
+                        "aborted", "The response was interrupted before it ended."
+                    )
+                if self.events:
+                    if failure is not None:
+                        await self._emit_failure(state, self.events, failure, started)
+                    else:
+                        await run_sync(
+                            state.work,
+                            self.events.emit,
+                            self.name,
+                            (time.perf_counter() - started) * 1000,
+                            row_count=rows,
+                        )
 
     def _effective_limit(self, payload: QueryRequest, profile: ProductionProfile | None) -> int:
         """The caller's limit, held under the policy, process and dataset ceilings.
@@ -374,3 +544,28 @@ def _query_handler(endpoint: DatasetEndpointCore) -> Handler:
         return await endpoint.respond(call, payload)
 
     return metric_query
+
+
+class _Prefixed:
+    """*first*, already read, then the rest of *rest*.
+
+    Closing it always closes *rest*, which has started: an unstarted async
+    generator's ``aclose`` would skip the ``finally`` that ends the query.
+    """
+
+    def __init__(self, first: bytes, rest: AsyncGenerator[bytes, None]) -> None:
+        self._first: bytes | None = first
+        self._rest = rest
+
+    def __aiter__(self) -> _Prefixed:
+        return self
+
+    async def __anext__(self) -> bytes:
+        if self._first is not None:
+            first, self._first = self._first, None
+            return first
+        return await anext(self._rest)
+
+    async def aclose(self) -> None:
+        self._first = None
+        await self._rest.aclose()

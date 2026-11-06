@@ -97,6 +97,34 @@ create_dataset_endpoint(dataset=orders, client=client, policy=policy, include_re
 Page sizes default to 1,000 and are clamped to the endpoint's `max_limit` and the dataset's limits. The endpoint
 fetches one extra row to compute `hasMore`, then drops it from the returned data and row count.
 
+## Streaming
+
+An endpoint can stream its result for exports and other large reads. Set `stream_max_rows` on its policy; it caps one
+streamed response and may not exceed the dataset's `max_stream_rows` (else its `max_result_size`), so an export can
+return more rows than the same endpoint's pages:
+
+<CodeBlock>
+```python
+policy = EndpointPolicy(tenant="required", max_limit=500, stream_max_rows=1_000_000)
+add_dataset_endpoint(api, "/orders/query", dataset=orders, client=analytics, policy=policy)
+```
+</CodeBlock>
+
+A request asks for a stream with `Accept`. `application/x-ndjson` returns one JSON frame per line: `start` (with
+`meta` when the request sets `includeMeta`), one `rows` frame per batch holding the rows a page would, and a final
+`end` frame with the `rowCount`. `application/vnd.apache.arrow.stream` returns an Arrow IPC stream with ClickHouse's
+native column types, and needs `hypequery[arrow]`. The frames are the same as TypeScript serve's.
+
+Streams keep the endpoint's authentication, roles, tenant scope and validation, and are never cached. Failures before
+the first row are ordinary JSON errors with their status. A query that fails after the response began ends an NDJSON
+stream with an `error` frame instead of `end`, and breaks an Arrow stream off before its end-of-stream marker.
+
+Streaming needs a host that writes a response as it is produced: `to_asgi_app` (uvicorn, a FastAPI or Starlette mount,
+Django's ASGI handler). Under WSGI, the Django views and Flask, a stream request gets the usual JSON page. With a
+`ProductionProfile`, a stream holds its admission slot until it ends, its whole run counts against `timeout_seconds`,
+`max_result_rows` caps its rows, and once it would pass `max_result_bytes` it ends with a `PAYLOAD_TOO_LARGE` error
+frame. Metric endpoints and strict client endpoints answer with pages.
+
 ## Discovery
 
 `create_api` serves `GET /discovery` whenever it serves `datasets=` or `metrics=`: a logical catalog of their
