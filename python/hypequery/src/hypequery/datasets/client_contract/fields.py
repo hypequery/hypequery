@@ -13,6 +13,7 @@ from ..utils.definition_projection import filter_operators
 from ..utils.measure_references import measure_stays_within
 from ..utils.relationship_fields import list_queryable_relationship_fields
 from ..utils.relationship_measures import list_relationship_measures
+from ..utils.time_measure_catalog import uses_time_measure
 
 
 def dimension_descriptor(dimension: Dimension, *, related: bool = False) -> ClientDimension:
@@ -71,10 +72,14 @@ def public_fields(
 ) -> tuple[dict[str, ClientDimension], dict[str, ClientMeasure], dict[str, ClientFilter]]:
     """The fields an endpoint advertises; *related* limits which relationships appear."""
     dimensions = {name: dimension_descriptor(d) for name, d in dataset.dimensions.items()}
+    # Window and shift measures need a bounded time range the client query
+    # profile cannot express, so endpoints do not advertise them.
     measures = {
         name: measure_descriptor(dataset, m)
         for name, m in dataset.measures.items()
-        if measure_stays_within(dataset, name, related)
+        if isinstance(m, Measure | DerivedMeasure)
+        and not uses_time_measure(dataset.measures, name)
+        and measure_stays_within(dataset, name, related)
     }
     filters: dict[str, ClientFilter] = {}
     related_filters: dict[str, ClientFilter] = {}

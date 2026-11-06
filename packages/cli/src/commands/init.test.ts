@@ -162,6 +162,17 @@ describe('init command - graceful failure handling', () => {
       expect(detectDb.validateConnection).toHaveBeenCalledTimes(2);
     });
 
+    it('offers a retry when listing tables fails after the connection check passes', async () => {
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({ host: 'PRIVATE_HOST', database: 'PRIVATE_DATABASE', username: 'PRIVATE_USER', password: 'PRIVATE_PASSWORD' });
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockRejectedValueOnce(new Error('Not enough privileges'));
+      vi.mocked(prompts.promptRetry).mockResolvedValueOnce(true);
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+      expect(await run()).toMatchObject({ stage_reached: 'completed', connection_result: 'ok', outcome: 'success' });
+      expect(prompts.promptRetry).toHaveBeenCalledTimes(1);
+      expect(detectDb.validateConnection).toHaveBeenCalledTimes(2);
+    });
+
     it('buckets dataset counts and preserves context auth and table-selection choices', async () => {
       vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
       expect(await run({ database: 'chdb', noInteractive: true, style: 'datasets', auth: 'context', tables: 'PRIVATE_TABLE' })).toMatchObject({

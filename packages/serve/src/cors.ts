@@ -1,7 +1,8 @@
 import type { CorsConfig, ServeRequest, ServeResponse } from './types.js';
 
 const DEFAULT_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-const DEFAULT_ALLOWED_HEADERS = ['Content-Type', 'Authorization', 'X-Request-ID'];
+// Generated clients pin each endpoint's schema with X-Hypequery-Client-Schema (RFC 0018).
+const DEFAULT_ALLOWED_HEADERS = ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Hypequery-Client-Schema'];
 const DEFAULT_MAX_AGE = 86400; // 24 hours
 
 export interface ResolvedCorsConfig {

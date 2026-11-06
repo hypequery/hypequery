@@ -24,7 +24,7 @@ from hypequery.cli.utils.templates import load_templates
 from hypequery.datasets import (
     Dataset,
     DatasetQuery,
-    DerivedMeasure,
+    Measure,
     build_protocol_deployment_contract,
     create_dataset_registry,
     plan_dataset_query,
@@ -131,7 +131,7 @@ def test_nullable_count_is_named_honestly_and_scaffold_query_uses_it(tmp_path: P
     model = _load(generated.source, tmp_path)["events"]
     assert "totalCount" not in model.measures
     total = model.measures["nonNullCount"]
-    assert not isinstance(total, DerivedMeasure)
+    assert isinstance(total, Measure)
     assert total.field == "userId"
     assert total.sql is None
     assert total.label == "Non-null Count"

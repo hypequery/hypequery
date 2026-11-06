@@ -335,7 +335,7 @@ export interface AnalyticsTokenIssuerOptions {
   algorithm?: "HS256" | "HS384" | "HS512";
 }
 
-export type AnalyticsTokenClaims = Pick<AuthContext, "tenantId" | "roles"> & {
+export type AnalyticsTokenClaims = Pick<AuthContext, "tenantId" | "roles" | "scopes"> & {
   userId: string;
 };
 
@@ -344,9 +344,15 @@ export const createAnalyticsTokenIssuer = (options: AnalyticsTokenIssuerOptions)
   const algorithm = options.algorithm ?? "HS256";
 
   return async (claims: AnalyticsTokenClaims) => {
+    // Scopes travel as the standard space-delimited `scope` claim, which
+    // createJwtStrategy maps back to `scopes`.
+    if (claims.scopes?.some((scope) => /\s/.test(scope))) {
+      throw new Error("createAnalyticsTokenIssuer: scopes cannot contain whitespace.");
+    }
     let jwt = new SignJWT({
       ...(claims.tenantId ? { org_id: claims.tenantId } : {}),
       ...(claims.roles ? { roles: claims.roles } : {}),
+      ...(claims.scopes?.length ? { scope: claims.scopes.join(" ") } : {}),
     })
       .setProtectedHeader({ alg: algorithm })
       .setSubject(claims.userId)

@@ -21,7 +21,7 @@ import type {
   MaybePromise,
   ServeSchema,
 } from './types.js';
-import { warnTenantMisconfiguration } from './tenant.js';
+import { resolveTenantMode, warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
 import { generateRequestId, validateCorrelationId } from './utils.js';
 import { withNoStoreErrorHeaders } from './utils/error-headers.js';
@@ -29,6 +29,8 @@ import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
 import { ServeHttpError } from './errors.js';
+import { checkClientSchema } from './utils/client-schema-precondition.js';
+import { clientResponse } from './semantic/datasets/utils/client-response-meta.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
@@ -504,7 +506,7 @@ export const executeEndpoint = async <
 
       if (tenantId) {
         context.tenantId = tenantId;
-        const mode = activeTenantConfig.mode ?? 'manual';
+        const mode = resolveTenantMode(activeTenantConfig);
         const column = activeTenantConfig.column;
         applySemanticTenantRuntime(context as Record<string, unknown> & { tenantId?: string }, {
           queryKey: endpoint.key,
@@ -518,12 +520,26 @@ export const executeEndpoint = async <
           queryKey: endpoint.key,
           hasTenantConfig: true,
           hasTenantId: false,
-          mode: activeTenantConfig.mode,
+          mode: resolveTenantMode(activeTenantConfig),
         });
       }
     }
 
-    if (inputCameFromQuery(request)) {
+    // Before input validation: a stale client must learn its schema changed,
+    // not that a field it was generated with no longer validates.
+    const clientSchema = checkClientSchema(endpoint.clientEndpoint, request.headers, context.input);
+    if (clientSchema.kind === 'refused') {
+      return createErrorResponse(
+        clientSchema.status,
+        clientSchema.error.type,
+        clientSchema.error.message,
+        clientSchema.error.details,
+        { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' },
+      );
+    }
+    if (clientSchema.kind === 'pinned') {
+      context.input = clientSchema.input;
+    } else if (inputCameFromQuery(request)) {
       context.input = coerceQueryInput(endpoint.inputSchema, context.input);
     }
 
@@ -549,7 +565,10 @@ export const executeEndpoint = async <
       ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
     ];
 
-    const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    const handled = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    const result = clientSchema.kind === 'pinned'
+      ? clientResponse(handled, requestId, clientSchema.input)
+      : handled;
     const headers = withManagedTraceHeaders(endpoint.defaultHeaders, requestId, correlationId);
     // Authenticated and tenant-aware responses must never be shared by an
     // intermediary cache. Endpoint TTLs only opt public, tenant-independent

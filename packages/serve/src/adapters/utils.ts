@@ -111,6 +111,16 @@ export async function parseRequestBody(
   return await input.arrayBuffer();
 }
 
+const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
+
+/**
+ * Whether an HTTP status forbids a response body. The Fetch `Response`
+ * constructor throws when given any body, even `""`, with these statuses.
+ */
+export function isNullBodyStatus(status: number): boolean {
+  return NULL_BODY_STATUSES.has(status);
+}
+
 /**
  * Serializes response body to string based on content type.
  * Handles JSON serialization and string passthrough.

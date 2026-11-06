@@ -1,66 +1,150 @@
 ---
 title: Python SDK
-description: The hypequery Python SDK for ClickHouse datasets, served over HTTP from any Python framework.
+description: A code-first semantic layer for ClickHouse in Python. Define datasets once, query them by name, and serve them from FastAPI, Django or Flask.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
+Define a ClickHouse dataset once in Python (dimensions, measures, a tenant key), then query it by name instead of
+rewriting the same `GROUP BY` in every endpoint. Requests are validated before any SQL exists, the SQL is
+parameterized, and every query is scoped to the caller's tenant. The same definition serves authenticated HTTP
+endpoints, returns pandas, polars or Arrow, and feeds React hooks and MCP agents.
+
 <Callout type="warn" title="Beta">
   The Python SDK is in beta (0.1.0b3). Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
 
-The Python SDK lets you define a semantic layer over ClickHouse (datasets with dimensions, measures, and
-relationships) and query it from Python, with tenant isolation and result caching built in, then serve it over HTTP
-with an authenticated-by-default API that runs under any ASGI or WSGI server, mounts in FastAPI or Starlette, and is
-served natively from Django and Flask.
-
-The same served endpoints can feed generated, type-safe React hooks (`@hypequery/react`) and AI agents through the
-`hypequery mcp` bridge, so the frontend and agents use the definitions Python owns. See
-[React and MCP clients](/docs/python/client-endpoints).
-
-Python and TypeScript implement the same specifications and run against the same conformance fixtures, so equivalent
-definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language rather than
-line-for-line ports. The Python SDK does not include the TypeScript query builder.
-
 ## Install
-
-Install the SDK with optional extras for each executor and for serving:
 
 <CodeBlock>
 ```bash
-pip install "hypequery==0.1.0b3"
-pip install "hypequery[clickhouse]==0.1.0b3"        # sync ClickHouse executor
-pip install "hypequery[clickhouse-async]==0.1.0b3"  # async ClickHouse executor
-pip install "hypequery[server]==0.1.0b3"            # uvicorn, for hypequery dev and start_server
-pip install "hypequery[jwt]==0.1.0b3"               # JWT authentication
-pip install "hypequery[django]==0.1.0b3"            # Django integration (or [flask])
-pip install "hypequery[pandas]==0.1.0b3"            # typed DataFrames (or [polars], [arrow])
+pip install "hypequery[clickhouse]==0.1.0b3"
 ```
 </CodeBlock>
 
-Python 3.11 or later is required.
+Python 3.11 or later. Add extras as you need them: `server` for the dev runner, `jwt` for token auth, `django` or
+`flask` for native serving, `pandas`, `polars` or `arrow` for DataFrames, `clickhouse-async` for the async executor.
+No ClickHouse server to hand? Install `hypequery[chdb]` and run the same datasets on
+[embedded ClickHouse (chDB)](/docs/python/datasets/chdb), with no server and no credentials.
 
-## Packages
+## Define a dataset and query it
+
+<CodeBlock>
+```python
+from hypequery.datasets import (
+    DatasetQuery,
+    ExecutionContext,
+    create_dataset_client,
+    dataset,
+    dimension,
+    filter,
+    measure,
+    order,
+    tenant,
+)
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+orders = dataset(
+    "orders",
+    source="orders",
+    tenant_key="tenant_id",
+    time_key="created_at",
+    dimensions={
+        "country": dimension.string(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
+    },
+    measures={
+        "revenue": measure.sum("amount"),
+        "orderCount": measure.count("id"),
+    },
+)
+
+analytics = create_dataset_client(
+    executor=create_clickhouse_executor(ClickHouseConnection.from_env()),
+)
+
+result = analytics.execute(
+    orders,
+    DatasetQuery(
+        dimensions=("country",),
+        measures=("revenue", "orderCount"),
+        filters=(filter.eq("status", "paid"),),
+        order_by=(order.desc("revenue"),),
+        limit=10,
+    ),
+    context=ExecutionContext(tenant=tenant("org_123")),
+)
+print(result.data)
+```
+</CodeBlock>
+
+`ClickHouseConnection.from_env()` reads `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_DATABASE`,
+`CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` and `CLICKHOUSE_SECURE` (set it to `true` for TLS, as ClickHouse Cloud
+needs), or a single `CLICKHOUSE_URL`. Already have tables?
+[`hypequery init`](/docs/python/cli) introspects your schema and writes the dataset definitions for you.
+
+## Serve it over HTTP
+
+The API is plain ASGI, so it mounts in FastAPI, Starlette or any ASGI app, and is served natively from Django and
+Flask. Every endpoint authenticates before reading the body and takes the tenant from the caller.
+
+<CodeBlock>
+```bash
+pip install "hypequery[clickhouse,jwt]==0.1.0b3" fastapi uvicorn
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+from fastapi import FastAPI
+from hypequery.serve import HttpSecurity, create_api, jwt_strategy, to_asgi_app
+
+api = create_api(
+    auth=jwt_strategy(
+        jwks_url="https://example.auth0.com/.well-known/jwks.json",
+        issuer="https://example.auth0.com/",
+        audience="https://api.example.com",
+    ),
+    client=analytics,
+    datasets={"orders": orders},
+    security=HttpSecurity(allowed_hosts=("api.example.com",)),
+)
+
+app = FastAPI()
+app.mount("/analytics", to_asgi_app(api))
+```
+</CodeBlock>
+
+`POST /analytics/datasets/orders/query` now runs the same validated, tenant-scoped query as the Python call above.
+The same endpoints feed generated, type-safe React hooks and a governed MCP server that gives agents named metrics
+instead of raw SQL. See [React and MCP clients](/docs/python/client-endpoints).
+
+## Where next
+
+- [Quick start](/docs/python/quick-start): the full walkthrough, from generated datasets to calculated measures.
+- [Python CLI](/docs/python/cli): guided setup from your ClickHouse schema, with a standalone, FastAPI, Django or
+  Flask app.
+- [FastAPI](/docs/python/fastapi), [Django](/docs/python/django) and [Flask](/docs/python/flask): a tenant-bound
+  client in every view, and hypequery's endpoints served from your app.
+- [Serve over HTTP](/docs/python/serving): auth strategies, tenancy, CORS, rate limits and OpenAPI.
+- [pandas, Polars and Arrow](/docs/python/dataframes): results as typed DataFrames.
+- [Feature status](/docs/python/feature-status): what Python has today compared with TypeScript.
+- [Why hypequery](/docs/why-hypequery) and [Core concepts](/docs/core-concepts): the ideas behind datasets, serving
+  and clients, in both languages.
+
+## Package layout
 
 | Module | Purpose |
 | --- | --- |
 | `hypequery.datasets` | Dimensions, measures, relationships, the dataset client, caching, and the catalog |
 | `hypequery.execution` | Sync and async ClickHouse executors |
 | `hypequery.serve` | An authenticated-by-default HTTP API with ASGI and WSGI adapters, JWT auth, CORS and rate limiting |
-| `hypequery.contrib` | [Django](/docs/python/django), [Flask](/docs/python/flask) and [SQLAlchemy](/docs/python/sqlalchemy) integrations, including native Django and Flask serving |
-| `hypequery` CLI | `hypequery init`, `generate datasets`, `dev` and `export client-contract`; see [Python CLI](/docs/python/cli) |
+| `hypequery.contrib` | [Django](/docs/python/django), [Flask](/docs/python/flask) and [SQLAlchemy](/docs/python/sqlalchemy) integrations |
+| `hypequery` CLI | `hypequery init`, `generate datasets`, `dev` and `export client-contract` |
 | `hypequery.protocol` | The language-neutral artifact contracts shared with TypeScript |
 
-## Next steps
-
-- [Quick start](/docs/python/quick-start): generate datasets from your schema with `hypequery init`, or define one by hand.
-- [Python CLI](/docs/python/cli): guided setup from your ClickHouse schema, with a standalone, FastAPI, Django or Flask app.
-- [Serve over HTTP](/docs/python/serving): expose datasets as authenticated HTTP endpoints, from any framework.
-- [Django](/docs/python/django), [Flask](/docs/python/flask) and [FastAPI](/docs/python/fastapi): a tenant-bound
-  client in every view, and hypequery's endpoints served from your app.
-- [pandas, Polars and Arrow](/docs/python/dataframes): results as typed DataFrames.
-- [React and MCP clients](/docs/python/client-endpoints): generated React hooks and agent tools over the same endpoints.
-- [Feature status](/docs/python/feature-status): what is available in Python today compared with TypeScript.
-- [Why hypequery](/docs/why-hypequery) and [Core concepts](/docs/core-concepts): what hypequery is for, and how datasets,
-  serving, and clients fit together, in both languages.
+Python and TypeScript implement the same specifications and run against the same conformance fixtures, so
+equivalent definitions produce identical semantic and deployment artifacts. The APIs are idiomatic to each language
+rather than line-for-line ports; the Python SDK does not include the TypeScript query builder.

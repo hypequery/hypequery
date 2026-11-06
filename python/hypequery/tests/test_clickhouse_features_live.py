@@ -20,6 +20,7 @@ from hypequery.datasets import (
     resolved_rows,
     segment,
 )
+from hypequery.datasets.formulas import divide, null_if_zero
 from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
 pytestmark = pytest.mark.skipif(
@@ -133,6 +134,22 @@ def admin() -> Iterator[object]:
     client.command("SYSTEM STOP MERGES hq_feature_port.vbalances")
     client.command("INSERT INTO hq_feature_port.vbalances VALUES ('a', 10, 1, 1)")
     client.command("INSERT INTO hq_feature_port.vbalances VALUES ('a', 10, -1, 1), ('a', 25, 1, 2)")
+    # 40 days of sales: 'web' every day, 'store' only on even days, so the
+    # skeleton must fill store's gaps; one sale lands at 23:30 UTC, which is the
+    # next day in Europe/Berlin.
+    client.command(
+        "CREATE TABLE hq_feature_port.sales (sold_at DateTime64(3, 'UTC'), channel String, "
+        "amount Float64) ENGINE = Memory"
+    )
+    client.command(
+        "INSERT INTO hq_feature_port.sales SELECT toDateTime64('2026-01-01 10:00:00', 3, 'UTC') "
+        "+ toIntervalDay(number), 'web', number % 7 + 1 FROM numbers(40)"
+    )
+    client.command(
+        "INSERT INTO hq_feature_port.sales SELECT toDateTime64('2026-01-01 12:00:00', 3, 'UTC') "
+        "+ toIntervalDay(number * 2), 'store', 10 FROM numbers(20)"
+    )
+    client.command("INSERT INTO hq_feature_port.sales VALUES ('2026-01-20 23:30:00', 'web', 100)")
     yield client
     client.command(f"DROP DATABASE IF EXISTS {DATABASE}")
 
@@ -375,3 +392,143 @@ def test_a_segment_matches_its_hand_written_predicate(admin: object, client: obj
         "WHERE plan = 'pro' AND churned_at IS NOT NULL",
     )
     assert str(result.data[0]["customers"]) == str(expected[0][0]) == "1"
+
+
+sales = dataset(
+    "sales",
+    source="sales",
+    time_key="sold_at",
+    dimensions={"channel": dimension.string(), "soldAt": dimension.timestamp(column="sold_at")},
+    measures={
+        "revenue": measure.sum("amount"),
+        "sales": measure.count("amount"),
+        "rolling7": measure.trailing("revenue", 7, "day"),
+        "monthToDate": measure.to_date("revenue", "month"),
+        "runningSales": measure.cumulative("sales"),
+        "runningRevenue": measure.cumulative("revenue"),
+        "lastWeek": measure.shift("revenue", 7, "day"),
+        "lastMonth": measure.shift("revenue", 1, "month"),
+        "weekOverWeek": measure.derived(divide("revenue", null_if_zero("lastWeek"))),
+    },
+)
+FEB = (filter.gte("soldAt", "2026-02-01"), filter.lt("soldAt", "2026-02-10"))
+# Hand-written truth: one row per day of the range, aggregates over the window.
+_DAYS = "SELECT toDate('2026-02-01') + number AS d FROM numbers(9)"
+
+
+def _by_day(client: object, measures: tuple[str, ...], **options: object) -> list[tuple[str, ...]]:
+    query = DatasetQuery(measures=measures, by="day", filters=FEB, **options)  # type: ignore[arg-type]
+    result = client.execute(sales, query)  # type: ignore[attr-defined]
+    return [tuple(str(row[k]) for k in row) for row in result.data]
+
+
+def _truth_by_day(admin: object, expression: str) -> list[tuple[str, ...]]:
+    sql = (
+        f"SELECT toString(toDateTime(d)), {expression} "  # noqa: S608 - test-authored SQL
+        f"FROM ({_DAYS}) AS days CROSS JOIN hq_feature_port.sales GROUP BY d ORDER BY d"
+    )
+    return [tuple(str(value) for value in row) for row in _truth(admin, sql)]
+
+
+def _number(text: str) -> str:
+    return "None" if text in ("None", "nan") else str(float(text))
+
+
+def _normalized(rows: list[tuple[str, ...]]) -> list[tuple[str, ...]]:
+    return [(row[0][:10], *(_number(value) for value in row[1:])) for row in rows]
+
+
+def test_trailing_to_date_and_cumulative_windows_match_sql(admin: object, client: object) -> None:
+    actual = _by_day(client, ("revenue", "rolling7", "monthToDate", "runningSales"))
+    expected = _truth_by_day(
+        admin,
+        "sumIf(amount, toDate(sold_at) = d), "
+        "sumIf(amount, toDate(sold_at) BETWEEN d - 6 AND d), "
+        "sumIf(amount, toDate(sold_at) BETWEEN toStartOfMonth(d) AND d), "
+        "countIf(toDate(sold_at) <= d)",
+    )
+    assert _normalized(actual) == _normalized(expected)
+
+
+def test_shifts_and_a_formula_over_them_match_sql(admin: object, client: object) -> None:
+    actual = _by_day(client, ("revenue", "lastWeek", "lastMonth", "weekOverWeek"))
+    expected = _truth_by_day(
+        admin,
+        "sumIf(amount, toDate(sold_at) = d), "
+        "sumIf(amount, toDate(sold_at) = d - 7), "
+        "sumIf(amount, toDate(sold_at) = d - toIntervalMonth(1)), "
+        "sumIf(amount, toDate(sold_at) = d) / nullIf(sumIf(amount, toDate(sold_at) = d - 7), 0)",
+    )
+    assert _normalized(actual) == _normalized(expected)
+
+
+def test_windows_fill_every_bucket_for_every_dimension(admin: object, client: object) -> None:
+    result = client.execute(  # type: ignore[attr-defined]
+        sales,
+        DatasetQuery(
+            dimensions=("channel",), measures=("sales", "rolling7"), by="day", filters=FEB
+        ),
+    )
+    store = [row for row in result.data if row["channel"] == "store"]
+    # 9 days for each channel, store's missing days included: counts 0, sums NULL.
+    assert len(result.data) == 18
+    assert len(store) == 9
+    assert {str(row["sales"]) for row in store} == {"0", "1"}
+    store_sql = (
+        "SELECT d, sumIf(amount, channel = 'store' AND toDate(sold_at) BETWEEN d - 6 AND d) "  # noqa: S608 - test-authored SQL
+        f"FROM ({_DAYS}) AS days CROSS JOIN hq_feature_port.sales "
+        "GROUP BY d ORDER BY d"
+    )
+    expected = _truth(admin, store_sql)
+    assert [_number(str(row["rolling7"])) for row in store] == [
+        _number(str(value)) for _, value in expected
+    ]
+
+
+def test_windows_bucket_in_the_query_timezone(admin: object, client: object) -> None:
+    january = (filter.gte("soldAt", "2026-01-20"), filter.lt("soldAt", "2026-01-23"))
+    result = client.execute(  # type: ignore[attr-defined]
+        sales,
+        DatasetQuery(
+            measures=("revenue", "rolling7"), by="day", filters=january, timezone="Europe/Berlin"
+        ),
+    )
+    expected = _truth(
+        admin,
+        "SELECT d, sumIf(amount, toDate(sold_at, 'Europe/Berlin') = d), "
+        "sumIf(amount, toDate(sold_at, 'Europe/Berlin') BETWEEN d - 6 AND d) "
+        "FROM (SELECT toDate('2026-01-20') + number AS d FROM numbers(3)) AS days "
+        "CROSS JOIN hq_feature_port.sales GROUP BY d ORDER BY d",
+    )
+    actual = [
+        (row["period"][:10], _number(str(row["revenue"])), _number(str(row["rolling7"])))
+        for row in result.data
+    ]
+    assert actual == [(str(d), _number(str(a)), _number(str(b))) for d, a, b in expected]
+
+
+def test_to_date_starts_at_the_local_calendar_boundary(admin: object, client: object) -> None:
+    # Web sales land at 10:00 UTC, which is local midnight of the next day in
+    # Kiritimati (UTC+14); a UTC month boundary would drop 1 February's sale.
+    zone = "Pacific/Kiritimati"
+    february = (filter.gte("soldAt", "2026-02-01"), filter.lt("soldAt", "2026-02-04"))
+    result = client.execute(  # type: ignore[attr-defined]
+        sales, DatasetQuery(measures=("monthToDate",), by="day", filters=february, timezone=zone)
+    )
+    expected = _truth(
+        admin,
+        f"SELECT d, sumIf(amount, toStartOfMonth(sold_at, '{zone}') = toStartOfMonth(d) "  # noqa: S608 - test-authored SQL
+        f"AND toDate(sold_at, '{zone}') <= d) "
+        "FROM (SELECT toDate('2026-02-01') + number AS d FROM numbers(3)) AS days "
+        "CROSS JOIN hq_feature_port.sales GROUP BY d ORDER BY d",
+    )
+    actual = [(row["period"][:10], _number(str(row["monthToDate"]))) for row in result.data]
+    assert actual == [(str(d), _number(str(total))) for d, total in expected]
+    assert float(actual[0][1]) > 0
+
+
+def test_an_unbounded_window_query_is_refused(client: object) -> None:
+    from hypequery.datasets.planner import CompiledQueryError
+
+    with pytest.raises(CompiledQueryError, match="bounded time range"):
+        client.execute(sales, DatasetQuery(measures=("rolling7",), by="day"))  # type: ignore[attr-defined]

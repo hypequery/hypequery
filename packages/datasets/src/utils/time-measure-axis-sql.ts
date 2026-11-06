@@ -34,7 +34,10 @@ export function buildTimeMeasureAxisSql(
     : dialect.guard(`${count} > ${axis.resultLimit}`, `Window series exceeds the effective result limit of ${axis.resultLimit} buckets.`);
   const calendarGuard = calendarBucketGuardSql(dialect, '_hq_first', `${count} + ${limitGuard} + ${rangeGuard}`, axis.grain);
 
-  const physicalTime = dialect.rowElement(`(SELECT ${source.rowAlias} FROM _hq_raw LIMIT 0)`, 1);
+  // A zero-row scalar reads the column type without scanning the source. It
+  // selects the time element, not the row: ClickHouse before 26 refuses an
+  // empty scalar subquery of a tuple, which cannot be Nullable.
+  const physicalTime = `(SELECT ${dialect.rowElement(source.rowAlias, 1)} FROM _hq_raw LIMIT 0)`;
   const physicalGuard = axis.grain === 'minute' || axis.grain === 'hour'
     ? dialect.guard(dialect.isDateOnlyType(physicalTime), 'Sub-day time measures require a time-of-day column; Date and Date32 are not supported.')
     : '0';

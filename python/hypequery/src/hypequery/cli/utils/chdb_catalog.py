@@ -21,7 +21,7 @@ from hypequery.execution.utils.json_compact import (
 from hypequery.execution.utils.parameter_text import parameter_text
 from hypequery.execution.utils.settings_clause import settings_clause
 
-from ..errors import CliError
+from ..errors import CliError, DatabaseOpenError
 from .native_stderr import quiet_native_stderr
 
 
@@ -61,17 +61,19 @@ def chdb_catalog(path: Path) -> Iterator[ChdbCatalogClient]:
     """
 
     if not path.is_dir():
-        raise CliError(f"There is no chDB database at {path}.")
+        raise DatabaseOpenError(f"There is no chDB database at {path}.")
     try:
         import chdb
     except ModuleNotFoundError as exc:
-        raise CliError('Reading a chDB database requires: pip install "hypequery[chdb]"') from exc
+        raise DatabaseOpenError(
+            'Reading a chDB database requires: pip install "hypequery[chdb]"'
+        ) from exc
     try:
         with quiet_native_stderr():
             connection: _Connection = chdb.connect(str(path))
     except Exception as exc:
         # chDB locks an on-disk database to one process.
-        raise CliError(
+        raise DatabaseOpenError(
             f"Cannot open the chDB database at {path}. Only one process can use it at a "
             "time: stop anything else using it, such as hypequery dev, and try again."
         ) from exc

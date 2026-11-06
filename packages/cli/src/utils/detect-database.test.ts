@@ -137,12 +137,12 @@ describe('detect-database', () => {
       await expect(getTableCount('clickhouse')).resolves.toBe(2);
     });
 
-    it('returns 0 when query fails', async () => {
-      mockGetClickHouseClient.mockImplementation(() => {
-        throw new Error('Query failed');
+    it('rejects when the query fails', async () => {
+      mockGetClickHouseClient.mockReturnValue({
+        query: vi.fn().mockRejectedValue(new Error('Authentication failed')),
       });
 
-      await expect(getTableCount('clickhouse')).resolves.toBe(0);
+      await expect(getTableCount('clickhouse')).rejects.toThrow('Authentication failed');
     });
 
     it('counts tables from the selected chdb session', async () => {
