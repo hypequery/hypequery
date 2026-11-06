@@ -455,8 +455,8 @@ def test_an_arrow_stream_decodes_the_raw_body() -> None:
     assert kind == "raw"
     assert kwargs == {"fmt": "ArrowStream"}
     settings = args[2]
-    assert settings["output_format_arrow_string_as_string"] == 1
-    assert next(iter(settings)) == "output_format_arrow_string_as_string"
+    # No output setting of its own: a read-only profile must accept the request.
+    assert "output_format_arrow_string_as_string" not in settings
     assert settings["query_id"] == query.query_id
 
 
@@ -529,6 +529,64 @@ def test_the_native_async_arrow_stream_maps_a_mid_stream_failure() -> None:
             _ = [batch async for batch in stream]
         assert raised.value.category == "too-large"
         assert not executor._semaphore.locked()
+
+    asyncio.run(run())
+
+
+def test_the_native_async_arrow_stream_maps_a_startup_failure() -> None:
+    async def run() -> None:
+        raw = FakeAsyncRawContext(b"", error=ConnectionResetError("reset"))
+        executor = AsyncClickHouseExecutor(FakeAsyncClient(raw=raw), FakeAsyncControl())
+        with pytest.raises(CompiledQueryError) as raised:
+            await executor.stream_arrow(compiled())
+        assert raised.value.category == "unavailable"
+        assert raw.exited
+        assert not executor._semaphore.locked()
+
+    asyncio.run(run())
+
+
+class StalledRawContext(FakeAsyncRawContext):
+    """Headers arrived; the first batch never does."""
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        await asyncio.Event().wait()
+        yield b""
+
+
+def test_the_native_async_arrow_first_batch_honours_cancellation() -> None:
+    async def run() -> None:
+        cancelled = threading.Event()
+        control = FakeAsyncControl()
+        raw = StalledRawContext(b"")
+        executor = AsyncClickHouseExecutor(FakeAsyncClient(raw=raw), control)
+        query = compiled(cancellation=cancelled)
+        opening = asyncio.create_task(executor.stream_arrow(query))
+        await asyncio.sleep(0.05)
+        cancelled.set()
+        with pytest.raises(CompiledQueryError) as raised:
+            await asyncio.wait_for(opening, 2)
+        assert raised.value.category == "aborted"
+        assert control.killed[:1] == [query.query_id]
+        assert not executor._semaphore.locked()
+
+    asyncio.run(run())
+
+
+def test_the_bridge_executor_kills_a_stream_closed_early() -> None:
+    async def run() -> None:
+        control = FakeControl()
+        executor = AsyncFromSyncClickHouseExecutor(
+            FakeClient(rows=FakeRowContext(("n",), [[(1,)], [(2,)]])), control
+        )
+        try:
+            query = compiled()
+            stream = await executor.stream(query)
+            await anext(aiter(stream))
+            await stream.aclose()
+            assert control.killed == [query.query_id]
+        finally:
+            await executor.aclose()
 
     asyncio.run(run())
 

@@ -217,6 +217,7 @@ class ThreadedBatchStream(Generic[_T]):
         self._release_slot = release_slot
         self._cancel_on_server = cancel_on_server
         self._retries = retries
+        self._finished = False
         self._closed = False
 
     @property
@@ -254,16 +255,24 @@ class ThreadedBatchStream(Generic[_T]):
             await self.aclose()
             raise
         if not has_batch:
+            self._finished = True
             await self.aclose()
             raise StopAsyncIteration
         return batch  # type: ignore[return-value]
 
     async def aclose(self) -> None:
-        """Close on the worker; the slot frees once the driver has let go."""
+        """Close on the worker; the slot frees once the driver has let go.
+
+        A stream closed before its end also asks the server to stop the query:
+        closing the response alone stops it only when ClickHouse next writes.
+        """
 
         if self._closed:
             return
         self._closed = True
+        if not self._finished and self._cancel_on_server is not None:
+            with suppress(Exception):
+                await self._cancel_on_server(self._compiled.query_id)
         try:
             future = self._worker.submit(self._sync.close)
         except RuntimeError:
