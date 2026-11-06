@@ -53,6 +53,8 @@ def relationship_measure_error(
         )
     if isinstance(measure, DerivedMeasure):
         return "Relationship traversal of derived measures is not supported."
+    if not isinstance(measure, Measure):
+        return "Relationship traversal of window and shift measures is not supported."
     if measure.aggregation == "merge":
         return (
             f'Measure "{qualified}" cannot merge aggregate states through a relationship: '

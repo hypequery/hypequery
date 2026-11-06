@@ -111,6 +111,7 @@ from .sql_portability import (
     SqlPortabilitySuccess,
     compile_portable_sql_expression,
 )
+from .time_measures import MeasureTimeInterval, ShiftMeasure, WindowMeasure
 from .utils.relationship_key_check import CheckRelationshipsResult, RelationshipKeyIssue
 
 __all__ = [
@@ -159,6 +160,7 @@ __all__ = [
     "HavingCondition",
     "Measure",
     "MeasureCatalogEntry",
+    "MeasureTimeInterval",
     "MemoryCacheStore",
     "Order",
     "OrderDirection",
@@ -174,6 +176,7 @@ __all__ = [
     "ResultColumnType",
     "RowResolution",
     "Segment",
+    "ShiftMeasure",
     "SqlPortabilityFailure",
     "SqlPortabilityIssue",
     "SqlPortabilityIssueCode",
@@ -182,6 +185,7 @@ __all__ = [
     "SqlPortabilitySuccess",
     "TenantDatasetClient",
     "ValidationResult",
+    "WindowMeasure",
     "all_tenants",
     "belongs_to",
     "build_protocol_dataset_contract",

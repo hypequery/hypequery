@@ -24,6 +24,7 @@ from ..planner.resolution import (
     selected_measure_names,
 )
 from ..registry import DatasetRegistry
+from ..time_measures import ShiftMeasure, WindowMeasure
 
 #: ``number`` may arrive as an int, a float, or a decimal string. ``unknown`` is
 #: a column whose type the definition cannot tell, such as ``min`` over a raw
@@ -60,9 +61,15 @@ def _merged_type(state_function: str | None) -> ResultColumnType:
     return "unknown"
 
 
-def _measure_type(dataset: Dataset, measure: Measure | DerivedMeasure) -> ResultColumnType:
+def _measure_type(dataset: Dataset, measure: object) -> ResultColumnType:
     if isinstance(measure, DerivedMeasure):
         return "number"
+    if isinstance(measure, WindowMeasure | ShiftMeasure):
+        # Re-aggregated with the base measure's own aggregation.
+        base = dataset.measures.get(measure.measure)
+        return "unknown" if base is None else _measure_type(dataset, base)
+    if not isinstance(measure, Measure):
+        return "unknown"
     aggregation = measure.aggregation
     if aggregation in ("count", "countDistinct", "approxCountDistinct"):
         return "integer"

@@ -19,6 +19,7 @@ from ..formulas import (
     formula_children,
 )
 from ..measures import Measure
+from ..time_measures import ShiftMeasure, WindowMeasure
 from .definition_projection import metadata
 
 
@@ -83,7 +84,7 @@ def literal_parameter_type(value: bool | int | float) -> str:
 
 
 def validate_derived_measures(
-    measures: Mapping[str, Measure | DerivedMeasure], dimensions: Mapping[str, Dimension]
+    measures: Mapping[str, object], dimensions: Mapping[str, Dimension]
 ) -> None:
     visiting: set[str] = set()
     # Memoize full dependency depth and expanded size, not just completion.
@@ -135,14 +136,26 @@ def validate_derived_measures(
                 raise ValueError("Derived measure requires a formula over local measures")
             stats = (dependency_depth + 1, nodes)
             visiting.remove(name)
-        elif definition.aggregation == "merge":
-            # The state column's value type is unknown, and these states merge to it.
-            if definition.state_function in ORDERED_MERGE_STATES:
-                raise ValueError("Derived formula input must be a numeric measure")
-        elif definition.aggregation in ("min", "max", "argMin", "argMax"):
-            dimension = dimensions.get(definition.field)
-            if dimension is None or dimension.field_type != "number":
-                raise ValueError("Derived formula input must be a numeric measure")
+        else:
+            # A window or shift yields its base measure's values, so check that.
+            base = (
+                measures.get(definition.measure)
+                if isinstance(definition, WindowMeasure | ShiftMeasure)
+                else definition
+            )
+            if isinstance(base, Measure) and base.aggregation == "merge":
+                # The state column's value type is unknown, and these states merge to it.
+                if base.state_function in ORDERED_MERGE_STATES:
+                    raise ValueError("Derived formula input must be a numeric measure")
+            elif isinstance(base, Measure) and base.aggregation in (
+                "min",
+                "max",
+                "argMin",
+                "argMax",
+            ):
+                dimension = dimensions.get(base.field)
+                if dimension is None or dimension.field_type != "number":
+                    raise ValueError("Derived formula input must be a numeric measure")
         complete[name] = stats
         return stats
 
@@ -166,5 +179,5 @@ def derived_measure_node(
     }
 
 
-def base_measure_names(measures: Mapping[str, Measure | DerivedMeasure]) -> tuple[str, ...]:
+def base_measure_names(measures: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(name for name, definition in measures.items() if isinstance(definition, Measure))
