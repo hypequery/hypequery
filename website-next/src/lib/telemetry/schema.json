@@ -1958,6 +1958,28 @@
               "kind": "boolean",
               "description": "How much onboarding is guided?",
               "optional": true
+            },
+            "stage_reached": {
+              "kind": "enum",
+              "description": "Where does onboarding stop?",
+              "values": [
+                "started",
+                "connection_tested",
+                "framework_selected",
+                "confirmed",
+                "completed"
+              ],
+              "optional": true
+            },
+            "connection_result": {
+              "kind": "enum",
+              "description": "Where does connection setup fail?",
+              "values": [
+                "ok",
+                "failed",
+                "skipped"
+              ],
+              "optional": true
             }
           },
           "dev": {},
