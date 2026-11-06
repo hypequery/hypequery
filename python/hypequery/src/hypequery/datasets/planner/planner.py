@@ -28,18 +28,20 @@ def plan_dataset_query(
     context: ExecutionContext | None = None,
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     overfetch: bool = False,
+    stream: bool = False,
 ) -> CompiledQuery:
     """Compile a semantic query over *dataset* into an executable statement.
 
     *registry* is only needed when the query traverses a relationship: a Python
     relationship stores its target's name, and the registry is what turns that
-    name back into a dataset.
+    name back into a dataset. *stream* plans for a stream, whose row ceiling is
+    the dataset's `max_stream_rows` where it declares one.
     """
 
     query = query or DatasetQuery()
     context = context or ExecutionContext()
     check_execution_admission(context)
-    check_query_limits(dataset, query)
+    check_query_limits(dataset, query, stream=stream)
     check_reserved_alias(dataset)
     compiler = DatasetQueryCompiler(
         dataset,
