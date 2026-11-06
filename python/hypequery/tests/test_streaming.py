@@ -815,3 +815,65 @@ def test_the_async_client_streams() -> None:
             assert len([batch async for batch in stream]) == 2
 
     asyncio.run(run())
+
+
+# --- stream ceilings -----------------------------------------------------------
+
+
+def exports() -> Dataset:
+    from hypequery.datasets import DatasetLimits
+
+    return Dataset(
+        name="exports",
+        source="analytics.trips",
+        dimensions={"vendor": dimension("string")},
+        measures={"trips": measure(count("id"))},
+        limits=DatasetLimits(max_result_size=10, max_stream_rows=1000),
+    )
+
+
+def test_a_stream_may_use_max_stream_rows_while_pages_keep_max_result_size() -> None:
+    executor = StreamingExecutor(BATCHES)
+    client = create_dataset_client(executor=executor)
+    query = DatasetQuery(dimensions=("vendor",), measures=("trips",), limit=500)
+
+    with client.stream(exports(), query) as stream:
+        list(stream)
+    assert executor.seen[0].sql.endswith("LIMIT 500")
+
+    with pytest.raises(CompiledQueryError) as raised:
+        client.execute(exports(), query)
+    assert raised.value.category == "too-large"
+    with pytest.raises(CompiledQueryError):
+        client.stream(exports(), query.model_copy(update={"limit": 1001}))
+
+
+def test_streams_take_their_own_byte_ceiling() -> None:
+    from hypequery.datasets.planner import query_settings
+    from hypequery.datasets.planner.settings import STREAM_MAX_RESULT_BYTES
+
+    executor = StreamingExecutor(BATCHES)
+    client = create_dataset_client(executor=executor)
+    list(client.stream(trips(), QUERY, context=ACME))
+    client.execute(trips(), QUERY, context=ACME)
+    streamed, executed = executor.seen
+    assert streamed.settings["max_result_bytes"] == STREAM_MAX_RESULT_BYTES
+    assert executed.settings["max_result_bytes"] == 64 << 20
+    # Rows and time stay as the client set them.
+    assert streamed.settings["max_result_rows"] == executed.settings["max_result_rows"]
+
+    custom = create_dataset_client(executor=executor, stream_max_result_bytes=5 << 30)
+    list(custom.stream(trips(), QUERY, context=ACME))
+    assert executor.seen[-1].settings["max_result_bytes"] == 5 << 30
+
+    # A request context still tightens it, as serve's production profile does.
+    tight = ExecutionContext(
+        tenant=tenant("acme"), settings=query_settings(max_result_bytes=1 << 20)
+    )
+    list(client.stream(trips(), QUERY, context=tight))
+    assert executor.seen[-1].settings["max_result_bytes"] == 1 << 20
+
+    with pytest.raises(CompiledQueryError):
+        create_dataset_client(
+            executor=executor, stream_max_result_bytes=STREAM_MAX_RESULT_BYTES + 1
+        )

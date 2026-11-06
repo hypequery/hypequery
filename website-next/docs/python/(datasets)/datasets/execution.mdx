@@ -184,18 +184,30 @@ without the result cache or pagination. The query is planned when you call `stre
 it starts when you enter the `with` block. Leaving the block early stops it, with `KILL QUERY` where the executor has
 a control connection.
 
-The client's settings bound the whole stream. A result that grows past `max_result_rows` or `max_result_bytes`, or a
+The client's settings bound the whole stream, except the byte limit. A result that grows past `max_result_rows`, or a
 query that runs past `max_execution_time`, fails with `too-large` or `deadline-exceeded` partway through rather than
-ending short, so a stream that finishes without an error is complete. The defaults (100,000 rows, 64 MiB, 30 seconds)
-suit interactive queries. Raise them for exports, up to 10 million rows, 1 GiB and one hour:
+ending short, so a stream that finishes without an error is complete. A stream's memory stays flat, so it doesn't
+inherit `max_result_bytes`: it runs under `stream_max_result_bytes`, 1 TiB unless you set it lower. A dataset can also
+allow streams more rows than pages with `DatasetLimits(max_stream_rows=...)`; `max_result_size` keeps bounding pages
+and agents:
 
 <CodeBlock>
 ```python
+from hypequery.datasets import DatasetLimits
 from hypequery.datasets.planner import query_settings
 
+orders = dataset(
+    "orders",
+    source="orders",
+    dimensions={"country": dimension.string()},
+    measures={"revenue": measure.sum("amount")},
+    limits=DatasetLimits(max_result_size=1_000, max_stream_rows=5_000_000),
+)
+
+# Rows and time bound exports; the defaults (100,000 rows, 30 s) suit interactive queries.
 exports = create_dataset_client(
     executor=executor,
-    settings=query_settings(max_result_rows=10_000_000, max_result_bytes=1 << 30, max_execution_time=3600),
+    settings=query_settings(max_result_rows=10_000_000, max_execution_time=3600),
 )
 ```
 </CodeBlock>

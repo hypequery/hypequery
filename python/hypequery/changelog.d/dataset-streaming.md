@@ -12,3 +12,10 @@
   past `max_result_rows` or `max_result_bytes` fails as `too-large` rather
   than ending short. Custom executors stream by implementing the new
   `StreamingQueryExecutor` protocol.
+- Streams have ceilings of their own. `DatasetLimits(max_stream_rows=...)`
+  lets a dataset allow streams more rows than the pages and agents
+  `max_result_size` bounds. A stream's memory stays flat, so instead of
+  `max_result_bytes` it runs under `stream_max_result_bytes`, a new
+  `create_dataset_client` option that defaults to, and may not exceed, 1 TiB;
+  `max_result_rows` and `max_execution_time` still bound it, and a request
+  context can still tighten all three.

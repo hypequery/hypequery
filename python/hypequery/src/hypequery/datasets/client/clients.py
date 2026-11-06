@@ -25,7 +25,11 @@ from ..planner import (
     TenantScope,
     plan_dataset_query,
 )
-from ..planner.settings import tighten_query_settings
+from ..planner.settings import (
+    STREAM_MAX_RESULT_BYTES,
+    stream_query_settings,
+    tighten_query_settings,
+)
 from ..registry import DatasetRegistry
 from ..utils.output_column_types import output_column_types
 from ..utils.output_columns import output_columns
@@ -99,7 +103,7 @@ class ExecuteOptions(TypedDict, total=False):
 
 
 class _DatasetClientBase:
-    __slots__ = ("_cache", "_registry", "_settings", "_timezone")
+    __slots__ = ("_cache", "_registry", "_settings", "_stream_settings", "_timezone")
 
     def __init__(
         self,
@@ -107,9 +111,11 @@ class _DatasetClientBase:
         settings: QuerySettings,
         cache: ResultCache | None,
         timezone: str = "UTC",
+        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
     ) -> None:
         self._registry = registry
         self._settings = settings
+        self._stream_settings = stream_query_settings(settings, stream_max_result_bytes)
         self._cache = cache
         self._timezone = validate_timezone(timezone)
 
@@ -135,6 +141,7 @@ class _DatasetClientBase:
         context: ExecutionContext | None,
         *,
         paginate: bool = False,
+        stream: bool = False,
     ) -> _Planned:
         dataset = resolve_dataset(target, self._registry)
         semantic = coerce_query(query)
@@ -155,8 +162,9 @@ class _DatasetClientBase:
             semantic,
             registry=self._registry,
             context=context,
-            settings=self._settings,
+            settings=self._stream_settings if stream else self._settings,
             overfetch=paginate,
+            stream=stream,
         )
         return _Planned(dataset, semantic, compiled)
 
@@ -407,8 +415,9 @@ class DatasetClient(_DatasetClientBase):
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
         timezone: str = "UTC",
+        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
     ) -> None:
-        super().__init__(registry, settings, cache, timezone)
+        super().__init__(registry, settings, cache, timezone, stream_max_result_bytes)
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> TenantDatasetClient:
@@ -455,7 +464,7 @@ class DatasetClient(_DatasetClientBase):
         open_stream = cast(
             Callable[[CompiledQuery], RowBatchStream], _streaming_method(self._executor, "stream")
         )
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, stream=True)
         return DatasetRowStream(lambda: open_stream(planned.compiled), self._stream_shape(planned))
 
     def stream_arrow(
@@ -475,7 +484,7 @@ class DatasetClient(_DatasetClientBase):
             Callable[[CompiledQuery], ArrowBatchStream],
             _streaming_method(self._executor, "stream_arrow"),
         )
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, stream=True)
         return DatasetArrowStream(
             lambda: open_stream(planned.compiled), self._stream_shape(planned)
         )
@@ -497,8 +506,9 @@ class AsyncDatasetClient(_DatasetClientBase):
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
         timezone: str = "UTC",
+        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
     ) -> None:
-        super().__init__(registry, settings, cache, timezone)
+        super().__init__(registry, settings, cache, timezone, stream_max_result_bytes)
         self._executor = executor
 
     def for_tenant(self, scope: TenantScope) -> AsyncTenantDatasetClient:
@@ -541,7 +551,7 @@ class AsyncDatasetClient(_DatasetClientBase):
             Callable[[CompiledQuery], Awaitable[AsyncRowBatchStream]],
             _streaming_method(self._executor, "stream"),
         )
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, stream=True)
         return AsyncDatasetRowStream(
             lambda: open_stream(planned.compiled), self._stream_shape(planned)
         )
@@ -559,7 +569,7 @@ class AsyncDatasetClient(_DatasetClientBase):
             Callable[[CompiledQuery], Awaitable[AsyncArrowBatchStream]],
             _streaming_method(self._executor, "stream_arrow"),
         )
-        planned = self._plan(target, query, context)
+        planned = self._plan(target, query, context, stream=True)
         return AsyncDatasetArrowStream(
             lambda: open_stream(planned.compiled), self._stream_shape(planned)
         )
@@ -572,16 +582,20 @@ def create_dataset_client(
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
     timezone: str = "UTC",
+    stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
 ) -> DatasetClient:
     """Create a synchronous dataset client.
 
     *registry* resolves datasets by name and the targets of relationships. It
     is optional for a client that only queries dataset objects without joins.
-    *cache* enables result caching; without it every call executes. The client
-    does not own *executor*; close it when the application stops.
+    *cache* enables result caching; without it every call executes. Streams
+    run under *settings* too, except ``max_result_bytes``: their memory stays
+    flat, so they take *stream_max_result_bytes* instead (default 1 TiB, at
+    most that), and rows and time bound them. The client does not own
+    *executor*; close it when the application stops.
     """
 
-    return DatasetClient(executor, registry, settings, cache, timezone)
+    return DatasetClient(executor, registry, settings, cache, timezone, stream_max_result_bytes)
 
 
 def create_async_dataset_client(
@@ -591,7 +605,10 @@ def create_async_dataset_client(
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
     timezone: str = "UTC",
+    stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
 ) -> AsyncDatasetClient:
     """Create an async dataset client. See `create_dataset_client`."""
 
-    return AsyncDatasetClient(executor, registry, settings, cache, timezone)
+    return AsyncDatasetClient(
+        executor, registry, settings, cache, timezone, stream_max_result_bytes
+    )
