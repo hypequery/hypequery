@@ -104,6 +104,21 @@ const comparisonLinks = [
     title: 'Drizzle ORM for ClickHouse',
     description: 'For teams searching for Drizzle ORM support on ClickHouse and the closest TypeScript-native alternative.',
   },
+  {
+    href: '/blog/clickhouse-testing-typescript',
+    title: 'How to Test ClickHouse Queries in TypeScript',
+    description: 'Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.',
+  },
+  {
+    href: '/blog/clickhouse-final-replacingmergetree-typescript',
+    title: 'FINAL vs ReplacingMergeTree Dedup in TypeScript Queries',
+    description: 'The ClickHouse FINAL keyword forces ReplacingMergeTree deduplication at query time, at a performance cost. When FINAL is fine, when to use argMax or LIMIT BY instead, and how to write all three in TypeScript.',
+  },
+  {
+    href: '/blog/clickhouse-pagination-typescript',
+    title: 'How to Paginate ClickHouse Results in TypeScript',
+    description: 'Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client.',
+  },
 ];
 
 const ecosystemLinks = [

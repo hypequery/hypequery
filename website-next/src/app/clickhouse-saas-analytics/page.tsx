@@ -175,7 +175,7 @@ export default function ClickHouseSaasAnalyticsPage() {
           description: 'How to consume typed ClickHouse analytics as React hooks in dashboard components.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Serving ClickHouse query definitions as typed HTTP endpoints with @hypequery/serve.',
         },
@@ -184,11 +184,21 @@ export default function ClickHouseSaasAnalyticsPage() {
           title: 'ClickHouse Next.js',
           description: 'Integrating ClickHouse analytics into Next.js App Router handlers and server components.',
         },
+        {
+          href: '/blog/saas-analytics-api-clickhouse-typescript',
+          title: 'How to Build a SaaS Analytics API with ClickHouse and TypeScript',
+          description: 'Build a SaaS analytics API on ClickHouse with TypeScript: generated schema types, a typed query builder, metrics defined once, zod-validated REST routes with OpenAPI docs, and React hooks that share the same type contract.',
+        },
+        {
+          href: '/blog/usage-based-billing-clickhouse-typescript',
+          title: 'How to Build Usage-Based Billing with ClickHouse and TypeScript',
+          description: 'Build usage-based billing on ClickHouse with TypeScript: model a usage_events table, define tenant-isolated revenue metrics once, roll up by month, and serve the same numbers to your billing job and customer dashboard.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       ]}
       nextStep={{

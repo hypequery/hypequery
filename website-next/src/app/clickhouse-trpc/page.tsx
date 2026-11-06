@@ -200,7 +200,7 @@ export default function ClickHouseTrpcPage() {
           description: 'Typed React hooks for ClickHouse analytics — the browser-side counterpart to tRPC procedures.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Expose the same queries as typed REST endpoints alongside your tRPC router.',
         },
@@ -213,7 +213,7 @@ export default function ClickHouseTrpcPage() {
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
       ]}
       nextStep={{

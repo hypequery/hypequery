@@ -183,6 +183,26 @@ export default function ClickHouseQueryBuilderPage() {
           title: 'Drizzle ORM for ClickHouse',
           description: 'A dedicated landing page for the Drizzle-on-ClickHouse search intent and the closest alternative.',
         },
+        {
+          href: '/blog/clickhouse-cte-typescript',
+          title: 'ClickHouse CTEs in TypeScript — WITH Clause Patterns',
+          description: 'ClickHouse CTEs explained for TypeScript developers: inlining semantics, scalar WITH expressions, and type-safe WITH clauses using hypequery\'s native .withCTE() with query builders or raw SQL.',
+        },
+        {
+          href: '/blog/clickhouse-group-by-typescript',
+          title: 'ClickHouse GROUP BY and Aggregations in TypeScript',
+          description: 'Write ClickHouse GROUP BY queries in TypeScript with typed aggregations: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing.',
+        },
+        {
+          href: '/blog/clickhouse-asof-join-typescript',
+          title: 'ClickHouse ASOF JOIN — Nearest-Match Time-Series Joins in TypeScript',
+          description: 'ClickHouse ASOF JOIN joins each row to the nearest matching row by timestamp. Learn the syntax, the one-inequality rule, and how to use it from TypeScript.',
+        },
+        {
+          href: '/blog/clickhouse-array-functions-typescript',
+          title: 'ClickHouse Array Functions in TypeScript — A Practical Guide',
+          description: 'How to use ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has, and hasAny — with type-safe hypequery examples and a full collect-filter-transform pipeline.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },

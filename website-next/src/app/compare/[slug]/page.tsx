@@ -6,21 +6,10 @@ import { notFound } from 'next/navigation';
 import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
-import { getPostBySlug } from '@/lib/blog';
+import { getCompareArticle } from '@/lib/compare-article';
 import { compareLinksFor } from '@/lib/compare-links';
 import { absoluteUrl, ogImage } from '@/lib/site';
-import { compareArticles } from '@/data/compare-articles';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
-
-type CompareArticleView = {
-  title: string;
-  description?: string;
-  seoTitle?: string;
-  seoDescription?: string;
-  date?: string;
-  tags?: string[];
-  content: string;
-};
 
 export async function generateStaticParams() {
   return comparePages.map((page) => ({ slug: page.slug }));
@@ -38,17 +27,7 @@ export async function generateMetadata({
     return {};
   }
 
-  const promotedArticle = compareArticles[slug];
-  const post = promotedArticle ? null : await getPostBySlug(slug);
-  const article: CompareArticleView | null = promotedArticle ?? (post ? {
-    title: post.data.title,
-    description: post.data.description,
-    seoTitle: post.data.seoTitle,
-    seoDescription: post.data.seoDescription,
-    date: post.data.date,
-    tags: post.data.tags,
-    content: post.content,
-  } : null);
+  const article = await getCompareArticle(slug);
   const title = article?.seoTitle ?? article?.title ?? comparePage.title;
   const description = article?.seoDescription ?? article?.description ?? comparePage.verdict;
   const url = absoluteUrl(comparePage.href);
@@ -88,17 +67,7 @@ export default async function ComparePage({
     notFound();
   }
 
-  const promotedArticle = compareArticles[slug];
-  const post = promotedArticle ? null : await getPostBySlug(slug);
-  const article: CompareArticleView | null = promotedArticle ?? (post ? {
-    title: post.data.title,
-    description: post.data.description,
-    seoTitle: post.data.seoTitle,
-    seoDescription: post.data.seoDescription,
-    date: post.data.date,
-    tags: post.data.tags,
-    content: post.content,
-  } : null);
+  const article = await getCompareArticle(slug);
 
   if (!article) {
     notFound();

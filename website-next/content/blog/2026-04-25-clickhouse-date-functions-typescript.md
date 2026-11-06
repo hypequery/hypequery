@@ -1,7 +1,7 @@
 ---
 title: "ClickHouse Date Functions in TypeScript — toStartOfDay, toStartOfQuarter, and More"
 description: "Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval."
-seoTitle: "ClickHouse Date Functions TypeScript — toStartOfDay, toStartOfQuarter, toStartOfInterval"
+seoTitle: "ClickHouse Date Functions in TypeScript"
 seoDescription: "Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval."
 pubDate: 2026-04-25
 heroImage: ""

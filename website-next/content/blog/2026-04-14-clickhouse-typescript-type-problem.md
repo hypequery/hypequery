@@ -1,7 +1,7 @@
 ---
 title: "The ClickHouse TypeScript Type Problem (And How to Actually Fix It)"
 description: "ClickHouse and TypeScript often disagree about what types come back at runtime. Learn the real mappings for DateTime, UInt64, Nullable, Decimal, and more."
-seoTitle: "ClickHouse TypeScript Types: The Runtime Mapping Problem and How to Fix It"
+seoTitle: "ClickHouse TypeScript Types: the Runtime Mapping Fix"
 seoDescription: "Using ClickHouse with TypeScript? Learn the real runtime mappings for DateTime, UInt64, Nullable, Decimal, and other types, and how to avoid silent bugs."
 pubDate: 2026-04-14
 heroImage: ""

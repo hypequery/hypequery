@@ -160,6 +160,16 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           title: 'ClickHouse analytics',
           description: 'Move from tenant isolation specifics to the wider analytics-layer pattern.',
         },
+        {
+          href: '/blog/multi-tenant-analytics-clickhouse-typescript',
+          title: 'How to Build Multi-Tenant Analytics with ClickHouse and TypeScript',
+          description: 'Build multi-tenant analytics on ClickHouse with TypeScript. Enforce tenant isolation in application code with tenant-scoped contexts, dataset tenant keys, and defense-in-depth row policies.',
+        },
+        {
+          href: '/blog/clickhouse-row-level-security-typescript',
+          title: 'How to Implement Row-Level Security in ClickHouse with TypeScript',
+          description: 'ClickHouse does not have native RLS like Postgres. Learn the three patterns for tenant isolation in ClickHouse with TypeScript — column filtering, user profiles, and context injection.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },

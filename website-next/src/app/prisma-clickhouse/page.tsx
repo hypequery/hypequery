@@ -159,6 +159,11 @@ export default function PrismaClickHousePage() {
           title: 'ClickHouse schema generation',
           description: 'See how live-schema introspection becomes TypeScript types that match real ClickHouse runtime values.',
         },
+        {
+          href: '/blog/does-prisma-support-clickhouse',
+          title: 'Does Prisma Support ClickHouse? What to Use Instead',
+          description: 'Does Prisma support ClickHouse? No — there is no ClickHouse connector. Learn why the MySQL port 9004 workaround fails and how to pair Prisma with a type-safe ClickHouse layer.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },

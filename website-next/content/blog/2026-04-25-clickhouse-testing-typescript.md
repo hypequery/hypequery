@@ -1,7 +1,7 @@
 ---
 title: "How to Test ClickHouse Queries in TypeScript"
 description: "Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local Docker instance, and letting the type system catch errors before tests run."
-seoTitle: "Testing ClickHouse Queries in TypeScript — Unit, Integration, and Mocking"
+seoTitle: "Testing ClickHouse Queries in TypeScript"
 seoDescription: "Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery."
 pubDate: 2026-04-25
 heroImage: ""
