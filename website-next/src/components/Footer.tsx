@@ -20,6 +20,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
       { label: 'Compare', href: '/compare' },
+      { label: 'Changelog', href: '/changelog' },
     ],
   },
   {
