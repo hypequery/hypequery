@@ -15,6 +15,7 @@ import {
   serializeResponseBody,
 } from "./utils.js";
 import { adapterErrorHeaders } from "../utils/error-headers.js";
+import { isServeStreamBody, type ServeStreamBody } from "../utils/stream-body.js";
 import {
   declaresRequestBody,
   isNodeBodyConsumed,
@@ -111,10 +112,13 @@ const buildServeRequest = async (
   };
 };
 
-const sendResponse = (res: ServerResponse, response: ServeResponse) => {
+const sendResponse = async (res: ServerResponse, response: ServeResponse) => {
   // headersSent guards against a mount handler that wrote part of a response
   // and then threw: status/headers can no longer be changed at that point.
-  if (res.writableEnded || res.headersSent) return;
+  if (res.writableEnded || res.headersSent) {
+    if (isServeStreamBody(response.body)) await response.body.stream.cancel().catch(() => undefined);
+    return;
+  }
 
   res.statusCode = response.status;
   const headers = response.headers ?? {};
@@ -125,12 +129,49 @@ const sendResponse = (res: ServerResponse, response: ServeResponse) => {
     }
   }
 
+  if (isServeStreamBody(response.body)) {
+    res.setHeader("content-type", response.body.contentType);
+    await sendStream(res, response.body);
+    return;
+  }
+
   if (!res.hasHeader("content-type")) {
     res.setHeader("content-type", "application/json; charset=utf-8");
   }
 
   const serialized = serializeResponseBody(response.body);
   res.end(serialized);
+};
+
+/**
+ * Writes a streamed body with backpressure. A client that disconnects cancels
+ * the stream, which stops the query behind it; a stream that fails partway
+ * destroys the response, since its status has already been sent.
+ */
+const sendStream = async (res: ServerResponse, body: ServeStreamBody) => {
+  const reader = body.stream.getReader();
+  let settled = false;
+  const onClose = () => {
+    if (!settled) reader.cancel().catch(() => undefined);
+  };
+  res.on("close", onClose);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (res.destroyed) return;
+      if (!res.write(value)) {
+        await Promise.race([once(res, "drain"), once(res, "close")]);
+      }
+    }
+    settled = true;
+    res.end();
+  } catch (error) {
+    settled = true;
+    res.destroy(error instanceof Error ? error : undefined);
+  } finally {
+    res.off("close", onClose);
+  }
 };
 
 const sendError = (res: ServerResponse, error: unknown) => {
@@ -150,7 +191,7 @@ const sendError = (res: ServerResponse, error: unknown) => {
     "code" in error &&
     (error as any).code === "PAYLOAD_TOO_LARGE"
   ) {
-    sendResponse(res, {
+    void sendResponse(res, {
       status: 413,
       headers: adapterErrorHeaders(),
       body: {
@@ -178,7 +219,7 @@ const sendError = (res: ServerResponse, error: unknown) => {
           },
         } satisfies ServeResponse;
 
-  sendResponse(res, {
+  void sendResponse(res, {
     ...payload,
     // A thrown response-shaped object is still an adapter error. These
     // headers must override any supplied casing or value.
@@ -220,14 +261,18 @@ export const createNodeHandler = (
           timer.unref();
         });
 
-        const response = await Promise.race([
-          handler(request),
-          timeoutPromise,
-        ]);
-        sendResponse(res, response);
+        const handled = handler(request);
+        const response = await Promise.race([handled, timeoutPromise]);
+        if (response.status === 504 && !isServeStreamBody(response.body)) {
+          // The handler lost the race; a stream it opens later is never read.
+          void handled.then(late => {
+            if (isServeStreamBody(late.body)) return late.body.stream.cancel();
+          }).catch(() => undefined);
+        }
+        await sendResponse(res, response);
       } else {
         const response = await handler(request);
-        sendResponse(res, response);
+        await sendResponse(res, response);
       }
     } catch (error) {
       sendError(res, error);
