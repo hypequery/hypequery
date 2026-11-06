@@ -83,7 +83,100 @@ Formula helpers: `formula.add`, `formula.subtract`, `formula.multiply`, `formula
 names or numeric literals. Derived measures are selected, filtered with `having`, and published like any other
 measure.
 
-## Not yet in Python
+## Approximate distinct counts
 
-Window measures (trailing, to-date, cumulative), period comparisons (`shift`), segments, and
-`approx_count_distinct` are TypeScript only for now. See [Feature status](/docs/python/feature-status).
+`measure.approx_count_distinct("user_id")` uses ClickHouse's `uniq`, an estimate that is much cheaper than the exact
+`uniqExact` on large inputs. Catalogs and contracts mark it `approximate`, and so
+does any derived measure that uses it.
+
+## Aggregate states
+
+For an `AggregatingMergeTree` (or a materialized view) that stores aggregate states, `measure.merge` finalizes a
+state column with the matching `-Merge` combinator:
+
+<CodeBlock>
+```python
+measures = {
+    "users": measure.merge("uniq", "users_state"),      # uniqMerge(users_state)
+    "events": measure.merge("count", "events_state"),   # countMerge, 0 when empty
+    "revenue": measure.merge("sum", "revenue_state"),
+}
+```
+</CodeBlock>
+
+The first argument is the state's function, so hypequery knows what the column holds. Merge measures cannot take
+`filters` or `sql`, and cannot be read across a relationship. To read a `ReplacingMergeTree` or
+`CollapsingMergeTree` source correctly, see [row resolution](/docs/python/datasets/defining-datasets#row-resolution).
+
+## Window measures
+
+A window measure re-aggregates a base measure from the source rows over a span of time, so a rolling distinct count is
+a true distinct count, not a sum of daily counts:
+
+<CodeBlock>
+```python
+measures = {
+    "revenue": measure.sum("amount"),
+    "active_users": measure.count_distinct("user_id"),
+    "revenue_7d": measure.trailing("revenue", 7, "day"),
+    "users_30d": measure.trailing("active_users", 30, "day"),
+    "revenue_mtd": measure.to_date("revenue", "month"),
+    "revenue_running": measure.cumulative("revenue"),
+}
+```
+</CodeBlock>
+
+- `trailing(measure, amount, unit)`: each bucket and the ones before it, covering `amount` `unit`s.
+- `to_date(measure, grain)`: from the start of the bucket's `grain` (month-to-date, year-to-date).
+- `cumulative(measure)`: all history up to the end of each bucket. It only works for aggregations that can
+  accumulate: `sum`, `count`, `min` and `max`.
+
+The dataset needs a `time_key`, and a window wraps a base measure, not a derived one.
+
+## Period comparisons
+
+`measure.shift` evaluates a base measure over an earlier bucket. Combine it with a derived measure for growth:
+
+<CodeBlock>
+```python
+from hypequery.datasets import formula, measure
+
+measures = {
+    "revenue": measure.sum("amount"),
+    "revenue_last_year": measure.shift("revenue", 1, "year"),
+    "yoy_growth": measure.derived(
+        formula.divide(
+            formula.subtract("revenue", "revenue_last_year"),
+            formula.null_if_zero("revenue_last_year"),
+        )
+    ),
+}
+```
+</CodeBlock>
+
+Calendar shifts keep the calendar date, clamping month ends: one month before 31 March is 29 February in a leap
+year.
+
+## Querying window and shift measures
+
+A query that selects a window or shift measure needs a `by` grain and exactly one bounded range on the time key,
+either `between` or a `gt`/`gte` filter with an `lt`/`lte` filter:
+
+<CodeBlock>
+```python
+DatasetQuery(
+    by="day",
+    measures=("revenue", "revenue_7d", "yoy_growth"),
+    filters=(filter.gte("created_at", "2026-01-01"), filter.lt("created_at", "2026-02-01")),
+)
+```
+</CodeBlock>
+
+Every bucket in the range is returned, including empty ones: counts are `0`, other aggregates `None`. The grain
+must divide the interval evenly: 7 days works at `day` or `week`, but not `month`. The query must also stay within
+the result limit and 1,000 buckets per row, and it cannot use `having`. Results match TypeScript row for row; both
+SDKs run the shared corpus in `specs/datasets/time-measures-corpus-v1.json`.
+
+Window and shift measures are not advertised to [client endpoints](/docs/python/client-endpoints), and publishing a
+dataset that defines them needs deployment contract 3. A shift of a derived, window or already-shifted measure is
+TypeScript only for now. See [Feature status](/docs/python/feature-status).
