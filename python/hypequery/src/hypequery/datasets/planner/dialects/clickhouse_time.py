@@ -107,6 +107,15 @@ class ClickHouseTimeSql:
     def row_element(self, row: str, position: int) -> str:
         return f"tupleElement({row}, {position:d})"
 
+    def select_all_except(self, relation: str, columns: list[str]) -> str:
+        return f"{relation}.* EXCEPT ({', '.join(columns)})"
+
+    @property
+    def asof_left_join(self) -> str:
+        """Matches each left row to the nearest preceding right row."""
+
+        return "LEFT ASOF JOIN"
+
     def filtered_input(self, condition: str, expression: str, fallback: str) -> str:
         return f"if({condition}, {expression}, {fallback})"
 

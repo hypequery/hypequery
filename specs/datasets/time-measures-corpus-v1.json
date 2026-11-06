@@ -405,6 +405,86 @@
               "priorRevenue"
             ]
           }
+        },
+        "ytd": {
+          "kind": "window",
+          "measure": "revenue",
+          "toDate": "year"
+        },
+        "priorYtd": {
+          "kind": "shift",
+          "measure": "ytd",
+          "interval": {
+            "amount": 1,
+            "unit": "year"
+          }
+        },
+        "priorRolling": {
+          "kind": "shift",
+          "measure": "rollingRevenue",
+          "interval": {
+            "amount": 1,
+            "unit": "year"
+          }
+        },
+        "priorLastQuarter": {
+          "kind": "shift",
+          "measure": "lastQuarter",
+          "interval": {
+            "amount": 1,
+            "unit": "year"
+          }
+        },
+        "total": {
+          "kind": "window",
+          "measure": "revenue",
+          "cumulative": true
+        },
+        "priorTotal": {
+          "kind": "shift",
+          "measure": "total",
+          "interval": {
+            "amount": 1,
+            "unit": "year"
+          }
+        },
+        "aov": {
+          "kind": "derived",
+          "formula": {
+            "op": "divide",
+            "args": [
+              "revenue",
+              {
+                "op": "nullIfZero",
+                "args": [
+                  "count"
+                ]
+              }
+            ]
+          }
+        },
+        "priorAov": {
+          "kind": "shift",
+          "measure": "aov",
+          "interval": {
+            "amount": 1,
+            "unit": "year"
+          }
+        },
+        "aovGrowth": {
+          "kind": "derived",
+          "formula": {
+            "op": "divide",
+            "args": [
+              "aov",
+              {
+                "op": "nullIfZero",
+                "args": [
+                  "priorAov"
+                ]
+              }
+            ]
+          }
         }
       }
     },
@@ -435,6 +515,32 @@
         "priorMonth": {
           "kind": "shift",
           "measure": "revenue",
+          "interval": {
+            "amount": 1,
+            "unit": "month"
+          }
+        },
+        "gap": {
+          "kind": "derived",
+          "formula": {
+            "op": "subtract",
+            "args": [
+              "revenue",
+              "priorYear"
+            ]
+          }
+        },
+        "priorMonthGap": {
+          "kind": "shift",
+          "measure": "gap",
+          "interval": {
+            "amount": 1,
+            "unit": "month"
+          }
+        },
+        "priorMonthYear": {
+          "kind": "shift",
+          "measure": "priorYear",
           "interval": {
             "amount": 1,
             "unit": "month"
@@ -1300,6 +1406,288 @@
       }
     },
     {
+      "name": "a shifted window is recalculated over the earlier interval",
+      "dataset": "shifts",
+      "tenant": "a",
+      "query": {
+        "by": "month",
+        "measures": [
+          "ytd",
+          "priorYtd",
+          "priorRolling",
+          "priorLastQuarter"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2026-01-01"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2026-06-01"
+          },
+          {
+            "field": "group",
+            "operator": "eq",
+            "value": "x"
+          }
+        ]
+      },
+      "expected": {
+        "rows": [
+          {
+            "period": "2026-01-01",
+            "ytd": "60",
+            "priorYtd": "30",
+            "priorRolling": "30",
+            "priorLastQuarter": null
+          },
+          {
+            "period": "2026-02-01",
+            "ytd": "60",
+            "priorYtd": "70",
+            "priorRolling": "70",
+            "priorLastQuarter": null
+          },
+          {
+            "period": "2026-03-01",
+            "ytd": "150",
+            "priorYtd": "70",
+            "priorRolling": "40",
+            "priorLastQuarter": null
+          },
+          {
+            "period": "2026-04-01",
+            "ytd": "150",
+            "priorYtd": "70",
+            "priorRolling": null,
+            "priorLastQuarter": "30"
+          },
+          {
+            "period": "2026-05-01",
+            "ytd": "150",
+            "priorYtd": "70",
+            "priorRolling": null,
+            "priorLastQuarter": "40"
+          }
+        ]
+      }
+    },
+    {
+      "name": "shifted formulas divide shifted aggregates, and formulas read formulas",
+      "dataset": "shifts",
+      "tenant": "a",
+      "query": {
+        "by": "month",
+        "measures": [
+          "aov",
+          "priorAov",
+          "aovGrowth"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2026-01-01"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2026-04-01"
+          }
+        ]
+      },
+      "expected": {
+        "rows": [
+          {
+            "period": "2026-01-01",
+            "aov": "60",
+            "priorAov": "11.666666666666666",
+            "aovGrowth": "5.142857142857143"
+          },
+          {
+            "period": "2026-02-01",
+            "aov": null,
+            "priorAov": "40",
+            "aovGrowth": null
+          },
+          {
+            "period": "2026-03-01",
+            "aov": "90",
+            "priorAov": null,
+            "aovGrowth": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a shifted cumulative reads history before each shifted bucket end",
+      "dataset": "shifts",
+      "tenant": "a",
+      "query": {
+        "by": "month",
+        "dimensions": [
+          "group"
+        ],
+        "measures": [
+          "priorTotal"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2026-01-01"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2026-04-01"
+          }
+        ],
+        "orderBy": [
+          {
+            "field": "period",
+            "direction": "asc"
+          },
+          {
+            "field": "group",
+            "direction": "asc"
+          }
+        ]
+      },
+      "expected": {
+        "rows": [
+          {
+            "period": "2026-01-01",
+            "group": "x",
+            "priorTotal": "30"
+          },
+          {
+            "period": "2026-01-01",
+            "group": null,
+            "priorTotal": "5"
+          },
+          {
+            "period": "2026-02-01",
+            "group": "x",
+            "priorTotal": "70"
+          },
+          {
+            "period": "2026-02-01",
+            "group": null,
+            "priorTotal": "5"
+          },
+          {
+            "period": "2026-03-01",
+            "group": "x",
+            "priorTotal": "70"
+          },
+          {
+            "period": "2026-03-01",
+            "group": null,
+            "priorTotal": "5"
+          }
+        ]
+      }
+    },
+    {
+      "name": "composite base inputs keep partial bounds while windows stay whole",
+      "dataset": "shifts",
+      "tenant": "a",
+      "query": {
+        "by": "month",
+        "measures": [
+          "priorYtd",
+          "priorAov"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2026-01-10"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2026-03-20"
+          }
+        ]
+      },
+      "expected": {
+        "rows": [
+          {
+            "period": "2026-01-01",
+            "priorYtd": "35",
+            "priorAov": "12.5"
+          },
+          {
+            "period": "2026-02-01",
+            "priorYtd": "75",
+            "priorAov": "40"
+          },
+          {
+            "period": "2026-03-01",
+            "priorYtd": "75",
+            "priorAov": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "shifts of a shift and of a formula clamp in each context",
+      "dataset": "calendar",
+      "query": {
+        "by": "day",
+        "measures": [
+          "priorMonthGap",
+          "priorMonthYear"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2024-03-28"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2024-04-01"
+          },
+          {
+            "field": "group",
+            "operator": "eq",
+            "value": "leap"
+          }
+        ]
+      },
+      "expected": {
+        "rows": [
+          {
+            "period": "2024-03-28 00:00:00",
+            "priorMonthGap": "10",
+            "priorMonthYear": "10"
+          },
+          {
+            "period": "2024-03-29 00:00:00",
+            "priorMonthGap": "20",
+            "priorMonthYear": "10"
+          },
+          {
+            "period": "2024-03-30 00:00:00",
+            "priorMonthGap": "20",
+            "priorMonthYear": "10"
+          },
+          {
+            "period": "2024-03-31 00:00:00",
+            "priorMonthGap": "20",
+            "priorMonthYear": "10"
+          }
+        ]
+      }
+    },
+    {
       "name": "a window query needs a bounded time range",
       "dataset": "windows",
       "tenant": "a",
@@ -1448,6 +1836,32 @@
       },
       "expected": {
         "error": "Invalid dataset query: Window measure \"yearRevenue\" would make a row contribute to more than 1,000 buckets."
+      }
+    },
+    {
+      "name": "a shifted window keeps its window's grain rules",
+      "dataset": "shifts",
+      "tenant": "a",
+      "query": {
+        "by": "week",
+        "measures": [
+          "priorRolling"
+        ],
+        "filters": [
+          {
+            "field": "time",
+            "operator": "gte",
+            "value": "2026-01-01"
+          },
+          {
+            "field": "time",
+            "operator": "lt",
+            "value": "2026-04-01"
+          }
+        ]
+      },
+      "expected": {
+        "error": "Invalid dataset query: Window measure \"rollingRevenue\" must span whole \"week\" buckets."
       }
     }
   ]

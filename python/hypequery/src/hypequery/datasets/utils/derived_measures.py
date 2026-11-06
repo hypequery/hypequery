@@ -21,6 +21,7 @@ from ..formulas import (
 from ..measures import Measure
 from ..time_measures import ShiftMeasure, WindowMeasure
 from .definition_projection import metadata
+from .inherited_measures import inherited_base_measure
 
 
 def formula_references(formula: Formula) -> tuple[str, ...]:
@@ -139,7 +140,7 @@ def validate_derived_measures(
         else:
             # A window or shift yields its base measure's values, so check that.
             base = (
-                measures.get(definition.measure)
+                inherited_base_measure(measures, name)
                 if isinstance(definition, WindowMeasure | ShiftMeasure)
                 else definition
             )
