@@ -17,20 +17,32 @@ from __future__ import annotations
 import asyncio
 import threading
 import weakref
-from collections.abc import Collection
+from collections.abc import Callable, Collection, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from types import TracebackType
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Any, Protocol, Self, TypeVar, cast
 
 from hypequery.datasets.planner import CompiledQuery, CompiledQueryError, safe_identifier
 
 from .cancellation import acquire_slot, run_with_policy, terminal_error
-from .errors import chdb_driver_error
+from .errors import chdb_driver_error, server_message_error
 from .parameters import query_arguments
 from .results import QueryRows, decode_result
-from .utils.json_compact import JSON_COMPACT_SETTINGS, decode_json_compact
+from .streams import SyncBatchStream, ThreadedBatchStream, open_threaded
+from .utils.arrow_ipc import require_pyarrow
+from .utils.json_compact import (
+    JSON_COMPACT_EACH_ROW,
+    JSON_COMPACT_SETTINGS,
+    decode_json_compact,
+    decode_json_compact_each_row,
+)
 from .utils.parameter_text import parameter_text
 from .utils.settings_clause import with_settings, within_deadline
+
+if TYPE_CHECKING:
+    import pyarrow as pa
+
+_B = TypeVar("_B")
 
 #: chDB's own name for a database that lives only as long as the process.
 IN_MEMORY = ":memory:"
@@ -103,6 +115,118 @@ class ChdbExecutor:
             raise reason
         payload = _payload(result, compiled.query_id)
         return decode_result(decode_json_compact(payload, compiled.query_id), compiled.query_id)
+
+    def _streaming(self) -> Callable[..., Any]:
+        """The connection's ``send_query``, refused clearly when it cannot stream."""
+
+        send_query = getattr(self._connection, "send_query", None)
+        if not callable(send_query):
+            raise TypeError(f"{type(self._connection).__name__} cannot stream results")
+        return cast(Callable[..., Any], send_query)
+
+    def _admit(self, compiled: CompiledQuery) -> None:
+        """Take the connection for *compiled*, queued no later than its deadline."""
+
+        deadline = compiled.deadline
+        if not self._lock.acquire(timeout=-1 if deadline is None else max(0, deadline.remaining())):
+            raise terminal_error(compiled) or CompiledQueryError(
+                "deadline-exceeded", "The query timed out.", query_id=compiled.query_id
+            )
+
+    def _send(self, compiled: CompiledQuery, fmt: str, output: dict[str, str]) -> Any:
+        """Start *compiled* as a chDB stream; the caller holds the connection."""
+
+        reason = terminal_error(compiled)
+        if reason is not None:
+            raise reason
+        parameters, settings = query_arguments(compiled)
+        params = {name: parameter_text(value) for name, value in parameters.items()}
+        deadline = compiled.deadline
+        limits = within_deadline(settings, None if deadline is None else deadline.remaining())
+        send_query = self._streaming()
+        try:
+            return send_query(with_settings(compiled.sql, limits, output), fmt, params=params)
+        except Exception as exc:
+            raise (terminal_error(compiled) or chdb_driver_error(exc, compiled.query_id)) from None
+
+    def stream(self, compiled: CompiledQuery) -> SyncBatchStream[QueryRows]:
+        """Run *compiled* and hand its rows over chunk by chunk.
+
+        The connection stays this stream's until it closes: other queries on
+        this executor wait for it, as they wait for a running query.
+        """
+
+        self._admit(compiled)
+        result: Any = None
+        try:
+            result = self._send(compiled, JSON_COMPACT_EACH_ROW, dict(JSON_COMPACT_SETTINGS))
+            chunks = iter(result)
+            first = next(chunks, None)
+            batch = None if first is None else self._decode_chunk(first, compiled)
+        except BaseException as exc:
+            self._release(result)
+            if isinstance(exc, CompiledQueryError) or not isinstance(exc, Exception):
+                raise
+            raise (terminal_error(compiled) or chdb_driver_error(exc, compiled.query_id)) from None
+
+        def batches() -> Iterator[QueryRows]:
+            if batch is None:
+                return
+            yield batch
+            for chunk in chunks:
+                yield self._decode_chunk(chunk, compiled)
+
+        return SyncBatchStream(
+            compiled,
+            batches(),
+            release=lambda: self._release(result),
+            fail=lambda exc: server_message_error(str(exc), compiled.query_id),
+            columns=() if batch is None else batch.columns,
+        )
+
+    def stream_arrow(self, compiled: CompiledQuery) -> SyncBatchStream[pa.RecordBatch]:
+        """Run *compiled* and hand its result over as Arrow record batches.
+
+        An empty result's schema has no fields: chDB sends none without rows.
+        Requires ``hypequery[arrow]``.
+        """
+
+        require_pyarrow()
+        self._streaming()
+        self._admit(compiled)
+        result: Any = None
+        try:
+            result = self._send(compiled, "Arrow", {})
+            reader = result.record_batch()
+            schema = reader.schema
+        except BaseException as exc:
+            self._release(result)
+            if isinstance(exc, CompiledQueryError) or not isinstance(exc, Exception):
+                raise
+            raise (terminal_error(compiled) or chdb_driver_error(exc, compiled.query_id)) from None
+        return SyncBatchStream(
+            compiled,
+            iter(reader),
+            release=lambda: self._release(result),
+            fail=lambda exc: server_message_error(str(exc), compiled.query_id),
+            schema=schema,
+        )
+
+    @staticmethod
+    def _decode_chunk(chunk: object, compiled: CompiledQuery) -> QueryRows:
+        payload = _payload(chunk, compiled.query_id)
+        return decode_result(
+            decode_json_compact_each_row(payload, compiled.query_id), compiled.query_id
+        )
+
+    def _release(self, result: Any) -> None:
+        """End a stream: stop chDB's side, then give the connection back."""
+
+        try:
+            if result is not None:
+                result.close()
+        finally:
+            self._lock.release()
 
     def close(self) -> None:
         """Close the chDB connection; an in-memory database goes with the last one.
@@ -205,6 +329,39 @@ class AsyncChdbExecutor:
                 future.add_done_callback(lambda _: self._release_slot_from_worker(loop))
             else:
                 self._semaphore.release()
+
+    async def _open_threaded(
+        self, compiled: CompiledQuery, open_sync: Callable[[], SyncBatchStream[_B]]
+    ) -> ThreadedBatchStream[_B]:
+        if self._closed:
+            raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
+        await acquire_slot(self._semaphore, compiled)
+        loop = asyncio.get_running_loop()
+        try:
+            # Re-checked: the executor may have closed while this call queued.
+            if self._closed:
+                raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
+        except BaseException:
+            self._semaphore.release()
+            raise
+        return await open_threaded(
+            compiled,
+            self._worker,
+            open_sync,
+            release_slot=lambda: self._release_slot_from_worker(loop),
+            cancel_on_server=None,
+        )
+
+    async def stream(self, compiled: CompiledQuery) -> ThreadedBatchStream[QueryRows]:
+        """Stream *compiled*'s rows from the worker; other queries wait until it closes."""
+
+        return await self._open_threaded(compiled, lambda: self._sync.stream(compiled))
+
+    async def stream_arrow(self, compiled: CompiledQuery) -> ThreadedBatchStream[pa.RecordBatch]:
+        """Stream *compiled* as Arrow record batches from the worker."""
+
+        require_pyarrow()
+        return await self._open_threaded(compiled, lambda: self._sync.stream_arrow(compiled))
 
     def close(self) -> None:
         """Stop admitting work and close the connection.

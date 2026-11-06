@@ -9,8 +9,9 @@ around it.
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import NoReturn, TypedDict, Unpack
+from typing import Any, NoReturn, TypedDict, Unpack, cast
 
 from ..cache import CachedRows, ResultCache
 from ..dataset import Dataset
@@ -40,6 +41,17 @@ from .results import (
     ValidationResult,
     build_result,
 )
+from .streams import (
+    ArrowBatchStream,
+    AsyncArrowBatchStream,
+    AsyncDatasetArrowStream,
+    AsyncDatasetRowStream,
+    AsyncRowBatchStream,
+    DatasetArrowStream,
+    DatasetRowStream,
+    RowBatchStream,
+    StreamShape,
+)
 from .tenant_binding import bind_tenant, require_tenant_capability
 
 #: Failures that mean "this query would not plan", as opposed to "this call
@@ -65,6 +77,18 @@ class _Execution:
     started: float
     paginate: bool
     hit: CachedRows | None
+
+
+def _streaming_method(executor: object, name: str) -> Callable[..., Any]:
+    """The executor's *name* method, refused up front when it cannot stream."""
+
+    method = getattr(executor, name, None)
+    if not callable(method):
+        raise TypeError(
+            f"{type(executor).__name__} cannot stream results; "
+            "the built-in ClickHouse and chDB executors can."
+        )
+    return cast(Callable[..., Any], method)
 
 
 class ExecuteOptions(TypedDict, total=False):
@@ -202,6 +226,14 @@ class _DatasetClientBase:
             planned_columns=output_columns(planned.dataset, planned.query),
         )
 
+    def _stream_shape(self, planned: _Planned) -> StreamShape:
+        return StreamShape(
+            query_id=planned.compiled.query_id,
+            columns=output_columns(planned.dataset, planned.query),
+            column_types=output_column_types(planned.dataset, planned.query, self._registry),
+            timezone=planned.query.timezone or self._timezone,
+        )
+
     def to_sql(
         self,
         target: DatasetTarget,
@@ -297,6 +329,28 @@ class TenantDatasetClient(_TenantBoundBase):
         bound = bind_tenant(self._scope, context)
         return self._client.execute(target, query, context=bound, **options)
 
+    def stream(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> DatasetRowStream:
+        """Stream *query*'s rows as the bound tenant. See `DatasetClient.stream`."""
+
+        return self._client.stream(target, query, context=bind_tenant(self._scope, context))
+
+    def stream_arrow(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> DatasetArrowStream:
+        """Stream *query* as Arrow as the bound tenant. See `DatasetClient.stream_arrow`."""
+
+        return self._client.stream_arrow(target, query, context=bind_tenant(self._scope, context))
+
 
 class AsyncTenantDatasetClient(_TenantBoundBase):
     """An async client that runs every query as one tenant."""
@@ -317,6 +371,28 @@ class AsyncTenantDatasetClient(_TenantBoundBase):
 
         bound = bind_tenant(self._scope, context)
         return await self._client.execute(target, query, context=bound, **options)
+
+    def stream(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> AsyncDatasetRowStream:
+        """Stream *query*'s rows as the bound tenant. See `AsyncDatasetClient.stream`."""
+
+        return self._client.stream(target, query, context=bind_tenant(self._scope, context))
+
+    def stream_arrow(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> AsyncDatasetArrowStream:
+        """Stream *query* as Arrow as the bound tenant. See `AsyncDatasetClient.stream_arrow`."""
+
+        return self._client.stream_arrow(target, query, context=bind_tenant(self._scope, context))
 
 
 class DatasetClient(_DatasetClientBase):
@@ -360,6 +436,50 @@ class DatasetClient(_DatasetClientBase):
             return self._finish(execution, execution.hit, "hit")
         return self._complete(execution, self._executor.execute(execution.planned.compiled))
 
+    def stream(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> DatasetRowStream:
+        """Plan *query* and stream its rows in batches as the executor receives them.
+
+        The query is planned and validated now, so an invalid one raises here;
+        it starts when the returned stream is entered or first iterated. It
+        runs exactly as `execute` would, under the same settings and tenant
+        scope, without the cache or pagination. Use it in a ``with`` block:
+        leaving early stops the query.
+        """
+
+        open_stream = cast(
+            Callable[[CompiledQuery], RowBatchStream], _streaming_method(self._executor, "stream")
+        )
+        planned = self._plan(target, query, context)
+        return DatasetRowStream(lambda: open_stream(planned.compiled), self._stream_shape(planned))
+
+    def stream_arrow(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> DatasetArrowStream:
+        """Plan *query* and stream its result as Arrow record batches.
+
+        Like `stream`, but batches keep ClickHouse's native column types.
+        Requires ``hypequery[arrow]``.
+        """
+
+        open_stream = cast(
+            Callable[[CompiledQuery], ArrowBatchStream],
+            _streaming_method(self._executor, "stream_arrow"),
+        )
+        planned = self._plan(target, query, context)
+        return DatasetArrowStream(
+            lambda: open_stream(planned.compiled), self._stream_shape(planned)
+        )
+
 
 class AsyncDatasetClient(_DatasetClientBase):
     """Async client over an executor that runs on the event loop.
@@ -402,6 +522,47 @@ class AsyncDatasetClient(_DatasetClientBase):
             return self._finish(execution, execution.hit, "hit")
         rows = await self._executor.execute(execution.planned.compiled)
         return self._complete(execution, rows)
+
+    def stream(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> AsyncDatasetRowStream:
+        """Plan *query* and stream its rows; see `DatasetClient.stream`::
+
+        async with client.stream(orders, query) as stream:
+            async for batch in stream:
+                ...
+        """
+
+        open_stream = cast(
+            Callable[[CompiledQuery], Awaitable[AsyncRowBatchStream]],
+            _streaming_method(self._executor, "stream"),
+        )
+        planned = self._plan(target, query, context)
+        return AsyncDatasetRowStream(
+            lambda: open_stream(planned.compiled), self._stream_shape(planned)
+        )
+
+    def stream_arrow(
+        self,
+        target: DatasetTarget,
+        query: QueryInput = None,
+        *,
+        context: ExecutionContext | None = None,
+    ) -> AsyncDatasetArrowStream:
+        """Plan *query* and stream it as Arrow record batches; see `DatasetClient.stream_arrow`."""
+
+        open_stream = cast(
+            Callable[[CompiledQuery], Awaitable[AsyncArrowBatchStream]],
+            _streaming_method(self._executor, "stream_arrow"),
+        )
+        planned = self._plan(target, query, context)
+        return AsyncDatasetArrowStream(
+            lambda: open_stream(planned.compiled), self._stream_shape(planned)
+        )
 
 
 def create_dataset_client(
