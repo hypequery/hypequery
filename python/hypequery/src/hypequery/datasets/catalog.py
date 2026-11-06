@@ -53,6 +53,7 @@ class MeasureCatalogEntry(TypedDict):
     field: str
     argField: NotRequired[str]
     level: NotRequired[float]
+    stateFunction: NotRequired[str]
     sql: NotRequired[str]
     label: NotRequired[str]
     description: NotRequired[str]
@@ -97,6 +98,8 @@ class DatasetLimitsEntry(TypedDict):
 class DatasetCatalog(TypedDict):
     name: str
     source: str
+    rowResolution: NotRequired[dict[str, object]]
+    segments: NotRequired[dict[str, dict[str, str]]]
     tenantKey: NotRequired[str]
     timeKey: NotRequired[str]
     dimensions: dict[str, DimensionCatalogEntry]
@@ -142,6 +145,7 @@ def _measure_entry(measure: Measure) -> MeasureCatalogEntry:
         _present(
             argField=measure.arg_field,
             level=measure.level,
+            stateFunction=measure.state_function,
             sql=measure.sql,
         )
     )
@@ -201,6 +205,8 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     }
 
     catalog: dict[str, object] = {"name": dataset.name, "source": dataset.source}
+    if dataset.row_resolution is not None:
+        catalog["rowResolution"] = dataset.row_resolution.to_protocol()
     catalog.update(_present(tenantKey=dataset.tenant_key, timeKey=dataset.time_key))
     catalog["dimensions"] = {
         name: _dimension_entry(dimension) for name, dimension in dimensions.items()
@@ -230,6 +236,12 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     catalog["filters"] = {
         name: _filter_entry(definition, dimensions) for name, definition in dataset.filters.items()
     }
+    if dataset.segments:
+        # Label and description only: a segment's filters stay in the definition.
+        catalog["segments"] = {
+            name: metadata(segment.label, segment.description)
+            for name, segment in dataset.segments.items()
+        }
     catalog["relationships"] = relationships
     if dataset.limits is not None:
         catalog["limits"] = _limits_entry(dataset.limits)

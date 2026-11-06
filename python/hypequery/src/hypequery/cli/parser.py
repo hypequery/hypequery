@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from importlib.metadata import version
 
 from .generators.framework_apps import FRAMEWORKS
@@ -166,6 +166,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     dev.set_defaults(reload=True)
     mcp = _add_mcp(commands)
+    skill = _add_skill(commands)
     telemetry = commands.add_parser(
         "telemetry", help="show or change anonymous usage telemetry settings"
     )
@@ -174,7 +175,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     help_command = commands.add_parser("help", help="show help for a command")
     help_command.add_argument(
-        "topic", nargs="?", choices=("init", "dev", "generate", "export", "mcp", "telemetry")
+        "topic",
+        nargs="?",
+        choices=("init", "dev", "generate", "export", "mcp", "skill", "telemetry"),
     )
     args = parser.parse_args(arguments)
     args.no_telemetry = no_telemetry
@@ -186,6 +189,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "generate": generate,
             "export": export,
             "mcp": mcp,
+            "skill": skill,
             "telemetry": telemetry,
         }
         topics[args.topic].print_help()
@@ -212,8 +216,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--force cannot be combined with --check")
         if (args.stdout or args.output == "-") and (args.check or args.force):
             parser.error("stdout export cannot be combined with --check or --force")
-    if args.command == "mcp":
-        _validate_mcp(parser, args)
+    validate = _COMMAND_VALIDATORS.get(args.command)
+    if validate is not None:
+        validate(parser, args)
     if args.command == "dev" and not 0 < args.port < 65536:
         parser.error("--port must be between 1 and 65535")
     return args
@@ -267,3 +272,47 @@ def _validate_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("use either an app or --client-contract-url")
     if args.self_test and args.print_config:
         parser.error("--self-test cannot be combined with --print-config")
+
+
+def _add_skill(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    skill = commands.add_parser(
+        "skill",
+        help="install hypequery agent skills for Claude Code, Cursor and Codex",
+        description="Write hypequery's agent skills (authoring datasets, querying them) "
+        "where coding agents load them: .claude/skills for Claude Code, .agents/skills "
+        "for Cursor and Codex.",
+    )
+    skill.add_argument("action", choices=("install",))
+    skill.add_argument(
+        "--agent",
+        choices=("claude", "cursor", "codex", "all"),
+        default="all",
+        help="which agent to install for (default: all)",
+    )
+    skill.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="this project (default) or your home directory, for every project",
+    )
+    skill.add_argument(
+        "--force", action="store_true", help="replace skills that were edited or are out of date"
+    )
+    skill.add_argument(
+        "--check", action="store_true", help="exit 1 if a skill is missing or out of date"
+    )
+    return skill
+
+
+def _validate_skill(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.check and args.force:
+        parser.error("--force cannot be combined with --check")
+
+
+#: Cross-option checks argparse cannot express, per command.
+_COMMAND_VALIDATORS: dict[str, Callable[[argparse.ArgumentParser, argparse.Namespace], None]] = {
+    "mcp": _validate_mcp,
+    "skill": _validate_skill,
+}

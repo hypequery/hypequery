@@ -237,6 +237,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -286,6 +287,8 @@
             "--draft",
             "--client",
             "--release",
+            "--agent",
+            "--scope",
             "--no-telemetry",
             "--help",
             "--version"
@@ -888,6 +891,7 @@
         "diff": {},
         "version": {},
         "telemetry": {},
+        "skill": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -913,7 +917,8 @@
               "diff",
               "help",
               "version",
-              "telemetry"
+              "telemetry",
+              "skill"
             ],
             "optional": true
           }
@@ -945,6 +950,7 @@
               "help",
               "version",
               "telemetry",
+              "skill",
               "unknown"
             ],
             "optional": true
@@ -1468,6 +1474,7 @@
             "help",
             "version",
             "telemetry",
+            "skill",
             "unknown"
           ]
         },
@@ -1633,6 +1640,12 @@
       "--project",
       "--environment",
       "--endpoint"
+    ],
+    "skill": [
+      "--agent",
+      "--scope",
+      "--force",
+      "--check"
     ],
     "help": [],
     "version": [],
@@ -1848,6 +1861,7 @@
               "generate:datasets",
               "export:client-contract",
               "mcp",
+              "skill",
               "help",
               "version",
               "unknown"
@@ -1881,6 +1895,8 @@
               "--project",
               "--self-test",
               "--print-config",
+              "--agent",
+              "--scope",
               "--no-telemetry",
               "--help",
               "--version"
@@ -1948,6 +1964,7 @@
           "generate:datasets": {},
           "export:client-contract": {},
           "mcp": {},
+          "skill": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1959,6 +1976,7 @@
                 "generate:datasets",
                 "export:client-contract",
                 "mcp",
+                "skill",
                 "telemetry"
               ],
               "optional": true
@@ -1975,6 +1993,7 @@
                 "generate:datasets",
                 "export:client-contract",
                 "mcp",
+                "skill",
                 "help",
                 "telemetry"
               ],
@@ -2026,6 +2045,12 @@
         "--project",
         "--self-test",
         "--print-config"
+      ],
+      "skill": [
+        "--agent",
+        "--scope",
+        "--force",
+        "--check"
       ],
       "help": [],
       "version": [],

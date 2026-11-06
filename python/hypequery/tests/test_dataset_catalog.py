@@ -22,6 +22,7 @@ from hypequery.datasets import (
     DatasetLimits,
     DatasetRegistry,
     FilterDefinition,
+    Segment,
     belongs_to,
     create_dataset_registry,
     dimension,
@@ -88,6 +89,7 @@ Orders = Dataset(
         "paidRevenue": measure(sum("amount"), filters=(eq("status", "paid"),)),
     },
     filters={"status": FilterDefinition(field="status", operators=("eq", "in"))},
+    segments={"paid": Segment(filters=(eq("status", "paid"),), label="Paid orders")},
     relationships={
         "customer": belongs_to(Customers, from_field="customerId", to_field="id"),
         "primaryContact": has_one(Customers, from_field="id", to_field="id"),

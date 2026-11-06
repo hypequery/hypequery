@@ -76,6 +76,9 @@ class ClickHouseDialect:
             # to [0, 1], not caller input, and ClickHouse takes it as a function
             # parameter rather than a bindable value.
             return AggregateCall("quantile", (target,), (repr(measure.level),))
+        if aggregation == "merge":
+            # The model only admits state functions from RFC 0022's list.
+            return AggregateCall(f"{measure.state_function}Merge", (target,))
         function = _AGGREGATE_FUNCTIONS.get(aggregation)
         if function is None:
             raise CompiledQueryError("internal", f"Unknown aggregation {aggregation!r}.")
@@ -136,10 +139,21 @@ class ClickHouseDialect:
         key = columns[0] if len(columns) == 1 else "tuple(" + ", ".join(columns) + ")"
         return f"uniqExact({key})"
 
+    def resolved_source(self, source: str) -> str:
+        return f"{source} FINAL"
+
+    def resolved_rows_settings(self) -> str:
+        # A filter moved to PREWHERE runs before FINAL and can match an older row
+        # version. This is the server default; pinning it covers profiles that
+        # change it, and a readonly profile that enables it refuses the query.
+        return "optimize_move_to_prewhere_if_final = 0"
+
     def render_select(self, node: DatasetSelectNode) -> str:
         from_clause = f" FROM {node.source}"
         if node.base_alias is not None:
             from_clause += f" AS {node.base_alias.sql}"
+        if node.resolved_source:
+            from_clause = self.resolved_source(from_clause)
         # ANY: each base row meets at most one target row, so a duplicated
         # to-one key cannot fan out the base aggregates.
         joins = "".join(
@@ -155,6 +169,7 @@ class ClickHouseDialect:
             + having_clause(node.having)
             + order_by_clause(node.order_by)
             + pagination_clause(node.limit, node.offset)
+            + (f" SETTINGS {self.resolved_rows_settings()}" if node.reads_resolved_rows else "")
         )
 
 

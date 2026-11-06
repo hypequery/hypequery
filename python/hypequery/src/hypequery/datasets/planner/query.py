@@ -34,6 +34,8 @@ class DatasetQuery(BaseModel):
     filters: tuple[Filter, ...] = ()
     #: Conditions on aggregated measure values, AND-ed and applied after grouping.
     having: tuple[HavingCondition, ...] = ()
+    #: Names of the dataset's segments, AND-ed with `filters` (RFC 0015).
+    segments: tuple[str, ...] = ()
     by: TimeGrain | None = None
     order_by: tuple[Order, ...] = ()
     limit: int | None = Field(default=None, ge=0)
