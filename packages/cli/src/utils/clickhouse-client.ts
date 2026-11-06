@@ -1,4 +1,4 @@
-import { createClient, type ClickHouseClient } from '@clickhouse/client';
+import { ClickHouseLogLevel, createClient, type ClickHouseClient } from '@clickhouse/client';
 
 export interface ClickHouseEnvConfig {
   url: string;
@@ -44,6 +44,9 @@ export function getClickHouseClient(): ClickHouseClient {
       username: config.username,
       password: config.password,
       database: config.database,
+      // Commands report connection failures themselves; the client's own
+      // error log would print a raw stack trace before that message.
+      log: { level: ClickHouseLogLevel.OFF },
     });
   }
 

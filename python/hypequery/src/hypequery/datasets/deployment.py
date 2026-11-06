@@ -17,6 +17,7 @@ from .dimensions import DimensionType
 from .measures import Measure
 from .registry import DatasetRegistry
 from .relationships import Relationship
+from .time_measures import ShiftMeasure, WindowMeasure
 from .utils.definition_projection import (
     filter_operators,
     is_queryable,
@@ -91,7 +92,7 @@ def build_protocol_dataset_contract(
     for name, measure in sorted(
         dataset.measures.items(), key=lambda item: portable_name_key(item[0])
     ):
-        if isinstance(measure, DerivedMeasure):
+        if not isinstance(measure, Measure):
             continue
         entry = {
             "name": name,
@@ -182,6 +183,13 @@ def validate_deployable(dataset: Dataset) -> None:
             "for local queries until publishing emits contract 3."
         )
     for name, definition in dataset.measures.items():
+        if isinstance(definition, WindowMeasure | ShiftMeasure):
+            kind = "window" if isinstance(definition, WindowMeasure) else "shift"
+            raise ValueError(
+                f"{dataset.name}.{name} is a {kind} measure, which cannot be published yet: "
+                "window and shift measures need deployment contract 3 (RFC 0015). Use them for "
+                "local queries."
+            )
         if isinstance(definition, Measure) and definition.aggregation == "approxCountDistinct":
             # Mirrors TypeScript's `requirePublishableMeasureAggregation`.
             raise ValueError(

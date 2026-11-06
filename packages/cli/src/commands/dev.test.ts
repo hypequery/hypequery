@@ -324,6 +324,25 @@ describe('dev command', () => {
       );
     });
 
+    it('shows the base path for createAPI entries, which have no basePath property', async () => {
+      vi.mocked(loadApi.loadApiModule).mockResolvedValue({
+        queries: {},
+        describe: () => ({
+          queries: [
+            { key: '__hypequery_openapi__', path: '/api/analytics/openapi.json' },
+            { key: '__hypequery_docs__', path: '/api/analytics/docs' },
+          ],
+        }),
+      });
+
+      await devCommand(undefined, { watch: false });
+
+      expect(logger.box).toHaveBeenCalledWith([
+        'Docs:     http://localhost:4000/api/analytics/docs',
+        'OpenAPI:  http://localhost:4000/api/analytics/openapi.json',
+      ]);
+    });
+
     it('should open browser when --open flag is set', async () => {
       await devCommand(undefined, { watch: false, open: true });
 

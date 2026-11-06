@@ -5,6 +5,7 @@ const close = vi.fn();
 const createClient = vi.fn(() => ({ close }));
 
 vi.mock('@clickhouse/client', () => ({
+  ClickHouseLogLevel: { OFF: 127 },
   createClient: (...args: any[]) => createClient(...args),
 }));
 
@@ -34,6 +35,7 @@ describe('clickhouse-client', () => {
       username: 'default',
       password: '',
       database: 'default',
+      log: { level: 127 },
     });
   });
 

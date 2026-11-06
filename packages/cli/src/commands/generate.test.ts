@@ -231,6 +231,20 @@ describe('generate command', () => {
       expect(logger.indent).toHaveBeenCalledWith('• ClickHouse is not running');
     });
 
+    it('explains a refused connection reported as an empty AggregateError', async () => {
+      const error = Object.assign(
+        new AggregateError([new Error('connect ECONNREFUSED 127.0.0.1:9')], ''),
+        { code: 'ECONNREFUSED' },
+      );
+      vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
+
+      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+
+      expect(mockSpinner.succeed).not.toHaveBeenCalledWith('Connected to ClickHouse');
+      expect(logger.error).toHaveBeenCalledWith('connect ECONNREFUSED 127.0.0.1:9');
+      expect(logger.indent).toHaveBeenCalledWith('• ClickHouse is not running');
+    });
+
     it('redacts credentials from connection diagnostics', async () => {
       process.env.CLICKHOUSE_URL = 'https://admin:secret@clickhouse.example.com:8443/analytics?token=secret';
       vi.mocked(detectDb.getTableCount).mockRejectedValue(new Error('connect ECONNREFUSED'));

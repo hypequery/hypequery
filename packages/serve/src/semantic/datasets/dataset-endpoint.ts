@@ -32,6 +32,7 @@ import {
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
+import { endpointMaxLimit } from './utils/client-endpoint-profile.js';
 import { assertRelatedDatasetAccess, type RelatedDatasetPolicies } from './utils/related-dataset-policy.js';
 
 export type { DatasetEntry } from './utils/dataset-entry.js';
@@ -75,7 +76,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 ): ServeEndpoint<z.ZodTypeAny, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
-  const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
+  const effectiveMaxLimit = endpointMaxLimit(ds, resolved.maxLimit);
   // Build a schema whose dimension/measure/filter fields are enumerated from
   // this dataset's contract, so OpenAPI/docs and clients see the valid fields.
   const datasetQueryInputSchema = buildDatasetInputSchema(ds, {

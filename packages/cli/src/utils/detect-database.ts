@@ -125,26 +125,33 @@ export async function getTableCount(
   }
 }
 
+async function queryClickHouse<T>(query: string): Promise<T> {
+  const client = getClickHouseClient();
+  const result = await client.query({
+    query,
+    format: 'JSONEachRow',
+  });
+  return (await result.json()) as T;
+}
+
 /**
  * Generic helper to execute ClickHouse queries with consistent error handling
  */
 async function executeClickHouseQuery<T>(query: string, defaultValue: T): Promise<T> {
   try {
-    const client = getClickHouseClient();
-
-    const result = await client.query({
-      query,
-      format: 'JSONEachRow',
-    });
-
-    return (await result.json()) as T;
+    return await queryClickHouse<T>(query);
   } catch {
     return defaultValue;
   }
 }
 
+/**
+ * Counts tables in the configured database. Connection and authentication
+ * failures propagate, so callers never report a failed connection as an
+ * empty database.
+ */
 async function getClickHouseTableCount(): Promise<number> {
-  const tables = await executeClickHouseQuery<unknown[]>('SHOW TABLES', []);
+  const tables = await queryClickHouse<unknown[]>('SHOW TABLES');
   return Array.isArray(tables) ? tables.length : 0;
 }
 

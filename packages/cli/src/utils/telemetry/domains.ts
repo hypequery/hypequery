@@ -11,7 +11,7 @@ export const OUTCOMES = ['success', 'failure', 'cancelled', 'interrupted'] as co
 export const DATABASES = ['clickhouse', 'chdb', 'bigquery', 'unknown'] as const;
 export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
-  'generate:manifest', 'generate:client', 'login', 'logout', 'deploy', 'deployment:build',
+  'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
   'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'unknown',
 ] as const;
@@ -27,6 +27,7 @@ export const COMMAND_FLAGS = {
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--force', '--check', '--diff'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--check', '--force', '--cloud', '--project', '--environment', '--endpoint'],
+  'export:client-contract': ['--output', '--stdout', '--check', '--force'],
   login: ['--cloud-url', '--environment'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--no-source', '--endpoint', '--replace-restored', '--mcp-config', '--draft', '--client'],
@@ -51,6 +52,7 @@ export const VALUE_FLAGS = {
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--project', '--environment', '--endpoint'],
+  'export:client-contract': ['--output'],
   login: ['--cloud-url', '--environment'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint', '--draft', '--client'],

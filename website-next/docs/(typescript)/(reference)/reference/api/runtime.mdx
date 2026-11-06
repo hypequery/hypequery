@@ -212,6 +212,12 @@ const manifest = api.manifest();
 ```
 </CodeBlock>
 
+### `api.clientContract()`
+
+Returns the build view of the API's semantic client contract (RFC 0018) as `{ contract, canonical, contentHash }`: every dataset and measure-backed metric endpoint, with typed fields, full paths and schema hashes. Write `canonical` to a file, or use `hypequery export:client-contract`, and run `hypequery generate:client` on it to type React hooks in a frontend that can't import the API. Paths are `clientContract.mountPath` (set it in `createAPI` when the API is mounted below a prefix), then `basePath`, then the route. Each `datasets` and `metrics` key must be its dataset's or metric's own name, which is the endpoint's contract ID and React hook key; the export refuses one that isn't. Window and shift measures, relationship fields and fixed-grain metrics are not advertised yet.
+
+Requests to a dataset or metric endpoint that send its schema hash in `X-Hypequery-Client-Schema`, as generated clients do, are checked after authentication and before input validation. A stale hash, or any hash for an endpoint the contract cannot describe (such as a grained metric), gets `409 VALIDATION_ERROR` with `details.code: 'CLIENT_SCHEMA_CHANGED'`. A matching one runs under the contract's strict query profile. Requests without the header are served as before, and other routes, such as named queries, ignore the header, as Python serve does.
+
 ## `api.queries`
 
 `api.queries` exposes the routed query definitions by name so they can be reused in `api.route(...)`.

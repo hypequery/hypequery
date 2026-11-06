@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: [ "**" ]
 
+# A new push to a PR cancels that PR's superseded run, so stale runs stop
+# holding runners (the org shares 20 concurrent jobs). Pushes to main each get
+# their own group and are never cancelled: they publish canaries.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # HQ-61: a high or critical advisory in a production dependency of the
   # published packages or the website fails CI. Triage: CONTRIBUTING.md.

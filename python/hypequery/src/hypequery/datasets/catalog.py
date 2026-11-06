@@ -22,6 +22,7 @@ from .measures import Measure
 from .query_helpers import FilterOperator
 from .registry import DatasetRegistry
 from .relationships import Relationship, RelationshipKind
+from .time_measures import ShiftMeasure, WindowMeasure
 from .utils.approximate_measures import is_approximate_base_measure, is_approximate_measure
 from .utils.definition_projection import (
     filter_operators,
@@ -36,6 +37,11 @@ from .utils.relationship_fields import (
     list_queryable_relationship_fields,
 )
 from .utils.relationship_measures import list_relationship_measures
+from .utils.time_measure_catalog import (
+    measure_supported_grains,
+    time_measure_metadata,
+    uses_time_measure,
+)
 
 
 class DimensionCatalogEntry(TypedDict):
@@ -59,6 +65,15 @@ class MeasureCatalogEntry(TypedDict):
     description: NotRequired[str]
     filterCount: int
     approximate: NotRequired[bool]
+    # Window and shift measures (RFC 0015).
+    kind: NotRequired[str]
+    measure: NotRequired[str]
+    trailing: NotRequired[dict[str, object]]
+    toDate: NotRequired[str]
+    cumulative: NotRequired[bool]
+    interval: NotRequired[dict[str, object]]
+    requiresTimeRange: NotRequired[bool]
+    supportedGrains: NotRequired[list[str]]
 
 
 class FilterCatalogEntry(TypedDict):
@@ -156,6 +171,23 @@ def _measure_entry(measure: Measure) -> MeasureCatalogEntry:
     return cast(MeasureCatalogEntry, entry)
 
 
+def _time_measure_entry(
+    dataset: Dataset, name: str, measure: WindowMeasure | ShiftMeasure, grains: list[str]
+) -> MeasureCatalogEntry:
+    """The base measure's entry with the window's own text and time metadata."""
+
+    base = dataset.measures[measure.measure]
+    entry: dict[str, object] = dict(_measure_entry(base)) if isinstance(base, Measure) else {}
+    for key in ("label", "description"):
+        entry.pop(key, None)
+    if is_approximate_measure(dataset.measures, name):
+        entry["approximate"] = True
+    entry.update(metadata(measure.label, measure.description))
+    entry.update(time_measure_metadata(measure))
+    entry["supportedGrains"] = measure_supported_grains(dataset.measures, name, grains)
+    return cast(MeasureCatalogEntry, entry)
+
+
 def _filter_entry(
     definition: FilterDefinition, dimensions: dict[str, Dimension]
 ) -> FilterCatalogEntry:
@@ -211,11 +243,16 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     catalog["dimensions"] = {
         name: _dimension_entry(dimension) for name, dimension in dimensions.items()
     }
-    catalog["measures"] = {
+    grains = list(dataset.time_grains or SUPPORTED_TIME_GRAINS) if dataset.time_key else []
+    measure_entries: dict[str, MeasureCatalogEntry] = {
         name: _measure_entry(measure)
         for name, measure in dataset.measures.items()
         if isinstance(measure, Measure)
     }
+    for name, measure in dataset.measures.items():
+        if isinstance(measure, WindowMeasure | ShiftMeasure):
+            measure_entries[name] = _time_measure_entry(dataset, name, measure, grains)
+    catalog["measures"] = measure_entries
     derived = {
         name: {
             **{
@@ -225,6 +262,14 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
             },
             # Present, as True, when any measure the formula uses is approximate.
             **({"approximate": True} if is_approximate_measure(dataset.measures, name) else {}),
+            **(
+                {
+                    "requiresTimeRange": True,
+                    "supportedGrains": measure_supported_grains(dataset.measures, name, grains),
+                }
+                if uses_time_measure(dataset.measures, name)
+                else {}
+            ),
         }
         for name, measure in dataset.measures.items()
         if isinstance(measure, DerivedMeasure)
@@ -249,9 +294,14 @@ def get_dataset_catalog(dataset: Dataset, *, registry: DatasetRegistry) -> Datas
     catalog["supportedGrains"] = (
         list(dataset.time_grains or SUPPORTED_TIME_GRAINS) if dataset.time_key else []
     )
+    measures = dataset.measures
     catalog["orderableFields"] = [
         *dimensions,
-        *dataset.measures,
+        # TypeScript's order: base, then window, then shift, then derived measures.
+        *(name for name, m in measures.items() if isinstance(m, Measure)),
+        *(name for name, m in measures.items() if isinstance(m, WindowMeasure)),
+        *(name for name, m in measures.items() if isinstance(m, ShiftMeasure)),
+        *(name for name, m in measures.items() if isinstance(m, DerivedMeasure)),
         *(
             field
             for entry in relationships.values()

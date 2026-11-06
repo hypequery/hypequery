@@ -74,7 +74,8 @@ npx hypequery dev
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
 | `hypequery generate:manifest <api>` | Write the route manifest React hooks use to call a TypeScript API |
-| `hypequery generate:client [contract]` | Generate typed React client types and routes from a Python client contract or the live cloud release |
+| `hypequery generate:client [contract]` | Generate typed React client types and routes from a TypeScript serve or Python client contract, or the live cloud release |
+| `hypequery export:client-contract <api>` | Export a TypeScript serve API's client contract for `hypequery generate:client` |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
 | `hypequery skill install` | Install hypequery's agent skills for Claude Code, Cursor and Codex |
@@ -376,7 +377,7 @@ Re-run it whenever you add or re-route an endpoint, for example in a `prebuild` 
 
 <CodeBlock>
 ```bash
-# From a client contract exported by a Python API
+# From a client contract exported by a TypeScript serve API or a Python API
 npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
 
 # From the live cloud release of the target chosen with `hypequery login`
@@ -389,10 +390,11 @@ routes and schema hash. It exports `ClientApi` (request and response types for `
 `clientManifest` (routes and schema hashes), `clientContractHash`, and, with `--cloud`, `clientBaseUrl`. The generator
 reads data only: it never imports your API module or opens a database connection.
 
-Contracts come from a Python API (`python -m hypequery export client-contract`, see
-[Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract)) or from a cloud release. Only the
-**build** view is accepted; the authorized view served at a live `/v1/client-contract` route is refused. A TypeScript
-API does not export a client contract: type its hooks with `InferApiType` and `generate:manifest` instead.
+Contracts come from a TypeScript serve API ([`hypequery export:client-contract`](#hypequery-exportclient-contract-api)),
+a Python API (`python -m hypequery export client-contract`, see
+[Python: React and MCP clients](/docs/python/client-endpoints#3-export-the-contract)) or a cloud release. Only the
+**build** view is accepted; the authorized view served at a live `/v1/client-contract` route is refused. When the
+React app is in the same repository as a TypeScript API, `InferApiType` with `generate:manifest` needs no contract.
 
 **Options:**
 - **`-o, --output <file>`** – Where to write the client. Defaults to `analytics/hypequery-client.ts`
@@ -405,6 +407,24 @@ API does not export a client contract: type its hooks with `InferApiType` and `g
 When an endpoint changes after the client was generated, the server answers requests from the old client with
 `409 CLIENT_SCHEMA_CHANGED`, and the hooks raise `ClientSchemaChangedError`. Regenerate the client and review the type
 errors.
+
+## `hypequery export:client-contract <api>`
+
+<CodeBlock>
+```bash
+npx hypequery export:client-contract analytics/api.ts --output client-contract.json
+```
+</CodeBlock>
+
+Writes the build view of a TypeScript serve API's [client contract](/docs/react/getting-started#datasets-served-from-typescript-in-another-repo): every dataset endpoint and measure-backed metric endpoint, with typed fields, full paths and schema hashes. A React app in another repository turns it into typed hooks with `hypequery generate:client`. The module must export the value `createAPI()` returns, as `api` or as the default export; the command calls its `api.clientContract()`, checks the result's identities, and connects to no database.
+
+**Options:**
+- **`-o, --output <file>`** – Where to write the contract. Defaults to `client-contract.json`
+- **`--stdout`** – Write only the canonical contract to stdout
+- **`--check`** – Do not write; exit non-zero when the file is missing or out of date
+- **`--force`** – Atomically replace an existing contract file
+
+It refuses to overwrite an existing file without `--force`, and refuses an API with no dataset or metric endpoints, since named queries are not part of a client contract. The output is the same canonical JSON Python's `hypequery export client-contract` writes for an equivalent definition.
 
 ## `hypequery deploy <cloud>`
 

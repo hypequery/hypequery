@@ -13,7 +13,7 @@ from typing import Protocol, cast
 
 from hypequery.execution.utils.connection_env import ConnectionFields, connection_fields
 
-from ..errors import CliError
+from ..errors import CliError, DatabaseOpenError
 from ..utils.clickhouse_hints import clickhouse_hint
 
 #: Bounds for catalog reads. A user whose profile is readonly = 1 may not change
@@ -170,7 +170,7 @@ def discover_catalog(
         )
 
 
-class DiscoveryConnectionError(CliError):
+class DiscoveryConnectionError(DatabaseOpenError):
     """ClickHouse could not be reached or refused the connection."""
 
 
@@ -198,14 +198,14 @@ def _connected(environ: Mapping[str, str]) -> Iterator[tuple[_Client, Connection
     driver's own text, which can hold URLs or values, is never shown.
     """
     if find_spec("clickhouse_connect") is None:
-        raise CliError('Schema discovery requires: pip install "hypequery[clickhouse]"')
+        raise DatabaseOpenError('Schema discovery requires: pip install "hypequery[clickhouse]"')
     import clickhouse_connect
 
     try:
         fields = connection_fields(environ)
     except ValueError as exc:
         # The parser's messages name the variable and never echo its value.
-        raise CliError(str(exc)) from exc
+        raise DatabaseOpenError(str(exc)) from exc
     client: _Client | None = None
     try:
         with _quiet_driver():

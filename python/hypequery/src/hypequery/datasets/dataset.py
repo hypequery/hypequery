@@ -17,8 +17,10 @@ from .query_helpers import FilterOperator
 from .relationships import Relationship
 from .row_resolution import RowResolution
 from .segments import Segment
+from .time_measures import ShiftMeasure, WindowMeasure
 from .utils.derived_measures import validate_derived_measures
 from .utils.segments import segment_errors
+from .utils.time_measure_validation import time_measure_errors
 from .validation import (
     validate_identifier,
     validate_identifier_map,
@@ -51,7 +53,15 @@ class DatasetLimits(DefinitionModel):
 
 
 DefinitionMap: TypeAlias = Mapping[
-    str, Dimension | Measure | DerivedMeasure | FilterDefinition | Relationship | Segment
+    str,
+    Dimension
+    | Measure
+    | DerivedMeasure
+    | WindowMeasure
+    | ShiftMeasure
+    | FilterDefinition
+    | Relationship
+    | Segment,
 ]
 
 
@@ -65,7 +75,9 @@ class Dataset(DefinitionModel):
     time_key: str | None = None
     time_grains: tuple[str, ...] | None = None
     dimensions: Mapping[str, Dimension]
-    measures: Mapping[str, Measure | DerivedMeasure] = Field(default_factory=dict)
+    measures: Mapping[str, Measure | DerivedMeasure | WindowMeasure | ShiftMeasure] = Field(
+        default_factory=dict
+    )
     filters: Mapping[str, FilterDefinition] = Field(default_factory=dict)
     relationships: Mapping[str, Relationship] = Field(default_factory=dict)
     limits: DatasetLimits | None = None
@@ -151,6 +163,9 @@ class Dataset(DefinitionModel):
         if self.source in self.relationships:
             raise ValueError("relationship name must not match the dataset source")
         validate_derived_measures(self.measures, self.dimensions)
+        time_measure_error = time_measure_errors(self.measures, self.time_key)
+        if time_measure_error is not None:
+            raise ValueError(time_measure_error)
         object.__setattr__(self, "dimensions", freeze_mapping(self.dimensions))
         object.__setattr__(self, "measures", freeze_mapping(self.measures))
         object.__setattr__(self, "filters", freeze_mapping(self.filters))
@@ -164,7 +179,7 @@ def dataset(
     *,
     source: str,
     dimensions: Mapping[str, Dimension],
-    measures: Mapping[str, Measure | DerivedMeasure] | None = None,
+    measures: Mapping[str, Measure | DerivedMeasure | WindowMeasure | ShiftMeasure] | None = None,
     filters: Mapping[str, FilterDefinition] | None = None,
     relationships: Mapping[str, Relationship] | None = None,
     tenant_key: str | None = None,
