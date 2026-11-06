@@ -29,6 +29,7 @@ import {
   getTableCount,
   getTables,
 } from '../utils/detect-database.js';
+import { describeConnectionError } from '../utils/connection-error.js';
 import {
   ChdbNotInstalledError,
   ensureChdbInstalled,
@@ -149,12 +150,11 @@ async function testConnection(
   process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
   process.env.CLICKHOUSE_PASSWORD = connectionConfig.password;
 
-  const isValid = await validateConnection('clickhouse');
-
-  if (!isValid) {
+  const connectionFailed = (reason?: string) => {
     spinner.fail('Connection failed');
     logger.newline();
     logger.error(`Could not connect to ClickHouse at ${connectionConfig.host}`);
+    if (reason) logger.indent(`Reason: ${reason}`);
     logger.newline();
     logger.info('Common issues:');
     logger.indent('• Check your host URL includes http:// or https://');
@@ -163,9 +163,20 @@ async function testConnection(
     logger.indent('• Check firewall/network access');
     logger.newline();
     return { hasValidConnection: false, tableCount: 0 };
+  };
+
+  if (!(await validateConnection('clickhouse'))) {
+    return connectionFailed();
   }
 
-  const tableCount = await getTableCount('clickhouse');
+  // A connection can pass `SELECT 1` and still fail listing tables (for
+  // example without SHOW grants); report it the same way so setup can recover.
+  let tableCount: number;
+  try {
+    tableCount = await getTableCount('clickhouse');
+  } catch (error) {
+    return connectionFailed(describeConnectionError(error));
+  }
   spinner.succeed(`Connected successfully (${tableCount} tables found)`);
   logger.newline();
   return { hasValidConnection: true, tableCount };

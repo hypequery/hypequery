@@ -11,6 +11,7 @@ import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { getTableCount } from '../utils/detect-database.js';
+import { describeConnectionError } from '../utils/connection-error.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
@@ -205,10 +206,11 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.newline();
 
     if (error instanceof Error) {
-      logger.error(error.message);
+      const message = describeConnectionError(error);
+      logger.error(message);
 
       // Provide specific guidance
-      if (error.message.includes('ECONNREFUSED')) {
+      if (message.includes('ECONNREFUSED')) {
         logger.newline();
         logger.info('This usually means:');
         logger.indent('• ClickHouse is not running');
@@ -219,7 +221,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
         logger.indent('CLICKHOUSE_URL=' + redactConnectionUrl(
           process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST,
         ));
-      } else if (error.message.includes('No tables found')) {
+      } else if (message.includes('No tables found')) {
         logger.newline();
         logger.info('No tables match the specified criteria');
         logger.indent('Try: hypequery generate datasets --tables table1,table2');
