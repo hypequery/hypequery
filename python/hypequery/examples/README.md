@@ -16,6 +16,7 @@ export HYPEQUERY_TENANT_B_TOKEN="$(openssl rand -hex 24)"
 | `dataframes.py`, `sqlalchemy_engine.py` | pandas results; pointing hypequery at a SQLAlchemy engine's server |
 | `embedded_analytics.py`, `multitenant_saas.py`, `governed_agent.py` | Standalone ASGI APIs |
 | `client_dashboard/` | The full Python → React → MCP tutorial |
+| `marimo_chdb.py` | A marimo notebook on embedded chDB: no server, tenant-scoped queries by name, time grains and a chart. `uvx marimo edit --sandbox examples/marimo_chdb.py` |
 
 ## React and MCP against Django or Flask
 
