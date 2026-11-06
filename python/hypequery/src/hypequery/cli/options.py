@@ -68,6 +68,24 @@ class ExportClientContractOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class McpOptions:
+    app: str | None
+    client_contract_url: str | None
+    headers: tuple[str, ...]
+    project: str | None
+    self_test: bool
+    print_config: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SkillOptions:
+    agent: str
+    scope: str
+    force: bool
+    check: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TelemetryOptions:
     action: str
     #: ``--no-telemetry`` was passed, so ``status`` reports this invocation's opt-out.
@@ -80,6 +98,8 @@ CommandOptions = (
     | DevOptions
     | ExportClientContractOptions
     | TelemetryOptions
+    | McpOptions
+    | SkillOptions
 )
 
 
@@ -124,6 +144,17 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
         )
     if args.command == "dev":
         return DevOptions(app=args.app, host=args.host, port=args.port, reload=args.reload)
+    if args.command == "mcp":
+        return McpOptions(
+            app=args.app,
+            client_contract_url=args.client_contract_url,
+            headers=tuple(args.header),
+            project=args.project,
+            self_test=args.self_test,
+            print_config=args.print_config,
+        )
+    if args.command == "skill":
+        return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
     if args.command == "telemetry":
         return TelemetryOptions(action=args.action, flag_disabled=args.no_telemetry)
     raise ValueError(f"unknown command {args.command!r}")

@@ -10,7 +10,12 @@ query became read-only.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
+
+#: A trailing clause the planner wrote, such as the one a resolved (FINAL) read pins.
+#: Planner SQL carries no caller text, so only planner-built settings can match.
+_TRAILING_SETTINGS = re.compile(r" SETTINGS ([a-z_]+ = [0-9]+(?:, [a-z_]+ = [0-9]+)*)$")
 
 
 def settings_clause(limits: Mapping[str, int], output: Mapping[str, str]) -> str:
@@ -22,6 +27,22 @@ def settings_clause(limits: Mapping[str, int], output: Mapping[str, str]) -> str
         *(("readonly", str(value)) for name, value in limits.items() if name == "readonly"),
     ]
     return " SETTINGS " + ", ".join(f"{name} = {value}" for name, value in ordered)
+
+
+def with_settings(sql: str, limits: Mapping[str, int], output: Mapping[str, str]) -> str:
+    """*sql* with the executor's settings, in one clause even when the planner wrote one.
+
+    ClickHouse accepts a single ``SETTINGS`` clause, so the planner's settings
+    come first and the executor's follow, ``readonly`` still last.
+    """
+
+    clause = settings_clause(limits, output)
+    planned = _TRAILING_SETTINGS.search(sql)
+    if planned is None:
+        return sql + clause
+    return (
+        f"{sql[: planned.start()]} SETTINGS {planned.group(1)}, {clause.removeprefix(' SETTINGS ')}"
+    )
 
 
 def within_deadline(limits: Mapping[str, int], remaining: float | None) -> dict[str, int]:

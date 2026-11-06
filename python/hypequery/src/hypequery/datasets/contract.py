@@ -83,11 +83,15 @@ def _measure(entry: MeasureCatalogEntry, *, include_sql: bool) -> dict[str, obje
         result["argField"] = entry["argField"]
     if "level" in entry:
         result["level"] = _number(entry["level"])
+    if "stateFunction" in entry:
+        result["stateFunction"] = entry["stateFunction"]
     if include_sql and "sql" in entry:
         result["sql"] = normalize_sql(entry["sql"])
     for key in ("label", "description"):
         if key in entry:
             result[key] = entry[key]
+    if entry.get("approximate"):
+        result["approximate"] = True
     return result
 
 
@@ -129,6 +133,8 @@ def _limits(limits: dict[str, int]) -> dict[str, object]:
 
 def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]:
     result: dict[str, object] = {"name": catalog["name"], "source": catalog["source"]}
+    if "rowResolution" in catalog:
+        result["rowResolution"] = dict(catalog["rowResolution"])
     for key in ("tenantKey", "timeKey"):
         if key in catalog:
             result[key] = catalog[key]
@@ -154,6 +160,10 @@ def _dataset(catalog: DatasetCatalog, *, include_sql: bool) -> dict[str, object]
     result["filters"] = sorted_record(
         {name: _filter(entry) for name, entry in catalog["filters"].items()}
     )
+    if "segments" in catalog:
+        result["segments"] = sorted_record(
+            {name: dict(entry) for name, entry in catalog["segments"].items()}
+        )
     result["relationships"] = sorted_record(
         {name: _relationship(entry) for name, entry in catalog["relationships"].items()}
     )
