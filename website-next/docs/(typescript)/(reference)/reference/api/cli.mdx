@@ -141,6 +141,8 @@ npx hypequery init [options]
 - **`--force`** – Overwrite existing files without asking
 - **`--skip-connection`** – Skip the initial database connectivity test and scaffold files without validating the selected driver first
 
+Running `hypequery` with no command in an interactive terminal starts `init` too, so `npx hypequery` on its own begins setup. Use `hypequery --help` to list every command. When the CLI is not attached to a terminal (scripts, CI, piped input), the bare command still prints help and exits with code 1, so it never waits on a prompt nobody can answer.
+
 **What it does:**
 
 For the default `clickhouse` driver, the CLI validates the remote connection using the credentials you provide. For `chdb`, it installs and starts the embedded engine against the selected storage path. On success it:

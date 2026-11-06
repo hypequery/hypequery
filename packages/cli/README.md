@@ -14,6 +14,8 @@ npx hypequery dev --open
 
 `init` checks the database, writes an `analytics/` project, generates types, and installs the packages used by the scaffold.
 
+Running `npx hypequery` with no command in a terminal also starts `init`. Use `npx hypequery --help` to list every command.
+
 For a semantic layer:
 
 ```bash
