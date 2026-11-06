@@ -192,8 +192,8 @@ class TimeMeasureFeature(CompilerFeature):
                     "do not support in Python yet.",
                 )
         limit = query.limit
-        if limit is None and dataset.limits is not None:
-            limit = dataset.limits.max_result_size
+        if limit is None:
+            limit = self.compiler.result_ceiling
         axis, errors = analyze_time_axis(
             dataset, selected, grain=query.by, filters=query.filters, result_limit=limit
         )
