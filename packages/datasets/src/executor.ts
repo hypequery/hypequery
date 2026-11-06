@@ -3,6 +3,7 @@ import type {
   MetricRef, GrainedMetricRef, MetricQuery, MetricQueryFor, MetricResult, MetricResultFor,
   DatasetQuery, DatasetQueryFor, DatasetQueryResult, DatasetQueryResultFor,
   ExecutionContext, AnyDatasetInstance, DatasetInstance,
+  DatasetRowFor, MetricRowFor, SemanticStreamResult, SemanticArrowStreamResult,
 } from './types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { toQueryBuilderFactory } from './query-builder-protocol.js';
@@ -23,6 +24,7 @@ import { baseMeasureNames } from './utils/dataset-measures.js';
 import { hasSelectedDerivedMeasure } from './utils/dataset-derived-query.js';
 import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
 import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
+import { semanticStreamMeta, serializeMeasureBatches } from './utils/semantic-stream.js';
 import { resolveDatasetCacheRuntime, type ClientCacheDefaults } from './utils/dataset-cache-policy.js';
 import {
   SemanticQueryCache,
@@ -135,6 +137,62 @@ export interface DatasetClient {
     query?: SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): Promise<SemanticResult<TTarget, TRow>>;
+  /**
+   * Stream a semantic target's rows in batches, with the same validation,
+   * tenant scoping, `maxResultSize` ceiling and row types as `execute()`. Rows
+   * flow as ClickHouse sends them, so memory stays flat however many there
+   * are. Streams never use the result cache and report no pagination.
+   */
+  stream<
+    TDataset extends TypedDataset,
+    const TQuery extends DatasetQueryFor<TDataset> = DatasetQueryFor<TDataset>,
+  >(
+    target: TDataset,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<SemanticStreamResult<DatasetRowFor<TDataset, TQuery>>>;
+  stream<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends TypedDataset<TDatasetName>,
+    const TQuery extends MetricQueryFor<TDataset, TMetricName> = MetricQueryFor<TDataset, TMetricName>,
+  >(
+    target: TypedMetricRef<TDatasetName, TMetricName, TDataset> | TypedGrainedMetricRef<TDatasetName, TMetricName, TDataset>,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<SemanticStreamResult<MetricRowFor<TDataset, TMetricName, TQuery>>>;
+  /** Explicit row types opt into the legacy dynamic query contract. */
+  stream<TRow = never, TTarget extends SemanticTarget = SemanticTarget>(
+    target: [TRow] extends [never] ? never : TTarget,
+    query?: SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): Promise<SemanticStreamResult<TRow>>;
+  /**
+   * Stream a semantic target's result as Arrow IPC stream bytes, under the
+   * same validation, tenant scoping and `maxResultSize` ceiling as `execute()`.
+   * Columns keep their native database types. Decode with any Arrow reader:
+   *
+   * ```ts
+   * import { RecordBatchReader } from 'apache-arrow';
+   *
+   * const { data } = await analytics.streamArrow(orders, query);
+   * for await (const batch of await RecordBatchReader.from(data)) { ... }
+   * ```
+   */
+  streamArrow<TDataset extends TypedDataset>(
+    target: TDataset,
+    query?: DatasetQueryFor<TDataset>,
+    context?: ExecutionContext,
+  ): Promise<SemanticArrowStreamResult>;
+  streamArrow<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends TypedDataset<TDatasetName>,
+  >(
+    target: TypedMetricRef<TDatasetName, TMetricName, TDataset> | TypedGrainedMetricRef<TDatasetName, TMetricName, TDataset>,
+    query?: MetricQueryFor<TDataset, TMetricName>,
+    context?: ExecutionContext,
+  ): Promise<SemanticArrowStreamResult>;
   /** Compile the actual dataset execution SQL, including ceilings and pagination overfetch.
    * SQL and parameters are trusted-only; describe()/JSON serialization omit values.
    * Frozen semantic backends and standalone metric handles are not supported.
@@ -346,6 +404,77 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       query as MetricQuery,
       context,
     ) as Promise<SemanticResult<TTarget, TRow>>;
+  }
+
+  stream<TRow = Record<string, unknown>, TTarget extends SemanticTarget = SemanticTarget>(
+    target: TTarget,
+    query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): Promise<SemanticStreamResult<TRow>> {
+    return this.openStream(target, query, context, 'rows') as Promise<SemanticStreamResult<TRow>>;
+  }
+
+  streamArrow<TTarget extends SemanticTarget>(
+    target: TTarget,
+    query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): Promise<SemanticArrowStreamResult> {
+    return this.openStream(target, query, context, 'arrow') as Promise<SemanticArrowStreamResult>;
+  }
+
+  /**
+   * Validates and bounds a query exactly as `execute()` does, then opens it as
+   * a stream. Validation runs before anything is sent, so an invalid query
+   * rejects rather than producing a stream that fails on its first read.
+   */
+  private async openStream(
+    target: SemanticTarget,
+    input: DatasetQuery | MetricQuery,
+    inputContext: ExecutionContext | undefined,
+    format: 'rows' | 'arrow',
+  ): Promise<SemanticStreamResult | SemanticArrowStreamResult> {
+    if (this.backend) {
+      throw new Error('Streaming requires the queryBuilder execution path.');
+    }
+    const query = this.withTimezone(structuredClone(input));
+    const context = snapshotExecutionContext(inputContext);
+
+    if (isDatasetInstance(target)) {
+      const validation = this.validate(target, query as DatasetQuery, context);
+      if (!validation.valid) {
+        throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
+      }
+      const prepared = prepareDatasetQuery(target, query as DatasetQuery, {
+        builderFactory: this.resolveBuilderFactory(context),
+        context,
+      }, 'stream');
+      const meta = semanticStreamMeta(
+        prepared.compilation.sql,
+        context,
+        resolveResultLimit(query.limit, target.limits).meta,
+      );
+      if (format === 'arrow') {
+        return { data: await prepared.streamArrow(), meta };
+      }
+      const measures = prepared.compilation.query.measures ?? [];
+      return { data: serializeMeasureBatches(await prepared.stream(), measures), meta };
+    }
+
+    assertMetricHandle(target);
+    const ref = getMetricRef(target);
+    const resultLimit = resolveResultLimit(query.limit, (ref.dataset as AnyDatasetInstance).limits);
+    const bounded: MetricQuery =
+      resultLimit.limit === query.limit ? query : { ...query, limit: resultLimit.limit };
+    const validation = this.validate(target, bounded, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    }
+    const prepared = this.prepareMetricStatement(target, bounded, context, 'stream');
+    const meta = semanticStreamMeta(prepared.sql, context, resultLimit.meta);
+    if (format === 'arrow') {
+      return { data: await prepared.streamArrow(), meta };
+    }
+    return { data: serializeMeasureBatches(await prepared.stream(), [ref.name]), meta };
   }
 
   compileDataset<TDataset extends TypedDataset>(

@@ -36,6 +36,8 @@ The dataset client exposes these methods:
 | `analytics.toSQL(target, query, context?)` | Inspect generated SQL without executing it |
 | `analytics.compileDataset(dataset, query, context?)` | Preview execution SQL, effective limits, dependencies, and preflight statements |
 | `analytics.execute(target, query, context?)` | Validate, generate SQL, execute, and return rows |
+| `analytics.stream(target, query, context?)` | Execute and receive rows in batches as ClickHouse sends them |
+| `analytics.streamArrow(target, query, context?)` | Execute and receive the result as an Arrow IPC stream |
 
 The `target` is a dataset. Handles from the older [Metrics](/docs/datasets/metrics) API are also accepted. `compileDataset` accepts datasets only and requires the query-builder execution path.
 
@@ -183,3 +185,48 @@ Pagination metadata is present when a query sets `limit`. hypequery over-fetches
 }
 ```
 </CodeBlock>
+
+## Stream large results
+
+`execute` holds the whole result in memory. For exports, notebooks and wide breakdowns, `stream` hands you rows in batches as ClickHouse sends them, so memory stays flat however many rows there are.
+
+<CodeBlock>
+```typescript
+const { data, meta } = await analytics.stream(Orders, {
+  dimensions: ['customerId', 'country'],
+  measures: ['revenue', 'orderCount'],
+}, {
+  runtime: { tenant: 'tenant_123' },
+});
+
+for await (const rows of data) {
+  await writeToFile(rows);
+}
+```
+</CodeBlock>
+
+Streams run the same query `execute` would: the same validation, tenant filter and row types, and the same `limits.maxResultSize` ceiling. When the ceiling bounds a query that set no `limit`, `meta.resultLimit` says so before the first row arrives. Streams never read or fill the result cache, and they report no pagination.
+
+`streamArrow` returns the result as Arrow IPC stream bytes instead of rows. Columns keep their ClickHouse types, so measures are not converted to strings, and wide integers and decimals stay exact. Decode the bytes with any Arrow library, or pass them on unchanged, for example as an HTTP response body:
+
+<CodeBlock>
+```typescript
+import { RecordBatchReader } from 'apache-arrow';
+
+const { data } = await analytics.streamArrow(Orders, {
+  dimensions: ['customerId'],
+  measures: ['revenue'],
+});
+
+for await (const batch of await RecordBatchReader.from(data)) {
+  batch.getChild('revenue');
+}
+```
+</CodeBlock>
+
+Arrow skips JSON parsing, which is most of the client's work on a large result, and is smaller on the wire.
+
+If ClickHouse fails after sending part of a result, the stream errors with ClickHouse's own error. A stream that ends without an error is complete.
+
+Streaming needs `@hypequery/clickhouse` 2.15.0 or later. A query builder without streaming support makes `stream` and `streamArrow` reject with an error that names the missing method.
+

@@ -896,6 +896,27 @@ export class QueryBuilder<
   }
 
   /**
+   * Streams the result as Arrow IPC stream bytes, with ClickHouse's native
+   * column types, for any Arrow reader to decode:
+   *
+   * ```ts
+   * import { RecordBatchReader } from 'apache-arrow';
+   *
+   * const bytes = await db.table('events').select(['id', 'data']).streamArrow();
+   * for await (const batch of await RecordBatchReader.from(bytes)) {
+   *   batch.getChild('id');
+   * }
+   * ```
+   *
+   * The bytes can also be passed on unchanged, e.g. as an HTTP response body.
+   * A ClickHouse failure after the first batches errors the stream with
+   * ClickHouse's own error.
+   */
+  async streamArrow(options?: StreamOptions): Promise<ReadableStream<Uint8Array>> {
+    return this.executor.streamArrow(options);
+  }
+
+  /**
    * Processes each row in a stream with the provided callback function
    * @param callback Function to call for each row in the stream
    */
@@ -1522,6 +1543,33 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       options?: QueryExecutionOptions
     ) {
       return resolvedAdapter.query<TResult>(sql, params, options);
+    },
+    /**
+     * Streams a raw statement's rows in batches. See {@link QueryBuilder.stream}.
+     */
+    async rawStream<TResult = any>(
+      sql: string,
+      params: unknown[] = [],
+      options?: QueryExecutionOptions
+    ): Promise<ReadableStream<TResult[]>> {
+      if (!resolvedAdapter.stream) {
+        throw new Error(`Streaming is not supported by adapter "${resolvedAdapter.name}".`);
+      }
+      return resolvedAdapter.stream<TResult>(sql, params, options);
+    },
+    /**
+     * Streams a raw statement's result as Arrow IPC stream bytes. Do not add a
+     * `FORMAT` clause; the adapter sets it. See {@link QueryBuilder.streamArrow}.
+     */
+    async rawArrowStream(
+      sql: string,
+      params: unknown[] = [],
+      options?: QueryExecutionOptions
+    ): Promise<ReadableStream<Uint8Array>> {
+      if (!resolvedAdapter.streamArrow) {
+        throw new Error(`Arrow streaming is not supported by adapter "${resolvedAdapter.name}".`);
+      }
+      return resolvedAdapter.streamArrow(sql, params, options);
     },
     /**
      * Closes the underlying connection pool for graceful shutdown. A client

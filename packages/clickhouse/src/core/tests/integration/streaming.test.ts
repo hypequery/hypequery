@@ -238,4 +238,68 @@ async function collectPartialStreamRows(stream: WebReadableStream<any[]>, chunkL
       })
     ).rejects.toThrow('Boom');
   });
-}); 
+
+  describe('Arrow', () => {
+    async function readBytes(stream: ReadableStream<Uint8Array>): Promise<{ bytes: Buffer; error?: Error }> {
+      const chunks: Buffer[] = [];
+      const reader = stream.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return { bytes: Buffer.concat(chunks) };
+          chunks.push(Buffer.from(value));
+        }
+      } catch (error) {
+        return { bytes: Buffer.concat(chunks), error: error as Error };
+      }
+    }
+
+    // Fails after ClickHouse has already sent the first blocks.
+    const FAILS_MID_STREAM = "SELECT number, throwIf(number = 300000, 'boom mid-stream') AS t FROM numbers(1000000) SETTINGS max_block_size = 10000";
+
+    it('streams an Arrow IPC stream from the builder', async () => {
+      const stream = await db.table('test_table').select(['id', 'name']).where('is_active', 'eq', 1).streamArrow();
+      const { bytes, error } = await readBytes(stream);
+
+      expect(error).toBeUndefined();
+      expect(bytes.length).toBeGreaterThan(8);
+      // Arrow IPC stream messages open with the 0xFFFFFFFF continuation marker.
+      expect(bytes.readUInt32LE(0)).toBe(0xffffffff);
+    });
+
+    it('accepts a raw statement ending in a semicolon or a comment', async () => {
+      for (const sql of ['SELECT 1 AS x;', 'SELECT 1 AS x -- trailing comment']) {
+        const { error } = await readBytes(await db.rawArrowStream(sql));
+        expect(error).toBeUndefined();
+      }
+    });
+
+    it("fails with ClickHouse's error when the query fails mid-stream", async () => {
+      const { bytes, error } = await readBytes(await db.rawArrowStream(FAILS_MID_STREAM));
+
+      expect(bytes.length).toBeGreaterThan(0);
+      expect(bytes.includes('__exception__')).toBe(false);
+      expect(error?.message).toContain('boom mid-stream');
+      expect(error).toMatchObject({ code: '395' });
+    });
+
+    it('fails JSON row streams mid-stream too', async () => {
+      const reader = (await db.rawStream(FAILS_MID_STREAM)).getReader();
+      let rows = 0;
+      const failure = await (async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) return undefined;
+            rows += value.length;
+          }
+        } catch (error) {
+          return error as Error;
+        }
+      })();
+
+      expect(rows).toBeLessThan(1_000_000);
+      expect(failure?.message).toContain('boom mid-stream');
+    });
+  });
+});

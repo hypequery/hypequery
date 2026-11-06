@@ -505,6 +505,40 @@ export interface DatasetQueryResult<T = Record<string, unknown>> {
   meta?: MetricResultMeta;
 }
 
+/** What is known about a streamed result before its first batch arrives. */
+export interface SemanticStreamMeta {
+  sql: string;
+  tenant?: string;
+  /**
+   * Present when the dataset's `limits.maxResultSize` bounded a query that set
+   * no limit of its own, exactly as on `execute()`: a stream that stops at the
+   * ceiling must be distinguishable from a complete one.
+   */
+  resultLimit?: MetricResultMeta['resultLimit'];
+}
+
+/**
+ * A result streamed in batches of rows, in the same shape and wire types as
+ * `execute()` returns. Streams never read or fill the result cache and report
+ * no pagination.
+ */
+export interface SemanticStreamResult<T = Record<string, unknown>> {
+  data: ReadableStream<T[]>;
+  meta: SemanticStreamMeta;
+}
+
+/**
+ * A result streamed as Arrow IPC stream bytes, for any Arrow reader
+ * (`RecordBatchReader.from(data)` in `apache-arrow`) to decode or for passing
+ * on unchanged. Columns keep the database's native types: measures are not
+ * converted to strings as they are in rows, and wide integers and decimals
+ * stay exact.
+ */
+export interface SemanticArrowStreamResult {
+  data: ReadableStream<Uint8Array>;
+  meta: SemanticStreamMeta;
+}
+
 export type SemanticTenantRuntime =
   | string
   | { id: string }

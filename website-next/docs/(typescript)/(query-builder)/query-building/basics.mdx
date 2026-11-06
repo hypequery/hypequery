@@ -186,6 +186,29 @@ while (true) {
 ```
 </CodeBlock>
 
+### streamArrow()
+
+Stream the result as Arrow IPC stream bytes, with ClickHouse's native column types. Decode them with any Arrow library, or pass them on unchanged:
+
+<CodeBlock>
+```typescript
+import { RecordBatchReader } from 'apache-arrow';
+
+const bytes = await db
+  .table('events')
+  .select(['id', 'data'])
+  .streamArrow();
+
+for await (const batch of await RecordBatchReader.from(bytes)) {
+  batch.getChild('id');
+}
+```
+</CodeBlock>
+
+Batches are uncompressed by default, because JavaScript Arrow readers don't include the LZ4 codec ClickHouse would otherwise use; enable HTTP response compression to shrink the transfer. If ClickHouse fails after sending part of the result, the stream errors with ClickHouse's own error.
+
+For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Don't add a `FORMAT` clause; the adapter sets it.
+
 ### streamForEach()
 
 Process rows with a callback:
