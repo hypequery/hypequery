@@ -885,3 +885,54 @@ def test_deployment_contracts_refuse_max_stream_rows() -> None:
 
     with pytest.raises(ValueError, match=r"limits\.max_stream_rows, which is not part of"):
         build_protocol_deployment_contract(create_dataset_registry(exports()))
+
+
+def test_an_unbounded_stream_runs_under_max_stream_rows() -> None:
+    from hypequery.datasets import DatasetLimits
+
+    executor = StreamingExecutor(BATCHES)
+    client = create_dataset_client(executor=executor)
+    unbounded = DatasetQuery(dimensions=("vendor",), measures=("trips",))
+
+    list(client.stream(exports(), unbounded))
+    client.execute(exports(), unbounded)
+    streamed, executed = executor.seen
+    # A stream that sets no limit reaches its own ceiling, not the page's.
+    assert streamed.sql.endswith("LIMIT 1000")
+    assert executed.sql.endswith("LIMIT 10")
+
+    only_streams = Dataset(
+        name="only_streams",
+        source="analytics.trips",
+        dimensions={"vendor": dimension("string")},
+        measures={"trips": measure(count("id"))},
+        limits=DatasetLimits(max_stream_rows=500),
+    )
+    list(client.stream(only_streams, unbounded))
+    client.execute(only_streams, unbounded)
+    assert executor.seen[-2].sql.endswith("LIMIT 500")
+    assert "LIMIT" not in executor.seen[-1].sql
+
+
+def test_a_window_stream_plans_under_max_stream_rows() -> None:
+    from hypequery.datasets import DatasetLimits, dataset, filter  # noqa: A004
+    from hypequery.datasets import measure as m
+    from hypequery.datasets.planner import plan_dataset_query
+
+    windowed = dataset(
+        "sales",
+        source="sales",
+        time_key="sold_at",
+        dimensions={"soldAt": dimension.timestamp(column="sold_at")},
+        measures={"revenue": m.sum("amount"), "running": m.cumulative("revenue")},
+        limits=DatasetLimits(max_result_size=5, max_stream_rows=100),
+    )
+    january = DatasetQuery(
+        measures=("running",),
+        by="day",
+        filters=(filter.gte("soldAt", "2026-01-01"), filter.lt("soldAt", "2026-02-01")),
+    )
+    # 31 daily buckets: over the page ceiling, within the stream ceiling.
+    with pytest.raises(CompiledQueryError):
+        plan_dataset_query(windowed, january)
+    assert plan_dataset_query(windowed, january, stream=True).sql

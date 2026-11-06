@@ -49,6 +49,7 @@ def plan_dataset_query(
         registry or create_dataset_registry(dataset),
         context,
         overfetch=overfetch,
+        stream=stream,
     )
     compiled = compiler.compile()
     settings = tighten_query_settings(settings, context.settings)
