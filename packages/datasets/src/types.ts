@@ -505,6 +505,40 @@ export interface DatasetQueryResult<T = Record<string, unknown>> {
   meta?: MetricResultMeta;
 }
 
+/** What is known about a streamed result before its first batch arrives. */
+export interface SemanticStreamMeta {
+  sql: string;
+  tenant?: string;
+  /**
+   * Present when the dataset's `limits.maxResultSize` bounded a query that set
+   * no limit of its own, exactly as on `execute()`: a stream that stops at the
+   * ceiling must be distinguishable from a complete one.
+   */
+  resultLimit?: MetricResultMeta['resultLimit'];
+}
+
+/**
+ * A result streamed in batches of rows, in the same shape and wire types as
+ * `execute()` returns. Streams never read or fill the result cache and report
+ * no pagination.
+ */
+export interface SemanticStreamResult<T = Record<string, unknown>> {
+  data: ReadableStream<T[]>;
+  meta: SemanticStreamMeta;
+}
+
+/**
+ * A result streamed as Arrow IPC stream bytes, for any Arrow reader
+ * (`RecordBatchReader.from(data)` in `apache-arrow`) to decode or for passing
+ * on unchanged. Columns keep the database's native types: measures are not
+ * converted to strings as they are in rows, and wide integers and decimals
+ * stay exact.
+ */
+export interface SemanticArrowStreamResult {
+  data: ReadableStream<Uint8Array>;
+  meta: SemanticStreamMeta;
+}
+
 export type SemanticTenantRuntime =
   | string
   | { id: string }
@@ -555,6 +589,16 @@ export interface DatasetLimits {
    * that requests more is capped and says so in `meta.resultLimit`.
    */
   maxResultSize?: number;
+  /**
+   * Ceiling on the rows one stream (`stream()`, `streamArrow()`, or a
+   * streaming serve endpoint) may return, in place of `maxResultSize`. Streams
+   * keep memory flat, so an export can be allowed far more rows than a page or
+   * an agent; this raises that ceiling for streams alone. Defaults to
+   * `maxResultSize`, so streams get no more than pages unless the dataset says
+   * so. Bounded streams report it in `meta.resultLimit.maxResultSize`. Not
+   * yet part of deployment contracts, which refuse a dataset that sets it.
+   */
+  maxStreamRows?: number;
 }
 
 /**
