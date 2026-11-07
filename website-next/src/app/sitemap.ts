@@ -4,6 +4,7 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
 const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
 
@@ -11,6 +12,8 @@ const staticRoutes = [
   '/clickhouse/functions',
   '/',
   '/blog',
+  '/changelog',
+  ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`),
   '/compare',
   '/clickhouse-js',
   '/clickhouse-nodejs',

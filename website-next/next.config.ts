@@ -29,7 +29,13 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/roadmap',
-        destination: '/docs/changelog',
+        destination: '/changelog',
+        permanent: true,
+      },
+      // the hand-written docs changelog was replaced by the generated /changelog
+      {
+        source: '/docs/changelog',
+        destination: '/changelog',
         permanent: true,
       },
       {
