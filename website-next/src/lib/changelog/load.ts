@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { unstable_cache } from 'next/cache';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { CHANGELOG_PACKAGES, type ChangelogPackage } from './packages';
 import { parseChangelog, releaseBump, type ParsedRelease, type ReleaseBump } from './parse';
 
@@ -55,7 +56,16 @@ async function readChangelogSource(pkg: ChangelogPackage): Promise<string> {
   }
 }
 
-/** Publish time per version from the npm registry; empty when it is unreachable. */
+/**
+ * Publish time per version from the npm registry.
+ *
+ * Undated releases sort to the end of the timeline, so losing a package's
+ * dates would push its newest releases out of the timeline and feed. At
+ * runtime a registry failure therefore throws: `unstable_cache` keeps serving
+ * the last good result when a revalidation throws. `next build` has no earlier
+ * result to fall back on, so there it degrades to no dates rather than
+ * failing the deploy.
+ */
 async function fetchPublishTimes(pkg: ChangelogPackage): Promise<Record<string, string>> {
   if (pkg.registry !== 'npm') return {};
   try {
@@ -63,11 +73,13 @@ async function fetchPublishTimes(pkg: ChangelogPackage): Promise<Record<string, 
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!response.ok) return {};
+    if (!response.ok) throw new Error(`npm registry responded ${response.status} for ${pkg.name}`);
     const document: { time?: Record<string, string> } = await response.json();
-    return document.time ?? {};
-  } catch {
-    return {};
+    if (!document.time) throw new Error(`npm registry returned no publish times for ${pkg.name}`);
+    return document.time;
+  } catch (error) {
+    if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) return {};
+    throw error;
   }
 }
 

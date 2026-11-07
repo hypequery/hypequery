@@ -173,11 +173,35 @@ test('releaseBump compares against the previous version', () => {
   assert.equal(releaseBump('1.3.2'), 'patch');
 });
 
+/**
+ * Release versions named by a changelog's `## ` headings, collected without
+ * the parser: the first word of each heading outside code fences, brackets
+ * stripped, skipping `Unreleased`. Repeated headings collapse into one version.
+ */
+function headingVersions(markdown: string): Set<string> {
+  const versions = new Set<string>();
+  let inFence = false;
+  for (const line of markdown.split(/\r?\n/)) {
+    if (line.trimStart().startsWith('```')) inFence = !inFence;
+    if (inFence || !line.startsWith('## ')) continue;
+    const word = line.slice(3).trim().split(/\s+/)[0].replace(/^\[/, '').replace(/\].*$/, '');
+    if (word.toLowerCase() !== 'unreleased') versions.add(word);
+  }
+  return versions;
+}
+
 test('every repository changelog parses into dated or versioned releases', () => {
   const repoRoot = path.resolve(process.cwd(), '..');
   for (const pkg of CHANGELOG_PACKAGES) {
-    const releases = parseChangelog(readFileSync(path.join(repoRoot, pkg.changelogPath), 'utf8'));
+    const source = readFileSync(path.join(repoRoot, pkg.changelogPath), 'utf8');
+    const releases = parseChangelog(source);
     assert.ok(releases.length > 0, `${pkg.changelogPath} has no releases`);
+    // A heading the parser stops recognising would otherwise drop its release silently.
+    assert.deepEqual(
+      new Set(releases.map((release) => release.version)),
+      headingVersions(source),
+      `${pkg.changelogPath}: every release heading must parse`,
+    );
     assert.equal(new Set(releases.map((release) => release.version)).size, releases.length, `${pkg.slug} has duplicate versions`);
     for (const release of releases) {
       assert.ok(
