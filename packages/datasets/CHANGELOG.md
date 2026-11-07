@@ -1,5 +1,33 @@
 # @hypequery/datasets
 
+## 0.30.0
+
+### Minor Changes
+
+- 872713e: `buildClientContract` no longer advertises `having` predicates or a per-request `timezone` by default. They are off unless the host's route passes them through to the data plane: a route that builds its operation from a fixed list of fields drops them, so a generated client could send them and get unfiltered rows. Hosts that pass them through opt in with `capabilities: { having: true, timezone: true }`.
+
+  Both flags are part of each endpoint's hashed schema, so upgrading moves the `schemaHash` of every endpoint with a time field or a numeric measure. Regenerate clients (`hypequery generate:client`) after upgrading; until then `generate:client --check` reports drift, and a host that validates requests against the new contract refuses an old client's `timezone` instead of ignoring it.
+
+- b99de97: Type dimension values in dataset and metric result rows (`DatasetRow`, `DatasetRowFor`, `MetricRow`, `MetricRowFor`, and the results of `createDatasetClient(...).execute()`) as what queries actually return. Numeric dimensions are now `number | string | null`, because the built-in ClickHouse adapter returns `Int64`, `UInt64` and wider integers as JSON strings to keep their precision. Every dimension, and `period`, also includes `null`, because `Nullable` columns return SQL NULL. A new `DimensionResultValue<T>` type describes these values; `@hypequery/serve` re-exports it. `InferDimensionType` is unchanged and still describes a dimension's declared type.
+
+  This is a breaking type change. Code that read a numeric dimension as `number`, or any dimension or `period` without handling `null`, now fails to compile. Convert with `Number(value)` or `BigInt(value)` as needed, and check for `null`.
+
+- ae3a5fd: Add `buildDatasetClientContract(endpoints, { mountPath })`. It builds an RFC 0018 client contract from dataset definitions and metrics. It mirrors Python's `export_client_contract`, so an equivalent definition exports the same contract in both languages.
+
+### Patch Changes
+
+- 8d02067: Client contracts built from a deployment keep `isNull` and `isNotNull` on boolean filters that allow them, as RFC 0023 specifies. They were previously dropped, so a boolean filter allowing only null checks disappeared from the contract.
+- 4c7cc13: A relationship join to a resolved (`FINAL`) target whose deleted column is named `_hq_match` no longer drops every target row: the join's match marker now avoids the current-row column's name.
+- d8829e6: Portable semantic queries accept `having` and `timezone` (RFC 0025), so a host running through the semantic data plane can execute what the MCP `query_dataset` tool and client contracts already advertise.
+
+  - `@hypequery/protocol`: `validateProtocolSemanticQuery` accepts `having` (dataset queries; each condition names a selected measure, with a numeric comparison) and `timezone` (RFC 0018's pinned registry) under extensions 1 and 2. New `ProtocolHavingCondition` and `ProtocolHavingComparisonOperator` types. Cache preimages refuse a non-empty `having` or a non-UTC `timezone` rather than leave them out of the key; `"UTC"` normalizes as if absent, so no existing preimage changes.
+  - `@hypequery/deployment`: the semantic data plane counts `having` conditions against `maxFilters` together with filters and enforced constraints, refuses a `timezone` on a dataset with no visible time field, and refuses `having` on a hidden measure exactly as it refuses selecting one.
+  - `@hypequery/datasets`: the portable executor passes `having` and `timezone` to the dataset client.
+
+- 5537990: Sub-day window and shift queries run on ClickHouse 25.x. The time-column type check selected an empty row tuple as a scalar, which servers before 26 refuse; it now selects the time element.
+- Updated dependencies [d8829e6]
+  - @hypequery/protocol@0.25.0
+
 ## 0.29.0
 
 ### Minor Changes
