@@ -105,7 +105,12 @@ async function loadChangelog(): Promise<ChangelogData> {
   };
 }
 
-export const getChangelog = unstable_cache(loadChangelog, ['changelog', 'v1'], {
-  revalidate: CHANGELOG_REVALIDATE_SECONDS,
-  tags: ['changelog'],
-});
+// `next dev` keeps unstable_cache entries too, so skip it there: a local
+// CHANGELOG.md edit then shows on the next refresh.
+export const getChangelog =
+  process.env.NODE_ENV === 'development'
+    ? loadChangelog
+    : unstable_cache(loadChangelog, ['changelog', 'v1'], {
+        revalidate: CHANGELOG_REVALIDATE_SECONDS,
+        tags: ['changelog'],
+      });
