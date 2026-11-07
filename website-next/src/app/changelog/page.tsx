@@ -50,14 +50,8 @@ export default async function ChangelogPage() {
     <ChangelogShell
       activeSlug={null}
       latestVersions={latestVersionBySlug(packages)}
-      eyebrow="Changelog"
-      title="What's new in hypequery"
-      lead={
-        <p>
-          New features, fixes, and breaking changes across every package, newest first. This page is generated
-          from the changelogs each release writes, so it is always current.
-        </p>
-      }
+      title="Changelog"
+      lead={<p>Every release across the hypequery packages and the Python SDK, newest first.</p>}
     >
       <ol className="space-y-12">
         {days.map((day) => (

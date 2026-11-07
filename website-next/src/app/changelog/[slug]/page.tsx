@@ -49,13 +49,12 @@ export default async function PackageChangelogPage({ params }: { params: Promise
     <ChangelogShell
       activeSlug={pkg.slug}
       latestVersions={latestVersionBySlug(packages)}
-      eyebrow="Changelog"
       title={packageDisplayName(pkg)}
       lead={
         <>
           <p>{pkg.description}</p>
           {latest ? (
-            <p className="mt-3 text-sm">
+            <p className="mt-1 text-sm">
               Latest: <span className="font-mono text-text">{latest.version}</span>
               {latest.publishedAt ? <> · {formatReleaseDate(latest.publishedAt)}</> : null}
               {' · '}
