@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       })),
       {
+        source: '/clickhouse-rest-api',
+        destination: '/clickhouse-api',
+        permanent: true,
+      },
+      {
         source: '/docs/python-client-workflow',
         destination: '/docs/python/client-endpoints',
         permanent: true,

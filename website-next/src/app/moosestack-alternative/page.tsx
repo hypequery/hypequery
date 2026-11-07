@@ -44,7 +44,7 @@ export default function MooseStackAlternativePage() {
     <ClickhousePillarPage
       eyebrow="MooseStack EOL Alternative"
       title="MooseStack is end of life. Here is the migration path."
-      description="MooseStack’s maintainers say the project is no longer actively maintained, and its GitHub repository is archived. hypequery replaces the typed ClickHouse query, semantic, API, React, and MCP layer while letting dedicated tools own schema, streaming, and workflows."
+      description="MooseStack’s maintainers say the project has reached end of life and is no longer actively maintained. hypequery replaces the typed ClickHouse query, semantic, API, React, and MCP layer while letting dedicated tools own schema, streaming, and workflows."
       primaryCta={{
         href: '/blog/migrating-moosestack-to-hypequery',
         label: 'Open the migration guide',
@@ -60,7 +60,7 @@ export default function MooseStackAlternativePage() {
       ]}
       problems={[
         {
-          title: 'An archived framework is not a new production dependency',
+          title: 'An unmaintained framework is not a new production dependency',
           copy:
             'MooseStack can keep running while you migrate, but new features and long-term application contracts need an actively maintained home.',
         },
@@ -121,7 +121,7 @@ export default function MooseStackAlternativePage() {
         rows: [
           {
             label: 'Project status',
-            competitor: 'End of life; repository archived',
+            competitor: 'End of life; no longer maintained',
             hypequery: 'Actively maintained open-source packages',
           },
           {

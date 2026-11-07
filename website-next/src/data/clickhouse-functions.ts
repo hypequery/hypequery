@@ -328,7 +328,7 @@ const qArr = await db
     name: 'toStartOfInterval',
     cluster: 'date',
     tagline: 'Bucket by any arbitrary interval — 5-minute, hourly, bi-weekly, or custom.',
-    metaTitle: 'ClickHouse toStartOfInterval — custom time bucketing in TypeScript | hypequery',
+    metaTitle: 'ClickHouse toStartOfInterval — custom time buckets',
     metaDescription:
       'toStartOfInterval rounds a DateTime to the start of any custom interval (5 min, 2 hours, 4 weeks). Use it in TypeScript with hypequery for flexible time bucketing.',
     signature: 'toStartOfInterval(datetime: DateTime, interval: Interval, [origin: DateTime]): DateTime',
@@ -405,7 +405,7 @@ const fiveMin = await db
     name: 'now',
     cluster: 'date',
     tagline: 'Return the current server DateTime — the anchor for relative time filters.',
-    metaTitle: 'ClickHouse now() function — current DateTime in TypeScript queries | hypequery',
+    metaTitle: 'ClickHouse now() — current DateTime in TypeScript',
     metaDescription:
       'ClickHouse now() returns the current server DateTime. Use it in TypeScript with hypequery for relative date filters like the last 7 days, last hour, or since midnight.',
     signature: 'now(): DateTime',
@@ -478,7 +478,7 @@ const recent = await db
     name: 'toDate',
     cluster: 'date',
     tagline: 'Convert a string or DateTime to a ClickHouse Date value.',
-    metaTitle: 'ClickHouse toDate — convert strings to Date in TypeScript | hypequery',
+    metaTitle: 'ClickHouse toDate — parse strings to Date in TypeScript',
     metaDescription:
       'toDate converts strings (\'YYYY-MM-DD\') and DateTimes to ClickHouse Date values. Learn how to use it in TypeScript with hypequery for date comparisons and filtering.',
     signature: 'toDate(value: String | DateTime | Int): Date',
@@ -538,7 +538,7 @@ const q1events = await db
     name: 'formatDateTime',
     cluster: 'date',
     tagline: 'Format a DateTime as a string using strftime-style patterns.',
-    metaTitle: 'ClickHouse formatDateTime — format dates as strings in TypeScript | hypequery',
+    metaTitle: 'ClickHouse formatDateTime — format dates in TypeScript',
     metaDescription:
       'formatDateTime converts a ClickHouse DateTime to a formatted string using strftime patterns. Use it in TypeScript with hypequery for display-ready date labels.',
     signature: 'formatDateTime(datetime: DateTime, format: String, [timezone: String]): String',
@@ -679,7 +679,7 @@ const totals = await db
     name: 'uniq',
     cluster: 'aggregate',
     tagline: 'Approximate distinct count — fast cardinality estimation for DAU and unique visitors.',
-    metaTitle: 'ClickHouse uniq() — approximate distinct counts in TypeScript | hypequery',
+    metaTitle: 'ClickHouse uniq() — approximate distinct counts',
     metaDescription:
       'ClickHouse uniq() counts distinct values using HyperLogLog approximation. Use it in TypeScript with hypequery for fast DAU, unique visitor, and cardinality queries.',
     signature: 'uniq(column): UInt64',
@@ -891,7 +891,7 @@ const aov = await db
     name: 'quantile',
     cluster: 'aggregate',
     tagline: 'Percentile estimates — p50, p95, p99 for latency and performance metrics.',
-    metaTitle: 'ClickHouse quantile() — percentile aggregation in TypeScript | hypequery',
+    metaTitle: 'ClickHouse quantile() — percentiles in TypeScript',
     metaDescription:
       'ClickHouse quantile() calculates approximate percentiles (p50, p95, p99). Use it in TypeScript with hypequery for latency analysis and performance SLA monitoring.',
     signature: 'quantile(level)(column): Float64',
@@ -970,7 +970,7 @@ const latency = await db
     name: 'groupArray',
     cluster: 'aggregate',
     tagline: 'Collect values into an array — session stitching, event sequences, and path analysis.',
-    metaTitle: 'ClickHouse groupArray() — collect rows into arrays | hypequery TypeScript',
+    metaTitle: 'ClickHouse groupArray() — collect rows into arrays',
     metaDescription:
       'groupArray() aggregates column values into an array per group. Use it in TypeScript with hypequery for session stitching, event sequence analysis, and array analytics.',
     signature: 'groupArray([max_size])(column): Array',
@@ -1045,7 +1045,7 @@ const sessions = await db
     name: 'toString',
     cluster: 'string',
     tagline: 'Cast any ClickHouse value to a String — the universal type conversion function.',
-    metaTitle: 'ClickHouse toString() — type casting to String in TypeScript | hypequery',
+    metaTitle: 'ClickHouse toString() — cast to String in TypeScript',
     metaDescription:
       'toString() converts any ClickHouse value (numbers, dates, UUIDs) to a String. Use it in TypeScript with hypequery for display fields, joins, and schema normalisation.',
     signature: 'toString(value: Any): String',
@@ -1180,7 +1180,7 @@ const labels = await db
     name: 'if',
     cluster: 'conditional',
     tagline: 'Inline conditional — the ternary operator of ClickHouse SQL.',
-    metaTitle: 'ClickHouse if() — inline conditional in TypeScript queries | hypequery',
+    metaTitle: 'ClickHouse if() — inline conditionals in TypeScript',
     metaDescription:
       'ClickHouse if(cond, then, else) is the inline conditional expression. Use it in TypeScript with hypequery to classify events, map status codes, and build pivots.',
     signature: 'if(condition: UInt8, then: T, else: T): T',
@@ -1249,7 +1249,7 @@ const classified = await db
     name: 'multiIf',
     cluster: 'conditional',
     tagline: 'Multi-branch conditional — clean CASE WHEN replacement for status mapping.',
-    metaTitle: 'ClickHouse multiIf() — multi-branch conditional in TypeScript | hypequery',
+    metaTitle: 'ClickHouse multiIf() — multi-branch conditionals',
     metaDescription:
       'ClickHouse multiIf() evaluates multiple conditions in order and returns the first matching value. Use it in TypeScript with hypequery for status maps and category logic.',
     signature: 'multiIf(cond1, val1, cond2, val2, ..., else): T',
@@ -1377,7 +1377,7 @@ const metrics = await db
     name: 'intDiv',
     cluster: 'math',
     tagline: 'Integer division — bucket IDs, page numbers, and fixed-width range grouping.',
-    metaTitle: 'ClickHouse intDiv() — integer division for bucketing in TypeScript | hypequery',
+    metaTitle: 'ClickHouse intDiv() — integer division for bucketing',
     metaDescription:
       'ClickHouse intDiv(a, b) performs integer division (floor). Use it in TypeScript with hypequery for range bucketing, histogram bins, and fixed-width ID partitioning.',
     signature: 'intDiv(a: Integer, b: Integer): Integer',

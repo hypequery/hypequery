@@ -1,5 +1,6 @@
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
+import { comparePages } from '@/data/compare-pages';
 
 // Static, regenerated only at build time.
 export const revalidate = false;
@@ -13,6 +14,16 @@ function sectionOf(url: string): string {
   const parts = rest.split('/').filter(Boolean);
   return parts.length > 1 ? parts[0] : 'Guides';
 }
+
+// Product pages that answer "which tool should I use" questions. These have no
+// Markdown copy, so they link to the HTML page.
+const PRODUCT_PAGES: Entry[] = [
+  { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
+  { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
+  { title: 'MooseStack alternative', url: '/moosestack-alternative', description: 'MooseStack has reached end of life. Migrate typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools to hypequery.' },
+  { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },
+  { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
+];
 
 const SECTION_ORDER = ['Guides', 'query-building', 'datasets', 'python', 'mcp', 'react', 'reference', 'cloud'];
 
@@ -56,6 +67,16 @@ export function GET() {
     'Each link below points to the clean Markdown version of the page. The full corpus is available at /llms-full.txt.',
     '',
   ];
+
+  lines.push('## Compare', '');
+  for (const page of comparePages) {
+    lines.push(`- [${page.title}](${absoluteUrl(`/llms.mdx/compare/${page.slug}`).toString()}): ${page.verdict}`);
+  }
+  lines.push('', '## Alternatives and use cases', '');
+  for (const e of PRODUCT_PAGES) {
+    lines.push(`- [${e.title}](${absoluteUrl(e.url).toString()}): ${e.description}`);
+  }
+  lines.push('');
 
   for (const section of sections) {
     lines.push(`## ${SECTION_TITLES[section] ?? section}`, '');

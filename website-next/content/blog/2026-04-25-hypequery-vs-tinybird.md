@@ -96,4 +96,4 @@ hypequery is open source and free. There is no platform dependency and no per-qu
 
 If hypequery is the right fit, the [quick start](/docs/quick-start) covers schema generation, your first typed query, and serving it as a REST endpoint in under five minutes.
 
-For the broader ClickHouse TypeScript picture, read the [ClickHouse TypeScript](/clickhouse-typescript) guide. If you are specifically exploring how to build a typed analytics API layer, the [ClickHouse REST API](/clickhouse-rest-api) guide covers the patterns that `@hypequery/serve` is built on.
+For the broader ClickHouse TypeScript picture, read the [ClickHouse TypeScript](/clickhouse-typescript) guide. If you are specifically exploring how to build a typed analytics API layer, the [ClickHouse REST API](/clickhouse-api) guide covers the patterns that `@hypequery/serve` is built on.

@@ -176,7 +176,7 @@ export default function ClickHouseFastAPIPage() {
           description: 'Type-safe React hooks and agent tools over the same endpoints.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'The same served API pattern in TypeScript.',
         },

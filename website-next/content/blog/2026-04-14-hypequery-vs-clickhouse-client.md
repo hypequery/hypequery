@@ -1,7 +1,7 @@
 ---
 title: "hypequery vs @clickhouse/client: What You Actually Gain"
 description: "The official ClickHouse JavaScript client is solid, but it stops at connections and raw queries. Here's what hypequery adds for TypeScript analytics teams."
-seoTitle: "hypequery vs @clickhouse/client: Type-Safe ClickHouse Queries in TypeScript"
+seoTitle: "hypequery vs @clickhouse/client: Typed ClickHouse Queries"
 seoDescription: "Compare hypequery and @clickhouse/client for ClickHouse TypeScript apps. See what you gain with generated schema types, reusable queries, and typed HTTP APIs."
 pubDate: 2026-04-14
 heroImage: ""

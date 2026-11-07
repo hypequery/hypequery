@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse API in TypeScript',
+  title: 'ClickHouse REST API in TypeScript',
   description:
     'Build a ClickHouse API in TypeScript from typed query definitions. Generate schema types, expose validated endpoints, and get OpenAPI docs automatically.',
   alternates: { canonical: absoluteUrl('/clickhouse-api') },
@@ -158,11 +158,6 @@ export default function ClickHouseApiPage() {
       ]}
       readingLinks={[
         {
-          href: '/clickhouse-rest-api',
-          title: 'ClickHouse REST API',
-          description: 'The fuller REST-focused page with more detail on how typed endpoints and delivery paths work in practice.',
-        },
-        {
           href: '/clickhouse-openapi',
           title: 'ClickHouse OpenAPI generation',
           description: 'See how the OpenAPI spec is generated from your query contracts and how consumers can use it.',
@@ -177,9 +172,13 @@ export default function ClickHouseApiPage() {
           title: 'ClickHouse Next.js',
           description: 'Use the same typed query contracts inside App Router handlers and server-side application code.',
         },
+        {
+          href: '/blog/typed-rest-api-clickhouse',
+          title: 'How to Expose ClickHouse Queries as a Typed REST API',
+          description: 'Build a ClickHouse REST API in TypeScript. Define a query once with zod-validated input, serve it over HTTP with generated OpenAPI docs, attach auth, and call it in-process — step by step with @hypequery/serve.',
+        },
       ]}
       relatedPillars={[
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
