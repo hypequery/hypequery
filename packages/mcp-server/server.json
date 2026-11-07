@@ -9,12 +9,12 @@
     "subfolder": "packages/mcp-server"
   },
   "websiteUrl": "https://hypequery.com/docs/mcp/overview",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@hypequery/mcp",
-      "version": "0.11.3",
+      "version": "0.12.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
