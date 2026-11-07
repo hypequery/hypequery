@@ -61,16 +61,16 @@ export function ChangelogShell({ activeSlug, latestVersions, title, lead, childr
         </div>
       </header>
 
-      <div className={`${marketing.container} grid gap-8 py-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-12 lg:py-10`}>
+      <div className={`${marketing.container} grid gap-8 py-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12 lg:py-10`}>
         <nav aria-label="Filter by package" className="min-w-0 lg:sticky lg:top-28 lg:self-start">
           <p className="mb-3 font-mono text-[11.5px] font-bold uppercase tracking-[0.12em] text-text-dim max-lg:hidden">
             Packages
           </p>
-          <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-2 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0 lg:pb-0">
+          <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-1">
             {filters.map((filter) => {
               const active = filter.slug === activeSlug;
               return (
-                <li key={filter.href} className="shrink-0">
+                <li key={filter.href}>
                   <Link
                     href={filter.href}
                     aria-current={active ? 'page' : undefined}
