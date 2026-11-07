@@ -66,19 +66,19 @@ export function ChangelogShell({ activeSlug, latestVersions, title, lead, childr
           <p className="mb-3 font-mono text-[11.5px] font-bold uppercase tracking-[0.12em] text-text-dim max-lg:hidden">
             Packages
           </p>
-          <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-1">
+          <ul className="flex gap-1.5 max-lg:flex-wrap lg:flex-col lg:gap-1">
             {filters.map((filter) => {
               const active = filter.slug === activeSlug;
               return (
-                <li key={filter.href}>
+                <li key={filter.href} className="min-w-0">
                   <Link
                     href={filter.href}
                     aria-current={active ? 'page' : undefined}
-                    className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-lg border px-3 py-1.5 font-mono text-[13px] transition ${filterClass(active)}`}
+                    className={`flex min-w-0 items-center justify-between gap-2 whitespace-nowrap rounded-lg border px-3 py-1.5 font-mono text-[13px] transition ${filterClass(active)}`}
                   >
-                    <span>{filter.label}</span>
+                    <span className="min-w-0 truncate">{filter.label}</span>
                     {filter.version ? (
-                      <span className="text-[11px] text-text-dim max-lg:hidden">{filter.version}</span>
+                      <span className="shrink-0 text-[11px] text-text-dim max-lg:hidden">{filter.version}</span>
                     ) : null}
                   </Link>
                 </li>
