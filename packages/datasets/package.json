@@ -82,7 +82,7 @@
   },
   "devDependencies": {
     "@hypequery/protocol-conformance": "workspace:^",
-    "@types/node": "^18.19.80",
+    "@types/node": "^26.6.6",
     "typescript": "^6.0.3",
     "@vitest/coverage-v8": "^5.0.5",
     "vitest": "^5.0.5"
