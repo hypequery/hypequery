@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
+from hypequery.datasets.planner.settings import setting_maximum
 
 from .cancellation import terminal_error
 from .utils.datetime_parameters import unix_seconds
@@ -88,7 +89,8 @@ def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[st
     settings = dict(compiled.settings.values)
     if set(settings) != set(SETTING_DEFINITIONS) or any(
         type(value) is not int
-        or not SETTING_DEFINITIONS[name].minimum <= value <= SETTING_DEFINITIONS[name].maximum
+        # A stream's byte ceiling may exceed a page's; `setting_maximum` knows both.
+        or not SETTING_DEFINITIONS[name].minimum <= value <= setting_maximum(name)
         for name, value in settings.items()
     ):
         raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)

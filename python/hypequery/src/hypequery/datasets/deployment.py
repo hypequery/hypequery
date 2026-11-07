@@ -182,6 +182,13 @@ def validate_deployable(dataset: Dataset) -> None:
             "cannot be published yet: segments need deployment contract 3 (RFC 0015). Use them "
             "for local queries until publishing emits contract 3."
         )
+    if dataset.limits is not None and dataset.limits.max_stream_rows is not None:
+        # Mirrors TypeScript: the contract's limits cannot carry it, and a
+        # deployment must not quietly fall back to `max_result_size`.
+        raise ValueError(
+            f'Dataset "{dataset.name}" sets limits.max_stream_rows, which is not part of '
+            "deployment contracts yet; publish the dataset without it."
+        )
     for name, definition in dataset.measures.items():
         if isinstance(definition, WindowMeasure | ShiftMeasure):
             kind = "window" if isinstance(definition, WindowMeasure) else "shift"
