@@ -7,14 +7,14 @@ export function FinalCTA() {
   return (
     <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
       <h2 className="home-section-title text-text max-w-[820px] mx-auto text-balance">
-        Ship your analytics layer today
+        Ship your analytics backend today
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
-        Start open source in your own backend. A hosted option, hypequery cloud, is coming soon.
+        Open source, in your own app. hypequery cloud is in early access.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         <Link
-          href="/docs"
+          href="/docs/quick-start"
           className={marketing.primaryButton}
         >
           Get started <span aria-hidden="true">→</span>

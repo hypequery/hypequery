@@ -7,7 +7,7 @@ import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
 import { PatternCallout } from '@/components/home/PatternCallout';
-import { CloudWorkflow } from '@/components/home/CloudWorkflow';
+import { CloudCallout } from '@/components/home/CloudCallout';
 import { RunsWhereYourAppRuns } from '@/components/home/RunsWhereYourAppRuns';
 import { StaticCode } from '@/components/home/StaticCode';
 
@@ -59,7 +59,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.',
+    'The analytics backend for ClickHouse. Define metrics once in TypeScript or Python and serve them as tenant-safe APIs, React hooks and MCP tools from your own app.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],
@@ -92,15 +92,15 @@ export default async function Home() {
         <Hero npmDownloads={npmDownloads} />
         <PatternCallout />
         {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
-            → production features (can I trust it) → change safely (what happens next) → CTA.
-            BuildYourWay (model in code or in cloud) is off the page until cloud launches. */}
+            → production features (can I trust it) → cloud (the hosted option) → CTA.
+            BuildYourWay and CloudWorkflow (AI authoring, chat, and the cloud app tour) are off the page until cloud launches. */}
         <ProductExplainer
           modelCode={<StaticCode code={MODEL_CODE} />}
           dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
         />
         <RunsWhereYourAppRuns />
         <FeatureGrid />
-        <CloudWorkflow />
+        <CloudCallout />
         <FinalCTA />
       </main>
       <Footer />

@@ -4,13 +4,11 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database, MessagesSquare } from 'lucide-react';
+import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database } from 'lucide-react';
 import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
-import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
-import { DeployWaitlist } from './DeployWaitlist';
+import { ClaudeTerminal, useAiAnswers } from './AiAnswers';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
-import { marketing } from '../ui/marketing';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
@@ -66,8 +64,8 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
   return (
     <section aria-labelledby="product-explainer-title" className="overflow-x-clip mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0} className="mx-auto max-w-[660px] text-center">
-        <h2 id="product-explainer-title" className="home-section-title text-text">One model behind every answer</h2>
-        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your dashboards, APIs and agents like Claude all query the same model, with the same tenant rules.</p>
+        <h2 id="product-explainer-title" className="home-section-title text-text">Define once, serve everywhere</h2>
+        <p className="mx-auto mt-4 max-w-[570px] text-sm leading-6 text-text-muted sm:text-base">Your APIs, dashboards and agents query the same datasets, with the same tenant rules.</p>
       </motion.div>
 
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.06} className="relative mt-9 h-[290px] sm:mt-12" role="figure" aria-label="ClickHouse tables flow into a shared hypequery model, then into dashboards, APIs, and MCP agents">
@@ -146,13 +144,13 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
-          <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded analytics</h3>
+          <div className="flex items-center gap-2.5"><SiReact className="h-5 w-5 text-[#339db6]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Dashboards</h3>
             <div role="group" aria-label="Dashboard example view" className="ml-auto inline-flex rounded-md border border-border p-0.5 text-[10.5px]">
               {(['preview', 'code'] as const).map((view) => (
                 <button key={view} type="button" aria-pressed={dashboardView === view} onClick={() => setDashboardView(view)} className={`rounded px-2 py-0.5 font-medium capitalize transition ${dashboardView === view ? 'bg-bg-alt text-text' : 'text-text-muted hover:text-text'}`}>{view}</button>
               ))}
             </div></div>
-          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Ship embedded analytics with typed React hooks and your own components.</p>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Build dashboards with typed React hooks and your own components.</p>
           {dashboardView === 'code' ? (
             <div className={`explainer-preview mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${PREVIEW_HEIGHT}`}>
               <div className="border-b border-border px-4 py-3 font-mono text-[10px] text-text-dim">components/RevenueByCountry.tsx</div>
@@ -198,20 +196,6 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
-      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.08} className="mt-4 grid overflow-hidden rounded-2xl border border-border bg-bg-card/40 md:mt-2 md:grid-cols-[0.9fr_1.1fr]">
-        <div className="flex flex-col justify-center p-5 sm:p-6">
-          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent">Coming soon</span></div>
-          <p className="mt-3 max-w-[440px] text-sm leading-6 text-text-muted">Let your customers ask questions about their own data, inside your app. Chat answers from the same model as your dashboards, APIs and agents: the same question gets the same number everywhere.</p>
-          <DeployWaitlist location="home-embedded-chat" className={`${marketing.secondaryButton} mt-5 min-h-10 self-start text-xs`} />
-        </div>
-        <div className="border-t border-border bg-bg-alt/60 p-4 md:border-l md:border-t-0">
-          <div className="h-[240px]">
-            <div style={{ zoom: PANEL_SCALE, height: `${240 / PANEL_SCALE}px` }}>
-              <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
-            </div>
-          </div>
-        </div>
-      </motion.div>
     </section>
   );
 }

@@ -71,7 +71,7 @@ export default function Footer() {
             <span>hypequery</span>
           </div>
           <p className="mt-2 text-[13px] leading-snug text-text-muted">
-            The analytics layer for ClickHouse.
+            The analytics backend for ClickHouse.
           </p>
         </div>
 
