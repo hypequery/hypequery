@@ -27,6 +27,17 @@ export function isRegistryEntry(name) {
   return !name.startsWith('_') && !name.startsWith('.');
 }
 
+function readPackageName(dir) {
+  const file = path.join(dir, 'package.json');
+  if (!fs.existsSync(file)) return null;
+  try {
+    const name = JSON.parse(fs.readFileSync(file, 'utf8')).name;
+    return typeof name === 'string' ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 export function discover(repoRoot) {
   const entries = [];
   for (const root of REGISTRY_ROOTS) {
@@ -43,6 +54,9 @@ export function discover(repoRoot) {
         kind: root.kind,
         slug: name,
         hasManifest: fs.existsSync(path.join(abs, name, root.manifest)),
+        // Turbo's `<package>^...` filter (dependencies only) needs the
+        // workspace package name; the directory form includes the package.
+        package: readPackageName(path.join(abs, name)),
       });
     }
   }

@@ -110,10 +110,10 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.entries) }}
     steps:
       - uses: actions/checkout@v7
-      - name: Require a manifest
-        if: matrix.hasManifest != true
+      - name: Require a manifest and a package.json
+        if: matrix.hasManifest != true || matrix.package == null
         run: |
-          echo "::error::${{ matrix.dir }} has no manifest. Add example.json / recipe.json, or prefix the folder with _ to exclude it."
+          echo "::error::${{ matrix.dir }} needs example.json / recipe.json and a package.json with a name, or a _ prefix to exclude it."
           exit 1
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7.1.0
@@ -129,7 +129,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build the example's workspace dependencies
         if: env.HYPEQUERY_SOURCE == 'workspace'
-        run: pnpm turbo run build --filter='./${{ matrix.dir }}^...'
+        # `<package>^...` selects dependencies only; the ./dir form would also
+        # build the example itself, which its own `test` script does.
+        run: pnpm turbo run build --filter='${{ matrix.package }}^...'
 
       # Latest mode: what a user gets from `npx hypequery create <slug>` today.
       - name: Point the example at published packages

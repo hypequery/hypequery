@@ -25,12 +25,13 @@ test('discover skips _ and . folders and flags missing manifests', () => {
     fs.mkdirSync(path.join(root, dir), { recursive: true });
   }
   fs.writeFileSync(path.join(root, 'examples/nextjs-dashboard/example.json'), '{}');
+  fs.writeFileSync(path.join(root, 'examples/nextjs-dashboard/package.json'), '{"name":"@hypequery-examples/nextjs-dashboard"}');
   fs.writeFileSync(path.join(root, 'recipes/p95-latency/recipe.json'), '{}');
   fs.writeFileSync(path.join(root, 'examples/_seed/package.json'), '{}');
   assert.deepEqual(discover(root), [
-    { dir: 'examples/half-added', kind: 'example', slug: 'half-added', hasManifest: false },
-    { dir: 'examples/nextjs-dashboard', kind: 'example', slug: 'nextjs-dashboard', hasManifest: true },
-    { dir: 'recipes/p95-latency', kind: 'recipe', slug: 'p95-latency', hasManifest: true },
+    { dir: 'examples/half-added', kind: 'example', slug: 'half-added', hasManifest: false, package: null },
+    { dir: 'examples/nextjs-dashboard', kind: 'example', slug: 'nextjs-dashboard', hasManifest: true, package: '@hypequery-examples/nextjs-dashboard' },
+    { dir: 'recipes/p95-latency', kind: 'recipe', slug: 'p95-latency', hasManifest: true, package: null },
   ]);
 });
 
@@ -39,7 +40,7 @@ test('discover CLI prints compact JSON for GITHUB_OUTPUT', () => {
   fs.mkdirSync(path.join(root, 'examples/a'), { recursive: true });
   fs.writeFileSync(path.join(root, 'examples/a/example.json'), '{}');
   const out = execFileSync(process.execPath, [path.join(here, 'discover.mjs'), '--root', root], { encoding: 'utf8' });
-  assert.equal(out, '[{"dir":"examples/a","kind":"example","slug":"a","hasManifest":true}]\n');
+  assert.equal(out, '[{"dir":"examples/a","kind":"example","slug":"a","hasManifest":true,"package":null}]\n');
   const empty = execFileSync(process.execPath, [path.join(here, 'discover.mjs'), '--root', tmpRepo()], { encoding: 'utf8' });
   assert.equal(empty, '[]\n');
 });
