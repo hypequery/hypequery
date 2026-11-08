@@ -1,262 +1,198 @@
 ---
-title: "ClickHouse Cloud vs Tinybird: Managed Database + hypequery or Managed Analytics Backend?"
-description: "Compare ClickHouse Cloud plus hypequery with Tinybird for real-time analytics APIs, then build a typed endpoint on ClickHouse Cloud step by step."
-seoTitle: "ClickHouse Cloud vs Tinybird: Architecture Compared"
-seoDescription: "ClickHouse Cloud + hypequery vs Tinybird: compare architecture, API ownership, TypeScript workflow, operations, and implement a typed ClickHouse Cloud endpoint."
+title: "Tinybird vs ClickHouse Cloud: Differences, Pricing and Which to Pick"
+description: "ClickHouse Cloud is a managed ClickHouse database. Tinybird is a platform on ClickHouse that adds ingestion and hosted API endpoints. How each one bills, where each wins, and how to connect from TypeScript."
+seoTitle: "Tinybird vs ClickHouse Cloud: Pricing and Which to Pick"
+seoDescription: "ClickHouse Cloud is managed ClickHouse billed by compute and storage. Tinybird adds ingestion and hosted APIs, billed by plan size. Which one to pick."
 pubDate: 2026-08-22
+updatedAt: 2026-11-08
 heroImage: ""
 slug: clickhouse-cloud-vs-tinybird
 status: published
+tags:
+  - ClickHouse
+  - Tinybird
 ---
 
-ClickHouse Cloud and Tinybird can both power low-latency analytics APIs, but they are not the same kind of product.
+ClickHouse Cloud is the managed ClickHouse database run by ClickHouse, Inc.: you get a service with full SQL access over HTTPS, the native protocol and the MySQL wire protocol, and you pay for compute (metered per minute) and compressed storage separately. Tinybird is a data platform from a separate company that runs ClickHouse underneath and adds ingestion connectors, SQL-to-REST API endpoints, access tokens and a branch-based development workflow, priced by plan size in vCPUs with a free plan that has no time limit. Pick Tinybird when what you want is hosted analytics APIs with as little backend work as possible; pick ClickHouse Cloud when your own services, jobs and BI tools need to read and write a ClickHouse database directly.
 
-[ClickHouse Cloud](https://clickhouse.com/cloud) is a managed ClickHouse database. It operates the database infrastructure while leaving you free to connect with standard ClickHouse tools and build the application layer you want. In the TypeScript stack on this page, hypequery generates types from that live database, builds queries in application code, and exposes selected queries over HTTP.
+Prices, limits and features on this page come from each vendor's pricing pages and docs, checked on 8 November 2026.
 
-[Tinybird](https://www.tinybird.co/docs/forward/core-concepts) is a managed analytics backend. A Tinybird Workspace contains data sources, connections, Pipes, endpoints, materialized views, and tokens. The current Tinybird workflow is code-friendly: projects can live in Git, run in Tinybird Local or Cloud Branches, and be authored with datafiles or a TypeScript SDK.
+## How is Tinybird different from ClickHouse Cloud?
 
-The real choice is therefore not "managed versus self-hosted." Both options can be managed. It is whether you want a managed database that your application talks to directly, or a managed data platform that also owns the endpoint runtime.
+ClickHouse Cloud sells the database as a service, and Tinybird sells a platform built on that database. In ClickHouse Cloud you create tables, run any SQL and connect with any ClickHouse client. In Tinybird you define data sources, pipes and API endpoints as project files or with its [TypeScript SDK](https://www.tinybird.co/docs/forward/quickstarts/typescript-sdk), deploy them to a Workspace, and your application calls the hosted endpoints. Tinybird's [managed ClickHouse page](https://www.tinybird.co/product/managed-clickhouse) says it "runs native ClickHouse under the hood", and it also exposes a ClickHouse HTTP interface, which its [docs](https://www.tinybird.co/docs/forward/query-data/clickhouse-interface) describe as read-only.
 
-## The short answer
-
-Choose **Tinybird** when the shortest path from ingestion to a hosted analytics endpoint matters most. It bundles the data project, deployment workflow, endpoint hosting, scoped tokens, and operational controls.
-
-Choose **ClickHouse Cloud + hypequery** when ClickHouse should remain a directly accessible database and the analytics contract should live inside an existing TypeScript application. You keep standard ClickHouse access, generate types from the live schema, and integrate analytics routes with the same auth, deployment, logging, and review process as the rest of your backend.
-
-Neither answer is universally better. Tinybird removes more assembly. ClickHouse Cloud plus hypequery leaves more of the architecture under your control.
-
-## Side-by-side comparison
-
-| Dimension | ClickHouse Cloud + hypequery | Tinybird |
+| | ClickHouse Cloud | Tinybird |
 |---|---|---|
-| Product boundary | Managed database plus open-source TypeScript libraries | Managed analytics backend |
-| Data model | Native ClickHouse databases, tables, views, and SQL | Tinybird data sources and platform resources backed by ClickHouse |
-| Query definition | Typed TypeScript in your application repository | SQL or TypeScript SDK resources in a Tinybird project |
-| Schema types | Generated from the live ClickHouse schema | Inferred from data sources, endpoint parameters, and output types authored with the Tinybird SDK |
-| API runtime | Runs in your application or a service you deploy | Hosted by Tinybird |
-| Authentication and rate limits | Integrate hypequery with your application middleware | Tokens and platform controls are built into the hosted API workflow |
-| Precomputation | ClickHouse materialized views and projections that you configure directly | Materialized views defined as Tinybird project resources |
-| Direct database access | Yes, through standard ClickHouse protocols and clients | Consumers normally use Tinybird APIs and project resources |
-| Portability | ClickHouse schema and queries can move between compatible ClickHouse deployments | Project files are version-controlled, but target the Tinybird runtime |
-| Operational responsibility | ClickHouse runs the database; you run the API process | Tinybird runs both the analytics data plane and endpoint plane |
+| Run by | ClickHouse, Inc. | Tinybird, which states it is not affiliated with ClickHouse, Inc. |
+| What you get | A managed ClickHouse service | Managed ClickHouse plus ingestion, API endpoints, tokens, Cloud Branches and Tinybird Local |
+| SQL access | Read and write over HTTPS, native protocol and MySQL wire protocol ([compatibility guide](https://clickhouse.com/docs/products/cloud/guides/cloud-compatibility)) | API Endpoints and the Query API; the ClickHouse HTTP interface is read-only |
+| Ingestion | ClickPipes (billed separately) or any ClickHouse insert path | Events API plus Kafka, S3, GCS and DynamoDB connectors |
+| HTTP API from SQL | [Query API endpoints](https://clickhouse.com/docs/products/cloud/features/sql-console-features/query-endpoints) built from saved queries in the console | API Endpoints are the core of the product |
+| Clouds and regions | AWS, Google Cloud and Azure; 38 region codes listed, 21 of them public ([regions](https://clickhouse.com/docs/products/cloud/reference/supported-regions)) | Regions on AWS and Google Cloud in its docs |
+| In your own cloud account | [BYOC](https://clickhouse.com/docs/products/cloud/guides/infrastructure/deployment-options/byoc/overview), generally available on AWS, GCP and Azure, with a committed contract | [Self-managed regions](https://www.tinybird.co/docs/forward/core-concepts/self-managed), in beta and for development only |
+| Free option | $300 of credits for 30 days | Free plan with no time limit |
+| Billing unit | Compute-unit-hours plus TB-months of storage | Plan size in vCPUs plus overages; credits on committed plans |
 
-## What ClickHouse Cloud + hypequery gives you
+## Is Tinybird more expensive than ClickHouse Cloud?
 
-ClickHouse Cloud removes database operations such as manual sharding, replication management, upgrades, and backups. It does not decide how your product exposes analytics. That boundary is useful when your team already has an application platform.
+It depends on your workload, because the two bill on different units and neither publishes a like-for-like price. ClickHouse Cloud charges for compute time and stored data, so cost follows how many hours your service is awake and how much data you keep. Tinybird charges a plan fee sized in vCPUs and then overages, so cost follows the plan you need to stay inside its limits.
 
-hypequery fills the application-side gap:
+### How ClickHouse Cloud bills
 
-1. the CLI introspects the live ClickHouse Cloud schema
-2. generated TypeScript types reflect ClickHouse's actual wire values, including 64-bit integers represented as strings
-3. the query builder restricts tables, columns, filters, and result shapes to that schema
-4. `@hypequery/serve` turns selected queries into validated HTTP contracts with OpenAPI output
-5. the same query can execute in-process from a job or server-rendered page without making an HTTP round trip
+From the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing):
 
-The tradeoff is ownership. Your team deploys the API and decides how authentication, rate limiting, caching, observability, and tenant isolation fit the rest of the product.
+- Compute is metered per minute and billed per compute-unit-hour. One compute unit is 8 GiB of RAM and 2 vCPUs.
+- On AWS us-east-1 the listed compute rates are $0.2181 (Basic), $0.2985 (Scale) and $0.3903 (Enterprise) per unit-hour. Rates change with cloud provider and region.
+- Storage is $25.30 per TB per month in that region, metered on the compressed size of your data. Backups are billed at the same per-TB rate.
+- ClickPipes ingestion and egress are extra: public internet egress starts at $0.1152/GB and inter-region egress at $0.0312/GB. Ingress is free.
+- Compute scales to zero when a service is idle, so an intermittent workload stops paying for compute between queries. The cost of that is latency: a paused service has to wake before it answers, and ClickHouse's [idling docs](https://clickhouse.com/docs/products/cloud/features/autoscaling/idling) don't recommend it for frequently used customer-facing features.
+- New organizations get $300 in credits for 30 days, then move to pay-as-you-go. The pricing page lists no permanent free tier.
 
-## What Tinybird gives you
+### How Tinybird bills
 
-Tinybird owns a larger portion of the path from data to API. You define data sources and processing logic, publish endpoints, grant token scopes, and call the managed API. Its [development workflow](https://www.tinybird.co/docs/forward/development-workflow) supports local builds, cloud branches, deployment checks, and CI/CD, so it should not be dismissed as a dashboard-only or UI-only workflow.
+From Tinybird's [pricing page](https://www.tinybird.co/pricing) and [plan docs](https://www.tinybird.co/docs/forward/pricing):
 
-That integrated boundary is Tinybird's main advantage. A small data team can ship an endpoint without first choosing an application server, wiring an HTTP adapter, or implementing token infrastructure.
+- The Free plan gives 0.25 vCPU, 1,000 requests per day, 10 GB of storage and one query thread, with no time limit. Requests over the burst limit get HTTP 429.
+- Developer plans are a fixed monthly fee by size, starting at $25/month (the 0.5 vCPU size is listed at $49/month), with 25 GB of storage included. Extra storage is $0.058/GB and vCPU use above the plan is $0.0002 per second. Self-service sizes go up to 8 vCPUs.
+- SaaS plans run on shared infrastructure from 4 vCPUs, use credits with a 12-month minimum commitment, and bill active minutes, queries per second and storage overages.
+- Enterprise plans give you a dedicated ClickHouse cluster with at least 1 TB of storage, also on credits with a 12-month commitment.
+- Every plan includes unlimited tables, pipes and endpoints, so hosting the API is part of the fee.
 
-The same boundary is also its main tradeoff. Your endpoint executes as a Tinybird resource rather than as ordinary code inside your application runtime. If product authorization depends on an existing session model, queries are composed deeply with TypeScript business logic, or services need direct access to the underlying ClickHouse database, the ClickHouse Cloud stack is usually easier to fit into the existing system.
+### What decides which one costs less
 
-## Implementation: ClickHouse Cloud + hypequery
+Tinybird's own FAQ answers the question directly: "For production workloads, it's usually cheaper", on the grounds that it replaces separate ingestion, API and operations work. That is the vendor's claim, so test it against your numbers. The factors that move the result:
 
-This example creates a small event analytics endpoint. It assumes you have created a ClickHouse Cloud service and copied its HTTPS connection details from the Cloud console.
+- An always-on workload pays ClickHouse Cloud for every hour of compute; an intermittent one benefits from idling. Tinybird's Developer fee is the same either way.
+- With ClickHouse Cloud you also pay for wherever your API runs, unless Query API endpoints are enough. Tinybird's fee already covers endpoint hosting.
+- For a side project, Tinybird's Free plan costs nothing for as long as you stay inside its limits, while ClickHouse Cloud's trial ends after 30 days or $300, whichever comes first.
 
-### 1. Create the ClickHouse table
+Both vendors have estimators: the calculator on the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing) and "Estimate your price" on [Tinybird's pricing page](https://www.tinybird.co/pricing). Put the same data volume and query rate into both before deciding on price.
 
-Run the following in the ClickHouse Cloud SQL console:
+## Is Tinybird better than ClickHouse?
 
-```sql
-CREATE DATABASE IF NOT EXISTS analytics;
+Tinybird runs ClickHouse, so the useful question is whether its platform layer is better for you than talking to ClickHouse directly. Tinybird is the better choice when hosted endpoints and managed ingestion are most of the work, and ClickHouse Cloud is better when you need the database itself.
 
-CREATE TABLE IF NOT EXISTS analytics.events
-(
-  event_id UUID DEFAULT generateUUIDv4(),
-  tenant_id String,
-  event_name LowCardinality(String),
-  occurred_at DateTime64(3, 'UTC') DEFAULT now64(3)
-)
-ENGINE = MergeTree
-ORDER BY (tenant_id, occurred_at, event_id);
-```
+Where Tinybird wins:
 
-The ordering key supports the common access pattern: restrict a request to one tenant and a bounded time range, then aggregate its events.
+- A SQL pipe becomes a hosted API endpoint with scoped tokens, without an application server in between.
+- Ingestion is built in: the Events API and connectors for Kafka, S3, GCS and DynamoDB.
+- The development loop is complete: [Tinybird Local](https://www.tinybird.co/docs/forward/core-concepts/tinybird-local) runs the platform in a container for development, testing and CI, Cloud Branches give shared environments, and the TypeScript and Python SDKs define data sources and endpoints in code.
+- The Free plan has no time limit, which suits prototypes and low-traffic features.
 
-For a real service, create a dedicated database user with only the privileges the application needs. Schema generation needs to see the tables and columns it will type; the running API generally needs `SELECT` on only its serving tables.
+Where ClickHouse Cloud wins:
 
-### 2. Install hypequery
+- Any ClickHouse client, BI tool or job can read and write with full SQL. Tinybird's ClickHouse interface is read-only, so writes go through its ingestion paths.
+- It covers more ground: AWS, Google Cloud and Azure, with BYOC generally available on all three. Tinybird's self-managed regions are in beta, and its docs say to avoid production workloads on them.
+- Idle services stop paying for compute.
+- Your DDL uses standard MergeTree engines (Cloud substitutes its SharedMergeTree engine behind the scenes), so the same schema runs on open-source ClickHouse or another host if you move.
 
-```bash
-npm install @hypequery/clickhouse @hypequery/serve zod
-npm install --save-dev @hypequery/cli
-```
+## Tinybird vs ClickHouse Cloud: which one should I pick?
 
-Add the ClickHouse Cloud connection values to `.env` and keep the file out of source control:
+Pick Tinybird if:
 
-```bash
-CLICKHOUSE_URL=https://your-service.your-region.clickhouse.cloud:8443
-CLICKHOUSE_DATABASE=analytics
-CLICKHOUSE_USERNAME=hypequery_api
-CLICKHOUSE_PASSWORD=replace-me
-```
+- The deliverable is analytics APIs, and nobody on the team wants to build and run the serving layer.
+- Data arrives from Kafka, S3, GCS, DynamoDB or HTTP events and you want the platform to handle ingestion.
+- SQL-focused developers own the analytics, and branches plus a local container fit how they work.
+- Consumers only need to read through endpoints or the read-only ClickHouse interface.
 
-The URL is the HTTPS endpoint from the ClickHouse Cloud **Connect** dialog, including the protocol and port.
+Pick ClickHouse Cloud if:
 
-### 3. Generate schema types from ClickHouse Cloud
+- Services, notebooks, jobs and BI tools all need direct read and write access to ClickHouse.
+- Analytics logic should live in your application code and deploy with it, behind your existing auth.
+- You need Azure, a specific region, or BYOC for data residency.
+- The workload is intermittent enough that scale-to-zero matters, or large enough that you want to tune compute directly.
 
-```bash
-npx hypequery generate
-```
+## Should we use Tinybird in production?
 
-By default, the command writes `analytics/schema.ts`. Re-run it whenever a database migration changes the contract your application queries.
+Yes, if your workload fits the plan limits: Tinybird sells its paid plans for production, and its plan docs list SOC 2 Type II and HIPAA compliance on all plans. The limits worth checking before you commit, all from the [plan docs](https://www.tinybird.co/docs/forward/pricing):
 
-Create the shared client:
+- The Free plan's vCPU limit is hard, and requests over the burst capacity return HTTP 429.
+- Developer plans can burst above their vCPU size (3x on the smallest sizes, 2x from S-4 up), and requests beyond the burst also return HTTP 429.
+- Each organization is tied to one region; workspaces in another region need a separate organization and plan.
+- Self-managed regions are beta and meant for development environments only.
+
+## What are the alternatives to Tinybird, including open source?
+
+The closest alternative is a managed ClickHouse service with your own API layer on top: ClickHouse Cloud, or one of the other hosts in our [comparison of managed ClickHouse services](/blog/managed-clickhouse-services-compared). If you want open source, ClickHouse itself is Apache-2.0 and you can self-host it. Tinybird Local is a development and CI container whose prerequisites include a Tinybird account, so it can't stand in for a self-hosted deployment. If what you liked about Tinybird is turning SQL into HTTP endpoints, ClickHouse Cloud's Query API endpoints do that for saved queries in the console.
+
+## TypeScript client for ClickHouse Cloud
+
+The official TypeScript client for ClickHouse Cloud is [`@clickhouse/client`](https://clickhouse.com/docs/integrations/language-clients/js/index) for Node.js, with `@clickhouse/client-web` for browsers and Cloudflare Workers. It talks to ClickHouse over HTTPS (port 8443 on Cloud), using the URL, username and password from the **Connect** dialog in the Cloud console.
 
 ```typescript
-// analytics/client.ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './schema.js';
+import { createClient } from '@clickhouse/client';
 
-export const db = createQueryBuilder<IntrospectedSchema>({
-  url: process.env.CLICKHOUSE_URL!,
-  database: process.env.CLICKHOUSE_DATABASE!,
+const client = createClient({
+  url: process.env.CLICKHOUSE_URL!, // https://<service>.<region>.<provider>.clickhouse.cloud:8443
   username: process.env.CLICKHOUSE_USERNAME!,
   password: process.env.CLICKHOUSE_PASSWORD!,
 });
+
+const result = await client.query({
+  query: `
+    SELECT event_name, count() AS events
+    FROM events
+    WHERE tenant_id = {tenant:String} AND occurred_at >= {from:DateTime}
+    GROUP BY event_name
+    ORDER BY events DESC
+  `,
+  query_params: { tenant: 'acme', from: '2026-11-01 00:00:00' },
+  format: 'JSONEachRow',
+  clickhouse_settings: { output_format_json_quote_64bit_integers: 1 },
+});
+
+const rows = await result.json<{ event_name: string; events: string }>();
 ```
 
-At this point, `.table('events')`, the selected columns, filter values, and inferred result rows are checked against the schema generated from the actual Cloud service.
-
-### 4. Define and serve a typed endpoint
-
-```typescript
-// analytics/api.ts
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './client.js';
-
-const { query, serve } = initServe({
-  context: () => ({ db }),
-  basePath: '/api/analytics',
-});
-
-const eventSummary = query({
-  description: 'Event totals for one tenant and time range',
-  input: z.object({
-    tenantId: z.string().min(1),
-    from: z.string().min(1),
-    to: z.string().min(1),
-    limit: z.number().int().min(1).max(100).default(20),
-  }),
-  output: z.array(z.object({
-    event_name: z.string(),
-    events: z.string(),
-  })),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('events')
-      .select(['event_name'])
-      .count('event_id', 'events')
-      .where('tenant_id', 'eq', input.tenantId)
-      .where('occurred_at', 'gte', input.from)
-      .where('occurred_at', 'lt', input.to)
-      .groupBy(['event_name'])
-      .orderBy('events', 'DESC')
-      .limit(input.limit)
-      .execute(),
-});
-
-export const api = serve({
-  queries: { eventSummary },
-});
-
-api.route('/event-summary', api.queries.eventSummary, {
-  method: 'POST',
-});
-```
-
-The `events` field is deliberately a string. ClickHouse serializes `count()` as a 64-bit integer in JSON, and hypequery preserves that runtime-safe representation instead of claiming JavaScript can represent every possible value precisely.
-
-For a quick local test, run the built-in development server:
-
-```bash
-npx hypequery dev analytics/api.ts
-```
-
-With the configured base path, the endpoint, documentation, and OpenAPI document are available at:
+`count()` returns a UInt64, which can exceed `Number.MAX_SAFE_INTEGER`, so the example asks ClickHouse to send 64-bit integers as strings. Set it explicitly: on ClickHouse 26.6 the default is unquoted. With the setting on, the query above returns rows like this (checked on ClickHouse 26.6 with four sample events):
 
 ```text
-POST http://localhost:4000/api/analytics/event-summary
-GET  http://localhost:4000/api/analytics/docs
-GET  http://localhost:4000/api/analytics/openapi.json
+{"event_name":"signup","events":"2"}
+{"event_name":"login","events":"1"}
 ```
 
-Call the endpoint:
+The client gives you transport, but you write the row types by hand. [hypequery](/clickhouse-typescript) adds a typed query builder on top: in Node.js it uses `@clickhouse/client` under the hood, generates TypeScript types from your live ClickHouse Cloud schema, and checks table names, columns, filters and result shapes at compile time.
 
 ```bash
-curl --request POST \
-  --header 'content-type: application/json' \
-  --data '{
-    "tenantId": "acme",
-    "from": "2026-08-01 00:00:00",
-    "to": "2026-09-01 00:00:00",
-    "limit": 10
-  }' \
-  http://localhost:4000/api/analytics/event-summary
+npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
+npx hypequery generate   # reads CLICKHOUSE_URL, CLICKHOUSE_USERNAME, CLICKHOUSE_PASSWORD, CLICKHOUSE_DATABASE
 ```
 
-That is the complete vertical slice: a ClickHouse Cloud table, schema-generated TypeScript, a checked aggregation, runtime input and output validation, an HTTP route, and generated API documentation.
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './analytics/schema.js';
 
-### 5. Harden the production boundary
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-The example accepts `tenantId` so it is easy to run, but a public multi-tenant endpoint must not trust a tenant identifier supplied by the browser. Resolve the tenant from your authenticated server session and inject it through hypequery's trusted runtime context. The [multi-tenancy guide](/docs/multi-tenancy) covers the fail-closed pattern.
+const rows = await db
+  .table('events')
+  .select(['event_name'])
+  .count('event_id', 'events')
+  .where('tenant_id', 'eq', 'acme')
+  .where('occurred_at', 'gte', '2026-11-01 00:00:00')
+  .groupBy(['event_name'])
+  .orderBy('events', 'DESC')
+  .execute();
+// rows: { event_name: string; events: string }[]
+```
 
-Before shipping, also:
+hypequery quotes 64-bit integers by default, so `events` is typed and delivered as a string. When a query needs to be an HTTP endpoint, `@hypequery/serve` exposes it with input validation, docs and OpenAPI; the [quick start](/docs/quick-start) covers both steps. That gives you the Tinybird-style "query as an endpoint" result while the endpoint runs in your own application.
 
-- restrict the ClickHouse Cloud network allow-list or private connectivity to the environments that need database access
-- use separate least-privilege credentials for schema generation and the runtime API
-- keep ClickHouse credentials server-side; browsers call your endpoint, never ClickHouse directly
-- add application authentication and request limits through `@hypequery/serve` middleware
-- decide whether repeated aggregates belong in an application cache, ClickHouse query cache, or a materialized view
-- tag and observe production queries so a slow analytics request is traceable from the API to ClickHouse
+If you are on Tinybird, Tinybird documents [connecting `@clickhouse/client`](https://www.tinybird.co/docs/forward/guides/connect-clickhouse-js) to its ClickHouse interface with a workspace token, so the official client also works for reads there.
 
-These are responsibilities Tinybird packages into its platform boundary. In the ClickHouse Cloud stack, they remain explicit parts of your application architecture.
+## Related
 
-## How the development loops differ
-
-With ClickHouse Cloud plus hypequery, database migrations change ClickHouse first. Schema generation then updates the TypeScript view of that database, and the compiler exposes application code that no longer matches. Query and endpoint changes deploy with the application.
-
-With Tinybird, data sources, Pipes, endpoints, and tokens are project resources. Tinybird Local or Cloud Branches validate those resources, and a Tinybird deployment publishes them to the Workspace. The application consumes the resulting hosted endpoint.
-
-Both workflows can use Git and CI. The meaningful difference is the deployment target: your application runtime or the Tinybird platform.
-
-## When to choose ClickHouse Cloud + hypequery
-
-- Your product backend is already TypeScript and analytics belongs in that codebase
-- You want types generated from the live ClickHouse schema
-- Services, jobs, notebooks, or BI tools also need direct ClickHouse access
-- Product authorization should reuse your existing application identity and policy model
-- You want the option to move between ClickHouse Cloud and another compatible ClickHouse deployment
-- Your team is comfortable operating a small API service even though it does not want to operate the database
-
-## When to choose Tinybird
-
-- You want one vendor boundary from ingestion through hosted analytics endpoints
-- Shipping and operating an API layer would be meaningful overhead for the team
-- SQL-centric data developers own the analytics workflow
-- Built-in token management, endpoint documentation, branches, and deployment controls are more valuable than direct database access
-- Your consumers are happy to integrate through platform endpoints
-
-## The decision that usually settles it
-
-Ask where the analytics contract should live.
-
-If it should be a product capability—reviewed with the backend, typed from the database, authorized through application context, and callable in-process—ClickHouse Cloud plus hypequery is the cleaner boundary.
-
-If it should be a managed data product—built from platform resources and published as hosted endpoints—Tinybird is the cleaner boundary.
-
-If the ClickHouse Cloud path matches your architecture, continue with the [hypequery quick start](/docs/quick-start) and replace the sample `events` table with one real query from your own schema. That implementation test will tell you more than another feature checklist.
+- [Managed ClickHouse services compared](/blog/managed-clickhouse-services-compared)
+- [ClickHouse with TypeScript](/clickhouse-typescript)
+- [hypequery quick start](/docs/quick-start)
+- [Building an API on ClickHouse](/clickhouse-api)
+- [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)
+- [ClickHouse Cloud pricing](https://clickhouse.com/pricing) and [Tinybird pricing](https://www.tinybird.co/pricing)
+- [ClickHouse JavaScript client docs](https://clickhouse.com/docs/integrations/language-clients/js/index)
+- [Tinybird ClickHouse interface](https://www.tinybird.co/docs/forward/query-data/clickhouse-interface)
