@@ -42,9 +42,9 @@ const d = new Date(row.day + 'T00:00:00Z');
 | `toStartOfMonth(dt)` | DateTime/Date | Date | First day of the month |
 | `toStartOfQuarter(dt)` | DateTime/Date | Date | First day of the quarter (Jan 1, Apr 1, Jul 1, Oct 1) |
 | `toStartOfYear(dt)` | DateTime/Date | Date | January 1st of the year |
-| `toStartOfInterval(dt, INTERVAL n unit)` | DateTime/Date | DateTime/Date | Start of any interval |
+| `toStartOfInterval(dt, INTERVAL n unit)` | DateTime/Date | DateTime (SECOND to DAY) or Date (WEEK to YEAR) | Start of any interval |
 
-Note that `toStartOfDay` and below return `Date` not `DateTime` — the string format changes from `"YYYY-MM-DD HH:MM:SS"` to `"YYYY-MM-DD"`.
+`toStartOfDay` and everything above it in the table return a `DateTime` (`"YYYY-MM-DD HH:MM:SS"`, with `toStartOfDay` at midnight). From `toStartOfWeek` down they return a `Date`, so the string changes to `"YYYY-MM-DD"`. `toStartOfInterval` follows its interval: `DateTime` for SECOND to DAY, `Date` for WEEK to YEAR.
 
 ## toStartOfQuarter
 
