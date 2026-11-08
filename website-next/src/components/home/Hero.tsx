@@ -21,15 +21,15 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
           <OpenSourceBadge />
         </div>
         <h1 className="mt-5 text-[clamp(2rem,3.6vw,3.25rem)] font-normal leading-[1.06] tracking-[-0.045em] text-text">Connect{' '}
-          <span className="ml-[0.18em] inline-flex items-center gap-[0.14em] whitespace-nowrap align-[-0.06em]">
+          {/* Plain inline text (not flex) so the wordmark shares the heading's baseline. */}
+          <span className="whitespace-nowrap">
             {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
-            <span className="flex h-[0.86em] w-[0.86em] shrink-0 items-center justify-center rounded-[0.16em] bg-[#161517]" aria-hidden="true">
-              <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />
+            <span className="ml-[0.1em] mr-[0.14em] inline-flex h-[0.8em] w-[0.8em] items-center justify-center rounded-[0.16em] bg-[#161517] align-[0.09em]" aria-hidden="true">
+              <SiClickhouse className="h-[0.56em] w-[0.56em] text-[#faff69]" />
             </span>
-            <span className="whitespace-nowrap"><span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>.</span>
-          </span>
-          <br />
-          Ship analytics.
+            <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>.
+          </span>{' '}
+          <span className="whitespace-nowrap">Ship analytics.</span>
         </h1>
         <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Define your metrics once, in TypeScript or Python. Serve them to dashboards, APIs and AI agents, with every customer seeing only their own data.</p>
         {/* The open-source path only. Cloud has its own section further down. */}
