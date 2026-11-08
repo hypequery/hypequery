@@ -31,6 +31,8 @@ export interface BlogPost {
     title: string;
     description?: string;
     date?: string;
+    /** Last edit (`updatedAt` frontmatter on seed posts). */
+    updated?: string;
     author?: string;
     tags?: string[];
     seoTitle?: string;
@@ -405,6 +407,7 @@ export function formatPostForPublic(post: BlogPostRecord): BlogPost {
       title: post.title,
       description: post.description ?? undefined,
       date: post.publishedAt ?? undefined,
+      updated: post.updatedAt,
       author: post.author ?? undefined,
       tags: post.tags,
       seoTitle: post.seoTitle ?? undefined,
