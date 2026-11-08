@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discover.mjs';
-import { rewriteWorkspaceRanges } from './use-published.mjs';
+import { rewriteWorkspaceRanges, stripUvSources } from './use-published.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,4 +55,14 @@ test('rewriteWorkspaceRanges swaps only workspace ranges', () => {
   assert.deepEqual(pkg.devDependencies, { '@hypequery/examples-schema': 'canary', vitest: '^5.0.0' });
   assert.equal(changed.length, 2);
   assert.deepEqual(rewriteWorkspaceRanges({ dependencies: { a: '1.0.0' } }), []);
+});
+
+test('stripUvSources removes only the [tool.uv.sources] table', () => {
+  const toml = '[project]\nname = "x"\n\n[tool.uv.sources]\nhypequery = { path = "../../python/hypequery", editable = true }\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n';
+  const out = stripUvSources(toml);
+  assert.equal(out.changed, true);
+  assert.ok(!out.text.includes('[tool.uv.sources]'));
+  assert.ok(out.text.includes('[tool.pytest.ini_options]'));
+  assert.ok(out.text.includes('[project]'));
+  assert.deepEqual(stripUvSources('[project]\nname = "x"\n'), { text: '[project]\nname = "x"\n', changed: false });
 });

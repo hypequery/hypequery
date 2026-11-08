@@ -12,6 +12,7 @@ import {
   isEmptyDirectory,
   renderNextBlock,
   rewritePackageJson,
+  rewritePyproject,
   rewriteReadme,
   type PackageManager,
 } from '../utils/examples/scaffold.js';
@@ -107,6 +108,9 @@ export async function createCommand(slug: string, options: CreateOptions = {}, d
     await rewritePackageJson(path.join(targetDir, 'seed'), pins, tag);
   }
   await rewriteReadme(targetDir);
+  if (await rewritePyproject(targetDir)) {
+    logger.indent('pyproject.toml: hypequery now resolves from PyPI');
+  }
   for (const change of changes) {
     logger.indent(`${change.name}: ${change.from} -> ${change.to}`);
   }

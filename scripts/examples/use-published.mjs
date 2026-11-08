@@ -30,6 +30,17 @@ export function rewriteWorkspaceRanges(pkg, tag = 'latest') {
   return changed;
 }
 
+/**
+ * Python examples pin the workspace copy of `hypequery` through
+ * `[tool.uv.sources]`. Removing that table makes uv resolve the published
+ * PyPI release instead. Returns true when something was removed.
+ */
+export function stripUvSources(pyproject) {
+  const pattern = /\n\[tool\.uv\.sources\]\n(?:[^\n]*\n)*?(?=\n\[|$)/;
+  if (!pattern.test(pyproject)) return { text: pyproject, changed: false };
+  return { text: pyproject.replace(pattern, '\n'), changed: true };
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
@@ -45,5 +56,15 @@ if (isMain) {
   const changed = rewriteWorkspaceRanges(pkg, tag);
   fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   for (const c of changed) console.log(`${c.field}.${c.name}: ${c.from} -> ${c.to}`);
-  if (changed.length === 0) console.log(`${dir}: no workspace ranges to rewrite`);
+  const pyproject = path.join(path.resolve(dir), 'pyproject.toml');
+  let pyChanged = false;
+  if (fs.existsSync(pyproject)) {
+    const result = stripUvSources(fs.readFileSync(pyproject, 'utf8'));
+    if (result.changed) {
+      fs.writeFileSync(pyproject, result.text);
+      pyChanged = true;
+      console.log('pyproject.toml: removed [tool.uv.sources], hypequery resolves from PyPI');
+    }
+  }
+  if (changed.length === 0 && !pyChanged) console.log(`${dir}: no workspace ranges to rewrite`);
 }

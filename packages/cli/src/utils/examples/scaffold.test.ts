@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectPackageManager, renderNextBlock, rewriteReadmeForScaffold, rewriteWorkspaceRanges } from './scaffold.js';
+import { detectPackageManager, renderNextBlock, rewriteReadmeForScaffold, rewriteWorkspaceRanges, stripUvSources } from './scaffold.js';
 
 describe('rewriteWorkspaceRanges', () => {
   it('pins workspace ranges to recorded versions and falls back to the tag', () => {
@@ -59,5 +59,28 @@ describe('renderNextBlock', () => {
     expect(installed).not.toContain('pnpm install');
     expect(installed).not.toContain('docker compose');
     expect(installed).toContain('  pnpm dev');
+  });
+});
+
+describe('stripUvSources', () => {
+  it('removes the workspace path source and leaves the rest of pyproject alone', () => {
+    const toml = '[project]\nname = "x"\n\n[tool.uv.sources]\nhypequery = { path = "../../python/hypequery", editable = true }\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n';
+    const out = stripUvSources(toml);
+    expect(out.changed).toBe(true);
+    expect(out.text).not.toContain('[tool.uv.sources]');
+    expect(out.text).toContain('[tool.pytest.ini_options]');
+    expect(stripUvSources('[project]\nname = "x"\n').changed).toBe(false);
+  });
+});
+
+describe('renderNextBlock for a Python example', () => {
+  it('prints uv commands as written even after a Node install', () => {
+    const block = renderNextBlock({
+      slug: 'fastapi-analytics-api', dir: 'fastapi-analytics-api', packageManager: 'npm', installed: true, hasSeed: true,
+      run: { install: 'uv sync', dev: 'uv run uvicorn app:app --reload', test: 'uv run pytest' },
+      url: 'u',
+    });
+    expect(block).toContain('\n  uv sync\n  uv run uvicorn app:app --reload\n');
+    expect(block).toContain('Test: uv run pytest');
   });
 });

@@ -177,6 +177,12 @@ export function readPackageVersions(repoRoot: string): Record<string, string> {
       // not a package we care about
     }
   }
+  // The Python package, for `language: "python"` examples (PyPI name `hypequery`).
+  const pyproject = path.join(repoRoot, 'python', 'hypequery', 'pyproject.toml');
+  if (fs.existsSync(pyproject)) {
+    const match = /^version\s*=\s*"([^"]+)"/m.exec(fs.readFileSync(pyproject, 'utf8'));
+    if (match) versions.hypequery = match[1];
+  }
   return versions;
 }
 

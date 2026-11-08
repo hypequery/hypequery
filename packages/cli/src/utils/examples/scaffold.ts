@@ -77,6 +77,24 @@ export async function rewritePackageJson(dir: string, pins: Record<string, strin
   return changes;
 }
 
+/**
+ * Python examples pin the monorepo's `hypequery` through `[tool.uv.sources]`;
+ * a scaffold must resolve the published PyPI release instead.
+ */
+export function stripUvSources(pyproject: string): { text: string; changed: boolean } {
+  const pattern = /\n\[tool\.uv\.sources\]\n(?:[^\n]*\n)*?(?=\n\[|$)/;
+  if (!pattern.test(pyproject)) return { text: pyproject, changed: false };
+  return { text: pyproject.replace(pattern, '\n'), changed: true };
+}
+
+export async function rewritePyproject(dir: string): Promise<boolean> {
+  const file = path.join(dir, 'pyproject.toml');
+  if (!existsSync(file)) return false;
+  const result = stripUvSources(await readFile(file, 'utf8'));
+  if (result.changed) await writeFile(file, result.text);
+  return result.changed;
+}
+
 export async function rewriteReadme(dir: string): Promise<void> {
   const file = path.join(dir, 'README.md');
   if (!existsSync(file)) return;
@@ -108,7 +126,8 @@ const PM_RUN: Record<PackageManager, string> = { pnpm: 'pnpm', npm: 'npm run', y
 const PM_INSTALL: Record<PackageManager, string> = { pnpm: 'pnpm install', npm: 'npm install', yarn: 'yarn', bun: 'bun install' };
 
 function swapManager(command: string, manager: PackageManager): string {
-  if (manager === 'pnpm') return command;
+  // Commands that are not pnpm's (e.g. `uv sync`) are printed as written.
+  if (manager === 'pnpm' || !command.startsWith('pnpm')) return command;
   return command
     .replace(/^pnpm install$/, PM_INSTALL[manager])
     .replace(/^pnpm (\S+)$/, `${PM_RUN[manager]} $1`);
@@ -124,7 +143,9 @@ export function renderNextBlock(input: NextBlockInput): string {
       '  # or point CLICKHOUSE_URL / CLICKHOUSE_DATABASE at your own ClickHouse and skip the seed',
     );
   }
-  if (!input.installed) lines.push(`  ${swapManager(input.run.install, input.packageManager)}`);
+  // A Node install only covers a pnpm/npm `install` step; other toolchains
+  // (uv for Python) always need their own step printed.
+  if (!input.installed || !input.run.install.startsWith('pnpm')) lines.push(`  ${swapManager(input.run.install, input.packageManager)}`);
   lines.push(`  ${swapManager(input.run.dev, input.packageManager)}`, '', `Docs: ${input.url}`, `Test: ${swapManager(input.run.test, input.packageManager)}`, '');
   return lines.join('\n');
 }

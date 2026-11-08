@@ -22,7 +22,12 @@ that does not match its folder, or a missing referenced file.
    `https://hypequery.com/schemas/example.schema.json` for editor completion).
 2. Depend on hypequery packages with `workspace:*`. PR CI builds and tests
    against the workspace; the nightly run swaps them for `@latest` from npm, and
-   `hypequery create` pins published versions.
+   `hypequery create` pins published versions. A Python example (`language:
+   "python"`) is a uv project instead: `pyproject.toml` depends on `hypequery`
+   and points `[tool.uv.sources]` at `../../python/hypequery`; the nightly run
+   and `hypequery create` drop that table so PyPI is used. Keep a small
+   `package.json` with `dev` and `test` scripts that call `uv`, so CI and the
+   CLI drive it like the others.
 3. Add a `test` script that boots nothing itself: CI starts the seed
    (`docker compose -f examples/_seed/docker-compose.yml up -d --wait && pnpm seed`)
    and exports `CLICKHOUSE_URL`, `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD`
