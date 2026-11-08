@@ -42,6 +42,7 @@ const queryCode = `const revenueByRegion = await db
 export default function MooseStackAlternativePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/moosestack-alternative"
       eyebrow="MooseStack EOL Alternative"
       title="MooseStack is end of life. Here is the migration path."
       description="MooseStack’s maintainers say the project has reached end of life and is no longer actively maintained. hypequery replaces the typed ClickHouse query, semantic, API, React, and MCP layer while letting dedicated tools own schema, streaming, and workflows."

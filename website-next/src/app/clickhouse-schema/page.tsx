@@ -54,6 +54,7 @@ export interface DB {
 export default function ClickHouseSchemaPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-schema"
       eyebrow="ClickHouse Schema"
       title="Generate TypeScript types from your live ClickHouse schema"
       description="The first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."

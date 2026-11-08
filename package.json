@@ -27,6 +27,7 @@
     "lint": "turbo run lint --filter='@hypequery/*'",
     "seed": "pnpm --filter @hypequery-examples/seed seed",
     "examples:validate": "pnpm --filter @hypequery/examples-schema validate",
+    "examples:registry": "pnpm --filter @hypequery/examples-schema registry",
     "conformance": "pnpm conformance:typescript && pnpm conformance:python && pnpm conformance:serve",
     "conformance:typescript": "node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures -- node packages/protocol-conformance/dist/bin/reference-adapter.js && node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures --families sql-portability-v1 -- node packages/datasets/scripts/conformance-adapter.mjs",
     "conformance:python": "pnpm conformance:python:protocol && pnpm conformance:python:datasets",

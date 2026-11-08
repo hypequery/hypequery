@@ -49,6 +49,7 @@ const revenueByDay = await db
 export default function CubeJsAlternativePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/cube-js-alternative"
       eyebrow="Cube.js Alternative"
       title="Looking for a Cube.js alternative for ClickHouse?"
       description="Cube is good at what it does. It's also a lot: a server to deploy, a cache layer to run, and a modelling language to learn. If you're shipping ClickHouse-backed product features, hypequery covers the part you actually use — typed datasets, APIs, React hooks, and MCP tools — as code in your own repo, in TypeScript or Python."

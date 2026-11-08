@@ -69,6 +69,7 @@ result.data  # rows keyed by column name`;
 export default function ClickHousePythonPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-python"
       eyebrow="ClickHouse Python"
       title="Use ClickHouse from Python with a semantic layer, not just a driver"
       description="A driver gets rows out of ClickHouse. hypequery gives your Python code shared definitions on top: measures, dimensions, relationships, and tenant rules you define once and query by name from jobs, notebooks, and FastAPI services."

@@ -120,6 +120,7 @@ app.listen(3000, () => {
 export default function ClickHouseExpressPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-express"
       eyebrow="ClickHouse Express"
       title="Mount typed ClickHouse analytics on your Express.js server"
       description="Most backend teams already have an Express.js server. Adding ClickHouse analytics means writing route handlers, request validation, auth extraction, and documentation. @hypequery/serve provides a framework-agnostic handler that you can mount in Express with the Node adapter — validated inputs, typed responses, and OpenAPI docs included."

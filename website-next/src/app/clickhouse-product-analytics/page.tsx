@@ -123,6 +123,7 @@ export const api = serve({
 export default function ClickHouseProductAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-product-analytics"
       eyebrow="ClickHouse Product Analytics"
       title="Build product analytics on ClickHouse with TypeScript"
       description="Product analytics tables are wide, high-cardinality, and queried in many ways — DAU, funnels, retention, segmentation. hypequery gives TypeScript teams schema-generated types for event tables and a composable query layer for the analytics patterns that matter."

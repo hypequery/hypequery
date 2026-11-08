@@ -50,6 +50,7 @@ const dailySignups = await db
 export default function DrizzleClickHousePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/drizzle-clickhouse"
       eyebrow="Drizzle ORM ClickHouse"
       title="Looking for Drizzle ORM on ClickHouse?"
       description="Drizzle does not support ClickHouse. If what you want is the part people actually like about Drizzle — generated types, predictable query code, and a good TypeScript workflow — hypequery is the closer fit for ClickHouse."

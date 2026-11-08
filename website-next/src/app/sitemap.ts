@@ -4,6 +4,7 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { entryHref, registryEntries } from '@/lib/examples';
 
 const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
 
@@ -13,6 +14,8 @@ const staticRoutes = [
   '/',
   '/blog',
   '/compare',
+  '/examples',
+  '/recipes',
   '/clickhouse-js',
   '/clickhouse-nodejs',
   '/clickhouse-dashboard',
@@ -88,5 +91,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
   }));
 
-  return [...staticEntries, ...functionEntries, ...docsEntries, ...blogEntries];
+  const exampleEntries: MetadataRoute.Sitemap = registryEntries.map((entry) => ({
+    url: absoluteUrl(entryHref(entry)).toString(),
+  }));
+
+  return [...staticEntries, ...functionEntries, ...exampleEntries, ...docsEntries, ...blogEntries];
 }

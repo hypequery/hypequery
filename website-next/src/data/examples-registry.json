@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/example.schema.json",
+        "slug": "materialized-view-rollups",
+        "title": "ClickHouse materialized view rollups: incremental vs refreshable",
+        "outcome": "Pre-aggregate a million events two ways, incremental and refreshable, and query both through one typed hypequery dataset.",
+        "language": "typescript",
+        "stack": [
+          "node",
+          "clickhouse"
+        ],
+        "useCases": [
+          "pre-aggregation",
+          "dashboards",
+          "time-series"
+        ],
+        "packages": [
+          "@hypequery/datasets",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "src/datasets.ts",
+        "env": [
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "node dist/query.js --json",
+        "related": [],
+        "leadPages": [
+          "/clickhouse-typescript",
+          "/clickhouse-nodejs",
+          "/clickhouse-time-series",
+          "/clickhouse-semantic-layer"
+        ],
+        "functionPages": [
+          "to-date",
+          "uniq",
+          "quantile",
+          "count"
+        ],
+        "keywords": [
+          "clickhouse materialized view",
+          "clickhouse refreshable materialized view",
+          "clickhouse aggregatingmergetree",
+          "clickhouse materialized view typescript"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "example"
+      },
+      "dir": "examples/materialized-view-rollups",
+      "readme": "# Materialized view rollups: incremental vs refreshable\n\nPre-aggregate a million events two ways, incremental and refreshable, and query both through one typed hypequery dataset.\n\n## Demo\n\n```text\nEvents per day, 2026-10-25 to 2026-10-31\n\nRaw events table (62 ms):            Incremental rollup, events_daily (20 ms):\nperiod      events  uniqueUsers       period      events  uniqueUsers\n2026-10-26  5551    1186              2026-10-26  5551    1186\n2026-10-27  5548    1175              2026-10-27  5548    1175\n...                                   ...\n\nRefreshable rollup by plan, tenant_daily_summary (13 ms):\nplan        events  errorRate  worstP95LatencyMs\nenterprise  26424   0.0244     3057\ngrowth      5175    0.0230     2723\n```\n\nSame numbers, three sources. The rollups answer in a fraction of the time and the\nsmoke test proves they match hand-written SQL over the raw table exactly.\n\n## Install\n\n```bash\nnpx hypequery create materialized-view-rollups -y\ncd materialized-view-rollups\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or point env vars at your own ClickHouse\npnpm install\npnpm dev\n```\n\n`pnpm dev` runs `sql/*.sql` to create both rollups over the seed's `events`\ntable, waits for the first refresh, then prints the comparison above.\n\n## What it shows\n\n- **An incremental materialized view** (`sql/01-incremental.sql`): an INSERT trigger that writes aggregate states into an `AggregatingMergeTree`, backfilled with `INSERT … SELECT`, never `POPULATE`.\n- **A refreshable materialized view** (`sql/02-refreshable.sql`): a full recompute every hour, with a `JOIN` to `tenants` and an exact p95, which an incremental view cannot do cheaply.\n- **One dataset per target** (`src/datasets.ts`): `measure.merge('uniqExact', 'users')` finalizes the stored state, so distinct users stay exact whether you ask by day, week or month.\n- **The same semantic query against raw and rolled-up data** (`src/query.ts`): identical results, with timings from `result.meta`.\n- **A smoke test as ground truth** (`src/smoke.test.ts`): compares every rollup against raw SQL over all one million rows.\n\n## Key file\n\n`src/datasets.ts` defines three datasets over the same facts: the raw table, the\nincremental target and the refreshable target. Only the source and the way\nuniques are read differ.\n\n```ts\nexport const EventsDaily = dataset('eventsDaily', {\n  source: 'events_daily',\n  timeKey: 'day',\n  timeGrains: ['day', 'week', 'month', 'quarter', 'year'],\n  dimensions: {\n    day: dimension.timestamp(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    eventType: dimension.string({ column: 'event_type' }),\n  },\n  measures: {\n    events: measure.sum('events'),                      // SimpleAggregateFunction(sum)\n    errors: measure.sum('errors'),\n    uniqueUsers: measure.merge('uniqExact', 'users'),   // uniqExactMerge(users)\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n```\n\n## Architecture\n\n```text\nevents (1M rows, seed)\n  ├─ events_daily_mv  ──INSERT trigger──▶  events_daily (AggregatingMergeTree, states)\n  │                                           └─ dataset EventsDaily  ── measure.merge\n  └─ tenant_daily_summary_rmv ──REFRESH EVERY 1 HOUR──▶ tenant_daily_summary (MergeTree, values)\n       JOIN tenants                                       └─ dataset TenantDailySummary\n```\n\n`analytics.execute(dataset, { by: 'day', measures: [...] })` is the same call\nfor all three datasets. hypequery generates `sum(...)`, `uniqExactMerge(...)`\nor `count()` as the source requires.\n\n## Adapt it\n\n- **Pick the view type by question.** Freshness in seconds and a single source table: incremental. Joins, exact percentiles, top-N or anything you want to recompute wholesale: refreshable. Many teams run both over the same facts, as here.\n- **Watch the trigger fire.** Insert a row into `events` and the incremental target updates on the same insert; `tenant_daily_summary` changes only after `SYSTEM REFRESH VIEW tenant_daily_summary_rmv`. Clean up with `ALTER TABLE events DELETE WHERE event_id > 1000000` so the seed checksum still matches.\n- **Approximate uniques are fine for most dashboards.** Swap `uniqExactState`/`uniqExact` for `uniqState`/`uniq` to shrink the target table; `measure.merge('uniq', 'users')` reads it and the catalog marks the measure approximate.\n- **Scheduling.** `REFRESH EVERY 1 HOUR` can become `REFRESH EVERY 1 DAY OFFSET 2 HOUR`, or `REFRESH AFTER 10 MINUTE` for an interval since the last run. `DEPENDS ON` chains refreshable views.\n- **Tenant scoping.** Add `tenantKey: 'tenant_id'` to any of the datasets to require a tenant in every query. See the multi-tenant example.\n\n## Related recipes\n\n- p95 latency (coming in this series)\n\n## Related examples\n\n- Next.js dashboard (coming in this series)\n\nTested on ClickHouse 25.8 with hypequery `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.\n",
+      "keyFile": {
+        "path": "src/datasets.ts",
+        "language": "typescript",
+        "source": "import { dataset, dimension, divide, gte, measure, nullIfZero } from '@hypequery/datasets';\n\nconst DAY_GRAINS = ['day', 'week', 'month', 'quarter', 'year'] as const;\n\n/** The raw fact table: a million rows, aggregated at query time. */\nexport const Events = dataset('events', {\n  source: 'events',\n  timeKey: 'occurred_at',\n  dimensions: {\n    eventId: dimension.number({ column: 'event_id' }),\n    occurredAt: dimension.timestamp({ column: 'occurred_at' }),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    userId: dimension.number({ column: 'user_id' }),\n    eventType: dimension.string({ column: 'event_type' }),\n    statusCode: dimension.number({ column: 'status_code' }),\n  },\n  measures: {\n    events: measure.count('eventId'),\n    uniqueUsers: measure.countDistinct('userId'),\n    errors: measure.count('statusCode', { filters: [gte('statusCode', 500)] }),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n\n/**\n * Incremental rollup (sql/01-incremental.sql). Reads aggregate states, so\n * `measure.merge` applies `uniqExactMerge` and uniques stay exact at any grain.\n */\nexport const EventsDaily = dataset('eventsDaily', {\n  source: 'events_daily',\n  timeKey: 'day',\n  timeGrains: [...DAY_GRAINS],\n  dimensions: {\n    day: dimension.timestamp(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    eventType: dimension.string({ column: 'event_type' }),\n  },\n  measures: {\n    events: measure.sum('events'),\n    errors: measure.sum('errors'),\n    uniqueUsers: measure.merge('uniqExact', 'users'),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n\n/**\n * Refreshable rollup (sql/02-refreshable.sql). Final values per tenant-day,\n * including a JOIN to `tenants` and an exact p95, recomputed every hour.\n */\nexport const TenantDailySummary = dataset('tenantDailySummary', {\n  source: 'tenant_daily_summary',\n  timeKey: 'day',\n  timeGrains: [...DAY_GRAINS],\n  dimensions: {\n    day: dimension.timestamp(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    tenantName: dimension.string({ column: 'tenant_name' }),\n    plan: dimension.string(),\n  },\n  measures: {\n    events: measure.sum('events'),\n    errors: measure.sum('errors'),\n    worstP95LatencyMs: measure.max('p95_latency_ms', { label: 'Worst daily p95 latency (ms)' }),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n"
+      }
+    },
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/example.schema.json",
+        "slug": "nextjs-dashboard",
+        "title": "Next.js dashboard on ClickHouse with cross-filtering",
+        "outcome": "A Next.js 16 dashboard over ClickHouse: one typed dataset, a serve endpoint, React hooks, and click-to-filter across every panel.",
+        "language": "typescript",
+        "stack": [
+          "nextjs",
+          "react",
+          "clickhouse"
+        ],
+        "useCases": [
+          "dashboards",
+          "product-analytics",
+          "embedded-analytics"
+        ],
+        "packages": [
+          "@hypequery/datasets",
+          "@hypequery/serve",
+          "@hypequery/react",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "components/dashboard.tsx",
+        "env": [
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "curl -s -X POST http://localhost:3000/api/analytics/datasets/events/query -H 'content-type: application/json' -d '{\"dimensions\":[\"eventType\"],\"measures\":[\"events\",\"uniqueUsers\"]}'",
+        "related": [
+          "materialized-view-rollups"
+        ],
+        "leadPages": [
+          "/clickhouse-nextjs",
+          "/clickhouse-react",
+          "/clickhouse-dashboard",
+          "/clickhouse-product-analytics",
+          "/clickhouse-typescript"
+        ],
+        "functionPages": [
+          "count",
+          "uniq",
+          "quantile",
+          "to-start-of-day"
+        ],
+        "keywords": [
+          "clickhouse nextjs",
+          "clickhouse react dashboard",
+          "clickhouse dashboard typescript",
+          "nextjs analytics dashboard clickhouse"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "example"
+      },
+      "dir": "examples/nextjs-dashboard",
+      "readme": "# Next.js dashboard on ClickHouse with cross-filtering\n\nA Next.js 16 dashboard over ClickHouse: one typed dataset, a serve endpoint, React hooks, and click-to-filter across every panel.\n\n## Demo\n\n![The dashboard with the api_call cross-filter applied: tiles, chart and device panel all narrowed](./screenshot.png)\n\nFour KPI tiles, a daily line chart and two breakdown panels, all reading the\nseed's one million events through a single `POST /api/analytics/datasets/events/query`\nendpoint. Click `api_call` in \"Events by type\" and the tiles, the chart and the\ndevice breakdown re-query with that filter; click it again to clear.\n\n```text\nLast 30 days (2026-10-02 to 2026-10-31, seed data)\n\nEvents        Unique users    Error rate    p95 latency\n  134,619       2,143           2.4 %         872 ms\n\nDaily events and unique users      ───────── two-series line chart, hover for values\nEvents by type   ▇▇▇▇▇▇▇▇▇ page_view 60,673      Events by device  ▇▇▇▇▇▇▇▇ desktop 65,707\n                 ▇▇▇▇▇ api_call 33,714                             ▇▇▇▇ api 33,714\n                 ▇▇▇ query_run 20,022                              ...\n```\n\n## Install\n\n```bash\nnpx hypequery create nextjs-dashboard -y\ncd nextjs-dashboard\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse\npnpm install\npnpm dev\n```\n\nOpen http://localhost:3000.\n\n## What it shows\n\n- **One dataset, many panels** (`analytics/datasets.ts`): dimensions, measures, a derived error rate and a p95 defined once; the server validates every request against it.\n- **A serve endpoint in an App Router route handler** (`app/api/analytics/[...path]/route.ts`): `createFetchHandler(api.handler)` mounts dataset queries at `/api/analytics/datasets/events/query`.\n- **Typed React hooks without shipping server code** (`lib/analytics.ts`): `createAnalyticsHooks<AnalyticsApi>` uses `import type` plus a generated route manifest, so `@hypequery/clickhouse` never reaches the browser bundle.\n- **Cross-filtering as plain state** (`lib/filters.ts`, `components/dashboard.tsx`): one state object, each panel derives its own filters and leaves out its own dimension so it keeps all its bars.\n- **Charts in plain SVG and CSS**: a two-series line chart with hover crosshair and an accessible table twin, horizontal bars as buttons. No chart library.\n\n## Key file\n\n`components/dashboard.tsx` owns the only state on the page and hands each panel the\nfilters it should apply:\n\n```tsx\nconst [state, setState] = useState<CrossFilterState>(initialState);\nconst select = (dimension: Dimension, value: string) =>\n  setState((current) => toggleSelection(current, dimension, value));\n\n<KpiTiles filters={toDatasetFilters(state)} />\n<Timeseries filters={toDatasetFilters(state)} />\n<BreakdownBars dimension=\"eventType\" filters={toDatasetFilters(state, 'eventType')}\n  selected={state.selections.eventType} onSelect={(v) => select('eventType', v)} />\n<BreakdownBars dimension=\"device\" filters={toDatasetFilters(state, 'device')}\n  selected={state.selections.device} onSelect={(v) => select('device', v)} />\n```\n\nEach panel is a `useDataset('events', { ...selection, filters } as const)` call. TanStack\nQuery caches by input, so toggling a filter back and forth is instant.\n\n## Architecture\n\n```text\nbrowser                               Next.js (Node runtime)                 ClickHouse\n──────────────────────────────        ─────────────────────────────────────  ──────────\ncomponents/*  ── useDataset ──▶ POST /api/analytics/datasets/events/query\n  (lib/analytics.ts: hooks +           app/api/analytics/[...path]/route.ts\n   generated route manifest)             └─ analytics/api.ts  serve({ datasets: { events } })\n                                              └─ analytics/datasets.ts  dataset('events', …) ──▶ events (seed)\n```\n\n`hypequery generate:manifest analytics/api.ts` runs in `prebuild` and writes\n`analytics/hypequery-manifest.json`, the only server artifact the client imports.\n\n## Adapt it\n\n- **Your own table.** Point `analytics/datasets.ts` at it, rename dimensions to your product language, and the panels follow: they only reference semantic names.\n- **Tenant scoping.** Add `tenantKey: 'tenant_id'` to the dataset and resolve the tenant in `initServe({ context })` from the session. Every query is then scoped server-side. See the multi-tenant example.\n- **Auth.** Wrap the route with serve's auth strategies (`/docs/authentication`); the hooks accept a `token` resolver.\n- **More filters.** Add a dimension to `Dimension` in `lib/filters.ts` and drop another `BreakdownBars`. The type-checker tells you if the dataset does not publish it.\n- **Faster at scale.** Point the dataset at a rollup table instead of the raw events; the materialized view example shows how, and the panels do not change.\n\n## Related recipes\n\n- p95 latency (coming in this series)\n\n## Related examples\n\n- [materialized-view-rollups](../materialized-view-rollups): pre-aggregate the same events and swap the dataset source.\n\nTested on ClickHouse 25.8, Next.js 16.4, React 19.3, `@hypequery/serve` 0.x, `@hypequery/react` 0.8.\n",
+      "keyFile": {
+        "path": "components/dashboard.tsx",
+        "language": "tsx",
+        "source": "'use client';\n\nimport { useState } from 'react';\nimport { BreakdownBars } from './breakdown-bars';\nimport { KpiTiles } from './kpi-tiles';\nimport { Timeseries } from './timeseries';\nimport {\n  clearSelections,\n  initialState,\n  RANGE_PRESETS,\n  rangeEndingAt,\n  SEED_LAST_DAY,\n  toDatasetFilters,\n  toggleSelection,\n  type CrossFilterState,\n  type Dimension,\n} from '@/lib/filters';\n\n/**\n * The dashboard owns one piece of state: the date range plus the current\n * selections. Every panel derives its own dataset filters from it, so a click\n * in one panel re-queries all the others through the same `events` endpoint.\n */\nexport function Dashboard() {\n  const [state, setState] = useState<CrossFilterState>(initialState);\n  const select = (dimension: Dimension, value: string) =>\n    setState((current) => toggleSelection(current, dimension, value));\n  const activeDays = Math.round(\n    (Date.parse(`${state.range.to}T00:00:00Z`) - Date.parse(`${state.range.from}T00:00:00Z`)) / 86_400_000,\n  ) + 1;\n  const selections = Object.entries(state.selections) as Array<[Dimension, string]>;\n\n  return (\n    <>\n      <div className=\"toolbar\" role=\"toolbar\" aria-label=\"Filters\">\n        {RANGE_PRESETS.map((preset) => (\n          <button\n            key={preset.days}\n            type=\"button\"\n            className=\"chip\"\n            aria-pressed={activeDays === preset.days}\n            onClick={() => setState((current) => ({ ...current, range: rangeEndingAt(SEED_LAST_DAY, preset.days) }))}\n          >\n            Last {preset.label}\n          </button>\n        ))}\n        <span className=\"spacer\" />\n        {selections.map(([dimension, value]) => (\n          <button key={dimension} type=\"button\" className=\"chip selection\" onClick={() => select(dimension, value)}>\n            {dimension}: {value} ×\n          </button>\n        ))}\n        {selections.length > 0 && (\n          <button type=\"button\" className=\"chip\" onClick={() => setState(clearSelections)}>\n            Clear all\n          </button>\n        )}\n      </div>\n\n      <div className=\"grid\">\n        <KpiTiles filters={toDatasetFilters(state)} />\n        <Timeseries filters={toDatasetFilters(state)} />\n        <BreakdownBars\n          title=\"Events by type\"\n          dimension=\"eventType\"\n          filters={toDatasetFilters(state, 'eventType')}\n          selected={state.selections.eventType}\n          onSelect={(value) => select('eventType', value)}\n        />\n        <BreakdownBars\n          title=\"Events by device\"\n          dimension=\"device\"\n          filters={toDatasetFilters(state, 'device')}\n          selected={state.selections.device}\n          onSelect={(value) => select('device', value)}\n        />\n      </div>\n    </>\n  );\n}\n"
+      },
+      "screenshot": "/examples/nextjs-dashboard/screenshot.png"
+    }
+  ]
+}

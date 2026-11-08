@@ -52,6 +52,7 @@ const revenueByMonth = await db
 export default function PrismaClickHousePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/prisma-clickhouse"
       eyebrow="Prisma ClickHouse"
       title="Looking for Prisma on ClickHouse?"
       description="Prisma does not support ClickHouse. If what you actually want is the useful part of the Prisma experience — generated types, predictable query code, and a clean TypeScript workflow — hypequery is the closer fit for ClickHouse."

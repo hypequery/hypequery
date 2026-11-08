@@ -52,6 +52,7 @@ const componentCode = `export function RevenueChart() {
 export default function ClickHouseReactPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-react"
       eyebrow="ClickHouse React"
       title="Use ClickHouse in React with typed hooks instead of custom fetch glue"
       description="Your query already lives on the backend. hypequery's typed hooks let components use it directly, without rebuilding request helpers, cache logic, and response types for every chart."

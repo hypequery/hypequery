@@ -4,6 +4,7 @@ import { marketing } from '@/components/ui/marketing';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -367,6 +368,8 @@ export default function ClickHouseTypeScriptPage() {
             ))}
           </div>
         </section>
+
+        <ExamplesBlock leadPage="/clickhouse-typescript" />
 
         <section className={`${marketing.container} pb-20`}>
           <div className="rounded-xl border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">

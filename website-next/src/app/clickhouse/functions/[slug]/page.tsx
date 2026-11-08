@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import {
   clickhouseFunctions,
@@ -235,6 +236,8 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
         </section>
 
         {/* FAQ */}
+        <ExamplesBlock functionPage={functionPathSegment(fn.name)} />
+
         {fn.faqItems.length > 0 && (
           <section className="border-y border-border bg-bg-alt/60">
             <div className="mx-auto max-w-7xl px-4 py-14 lg:px-6">

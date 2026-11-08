@@ -52,6 +52,7 @@ const retention = await db
 export default function TypeormClickHousePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/typeorm-clickhouse"
       eyebrow="TypeORM ClickHouse"
       title="Looking for TypeORM on ClickHouse?"
       description="TypeORM is built around relational entities, transactions, and table relationships. ClickHouse is a columnar analytics database with a different type model and a different query shape. If what you actually want is a TypeScript workflow for ClickHouse analytics, hypequery is the closer fit."

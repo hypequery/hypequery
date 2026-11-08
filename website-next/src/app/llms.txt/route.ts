@@ -1,6 +1,7 @@
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { comparePages } from '@/data/compare-pages';
+import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
 
 // Static, regenerated only at build time.
 export const revalidate = false;
@@ -64,9 +65,24 @@ export function GET() {
     '',
     '> The analytics layer for ClickHouse, in your codebase. Open-source SDKs for TypeScript and Python (beta): semantic datasets, an HTTP/OpenAPI serve runtime, typed React hooks, and an MCP server for agents. TypeScript also includes a type-safe ClickHouse query builder. hypequery cloud, a hosted option, is not live yet.',
     '',
-    'Each link below points to the clean Markdown version of the page. The full corpus is available at /llms-full.txt.',
+    'Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or `Accept: text/markdown`. The full corpus is available at /llms-full.txt.',
     '',
   ];
+
+  // Agents land here first: the shortest path from "I need hypequery in this
+  // codebase" to working code, then the sub-indexes for everything else.
+  lines.push('## Start here', '');
+  lines.push(`- [Quick start](${absoluteUrl('/llms.mdx/docs/quick-start').toString()}): install, generate types, run a typed query or define a dataset.`);
+  lines.push(`- [Examples](${absoluteUrl('/examples/llms.txt').toString()}): runnable apps over one seeded ClickHouse, scaffold with \`npx hypequery create <slug> -y\`.`);
+  lines.push(`- [Recipes](${absoluteUrl('/recipes/llms.txt').toString()}): one question, one dataset, the SQL it generates.`);
+  lines.push(`- [Guides](${absoluteUrl('/guides/llms.txt').toString()}): long-form ClickHouse guides with CI-tested SQL.`);
+  lines.push(`- [ClickHouse functions](${absoluteUrl('/clickhouse/functions/llms.txt').toString()}): per-function pages with the typed hypequery equivalent.`);
+  lines.push('');
+
+  lines.push('## Examples', '', ...formatEntries(exampleEntries()), '');
+  lines.push('## Recipes', '', ...(recipeEntries().length > 0 ? formatEntries(recipeEntries()) : ['- Coming soon: p95 latency, retention cohorts.']), '');
+  lines.push('## ClickHouse guides', '', ...formatEntries(guideEntries()), '');
+  lines.push('## ClickHouse functions', '', ...formatEntries(functionEntries()), '');
 
   lines.push('## Compare', '');
   for (const page of comparePages) {

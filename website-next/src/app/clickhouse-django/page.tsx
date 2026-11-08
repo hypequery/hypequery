@@ -70,6 +70,7 @@ def monthly_report(organization_id):
 export default function ClickHouseDjangoPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-django"
       eyebrow="ClickHouse Django"
       title="Use ClickHouse from Django without raw SQL in every view"
       description="The Django ORM is built for your transactional database. For analytics in ClickHouse, hypequery gives your views and tasks named measures and dimensions, scoped to the signed-in customer, from definitions you write once in Python."

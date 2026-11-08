@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import CodeWindow from '@/components/CodeWindow';
 import { RichText } from '@/components/RichText';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
@@ -75,6 +76,8 @@ type ComparisonTable = {
 };
 
 export type ClickhousePillarPageProps = {
+  /** The page's own path, e.g. "/clickhouse-nextjs"; examples tagged with it render a block here. */
+  leadPage?: string;
   eyebrow: string;
   title: string;
   description: string;
@@ -100,6 +103,7 @@ export type ClickhousePillarPageProps = {
 };
 
 export function ClickhousePillarPage({
+  leadPage,
   eyebrow,
   title,
   description,
@@ -330,6 +334,8 @@ export function ClickhousePillarPage({
             </div>
           </div>
         </section>
+
+        {leadPage && <ExamplesBlock leadPage={leadPage} />}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-10 lg:grid-cols-[0.65fr_0.35fr]">
