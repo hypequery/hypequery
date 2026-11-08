@@ -381,9 +381,6 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-// DateTime columns are typed as strings, so filter with "YYYY-MM-DD HH:MM:SS"
-const oneHourAgo = new Date(Date.now() - 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-
 // bucket: string (DateTime); events: string (count() is UInt64)
 const fiveMin = await db
   .table('events')
@@ -391,7 +388,8 @@ const fiveMin = await db
     rawAs<string, 'bucket'>('toStartOfInterval(created_at, INTERVAL 5 MINUTE)', 'bucket'),
     rawAs<string, 'events'>('count()', 'events'),
   ])
-  .where('created_at', 'gte', oneHourAgo)
+  // Compute the cutoff in ClickHouse so it uses the column's own time zone
+  .where((expr) => expr.raw('created_at >= now() - INTERVAL 1 HOUR'))
   .groupBy('bucket')
   .orderBy('bucket', 'ASC')
   .execute();`,
@@ -399,7 +397,7 @@ const fiveMin = await db
     returnType: 'DateTime (SECOND to DAY), Date (WEEK to YEAR), DateTime64 (sub-second)',
     notes: [
       'The return type depends on the interval: SECOND, MINUTE, HOUR and DAY return DateTime; WEEK, MONTH, QUARTER and YEAR return Date; MILLISECOND, MICROSECOND and NANOSECOND return DateTime64. With an origin argument, the result is a DateTime.',
-      'A DateTime64 column bucketed by one second or more comes back as DateTime, so the fraction of a second is dropped. Checked on ClickHouse 26.6.',
+      'A DateTime64 column bucketed by SECOND, MINUTE, HOUR or DAY comes back as DateTime, so the fraction of a second is dropped; WEEK to YEAR return Date. Checked on ClickHouse 26.6.',
       'Sub-second intervals only work on DateTime64. On a DateTime column they fail with ILLEGAL_TYPE_OF_ARGUMENT.',
       'Without an origin, week buckets start on Monday.',
       'The third argument can be a time zone instead of an origin: toStartOfInterval(t, INTERVAL 1 HOUR, \'Asia/Kolkata\').',
@@ -423,7 +421,7 @@ const fiveMin = await db
     faqItems: [
       {
         question: 'Why does toStartOfInterval return DateTime for a DateTime64 column?',
-        answer: 'For intervals of one second or longer, toStartOfInterval returns DateTime even when the input is DateTime64, so the fraction of a second is dropped. Sub-second intervals (MILLISECOND, MICROSECOND, NANOSECOND) return DateTime64. This is current behaviour, checked on ClickHouse 26.6.',
+        answer: 'For SECOND, MINUTE, HOUR and DAY intervals, toStartOfInterval returns DateTime even when the input is DateTime64, so the fraction of a second is dropped. WEEK, MONTH, QUARTER and YEAR return Date. Only sub-second intervals (MILLISECOND, MICROSECOND, NANOSECOND) return DateTime64. This is current behaviour, checked on ClickHouse 26.6.',
       },
       {
         question: 'What intervals does toStartOfInterval support?',
