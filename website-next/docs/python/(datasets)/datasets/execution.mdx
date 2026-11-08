@@ -184,12 +184,16 @@ without the result cache or pagination. The query is planned when you call `stre
 it starts when you enter the `with` block. Leaving the block early stops it, with `KILL QUERY` where the executor has
 a control connection.
 
-The client's settings bound the whole stream, except the byte limit. A result that grows past `max_result_rows`, or a
-query that runs past `max_execution_time`, fails with `too-large` or `deadline-exceeded` partway through rather than
-ending short, so a stream that finishes without an error is complete. A stream's memory stays flat, so it doesn't
-inherit `max_result_bytes`: it runs under `stream_max_result_bytes`, 1 TiB unless you set it lower. A dataset can also
-allow streams more rows than pages with `DatasetLimits(max_stream_rows=...)`; `max_result_size` keeps bounding pages
-and agents:
+The client's settings bound the whole stream. A result that grows past `max_result_rows`, or a query that runs past
+`max_execution_time`, fails with `too-large` or `deadline-exceeded` partway through rather than ending short. A stream's
+memory stays flat, so the byte limit is its own: `stream_max_result_bytes` when you pass it (at most 1 TiB). Without
+it, a stream keeps a `max_result_bytes` you set in `settings`, and runs under 1 TiB in place of the default.
+
+A dataset with limits caps a stream's rows too. Its query runs with your `limit`, or, when it sets none, with the
+dataset's ceiling as its `LIMIT`: `max_stream_rows` if set, else `max_result_size`. That stream ends at the ceiling
+without an error, so give an export an explicit `limit`, or a `max_stream_rows` above its largest result and a
+`max_result_rows` at least as high. `max_stream_rows` lets streams return more rows than pages; `max_result_size` keeps
+bounding pages and agents:
 
 <CodeBlock>
 ```python

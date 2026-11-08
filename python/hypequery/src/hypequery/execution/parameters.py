@@ -77,8 +77,13 @@ def _wire_value(scalar: str, value: object) -> object:
     return unix_seconds(value)
 
 
-def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[str, int]]:
-    """Checked parameters and settings, or the caller's cancellation or deadline."""
+def query_arguments(
+    compiled: CompiledQuery, *, stream: bool = False
+) -> tuple[dict[str, object], dict[str, int]]:
+    """Checked parameters and settings, or the caller's cancellation or deadline.
+
+    Only a *stream* may run above a page's byte ceiling.
+    """
 
     reason = terminal_error(compiled)
     if reason is not None:
@@ -89,8 +94,7 @@ def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[st
     settings = dict(compiled.settings.values)
     if set(settings) != set(SETTING_DEFINITIONS) or any(
         type(value) is not int
-        # A stream's byte ceiling may exceed a page's; `setting_maximum` knows both.
-        or not SETTING_DEFINITIONS[name].minimum <= value <= setting_maximum(name)
+        or not SETTING_DEFINITIONS[name].minimum <= value <= setting_maximum(name, stream=stream)
         for name, value in settings.items()
     ):
         raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)

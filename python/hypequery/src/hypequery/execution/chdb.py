@@ -139,7 +139,7 @@ class ChdbExecutor:
         reason = terminal_error(compiled)
         if reason is not None:
             raise reason
-        parameters, settings = query_arguments(compiled)
+        parameters, settings = query_arguments(compiled, stream=True)
         params = {name: parameter_text(value) for name, value in parameters.items()}
         deadline = compiled.deadline
         limits = within_deadline(settings, None if deadline is None else deadline.remaining())

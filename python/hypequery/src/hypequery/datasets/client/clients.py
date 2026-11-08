@@ -26,7 +26,6 @@ from ..planner import (
     plan_dataset_query,
 )
 from ..planner.settings import (
-    STREAM_MAX_RESULT_BYTES,
     stream_query_settings,
     tighten_query_settings,
 )
@@ -111,7 +110,7 @@ class _DatasetClientBase:
         settings: QuerySettings,
         cache: ResultCache | None,
         timezone: str = "UTC",
-        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
+        stream_max_result_bytes: int | None = None,
     ) -> None:
         self._registry = registry
         self._settings = settings
@@ -415,7 +414,7 @@ class DatasetClient(_DatasetClientBase):
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
         timezone: str = "UTC",
-        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
+        stream_max_result_bytes: int | None = None,
     ) -> None:
         super().__init__(registry, settings, cache, timezone, stream_max_result_bytes)
         self._executor = executor
@@ -506,7 +505,7 @@ class AsyncDatasetClient(_DatasetClientBase):
         settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
         cache: ResultCache | None = None,
         timezone: str = "UTC",
-        stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
+        stream_max_result_bytes: int | None = None,
     ) -> None:
         super().__init__(registry, settings, cache, timezone, stream_max_result_bytes)
         self._executor = executor
@@ -582,7 +581,7 @@ def create_dataset_client(
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
     timezone: str = "UTC",
-    stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
+    stream_max_result_bytes: int | None = None,
 ) -> DatasetClient:
     """Create a synchronous dataset client.
 
@@ -590,9 +589,11 @@ def create_dataset_client(
     is optional for a client that only queries dataset objects without joins.
     *cache* enables result caching; without it every call executes. Streams
     run under *settings* too, except ``max_result_bytes``: their memory stays
-    flat, so they take *stream_max_result_bytes* instead (default 1 TiB, at
-    most that), and rows and time bound them. The client does not own
-    *executor*; close it when the application stops.
+    flat, so they take *stream_max_result_bytes* (at most 1 TiB) instead, and
+    rows and time bound them. Without it, a stream keeps a
+    ``max_result_bytes`` *settings* sets and runs under 1 TiB in place of the
+    default. The client does not own *executor*; close it when the
+    application stops.
     """
 
     return DatasetClient(executor, registry, settings, cache, timezone, stream_max_result_bytes)
@@ -605,7 +606,7 @@ def create_async_dataset_client(
     settings: QuerySettings = DEFAULT_QUERY_SETTINGS,
     cache: ResultCache | None = None,
     timezone: str = "UTC",
-    stream_max_result_bytes: int = STREAM_MAX_RESULT_BYTES,
+    stream_max_result_bytes: int | None = None,
 ) -> AsyncDatasetClient:
     """Create an async dataset client. See `create_dataset_client`."""
 

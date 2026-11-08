@@ -99,9 +99,9 @@ class SyncBatchStream(Generic[_T]):
         if self._closed:
             return
         self._closed = True
+        # The server is told to stop first: releasing clickhouse-connect's
+        # row response reads the rest of its body before it lets go.
         try:
-            self._release()
-        finally:
             if not self._finished and self._abandon is not None:
                 try:
                     self._abandon()
@@ -109,6 +109,8 @@ class SyncBatchStream(Generic[_T]):
                     _LOGGER.warning(
                         "Server cancellation failed for query %s", self._compiled.query_id
                     )
+        finally:
+            self._release()
 
 
 class AsyncBatchStream(Generic[_T]):

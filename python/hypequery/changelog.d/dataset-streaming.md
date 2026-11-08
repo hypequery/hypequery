@@ -14,8 +14,10 @@
   `StreamingQueryExecutor` protocol.
 - Streams have ceilings of their own. `DatasetLimits(max_stream_rows=...)`
   lets a dataset allow streams more rows than the pages and agents
-  `max_result_size` bounds. A stream's memory stays flat, so instead of
-  `max_result_bytes` it runs under `stream_max_result_bytes`, a new
-  `create_dataset_client` option that defaults to, and may not exceed, 1 TiB;
+  `max_result_size` bounds; a stream with no `limit` runs under that
+  ceiling as its `LIMIT` and ends there. A stream's memory stays flat, so
+  its byte limit is `stream_max_result_bytes`, a new `create_dataset_client`
+  option of at most 1 TiB. Without it, a stream keeps a `max_result_bytes`
+  the client's settings set and runs under 1 TiB in place of the default.
   `max_result_rows` and `max_execution_time` still bound it, and a request
   context can still tighten all three.
