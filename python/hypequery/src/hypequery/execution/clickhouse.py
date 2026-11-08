@@ -215,17 +215,20 @@ class _AsyncControlClient(Protocol):
 
 
 _KILL_QUERY = "KILL QUERY WHERE query_id = {id:String} SYNC"
+#: A stream closed early asks without waiting: the query is blocked writing to
+#: a caller that stopped reading, so a SYNC kill would wait out its timeout.
+_KILL_QUERY_ASYNC = "KILL QUERY WHERE query_id = {id:String} ASYNC"
 
 #: The ClickHouse header naming the tag of a mid-stream exception block.
 _EXCEPTION_TAG_HEADER = "X-ClickHouse-Exception-Tag"
 
 
 def _wire(
-    client: object, compiled: CompiledQuery, policy: ReadonlyPolicy
+    client: object, compiled: CompiledQuery, policy: ReadonlyPolicy, *, stream: bool = False
 ) -> tuple[dict[str, object], dict[str, int | str]]:
     """The parameters and settings one request for *compiled* sends."""
 
-    parameters, settings = query_arguments(compiled)
+    parameters, settings = query_arguments(compiled, stream=stream)
     selected = wire_settings(client, settings, policy, compiled.query_id)
     # The driver's settings path puts query_id in HTTP parameters.
     # transport_settings becomes headers, which ClickHouse ignores here.
@@ -325,12 +328,12 @@ class ClickHouseExecutor:
         self._control_client = control_client
         self._control_lock = threading.Lock()
 
-    def _cancel_on_server(self, query_id: str) -> object:
+    def _cancel_on_server(self, query_id: str, statement: str = _KILL_QUERY) -> object:
         if self._control_client is None:
             return None
         try:
             with self._control_lock:
-                return self._control_client.command(_KILL_QUERY, {"id": query_id})
+                return self._control_client.command(statement, {"id": query_id})
         except Exception as exc:
             raise safe_driver_error(exc, query_id) from None
 
@@ -376,7 +379,7 @@ class ClickHouseExecutor:
     def _abandon(self, compiled: CompiledQuery) -> Callable[[], object] | None:
         if self._control_client is None:
             return None
-        return lambda: self._cancel_on_server(compiled.query_id)
+        return lambda: self._cancel_on_server(compiled.query_id, _KILL_QUERY_ASYNC)
 
     def stream(self, compiled: CompiledQuery) -> SyncBatchStream[QueryRows]:
         """Run *compiled* and hand its rows over block by block; close the stream to stop it."""
@@ -385,7 +388,9 @@ class ClickHouseExecutor:
         reason = terminal_error(compiled)
         if reason is not None:
             raise reason
-        parameters, query_settings = _wire(self._client, compiled, self._readonly_policy)
+        parameters, query_settings = _wire(
+            self._client, compiled, self._readonly_policy, stream=True
+        )
         monitor = self._monitor(compiled)
         context: Any = None
         try:
@@ -440,7 +445,9 @@ class ClickHouseExecutor:
             raise reason
         require_pyarrow()
         client = cast(_SyncStreamingClient, _streaming(self._client))
-        parameters, query_settings = _wire(self._client, compiled, self._readonly_policy)
+        parameters, query_settings = _wire(
+            self._client, compiled, self._readonly_policy, stream=True
+        )
         monitor = self._monitor(compiled)
         response: Any = None
         try:
@@ -600,7 +607,9 @@ class AsyncClickHouseExecutor:
         try:
             if self._closed:
                 raise CompiledQueryError("unavailable", "", query_id=compiled.query_id)
-            parameters, query_settings = _wire(self._client, compiled, self._readonly_policy)
+            parameters, query_settings = _wire(
+                self._client, compiled, self._readonly_policy, stream=True
+            )
 
             async def opened() -> Any:
                 try:
@@ -610,9 +619,18 @@ class AsyncClickHouseExecutor:
                     raise _driver_failure(exc, compiled, self._readonly_policy) from None
                 return context
 
-            context = await run_with_policy(
-                opened(), compiled, self._cancel_on_server, retries=self._retries
-            )
+            opening = asyncio.ensure_future(opened())
+            try:
+                context = await run_with_policy(
+                    opening, compiled, self._cancel_on_server, retries=self._retries
+                )
+            except BaseException:
+                # A deadline or cancellation can land as the open completes:
+                # the stream it opened anyway is closed here.
+                if opening.done() and not opening.cancelled() and opening.exception() is None:
+                    with suppress(Exception):
+                        await opening.result().__aexit__(None, None, None)
+                raise
 
             async def built() -> AsyncBatchStream[_B]:
                 # Building can read the first batch (an Arrow schema), so it

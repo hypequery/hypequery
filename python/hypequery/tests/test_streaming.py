@@ -401,6 +401,29 @@ def test_closing_early_releases_the_driver_and_kills_the_query() -> None:
     assert control.killed == [query.query_id]
 
 
+def test_closing_early_stops_the_server_before_releasing_the_driver() -> None:
+    # Releasing clickhouse-connect's row stream reads the rest of the body, so
+    # the KILL must go out first or the close downloads the whole result.
+    order: list[str] = []
+
+    class Rows(FakeRowContext):
+        def __exit__(self, *_: object) -> None:
+            order.append("release")
+
+    class Control(FakeControl):
+        def command(self, cmd: str, parameters: dict[str, str]) -> object:
+            # Without waiting: the server is blocked writing to this stream.
+            order.append("kill" if cmd.endswith(" ASYNC") else cmd)
+            return "ok"
+
+    stream = ClickHouseExecutor(
+        FakeClient(rows=Rows(("n",), [[(1,)], [(2,)]])), control_client=Control()
+    ).stream(compiled())
+    next(iter(stream))
+    stream.close()
+    assert order == ["kill", "release"]
+
+
 def test_a_finished_stream_kills_nothing() -> None:
     control = FakeControl()
     stream = ClickHouseExecutor(
@@ -483,6 +506,29 @@ def test_the_native_async_executor_streams_rows_and_frees_its_slot() -> None:
         stream = await executor.stream(compiled())
         assert executor._semaphore.locked()
         assert [batch.rows async for batch in stream] == [((1, "1.50"),), ((2, None),)]
+        assert rows.exited
+        assert not executor._semaphore.locked()
+
+    asyncio.run(run())
+
+
+def test_a_stream_opened_as_its_caller_gives_up_is_closed() -> None:
+    cancelled = threading.Event()
+
+    class OpensLate(FakeRowContext):
+        async def __aenter__(self) -> FakeRowContext:
+            # The caller cancels in the same tick the open completes.
+            cancelled.set()
+            return self.__enter__()
+
+    async def run() -> None:
+        rows = OpensLate(("n",), [[(1,)]])
+        executor = AsyncClickHouseExecutor(
+            FakeAsyncClient(rows=rows), FakeAsyncControl(), max_concurrent=1
+        )
+        with pytest.raises(CompiledQueryError) as raised:
+            await executor.stream(compiled(cancellation=cancelled))
+        assert raised.value.category == "aborted"
         assert rows.exited
         assert not executor._semaphore.locked()
 
@@ -877,6 +923,41 @@ def test_streams_take_their_own_byte_ceiling() -> None:
         create_dataset_client(
             executor=executor, stream_max_result_bytes=STREAM_MAX_RESULT_BYTES + 1
         )
+
+
+def test_streams_keep_a_byte_budget_the_client_chose() -> None:
+    from hypequery.datasets.planner import query_settings
+
+    executor = StreamingExecutor(BATCHES)
+    tight = create_dataset_client(
+        executor=executor, settings=query_settings(max_result_bytes=1 << 20)
+    )
+    list(tight.stream(trips(), QUERY, context=ACME))
+    assert executor.seen[-1].settings["max_result_bytes"] == 1 << 20
+
+    # Lifting it for streams takes an explicit stream_max_result_bytes.
+    lifted = create_dataset_client(
+        executor=executor,
+        settings=query_settings(max_result_bytes=1 << 20),
+        stream_max_result_bytes=1 << 34,
+    )
+    list(lifted.stream(trips(), QUERY, context=ACME))
+    assert executor.seen[-1].settings["max_result_bytes"] == 1 << 34
+
+
+def test_only_a_stream_may_send_a_byte_ceiling_above_a_pages() -> None:
+    from hypequery.datasets.planner import QuerySettings, query_settings
+    from hypequery.datasets.planner.settings import STREAM_MAX_RESULT_BYTES
+    from hypequery.execution.parameters import query_arguments
+
+    settings = QuerySettings(
+        values={**query_settings().values, "max_result_bytes": STREAM_MAX_RESULT_BYTES}
+    )
+    query = compiled(settings=settings)
+    assert query_arguments(query, stream=True)[1]["max_result_bytes"] == STREAM_MAX_RESULT_BYTES
+    with pytest.raises(CompiledQueryError) as raised:
+        query_arguments(query)
+    assert raised.value.category == "internal"
 
 
 def test_deployment_contracts_refuse_max_stream_rows() -> None:
