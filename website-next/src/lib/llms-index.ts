@@ -1,6 +1,6 @@
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment } from '@/data/clickhouse-functions';
-import { entryHref, examples, recipes, type RegistryEntry } from '@/lib/examples';
+import { entryHref, examples, guides, recipes, type RegistryEntry } from '@/lib/examples';
 
 /**
  * Shared builders for the llms.txt family: the root index plus one sub-index
@@ -35,9 +35,10 @@ export function recipeEntries(): LlmsEntry[] {
   return recipes.map((e) => ({ title: e.manifest.title, url: twinUrl(e), description: e.manifest.outcome }));
 }
 
-/** Long-form guides. The materialized view guide lives in the blog and must keep its URL. */
+/** Long-form guides: the registry's guides, plus the materialized view pillar, which lives in the blog and keeps its URL. */
 export function guideEntries(): LlmsEntry[] {
   return [
+    ...guides.map((e) => ({ title: e.manifest.title, url: twinUrl(e), description: e.manifest.outcome })),
     {
       title: 'A guide to materialized views in ClickHouse',
       url: absoluteUrl('/blog/a-guide-to-materialized-views-in-clickhouse.md').toString(),

@@ -14,6 +14,6 @@ if (issues.length > 0) {
   process.exit(1);
 }
 
-const examples = manifests.filter((m) => m.manifest.kind === 'example').length;
-const recipes = manifests.length - examples;
-console.log(`Examples registry OK: ${examples} example${examples === 1 ? '' : 's'}, ${recipes} recipe${recipes === 1 ? '' : 's'}.`);
+const count = (kind: string) => manifests.filter((m) => m.manifest.kind === kind).length;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+console.log(`Examples registry OK: ${plural(count('example'), 'example')}, ${plural(count('recipe'), 'recipe')}, ${plural(count('guide'), 'guide')}.`);

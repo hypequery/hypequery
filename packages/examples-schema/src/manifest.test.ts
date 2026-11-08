@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ExampleManifest, Manifest, RecipeManifest } from './manifest.js';
+import { ExampleManifest, GuideManifest, Manifest, RecipeManifest } from './manifest.js';
 
 export const validExample = {
   slug: 'nextjs-dashboard',
@@ -26,6 +26,31 @@ export const validRecipe = {
   expectedSqlFile: 'expected.sql',
   outputFile: 'output.json',
 } as const;
+
+export const validGuide = {
+  slug: 'refreshable-materialized-views',
+  kind: 'guide',
+  title: 'Refreshable materialized views in ClickHouse',
+  outcome: 'Create, schedule, refresh, monitor and query a refreshable materialized view.',
+  clickhouseVersion: '25.8',
+  sqlFiles: ['sql/01-create.sql'],
+  keywords: ['clickhouse refreshable materialized view'],
+} as const;
+
+describe('GuideManifest', () => {
+  it('accepts a guide and applies defaults', () => {
+    const parsed = GuideManifest.parse(validGuide);
+    expect(parsed.packages).toEqual([]);
+    expect(parsed.related).toEqual([]);
+    expect(Manifest.parse(validGuide).kind).toBe('guide');
+  });
+
+  it('requires at least one SQL file and a plausible ClickHouse version', () => {
+    expect(GuideManifest.safeParse({ ...validGuide, sqlFiles: [] }).success).toBe(false);
+    expect(GuideManifest.safeParse({ ...validGuide, clickhouseVersion: 'latest' }).success).toBe(false);
+    expect(GuideManifest.safeParse({ ...validGuide, sqlFiles: ['../x.sql'] }).success).toBe(false);
+  });
+});
 
 describe('ExampleManifest', () => {
   it('accepts a complete manifest and applies defaults', () => {

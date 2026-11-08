@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildRegistry, languageForFile, renderRegistry } from './registry.js';
-import { validExample, validRecipe } from './manifest.test.js';
+import { buildRegistry, expandSqlIncludes, languageForFile, renderRegistry } from './registry.js';
+import { validExample, validGuide, validRecipe } from './manifest.test.js';
 
 const roots: string[] = [];
 
@@ -75,6 +75,24 @@ describe('buildRegistry', () => {
       const issues = (error as Error & { issues: Array<{ message: string }> }).issues;
       expect(issues[0].message).toContain('leadPages entry "/clickhouse-missing" has no page');
     }
+  });
+
+  it('expands {{sql:file}} includes in guide bodies and carries the SQL files', () => {
+    const root = makeRepo();
+    write(root, 'guides/refreshable-materialized-views/guide.json', JSON.stringify(validGuide));
+    write(root, 'guides/refreshable-materialized-views/guide.md', '# Title\n\nIntro\n\n{{sql:sql/01-create.sql}}\n\nAfter');
+    write(root, 'guides/refreshable-materialized-views/sql/01-create.sql', 'CREATE TABLE t (a UInt8) ENGINE = Memory;\n');
+    const registry = buildRegistry({ repoRoot: root });
+    const [guide] = registry.entries;
+    expect(guide.manifest.kind).toBe('guide');
+    expect(guide.keyFile).toBeUndefined();
+    expect(guide.readme).toBe('# Title\n\nIntro\n\n```sql\nCREATE TABLE t (a UInt8) ENGINE = Memory;\n```\n\nAfter');
+    expect(guide.guide?.sqlFiles).toEqual([{ path: 'sql/01-create.sql', source: 'CREATE TABLE t (a UInt8) ENGINE = Memory;\n' }]);
+
+    const issues: Array<{ file: string; message: string }> = [];
+    const out = expandSqlIncludes('{{sql:nope.sql}}', path.join(root, 'guides/refreshable-materialized-views'), 'guides/refreshable-materialized-views', issues);
+    expect(out).toBe('<!-- missing nope.sql -->');
+    expect(issues[0].message).toContain('{{sql:nope.sql}}');
   });
 
   it('maps file extensions to highlighter languages', () => {

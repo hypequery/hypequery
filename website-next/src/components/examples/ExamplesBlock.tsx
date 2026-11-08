@@ -19,8 +19,8 @@ export default function ExamplesBlock(props: Props) {
   if (entries.length === 0) return null;
 
   const examples = entries.filter((e) => e.manifest.kind === 'example');
-  const recipes = entries.filter((e) => e.manifest.kind === 'recipe');
-  const title = props.title ?? (recipes.length > 0 && examples.length === 0 ? 'Recipes you can run against a seeded ClickHouse' : 'Runnable examples, tested in CI');
+  const guidesOnly = entries.every((e) => e.manifest.kind === 'guide');
+  const title = props.title ?? (guidesOnly ? 'Guides with SQL that runs in CI' : examples.length === 0 ? 'Recipes and guides you can run against a seeded ClickHouse' : 'Runnable examples, tested in CI');
 
   return (
     <section className={marketing.band}>

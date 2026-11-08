@@ -1,31 +1,40 @@
 ---
-title: "A Guide to Materialized Views in ClickHouse"
-description: "Production patterns, performance pitfalls, and when to use something else. Learn how ClickHouse materialized views really work, how to choose the right engine, and when alternative patterns like projections make more sense."
+title: "ClickHouse materialized views: create, refresh and test them (with examples)"
+description: "What a ClickHouse materialized view is, how incremental and refreshable views differ, and how to create, backfill, modify, list, drop and monitor them, with SQL that runs on a seeded database and a typed hypequery example."
+seoTitle: "ClickHouse Materialized Views: Create, Refresh & Test Them (With Examples)"
+seoDescription: "A ClickHouse materialized view is an insert trigger that writes to a target table. Learn incremental vs refreshable views, TO tables, backfills without POPULATE, engines, pitfalls, monitoring, and how to query them from TypeScript."
 pubDate: 2026-01-11
+updatedAt: 2026-11-08
 heroImage: ""
+tags: ["clickhouse", "materialized-views", "typescript"]
 ---
 
 
-ClickHouse materialized views can deliver 100x query speedups or silently lose data, explode storage by 10x, and tank your insert throughput. The difference is understanding what they actually are.
+A materialized view in ClickHouse is an insert trigger: a `SELECT` that runs on every block of rows inserted into a source table and writes its result into a target table that you query instead of the raw data. It is not a cached query result you refresh by hand, with one exception: a *refreshable* materialized view, which re-runs its whole query on a schedule and replaces the target.
 
-Most engineers bring a PostgreSQL mental model: materialized views are cached query results you refresh on a schedule. In ClickHouse, this is wrong. Materialized views are **insert triggers**. They fire on every INSERT, process only the newly inserted block, and write results to a target table. This architecture enables real-time pre-aggregation at petabyte scale, but it also creates failure modes that don't exist in traditional databases.
+That difference is why materialized views can deliver 100x query speedups or silently lose data, explode storage by 10x, and tank your insert throughput. Most engineers arrive with the PostgreSQL mental model and get the wrong one.
 
-This guide covers what production teams learn the hard way: how incremental and refreshable MVs differ, which table engines to use, the specific mistakes that cause data loss and storage explosions, and when materialized views are the wrong tool entirely.
+This guide covers what production teams learn the hard way: how incremental and refreshable views differ, the exact statements to create, backfill, modify, list and drop them, which table engines to use, the mistakes that cause data loss and storage explosions, how to query the result from TypeScript, and when materialized views are the wrong tool entirely.
+
+**Tested on ClickHouse 25.8.** Every statement in the [quick reference](#quick-reference-the-statements-you-will-search-for) and the TypeScript section runs in CI against a seeded one-million-row `events` table ([the seed](https://github.com/hypequery/hypequery/tree/main/examples/_seed), [the SQL](https://github.com/hypequery/hypequery/tree/main/guides/_blog-materialized-views)). The other examples use illustrative table names.
 
 ---
 
 ## Table of Contents
 
 1. [The Insert Trigger Mental Model](#the-insert-trigger-mental-model)
-2. [Incremental vs Refreshable: Two Different Tools](#incremental-vs-refreshable-two-different-tools)
-3. [The TO Clause: Production Code vs Prototypes](#the-to-clause-production-code-vs-prototypes)
-4. [Choosing the Right Table Engine](#choosing-the-right-table-engine)
-5. [Production Pitfalls](#production-pitfalls)
-6. [Materialized Views vs Projections](#materialized-views-vs-projections)
-7. [Tiered Aggregation: The Production Pattern](#tiered-aggregation-the-production-pattern)
-8. [Monitoring and Debugging](#monitoring-and-debugging)
-9. [When NOT to Use Materialized Views](#when-not-to-use-materialized-views)
-10. [Conclusion](#conclusion)
+2. [Quick Reference: The Statements You Will Search For](#quick-reference-the-statements-you-will-search-for)
+3. [Incremental vs Refreshable: Two Different Tools](#incremental-vs-refreshable-two-different-tools)
+4. [The TO Clause: Production Code vs Prototypes](#the-to-clause-production-code-vs-prototypes)
+5. [Choosing the Right Table Engine](#choosing-the-right-table-engine)
+6. [Production Pitfalls](#production-pitfalls)
+7. [Materialized Views vs Projections](#materialized-views-vs-projections)
+8. [Tiered Aggregation: The Production Pattern](#tiered-aggregation-the-production-pattern)
+9. [In TypeScript with hypequery](#in-typescript-with-hypequery)
+10. [Monitoring and Debugging](#monitoring-and-debugging)
+11. [When NOT to Use Materialized Views](#when-not-to-use-materialized-views)
+12. [FAQ](#faq)
+13. [Conclusion](#conclusion)
 
 ---
 
@@ -60,6 +69,128 @@ This architecture has three critical implications:
 | Performance | Same as base query | Much faster (pre-computed) |
 | Freshness | Always current | Current up to last insert |
 | Reacts to UPDATE/DELETE | Yes | No |
+
+---
+
+## Quick Reference: The Statements You Will Search For
+
+These are the statements the rest of this guide explains. They run against the seed dataset's `events` table (`event_id`, `tenant_id`, `user_id`, `event_type`, `status_code`, `latency_ms`, `occurred_at`).
+
+### Create a materialized view
+
+Create the target table first, then the view writing `TO` it. Store aggregate states, not finished numbers, so uniques stay correct when ClickHouse merges parts.
+
+```sql
+CREATE TABLE IF NOT EXISTS blog_events_daily
+(
+    day          Date,
+    tenant_id    UInt32,
+    events       SimpleAggregateFunction(sum, UInt64),
+    unique_users AggregateFunction(uniq, UInt32)
+)
+ENGINE = AggregatingMergeTree
+ORDER BY (tenant_id, day);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS blog_events_daily_mv TO blog_events_daily AS
+SELECT
+    toDate(occurred_at) AS day,
+    tenant_id,
+    count()             AS events,
+    uniqState(user_id)  AS unique_users
+FROM events
+GROUP BY day, tenant_id;
+```
+
+From this point on, every insert into `events` also lands, aggregated, in `blog_events_daily`. Nothing before this point is in the target yet; see the next statement.
+
+### Backfill existing data (instead of POPULATE)
+
+```sql
+INSERT INTO blog_events_daily
+SELECT
+    toDate(occurred_at) AS day,
+    tenant_id,
+    count()             AS events,
+    uniqState(user_id)  AS unique_users
+FROM events
+GROUP BY day, tenant_id;
+```
+
+Why not `POPULATE`? It blocks until it finishes, it cannot be combined with `TO`, and rows inserted while it runs are lost. [Details below](#populate-will-lose-your-data).
+
+### Query the target table
+
+```sql
+SELECT
+    day,
+    sum(events)              AS events,
+    uniqMerge(unique_users)  AS unique_users
+FROM blog_events_daily
+WHERE day BETWEEN '2026-10-25' AND '2026-10-31'
+GROUP BY day
+ORDER BY day;
+```
+
+`uniqMerge` finalizes the stored state. The `GROUP BY` is not optional: until a background merge runs, a key can have several partial rows.
+
+### Change a materialized view's query (there is no CREATE OR REPLACE)
+
+`CREATE OR REPLACE MATERIALIZED VIEW` is a syntax error in ClickHouse; `OR REPLACE` exists for tables and plain views only. To change the `SELECT` of an existing materialized view without touching the target table or its data, use `ALTER TABLE ... MODIFY QUERY`:
+
+```sql
+ALTER TABLE blog_events_daily_mv MODIFY QUERY
+SELECT
+    toDate(occurred_at) AS day,
+    tenant_id,
+    count()             AS events,
+    uniqState(user_id)  AS unique_users
+FROM events
+WHERE event_type != 'error'
+GROUP BY day, tenant_id;
+```
+
+The other safe route is `DROP VIEW` then `CREATE MATERIALIZED VIEW ... TO` again, which works because the rows live in the target table, not in the view. Either way, rows already in the target keep the old logic; backfill again if the change should apply to history.
+
+### Show and list materialized views
+
+```sql
+-- All materialized views in the current database
+SELECT name, engine, create_table_query
+FROM system.tables
+WHERE database = currentDatabase() AND engine = 'MaterializedView';
+
+-- One view's definition
+SHOW CREATE TABLE blog_events_daily_mv;
+
+-- Which views depend on a source table
+SELECT name, dependencies_table
+FROM system.tables
+WHERE database = currentDatabase() AND name = 'events';
+```
+
+Refreshable views also appear in `system.view_refreshes` with their schedule and last result; see the [refreshable materialized views guide](/guides/refreshable-materialized-views).
+
+### Drop a materialized view
+
+```sql
+DROP VIEW IF EXISTS blog_events_daily_mv;
+```
+
+The target table and every row in it stay. Drop the table separately if you mean to.
+
+### Create a refreshable materialized view
+
+```sql
+CREATE MATERIALIZED VIEW hourly_report_mv
+REFRESH EVERY 1 HOUR
+TO hourly_report AS
+SELECT ... FROM source JOIN dimension_table ON ... GROUP BY ...;
+
+SYSTEM REFRESH VIEW hourly_report_mv;   -- run it now
+SYSTEM WAIT VIEW hourly_report_mv;      -- block until it finishes
+```
+
+The full treatment, including `DEPENDS ON`, `APPEND`, `RANDOMIZE FOR`, `ALTER ... MODIFY REFRESH` and monitoring, is in the [refreshable materialized views guide](/guides/refreshable-materialized-views).
 
 ---
 
@@ -132,6 +263,8 @@ GROUP BY day;
 - Data is stale between refreshes
 - Query must complete faster than refresh interval
 - Full recomputation uses more resources than incremental
+
+The [refreshable materialized views guide](/guides/refreshable-materialized-views) walks through creating, refreshing on demand, chaining with `DEPENDS ON`, `APPEND` mode and monitoring, with SQL that runs on the seed dataset. The [materialized view rollups example](/examples/materialized-view-rollups) runs an incremental and a refreshable view side by side over the same table.
 
 ### Decision Framework
 
@@ -596,6 +729,58 @@ GROUP BY hour, app;
 
 ---
 
+## In TypeScript with hypequery
+
+The target table is an ordinary table, so you can query it with any client. What a semantic layer adds is that the `-Merge` combinator, the `GROUP BY`, and the time bucketing stop being things every caller has to remember. With [`@hypequery/datasets`](/docs/datasets/overview), a dataset over the target declares how each column is read, and `measure.merge` applies the right `-Merge` function:
+
+```typescript
+import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
+
+export const EventsDaily = dataset('eventsDaily', {
+  source: 'events_daily',
+  timeKey: 'day',
+  timeGrains: ['day', 'week', 'month', 'quarter', 'year'],
+  dimensions: {
+    day: dimension.timestamp(),
+    tenantId: dimension.number({ column: 'tenant_id' }),
+    eventType: dimension.string({ column: 'event_type' }),
+  },
+  measures: {
+    events: measure.sum('events'),                      // SimpleAggregateFunction(sum)
+    errors: measure.sum('errors'),
+    uniqueUsers: measure.merge('uniqExact', 'users'),   // uniqExactMerge(users)
+    errorRate: measure.derived({
+      uses: { errors: 'errors', events: 'events' },
+      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),
+    }),
+  },
+});
+```
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient, between } from '@hypequery/datasets';
+
+const db = createQueryBuilder({ url: process.env.CLICKHOUSE_URL!, database: 'hypequery_examples' });
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const weekly = await analytics.execute(EventsDaily, {
+  by: 'week',
+  measures: ['events', 'uniqueUsers', 'errorRate'],
+  filters: [between('day', '2026-08-01', '2026-10-31')],
+});
+```
+
+Asking for `by: 'week'` merges seven days of `uniqExact` states into one exact weekly count, instead of adding up seven daily numbers. The same `analytics.execute` call works against the raw `events` table and against a refreshable target; only the dataset's `source` and the way uniques are read differ.
+
+This is the [materialized view rollups example](/examples/materialized-view-rollups): an incremental view, a refreshable view, and three datasets over the seed, with a smoke test that proves both rollups match hand-written SQL over all one million rows. Scaffold it with:
+
+```bash
+npx hypequery create materialized-view-rollups -y
+```
+
+---
+
 ## Monitoring and Debugging
 
 ### system.query_views_log
@@ -718,6 +903,42 @@ Each MV adds synchronous processing to every insert. If your application require
 
 ---
 
+## FAQ
+
+### What is a materialized view in ClickHouse?
+
+An insert trigger. When rows are inserted into the source table, ClickHouse runs the view's `SELECT` over just those rows and inserts the result into a target table. You query the target. It does not read the source table's history, and it does not react to `UPDATE` or `DELETE`.
+
+### What is the difference between a view and a materialized view in ClickHouse?
+
+A view stores only the query and runs it on every `SELECT`. A materialized view stores results in a physical table, computed at insert time (incremental) or on a schedule (refreshable). Views are always current and cost nothing to maintain; materialized views trade freshness and insert overhead for much faster reads.
+
+### Incremental or refreshable: which one should I use?
+
+Incremental when freshness matters and the query reads one source table with simple aggregation. Refreshable when the query needs `JOIN`s, exact percentiles, top-N, or anything you want to recompute wholesale, and staleness of minutes or hours is fine. Many teams run both over the same facts.
+
+### How do I backfill a materialized view?
+
+Insert the view's `SELECT` over the historical rows straight into the target table (`INSERT INTO target SELECT ... FROM source GROUP BY ...`), batching by partition for large tables. Do not use `POPULATE`: it blocks, it cannot be used with `TO`, and rows inserted while it runs are silently lost.
+
+### Does a materialized view update when I delete or update source rows?
+
+No. Incremental views only see inserts. To reflect corrections, use `ReplacingMergeTree` with `FINAL` on the source, rebuild the target with a refreshable view, or fix the data before it reaches ClickHouse.
+
+### How do I list all materialized views?
+
+`SELECT name FROM system.tables WHERE engine = 'MaterializedView'`, and `SHOW CREATE TABLE <view>` for one definition. Refreshable views also report schedule and status in `system.view_refreshes`.
+
+### Can a materialized view have a JOIN?
+
+Yes, but an incremental view only fires on inserts to the left-most table and snapshots the right side at insert time. Use a dictionary (`dictGet`) for dimension lookups, or a refreshable view when the join result must track changes.
+
+### Why does my aggregated table have duplicate rows?
+
+Each insert block writes its own partial rows; background merges combine them later. Always query with `GROUP BY` and `-Merge` functions (or `FINAL`), and make sure the target engine is `AggregatingMergeTree` or `SummingMergeTree`, not plain `MergeTree`.
+
+---
+
 ## Conclusion
 
 Materialized views in ClickHouse are powerful precisely because they're minimal—they're insert triggers that transform data one block at a time, not magic caches that maintain themselves. This design enables petabyte-scale pre-aggregation but demands understanding of the trade-offs.
@@ -738,5 +959,7 @@ Materialized views in ClickHouse are powerful precisely because they're minimal�
 - What's the aggregation ratio—will this shrink or explode storage?
 - Can we absorb the insert overhead?
 - How will we handle schema changes and backfills?
+
+**Go deeper:** the [refreshable materialized views guide](/guides/refreshable-materialized-views) covers scheduling, `DEPENDS ON`, `APPEND` and monitoring; the [materialized view rollups example](/examples/materialized-view-rollups) runs both kinds side by side with a typed dataset; and the function pages for [`count`](/clickhouse/functions/count), [`uniq`](/clickhouse/functions/uniq) and [`toStartOfDay`](/clickhouse/functions/to-start-of-day) cover the building blocks.
 
 The teams running ClickHouse at scale don't use MVs everywhere. They use them strategically for specific query patterns where pre-aggregation provides order-of-magnitude improvements worth the insert overhead and operational complexity. That selective application, grounded in understanding how MVs actually work, is what separates production-ready implementations from prototype code.

@@ -18,7 +18,8 @@ test('registry loads with at least the first two examples', () => {
   const dashboard = getEntry('example', 'nextjs-dashboard');
   assert.ok(dashboard);
   assert.equal(entryHref(dashboard), '/examples/nextjs-dashboard');
-  assert.equal(dashboard.keyFile.path, dashboard.manifest.keyFile);
+  assert.ok(dashboard.manifest.kind === 'example');
+  assert.equal(dashboard.keyFile?.path, dashboard.manifest.keyFile);
 });
 
 test('lead-page and function-page lookups follow manifest tags', () => {
@@ -32,7 +33,7 @@ test('facets and filters work together', () => {
   const facets = collectFacets(examples);
   assert.ok(facets.stack.includes('nextjs'));
   const onlyNext = filterEntries(examples, { stack: 'nextjs' });
-  assert.ok(onlyNext.every((e) => e.manifest.stack.includes('nextjs')));
+  assert.ok(onlyNext.every((e) => e.manifest.kind !== 'guide' && e.manifest.stack.includes('nextjs')));
   assert.equal(filterEntries(examples, { language: 'python' }).length, 0);
 });
 
@@ -43,6 +44,19 @@ test('readmeBody drops the H1 and the repeated outcome, and rewrites relative li
   assert.ok(!body.startsWith(dashboard.manifest.outcome));
   assert.ok(body.includes('](/examples/materialized-view-rollups)'), 'relative sibling link becomes a site path');
   assert.ok(body.includes(`](${dashboard.screenshot})`), 'screenshot path points at public/');
+});
+
+test('guides load with expanded SQL and a Markdown twin that states the tested version', () => {
+  const guide = getEntry('guide', 'refreshable-materialized-views');
+  assert.ok(guide);
+  assert.equal(guide.keyFile, undefined);
+  assert.ok(guide.guide && guide.guide.sqlFiles.length >= 6);
+  assert.ok(!guide.readme.includes('{{sql:'), 'includes are expanded in the registry');
+  assert.ok(readmeBody(guide).includes('```sql'));
+  const md = entryMarkdown(guide);
+  assert.ok(md.includes('Tested on ClickHouse 25.8'));
+  assert.ok(md.includes('› [Guides](https://hypequery.com/guides) ›'));
+  assert.ok(!md.includes('npx hypequery create refreshable'), 'guides have no create command');
 });
 
 test('the Markdown twin carries breadcrumb, llms.txt link, run block, key file and related links', () => {

@@ -6,6 +6,7 @@ import ExampleCard from '@/components/examples/ExampleCard';
 import {
   createCommand,
   entryHref,
+  kindLabel,
   kindPath,
   label,
   readmeBody,
@@ -30,10 +31,13 @@ function CodeBlock({ title, code, language }: { title: string; code: string; lan
 
 export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
   const { manifest } = entry;
-  const kindLabel = manifest.kind === 'example' ? 'Example' : 'Recipe';
-  const hubLabel = manifest.kind === 'example' ? 'Examples' : 'Recipes';
+  const kindName = kindLabel(manifest.kind);
+  const hubLabel = kindLabel(manifest.kind, true);
   const pageUrl = absoluteUrl(entryHref(entry)).toString();
   const related = relatedEntries(entry);
+  const create = createCommand(entry);
+  const isGuide = manifest.kind === 'guide';
+  const tags = isGuide ? manifest.functionPages : [...manifest.stack, ...manifest.useCases];
 
   const breadcrumb = {
     '@context': 'https://schema.org',
@@ -43,17 +47,27 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
       { '@type': 'ListItem', position: 2, name: manifest.title, item: pageUrl },
     ],
   };
-  const sourceCode = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareSourceCode',
-    name: manifest.title,
-    description: manifest.outcome,
-    url: pageUrl,
-    codeRepository: `${REPO_TREE_URL}/${entry.dir}`,
-    programmingLanguage: label(manifest.language),
-    runtimePlatform: manifest.stack.map(label).join(', '),
-    keywords: manifest.keywords.join(', '),
-  };
+  const sourceCode = isGuide
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'TechArticle',
+        headline: manifest.title,
+        description: manifest.outcome,
+        url: pageUrl,
+        keywords: manifest.keywords.join(', '),
+        proficiencyLevel: 'Expert',
+      }
+    : {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareSourceCode',
+        name: manifest.title,
+        description: manifest.outcome,
+        url: pageUrl,
+        codeRepository: `${REPO_TREE_URL}/${entry.dir}`,
+        programmingLanguage: label(manifest.language),
+        runtimePlatform: manifest.stack.map(label).join(', '),
+        keywords: manifest.keywords.join(', '),
+      };
 
   return (
     <>
@@ -67,11 +81,11 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
             <span className="mx-2" aria-hidden="true">/</span>
             <span className="text-text-muted">{manifest.slug}</span>
           </nav>
-          <p className={`mt-6 ${marketing.eyebrow}`}>{kindLabel} · {label(manifest.language)}</p>
+          <p className={`mt-6 ${marketing.eyebrow}`}>{kindName} · {isGuide ? `Tested on ClickHouse ${manifest.clickhouseVersion}` : label(manifest.language)}</p>
           <h1 className={`mt-4 max-w-[980px] ${marketing.heroTitle}`}>{manifest.title}</h1>
           <p className={`mt-5 max-w-[760px] ${marketing.heroLead}`}>{manifest.outcome}</p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <code className="rounded-lg border border-border bg-bg-card px-4 py-2.5 font-mono text-sm text-text">{createCommand(entry)}</code>
+            {create && <code className="rounded-lg border border-border bg-bg-card px-4 py-2.5 font-mono text-sm text-text">{create}</code>}
             <a
               href={`${REPO_TREE_URL}/${entry.dir}`}
               target="_blank"
@@ -82,7 +96,7 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
             </a>
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            {[...manifest.stack, ...manifest.useCases].map((tag) => (
+            {tags.map((tag) => (
               <span key={tag} className="border border-border px-2.5 py-1 font-mono text-[11px] text-text-muted">{label(tag)}</span>
             ))}
           </div>
@@ -94,10 +108,14 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
           <article className="prose prose-invert max-w-none">
             <MarkdownContent content={readmeBody(entry)} />
 
-            <h2 id="key-file">Full key file: <code>{entry.keyFile.path}</code></h2>
-            <div className="not-prose">
-              <CodeBlock title={entry.keyFile.path} code={entry.keyFile.source} language={entry.keyFile.language} />
-            </div>
+            {entry.keyFile && (
+              <>
+                <h2 id="key-file">Full key file: <code>{entry.keyFile.path}</code></h2>
+                <div className="not-prose">
+                  <CodeBlock title={entry.keyFile.path} code={entry.keyFile.source} language={entry.keyFile.language} />
+                </div>
+              </>
+            )}
 
             {entry.recipe && (
               <>
@@ -119,31 +137,49 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
           </article>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <div className={marketing.card}>
-              <p className="font-mono text-xs text-text-dim">Run it</p>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div><dt className="text-text-muted">Install</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.install}</dd></div>
-                <div><dt className="text-text-muted">Dev</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.dev}</dd></div>
-                <div><dt className="text-text-muted">Test</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.test}</dd></div>
-                {manifest.exampleRequest && (
-                  <div><dt className="text-text-muted">Verify</dt><dd className="mt-1 break-all font-mono text-xs text-text">{manifest.exampleRequest}</dd></div>
-                )}
-              </dl>
-            </div>
+            {manifest.kind !== 'guide' && (
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">Run it</p>
+                <dl className="mt-4 space-y-3 text-sm">
+                  <div><dt className="text-text-muted">Install</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.install}</dd></div>
+                  <div><dt className="text-text-muted">Dev</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.dev}</dd></div>
+                  <div><dt className="text-text-muted">Test</dt><dd className="mt-1 font-mono text-xs text-text">{manifest.run.test}</dd></div>
+                  {manifest.exampleRequest && (
+                    <div><dt className="text-text-muted">Verify</dt><dd className="mt-1 break-all font-mono text-xs text-text">{manifest.exampleRequest}</dd></div>
+                  )}
+                </dl>
+              </div>
+            )}
 
-            <div className={marketing.card}>
-              <p className="font-mono text-xs text-text-dim">Packages</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {manifest.packages.map((pkg) => (
-                  <li key={pkg}>
-                    <a href={`https://www.npmjs.com/package/${pkg}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-text hover:text-accent">{pkg}</a>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-xs text-text-muted">Tested from hypequery {manifest.minVersion}.</p>
-            </div>
+            {entry.guide && (
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">SQL in this guide</p>
+                <p className="mt-3 text-xs leading-5 text-text-muted">Run in CI against the seed dataset on ClickHouse {manifest.kind === 'guide' ? manifest.clickhouseVersion : ''}, in this order.</p>
+                <ul className="mt-3 space-y-1.5 text-sm">
+                  {entry.guide.sqlFiles.map((file) => (
+                    <li key={file.path}>
+                      <a href={`${REPO_TREE_URL}/${entry.dir}/${file.path}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-text hover:text-accent">{file.path}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-            {manifest.env.length > 0 && (
+            {manifest.packages.length > 0 && (
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">Packages</p>
+                <ul className="mt-4 space-y-2 text-sm">
+                  {manifest.packages.map((pkg) => (
+                    <li key={pkg}>
+                      <a href={`https://www.npmjs.com/package/${pkg}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-text hover:text-accent">{pkg}</a>
+                    </li>
+                  ))}
+                </ul>
+                {manifest.kind !== 'guide' && <p className="mt-4 text-xs text-text-muted">Tested from hypequery {manifest.minVersion}.</p>}
+              </div>
+            )}
+
+            {manifest.kind !== 'guide' && manifest.env.length > 0 && (
               <div className={marketing.card}>
                 <p className="font-mono text-xs text-text-dim">Environment</p>
                 <ul className="mt-4 space-y-3 text-sm">

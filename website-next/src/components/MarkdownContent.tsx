@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
 import CodeHighlight from '@/components/CodeHighlight';
 
 /**
@@ -12,6 +13,8 @@ export default function MarkdownContent({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
+      // Heading ids so tables of contents and deep links (#faq) resolve.
+      rehypePlugins={[rehypeSlug]}
       components={{
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '');

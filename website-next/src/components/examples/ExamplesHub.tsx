@@ -6,7 +6,7 @@ import type { RegistryEntry } from '@/lib/examples';
 import { absoluteUrl } from '@/lib/site';
 
 interface Props {
-  kind: 'example' | 'recipe';
+  kind: 'example' | 'recipe' | 'guide';
   eyebrow: string;
   title: string;
   lead: string;
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function ExamplesHub({ kind, eyebrow, title, lead, entries, emptyCopy }: Props) {
-  const path = kind === 'example' ? '/examples' : '/recipes';
+  const path = kind === 'example' ? '/examples' : kind === 'recipe' ? '/recipes' : '/guides';
   const breadcrumb = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -52,7 +52,7 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
             </div>
             <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
               <p className="font-mono text-xs text-text-dim">Start</p>
-              <p className="mt-2 font-mono text-sm text-text">npx hypequery create &lt;slug&gt; -y</p>
+              <p className="mt-2 font-mono text-sm text-text">{kind === 'guide' ? 'Copy the SQL, it already ran' : 'npx hypequery create <slug> -y'}</p>
             </div>
           </div>
         </div>

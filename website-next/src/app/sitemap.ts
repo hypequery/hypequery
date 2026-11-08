@@ -16,6 +16,7 @@ const staticRoutes = [
   '/compare',
   '/examples',
   '/recipes',
+  '/guides',
   '/clickhouse-js',
   '/clickhouse-nodejs',
   '/clickhouse-dashboard',

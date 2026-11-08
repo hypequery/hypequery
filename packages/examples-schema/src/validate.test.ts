@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { formatIssues, isRegistryEntry, validateRegistry } from './validate.js';
-import { validExample, validRecipe } from './manifest.test.js';
+import { validExample, validGuide, validRecipe } from './manifest.test.js';
 
 const roots: string[] = [];
 
@@ -16,19 +16,19 @@ function makeRepo(): string {
 
 function writeEntry(
   root: string,
-  kind: 'examples' | 'recipes',
+  kind: 'examples' | 'recipes' | 'guides',
   folder: string,
   manifest: Record<string, unknown> | string,
   files: string[] = [],
 ) {
   const dir = path.join(root, kind, folder);
   fs.mkdirSync(dir, { recursive: true });
-  const manifestFile = kind === 'examples' ? 'example.json' : 'recipe.json';
+  const manifestFile = kind === 'examples' ? 'example.json' : kind === 'recipes' ? 'recipe.json' : 'guide.json';
   fs.writeFileSync(
     path.join(dir, manifestFile),
     typeof manifest === 'string' ? manifest : JSON.stringify(manifest, null, 2),
   );
-  for (const file of ['README.md', ...files]) {
+  for (const file of [kind === 'guides' ? 'guide.md' : 'README.md', ...files]) {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
     fs.writeFileSync(path.join(dir, file), `# ${file}\n`);
   }
@@ -111,6 +111,18 @@ describe('validateRegistry', () => {
     expect(messages).toContainEqual('slug "p95-latency" is already used by examples/p95-latency');
     expect(messages).toContainEqual('related slug "does-not-exist" does not match any example or recipe');
     expect(messages).toContainEqual('related must not include the entry\'s own slug "p95-latency"');
+  });
+});
+
+describe('guides', () => {
+  it('loads a guide and checks its SQL files and guide.md', () => {
+    const root = makeRepo();
+    writeEntry(root, 'guides', 'refreshable-materialized-views', validGuide, ['sql/01-create.sql']);
+    expect(validateRegistry(root).issues).toEqual([]);
+    const broken = makeRepo();
+    writeEntry(broken, 'guides', 'refreshable-materialized-views', { ...validGuide, sqlFiles: ['sql/missing.sql'] });
+    const messages = validateRegistry(broken).issues.map((i) => i.message);
+    expect(messages).toContainEqual('sqlFiles[0] "sql/missing.sql" does not exist in guides/refreshable-materialized-views/');
   });
 });
 

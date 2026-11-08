@@ -7,7 +7,7 @@ import registryJson from '@/data/examples-registry.json';
  * workspace, so it reads the committed JSON instead of the manifests; lint
  * fails when the file is stale. Types here mirror the Zod schema.
  */
-export type ManifestKind = 'example' | 'recipe';
+export type ManifestKind = 'example' | 'recipe' | 'guide';
 
 export interface EnvVar {
   name: string;
@@ -46,7 +46,21 @@ export interface RecipeManifest extends ManifestCore {
   outputFile: string;
 }
 
-export type Manifest = ExampleManifest | RecipeManifest;
+export interface GuideManifest {
+  slug: string;
+  kind: 'guide';
+  title: string;
+  outcome: string;
+  clickhouseVersion: string;
+  sqlFiles: string[];
+  packages: string[];
+  related: string[];
+  leadPages: string[];
+  functionPages: string[];
+  keywords: string[];
+}
+
+export type Manifest = ExampleManifest | RecipeManifest | GuideManifest;
 
 export interface SourceFile {
   path: string;
@@ -57,9 +71,12 @@ export interface SourceFile {
 export interface RegistryEntry {
   manifest: Manifest;
   dir: string;
+  /** README.md, or guide.md with its SQL includes expanded. */
   readme: string;
-  keyFile: SourceFile;
+  /** Absent for guides. */
+  keyFile?: SourceFile;
   recipe?: { dataset: SourceFile; expectedSql: string; output: string };
+  guide?: { sqlFiles: Array<{ path: string; source: string }> };
   screenshot?: string;
 }
 
@@ -76,7 +93,7 @@ if (registry.version !== 1 || !Array.isArray(registry.entries)) {
 }
 for (const entry of registry.entries) {
   const m = entry.manifest;
-  if (!m?.slug || !m.title || !m.outcome || (m.kind !== 'example' && m.kind !== 'recipe')) {
+  if (!m?.slug || !m.title || !m.outcome || (m.kind !== 'example' && m.kind !== 'recipe' && m.kind !== 'guide')) {
     throw new Error(`examples-registry.json entry ${entry.dir} is missing slug, title, outcome or kind`);
   }
 }
@@ -84,11 +101,17 @@ for (const entry of registry.entries) {
 export const registryEntries: readonly RegistryEntry[] = registry.entries;
 export const examples = registryEntries.filter((e) => e.manifest.kind === 'example');
 export const recipes = registryEntries.filter((e) => e.manifest.kind === 'recipe');
+export const guides = registryEntries.filter((e) => e.manifest.kind === 'guide');
 
 export const REPO_TREE_URL = 'https://github.com/hypequery/hypequery/tree/main';
 
-export function kindPath(kind: ManifestKind): '/examples' | '/recipes' {
-  return kind === 'example' ? '/examples' : '/recipes';
+export function kindPath(kind: ManifestKind): '/examples' | '/recipes' | '/guides' {
+  return kind === 'example' ? '/examples' : kind === 'recipe' ? '/recipes' : '/guides';
+}
+
+export function kindLabel(kind: ManifestKind, plural = false): string {
+  const base = kind === 'example' ? 'Example' : kind === 'recipe' ? 'Recipe' : 'Guide';
+  return plural ? `${base}s` : base;
 }
 
 export function entryHref(entry: Pick<RegistryEntry, 'manifest'>): string {
@@ -127,9 +150,9 @@ export interface Facets {
 export function collectFacets(entries: readonly RegistryEntry[]): Facets {
   const uniq = (values: string[]) => [...new Set(values)].sort();
   return {
-    stack: uniq(entries.flatMap((e) => e.manifest.stack)),
-    useCases: uniq(entries.flatMap((e) => e.manifest.useCases)),
-    languages: uniq(entries.map((e) => e.manifest.language)),
+    stack: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : e.manifest.stack))),
+    useCases: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : e.manifest.useCases))),
+    languages: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : [e.manifest.language]))),
   };
 }
 
@@ -141,6 +164,7 @@ export interface FacetSelection {
 
 export function filterEntries(entries: readonly RegistryEntry[], selection: FacetSelection): RegistryEntry[] {
   return entries.filter((e) => {
+    if (e.manifest.kind === 'guide') return !selection.stack && !selection.useCase && !selection.language;
     if (selection.stack && !e.manifest.stack.includes(selection.stack)) return false;
     if (selection.useCase && !e.manifest.useCases.includes(selection.useCase)) return false;
     if (selection.language && e.manifest.language !== selection.language) return false;
@@ -171,8 +195,9 @@ export function readmeBody(entry: RegistryEntry): string {
 }
 
 /** The one-line `npx hypequery create` an agent or a person can paste. */
-export function createCommand(entry: RegistryEntry): string {
-  return `npx hypequery create ${entry.manifest.slug} -y`;
+/** Guides are read, not scaffolded; examples and recipes get a create command. */
+export function createCommand(entry: RegistryEntry): string | null {
+  return entry.manifest.kind === 'guide' ? null : `npx hypequery create ${entry.manifest.slug} -y`;
 }
 
 export const LABELS: Record<string, string> = {

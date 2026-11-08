@@ -99,13 +99,43 @@ export const RecipeManifest = ManifestCore.extend({
   outputFile: relativeFile('outputFile'),
 }).strict();
 
-export const Manifest = z.discriminatedUnion('kind', [ExampleManifest, RecipeManifest]);
+/**
+ * Long-form guides. Smaller surface than examples: no runnable app, but every
+ * `.sql` file listed is executed against the seed in CI, and `guide.md` pulls
+ * them in with `{{sql:<file>}}` lines so the page and the tests share one copy.
+ */
+export const GuideManifest = z
+  .object({
+    $schema: z.string().optional(),
+    slug: kebab('slug'),
+    kind: z.literal('guide'),
+    title: z.string().min(1).max(120),
+    /** One line; doubles as the meta description. */
+    outcome: z.string().min(1).max(160),
+    /** ClickHouse server version the SQL was last run against, e.g. "25.8". */
+    clickhouseVersion: z.string().regex(/^\d+\.\d+(\.\d+)?$/, { message: 'clickhouseVersion must look like "25.8"' }),
+    /** SQL files, relative to the folder, run in this order by CI. */
+    sqlFiles: z.array(relativeFile('sqlFiles entries')).min(1),
+    /** hypequery packages the guide's TypeScript section uses, if any. */
+    packages: z.array(PackageName).default([]),
+    related: z.array(kebab('related entries')).default([]),
+    leadPages: z
+      .array(z.string().regex(/^\/[a-z0-9-]+(\/[a-z0-9-]+)*$/, { message: 'leadPages entries must be site paths like "/clickhouse-time-series"' }))
+      .default([]),
+    functionPages: z.array(kebab('functionPages entries')).default([]),
+    keywords: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
+export const Manifest = z.discriminatedUnion('kind', [ExampleManifest, RecipeManifest, GuideManifest]);
 
 export type ExampleManifest = z.infer<typeof ExampleManifest>;
 export type RecipeManifest = z.infer<typeof RecipeManifest>;
+export type GuideManifest = z.infer<typeof GuideManifest>;
 export type Manifest = z.infer<typeof Manifest>;
 export type ManifestKind = Manifest['kind'];
 
 /** Input shape (before defaults are applied), useful for authoring helpers. */
 export type ExampleManifestInput = z.input<typeof ExampleManifest>;
 export type RecipeManifestInput = z.input<typeof RecipeManifest>;
+export type GuideManifestInput = z.input<typeof GuideManifest>;

@@ -1,6 +1,7 @@
 import { absoluteUrl } from '@/lib/site';
 import {
   entryHref,
+  kindLabel,
   kindPath,
   readmeBody,
   relatedEntries,
@@ -15,7 +16,7 @@ import {
  */
 export function entryMarkdown(entry: RegistryEntry): string {
   const { manifest } = entry;
-  const hub = manifest.kind === 'example' ? 'Examples' : 'Recipes';
+  const hub = kindLabel(manifest.kind, true);
   const url = absoluteUrl(entryHref(entry)).toString();
   const lines: string[] = [
     `[hypequery](${absoluteUrl('/').toString()}) › [${hub}](${absoluteUrl(kindPath(manifest.kind)).toString()}) › ${manifest.title}`,
@@ -25,27 +26,38 @@ export function entryMarkdown(entry: RegistryEntry): string {
     '',
     manifest.outcome,
     '',
-    '## Run it',
-    '',
-    '```bash',
-    `npx hypequery create ${manifest.slug} -y`,
-    `cd ${manifest.slug}`,
-    manifest.run.install,
-    manifest.run.dev,
-    '```',
-    '',
-    `- Packages: ${manifest.packages.join(', ')} (tested from hypequery ${manifest.minVersion})`,
-    `- Stack: ${manifest.stack.join(', ')}`,
-    `- Source: ${REPO_TREE_URL}/${entry.dir}`,
-    `- Test: \`${manifest.run.test}\``,
   ];
-  if (manifest.exampleRequest) lines.push(`- Verify: \`${manifest.exampleRequest}\``);
-  if (manifest.env.length > 0) {
-    lines.push('', '| Env var | Required | Description |', '| --- | --- | --- |');
-    for (const v of manifest.env) lines.push(`| ${v.name} | ${v.required ? 'yes' : 'no'} | ${v.description.replace(/\|/g, '\\|')} |`);
+  if (manifest.kind === 'guide') {
+    lines.push(
+      `Tested on ClickHouse ${manifest.clickhouseVersion}. Every SQL block below is a file CI runs against the seed dataset: ${REPO_TREE_URL}/${entry.dir}`,
+      '',
+    );
+  } else {
+    lines.push(
+      '## Run it',
+      '',
+      '```bash',
+      `npx hypequery create ${manifest.slug} -y`,
+      `cd ${manifest.slug}`,
+      manifest.run.install,
+      manifest.run.dev,
+      '```',
+      '',
+      `- Packages: ${manifest.packages.join(', ')} (tested from hypequery ${manifest.minVersion})`,
+      `- Stack: ${manifest.stack.join(', ')}`,
+      `- Source: ${REPO_TREE_URL}/${entry.dir}`,
+      `- Test: \`${manifest.run.test}\``,
+    );
+    if (manifest.exampleRequest) lines.push(`- Verify: \`${manifest.exampleRequest}\``);
+    if (manifest.env.length > 0) {
+      lines.push('', '| Env var | Required | Description |', '| --- | --- | --- |');
+      for (const v of manifest.env) lines.push(`| ${v.name} | ${v.required ? 'yes' : 'no'} | ${v.description.replace(/\|/g, '\\|')} |`);
+    }
   }
   lines.push('', readmeBody(entry).replace(/\]\((\/[^)]+)\)/g, (_m, p: string) => `](${absoluteUrl(p).toString()})`));
-  lines.push('', `## Key file: ${entry.keyFile.path}`, '', `\`\`\`${entry.keyFile.language}`, entry.keyFile.source.trimEnd(), '```');
+  if (entry.keyFile) {
+    lines.push('', `## Key file: ${entry.keyFile.path}`, '', `\`\`\`${entry.keyFile.language}`, entry.keyFile.source.trimEnd(), '```');
+  }
   if (entry.recipe) {
     lines.push(
       '',

@@ -7,6 +7,7 @@ import { Manifest, type Manifest as ManifestType, type ManifestKind } from './ma
 export const REGISTRY_ROOTS: ReadonlyArray<{ dir: string; kind: ManifestKind; file: string }> = [
   { dir: 'examples', kind: 'example', file: 'example.json' },
   { dir: 'recipes', kind: 'recipe', file: 'recipe.json' },
+  { dir: 'guides', kind: 'guide', file: 'guide.json' },
 ];
 
 export interface ValidationIssue {
@@ -108,11 +109,17 @@ export function validateRegistry(repoRoot: string): ValidationResult {
         slugOwners.set(manifest.slug, dirRel);
       }
 
-      if (!fileExists(dirAbs, 'README.md')) {
-        issues.push({ file: dirRel, message: 'missing README.md (it drives the page body and the Markdown twin)' });
+      const bodyFile = manifest.kind === 'guide' ? 'guide.md' : 'README.md';
+      if (!fileExists(dirAbs, bodyFile)) {
+        issues.push({ file: dirRel, message: `missing ${bodyFile} (it drives the page body and the Markdown twin)` });
       }
 
-      const fileRefs: Array<[string, string]> = [['keyFile', manifest.keyFile]];
+      const fileRefs: Array<[string, string]> = [];
+      if (manifest.kind === 'guide') {
+        manifest.sqlFiles.forEach((file, index) => fileRefs.push([`sqlFiles[${index}]`, file]));
+      } else {
+        fileRefs.push(['keyFile', manifest.keyFile]);
+      }
       if (manifest.kind === 'recipe') {
         fileRefs.push(
           ['datasetFile', manifest.datasetFile],

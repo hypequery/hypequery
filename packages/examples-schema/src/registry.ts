@@ -13,9 +13,16 @@ export interface RegistryEntry {
   manifest: Manifest;
   /** Repo-relative folder, e.g. `examples/nextjs-dashboard`. */
   dir: string;
-  /** README.md with the leading H1 kept; the site decides what to strip. */
+  /**
+   * README.md (examples, recipes) or guide.md (guides) with the leading H1
+   * kept; the site decides what to strip. Guide bodies have their
+   * `{{sql:<file>}}` lines expanded into fenced SQL blocks.
+   */
   readme: string;
-  keyFile: { path: string; language: string; source: string };
+  /** Absent for guides, which have no single key file. */
+  keyFile?: { path: string; language: string; source: string };
+  /** Present for guides only: the CI-tested SQL files, in run order. */
+  guide?: { sqlFiles: Array<{ path: string; source: string }> };
   /** Present for recipes only. */
   recipe?: {
     dataset: { path: string; language: string; source: string };
@@ -69,6 +76,22 @@ function readFile(dirAbs: string, relative: string): { path: string; language: s
   };
 }
 
+/**
+ * Replace `{{sql:<file>}}` lines with the file's contents in a fenced block,
+ * so the guide text and the CI-tested SQL are one copy. Unknown files are
+ * reported as issues rather than silently dropped.
+ */
+export function expandSqlIncludes(markdown: string, dirAbs: string, dirRel: string, issues: ValidationIssue[]): string {
+  return markdown.replace(/^\{\{sql:([^}\s]+)\}\}[ \t]*$/gm, (_match, file: string) => {
+    const abs = path.join(dirAbs, file);
+    if (!abs.startsWith(path.resolve(dirAbs) + path.sep) || !fs.existsSync(abs)) {
+      issues.push({ file: `${dirRel}/guide.md`, message: `{{sql:${file}}} refers to a file that does not exist in ${dirRel}/` });
+      return `<!-- missing ${file} -->`;
+    }
+    return `\`\`\`sql\n${fs.readFileSync(abs, 'utf8').trim()}\n\`\`\``;
+  });
+}
+
 function leadPageExists(appDir: string, leadPage: string): boolean {
   const segments = leadPage.split('/').filter(Boolean);
   return fs.existsSync(path.join(appDir, ...segments, 'page.tsx')) || fs.existsSync(path.join(appDir, ...segments, 'page.mdx'));
@@ -81,12 +104,20 @@ export function buildRegistry(options: BuildRegistryOptions): Registry {
 
   const entries: RegistryEntry[] = manifests.map(({ dir, manifest }) => {
     const dirAbs = path.join(options.repoRoot, dir);
-    const entry: RegistryEntry = {
-      manifest,
-      dir,
-      readme: fs.readFileSync(path.join(dirAbs, 'README.md'), 'utf8'),
-      keyFile: readFile(dirAbs, manifest.keyFile),
-    };
+    const entry: RegistryEntry =
+      manifest.kind === 'guide'
+        ? {
+            manifest,
+            dir,
+            readme: expandSqlIncludes(fs.readFileSync(path.join(dirAbs, 'guide.md'), 'utf8'), dirAbs, dir, extraIssues),
+            guide: { sqlFiles: manifest.sqlFiles.map((file) => ({ path: file, source: fs.readFileSync(path.join(dirAbs, file), 'utf8') })) },
+          }
+        : {
+            manifest,
+            dir,
+            readme: fs.readFileSync(path.join(dirAbs, 'README.md'), 'utf8'),
+            keyFile: readFile(dirAbs, manifest.keyFile),
+          };
     if (manifest.kind === 'recipe') {
       entry.recipe = {
         dataset: readFile(dirAbs, manifest.datasetFile),
@@ -96,7 +127,7 @@ export function buildRegistry(options: BuildRegistryOptions): Registry {
     }
     const screenshot = path.join(dirAbs, 'screenshot.png');
     if (fs.existsSync(screenshot)) {
-      const sitePath = `/${manifest.kind === 'example' ? 'examples' : 'recipes'}/${manifest.slug}/screenshot.png`;
+      const sitePath = `/${manifest.kind === 'example' ? 'examples' : manifest.kind === 'recipe' ? 'recipes' : 'guides'}/${manifest.slug}/screenshot.png`;
       entry.screenshot = sitePath;
       if (options.publicDir) {
         const target = path.join(options.publicDir, sitePath);
