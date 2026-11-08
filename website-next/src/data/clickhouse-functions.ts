@@ -1206,7 +1206,7 @@ const sessions = await db
       'groupArray skips NULL values.',
       'groupArraySorted(N)(col) takes a single column and returns its N smallest values in ascending order.',
     ],
-    relatedFunctions: ['arrayMap', 'arrayFilter', 'uniq', 'count', 'arrayJoin', 'arraySort'],
+    relatedFunctions: ['arrayJoin', 'arraySort', 'groupArrayMovingAvg', 'arrayReduce'],
     relatedPillars: [
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
