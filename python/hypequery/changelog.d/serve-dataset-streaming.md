@@ -9,4 +9,5 @@
   cached, and stop the query when the caller goes. They need `to_asgi_app`;
   WSGI, Django views and Flask answer with the usual page. Under a
   `ProductionProfile` a stream holds its slot, runs within `timeout_seconds`
-  and ends with a `PAYLOAD_TOO_LARGE` frame at `max_result_bytes`.
+  and stops at `max_result_bytes`: NDJSON with a `PAYLOAD_TOO_LARGE` frame,
+  Arrow broken off before its end-of-stream marker.

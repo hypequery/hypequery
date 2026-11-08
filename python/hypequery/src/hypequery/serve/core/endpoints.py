@@ -30,6 +30,7 @@ from ..models import (
     QueryResponse,
 )
 from ..utils.metric_alias import MetricAlias
+from ..utils.prefixed_stream import Prefixed
 from ..utils.query_response import public_response, public_rows
 from ..utils.query_schema import endpoint_query_model
 from ..utils.related_fields import (
@@ -242,7 +243,7 @@ class DatasetEndpointCore:
         body = self._stream_body(call, query, stream_format, include_meta)
         first = await anext(body)
         media = NDJSON_MEDIA_TYPE if stream_format == "ndjson" else ARROW_STREAM_MEDIA_TYPE
-        return ServeResponse.streamed(_Prefixed(first, body), media)
+        return ServeResponse.streamed(Prefixed(first, body), media)
 
     async def _stream_body(
         self, call: Call, query: DatasetQuery, stream_format: StreamFormat, include_meta: bool
@@ -274,6 +275,14 @@ class DatasetEndpointCore:
             try:
                 stream = await anext(batches)
                 encoder = ArrowIpcEncoder(stream.schema) if stream_format == "arrow" else None
+                reserve = (
+                    max(
+                        len(error_frame("PAYLOAD_TOO_LARGE", TOO_LARGE)),
+                        len(error_frame("QUERY_FAILURE", QUERY_FAILED)),
+                    )
+                    if encoder is None
+                    else 0
+                )
                 start = (
                     encoder.start()
                     if encoder is not None
@@ -295,7 +304,9 @@ class DatasetEndpointCore:
                         count = len(batch)
                     else:
                         continue
-                    if budget is not None and sent + len(chunk) > budget:
+                    # Room is kept for the error frame, so even a refused body
+                    # stays within the ceiling.
+                    if budget is not None and sent + len(chunk) + reserve > budget:
                         raise CompiledQueryError("too-large", TOO_LARGE)
                     rows += count
                     sent += len(chunk)
@@ -313,6 +324,15 @@ class DatasetEndpointCore:
             except (Exception, asyncio.CancelledError) as exc:
                 failure = exc
                 state.work.cancel()
+                if (
+                    answering
+                    and isinstance(exc, CompiledQueryError)
+                    and exc.category == "aborted"
+                    and lifetime.cancellation.is_set()
+                ):
+                    # The caller has gone: nothing is left to tell, so the
+                    # stream ends quietly rather than as a server error.
+                    return
                 # Before the first byte, the request fails with its status; an
                 # Arrow stream breaks off; NDJSON ends with an error frame.
                 if not answering or encoder is not None or not isinstance(exc, Exception):
@@ -544,28 +564,3 @@ def _query_handler(endpoint: DatasetEndpointCore) -> Handler:
         return await endpoint.respond(call, payload)
 
     return metric_query
-
-
-class _Prefixed:
-    """*first*, already read, then the rest of *rest*.
-
-    Closing it always closes *rest*, which has started: an unstarted async
-    generator's ``aclose`` would skip the ``finally`` that ends the query.
-    """
-
-    def __init__(self, first: bytes, rest: AsyncGenerator[bytes, None]) -> None:
-        self._first: bytes | None = first
-        self._rest = rest
-
-    def __aiter__(self) -> _Prefixed:
-        return self
-
-    async def __anext__(self) -> bytes:
-        if self._first is not None:
-            first, self._first = self._first, None
-            return first
-        return await anext(self._rest)
-
-    async def aclose(self) -> None:
-        self._first = None
-        await self._rest.aclose()

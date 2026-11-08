@@ -122,8 +122,9 @@ stream with an `error` frame instead of `end`, and breaks an Arrow stream off be
 Streaming needs a host that writes a response as it is produced: `to_asgi_app` (uvicorn, a FastAPI or Starlette mount,
 Django's ASGI handler). Under WSGI, the Django views and Flask, a stream request gets the usual JSON page. With a
 `ProductionProfile`, a stream holds its admission slot until it ends, its whole run counts against `timeout_seconds`,
-`max_result_rows` caps its rows, and once it would pass `max_result_bytes` it ends with a `PAYLOAD_TOO_LARGE` error
-frame. Metric endpoints and strict client endpoints answer with pages.
+`max_result_rows` caps its rows, and `max_result_bytes` caps what it writes: an NDJSON stream that would pass it ends
+with a `PAYLOAD_TOO_LARGE` error frame, and an Arrow stream is broken off before its end-of-stream marker. Metric
+endpoints and strict client endpoints answer with pages.
 
 ## Discovery
 

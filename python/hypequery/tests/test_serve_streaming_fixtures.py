@@ -367,7 +367,8 @@ def test_a_production_byte_ceiling_ends_the_stream_with_an_error_frame() -> None
         "type": "error",
         "error": {"type": "PAYLOAD_TOO_LARGE", "message": "The response exceeds its byte limit."},
     }
-    assert len(response.content) <= 1024 + len(response.text.splitlines()[-1]) + 1
+    # The error frame fits within the ceiling too.
+    assert len(response.content) <= 1024
 
 
 class _Wide(Executor):
@@ -469,7 +470,7 @@ def test_closing_a_streamed_body_before_reading_ends_its_query() -> None:
     import asyncio
     from collections.abc import AsyncGenerator
 
-    from hypequery.serve.core.endpoints import _Prefixed
+    from hypequery.serve.utils.prefixed_stream import Prefixed
 
     ended: list[bool] = []
 
@@ -484,7 +485,7 @@ def test_closing_a_streamed_body_before_reading_ends_its_query() -> None:
         rest = body()
         first = await anext(rest)
         # A host that never iterates still closes the response.
-        await _Prefixed(first, rest).aclose()
+        await Prefixed(first, rest).aclose()
 
     asyncio.run(run())
     assert ended == [True]
@@ -530,17 +531,27 @@ def test_a_cancelled_open_returns_at_once_and_holds_its_work_until_closed() -> N
     asyncio.run(run())
 
 
-def test_the_closing_frame_counts_against_the_byte_ceiling() -> None:
-    from hypequery.serve.utils.stream_frames import frame
+@pytest.mark.parametrize(
+    ("spare", "kinds"), [(0, ["start", "rows", "end"]), (1, ["start", "error"])]
+)
+def test_the_closing_frame_fits_within_the_byte_ceiling(spare: int, kinds: list[str]) -> None:
+    from hypequery.serve.core.production_limits import TOO_LARGE
+    from hypequery.serve.utils.stream_frames import QUERY_FAILED, error_frame, frame
 
     budget = 1024
     start = frame({"type": "start"})
+    # Every rows frame leaves room for whichever error frame could end the stream.
+    reserve = max(
+        len(error_frame("PAYLOAD_TOO_LARGE", TOO_LARGE)),
+        len(error_frame("QUERY_FAILURE", QUERY_FAILED)),
+    )
 
     def rows_frame(pad: int) -> bytes:
         return frame({"type": "rows", "data": [{APP["dimension"]: "x" * pad, APP["measure"]: "1"}]})
 
-    # Rows that leave three bytes: room for no closing frame.
-    pad = next(p for p in range(2000) if len(start) + len(rows_frame(p)) == budget - 3)
+    pad = next(
+        p for p in range(2000) if len(start) + len(rows_frame(p)) + reserve == budget + spare
+    )
 
     class Padded(Executor):
         def stream(self, compiled: CompiledQuery) -> Any:
@@ -586,8 +597,10 @@ def test_the_closing_frame_counts_against_the_byte_ceiling() -> None:
         content=json.dumps({"dimensions": [APP["dimension"]]}).encode(),
     )
     frames = [json.loads(line) for line in response.text.splitlines()]
-    assert [f["type"] for f in frames] == ["start", "rows", "error"]
-    assert frames[-1]["error"]["type"] == "PAYLOAD_TOO_LARGE"
+    assert [f["type"] for f in frames] == kinds
+    if kinds[-1] == "error":
+        assert frames[-1]["error"]["type"] == "PAYLOAD_TOO_LARGE"
+    assert len(response.content) <= budget
 
 
 def test_an_interrupted_stream_is_reported_as_a_failed_query() -> None:
@@ -657,3 +670,134 @@ def test_an_interrupted_stream_is_reported_as_a_failed_query() -> None:
     asyncio.run(run())
     assert [event["outcome"] for event in events] == ["failure"]
     assert events[0]["errorCategory"] == "aborted"
+
+
+def test_a_sync_stream_whose_caller_left_ends_quietly() -> None:
+    import asyncio
+    import time
+
+    from hypequery.serve import QueryEvents, to_asgi_app
+
+    events: list[dict[str, object]] = []
+
+    class Slow(Executor):
+        def stream(self, compiled: CompiledQuery) -> Any:
+            columns, _ = _selected(compiled)
+
+            class _Stream:
+                def __init__(self) -> None:
+                    self.columns = columns
+
+                def __iter__(self) -> Iterator[Rows]:
+                    for i in range(50):
+                        time.sleep(0.02)
+                        yield Rows(columns, ((f"C{i}", i),))
+
+                def close(self) -> None:
+                    pass
+
+            return _Stream()
+
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+    )
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        events=QueryEvents(target={"project": "sdk", "environment": "test"}, sink=events.append),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_dataset_client(executor=Slow()),
+        policy=EndpointPolicy(stream_max_rows=100),
+    )
+    body = json.dumps({"dimensions": [APP["dimension"]]}).encode()
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": PATH,
+        "raw_path": PATH.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "scheme": "http",
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+        "headers": [
+            (b"host", b"testserver"),
+            (b"content-type", b"application/json"),
+            (b"accept", b"application/x-ndjson"),
+            (b"authorization", b"Bearer x"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+    }
+
+    async def run() -> None:
+        calls = 0
+
+        async def receive() -> dict[str, object]:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return {"type": "http.request", "body": body, "more_body": False}
+            await asyncio.sleep(0.1)
+            return {"type": "http.disconnect"}
+
+        async def send(message: Any) -> None:
+            return None
+
+        # No exception reaches the server: the caller left, nothing failed.
+        await to_asgi_app(api)(scope, receive, send)
+
+    asyncio.run(run())
+    assert [event["outcome"] for event in events] == ["failure"]
+    assert events[0]["errorCategory"] == "aborted"
+
+
+def test_handle_answers_a_page_even_for_a_streaming_request() -> None:
+    import asyncio
+
+    from hypequery.serve import ServeRequest
+    from hypequery.serve.core.messages import Headers
+
+    case = {"accept": "application/x-ndjson", "json": {"dimensions": [APP["dimension"]]}}
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+    )
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+        limits=DatasetLimits(max_result_size=APP["maxResultSize"]),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_dataset_client(executor=Executor()),
+        policy=EndpointPolicy(max_limit=2, stream_max_rows=4),
+    )
+    request = ServeRequest(
+        method="POST",
+        path=PATH,
+        headers=Headers(
+            [
+                ("host", "testserver"),
+                ("content-type", "application/json"),
+                ("accept", case["accept"]),
+                ("authorization", "Bearer x"),
+            ]
+        ),
+        body=json.dumps(case["json"]).encode(),
+        streaming=True,
+    )
+    response = asyncio.run(api.handle(request))
+    assert response.stream is None
+    assert response.headers["content-type"] == "application/json"
+    assert len(json.loads(response.body)["data"]) == 2

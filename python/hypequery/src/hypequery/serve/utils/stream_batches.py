@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, Callable
+import logging
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 from ...datasets.client import AsyncDatasetClient, DatasetClient
+from ...datasets.planner import CompiledQueryError
 from ..core.work import RequestWork, run_sync
+
+_log = logging.getLogger("hypequery.serve")
 
 _END: Any = object()
 
@@ -30,7 +34,7 @@ async def client_batches(
             async for batch in stream:
                 yield batch
         return
-    stream = await run_sync(work, open_stream, client)
+    stream = await _worker_result(run_sync(work, open_stream, client))
     # The worker call in flight, if any. A cancelled caller stops waiting for
     # it, but the stream may only close once it has returned: closing while it
     # still runs could miss the response it is about to open.
@@ -39,7 +43,7 @@ async def client_batches(
     async def call(function: Callable[..., Any], *args: Any) -> Any:
         nonlocal pending
         pending = work.start_sync(function, *args)
-        return await asyncio.shield(pending)
+        return await _worker_result(asyncio.shield(pending))
 
     try:
         await call(stream.__enter__)
@@ -60,6 +64,23 @@ async def client_batches(
             await asyncio.shield(closing)
 
 
+async def _worker_result(waiting: Awaitable[Any]) -> Any:
+    """What a worker call returned; ``aborted`` when the request's work was cancelled.
+
+    A worker refuses to start once the request is cancelled (the caller left)
+    and reports it as ``CancelledError``, though nothing cancelled this task.
+    Left as is, it would escape the ASGI application as a server error.
+    """
+
+    try:
+        return await waiting
+    except asyncio.CancelledError:
+        current = asyncio.current_task()
+        if current is not None and current.cancelling():
+            raise
+        raise CompiledQueryError("aborted", "The request was cancelled.") from None
+
+
 #: Closes still running, kept referenced until they finish.
 _CLOSING: set[asyncio.Task[None]] = set()
 
@@ -74,4 +95,8 @@ async def _close_after(work: RequestWork, stream: Any, pending: asyncio.Task[Any
     if pending is not None and not pending.done():
         await asyncio.wait((pending,))
     closing = work.start_cleanup(stream.close)
-    await (closing if closing is not None else asyncio.to_thread(stream.close))
+    try:
+        await (closing if closing is not None else asyncio.to_thread(stream.close))
+    except Exception:
+        # The response is over either way; its query event must still be sent.
+        _log.warning("Closing a dataset stream failed", exc_info=True)
