@@ -421,7 +421,7 @@ The main reason to pick chDB is what this guide showed: a query you write and te
 
 ## How do you turn chDB metrics into an API?
 
-Mount hypequery's Serve API in a FastAPI app over an async chDB executor, and the dataset above becomes an HTTP endpoint. This ran locally with uvicorn:
+Mount hypequery's Serve API in a FastAPI app over an async chDB executor, and the dataset above becomes an HTTP endpoint. This ran locally with FastAPI 0.162.2 and uvicorn 0.54.0:
 
 ```python
 from contextlib import asynccontextmanager
@@ -461,6 +461,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/analytics", to_asgi_app(api))
+```
+
+Save it as `main.py` next to `metrics.py`. FastAPI and uvicorn aren't part of the earlier install, so add them, start the server, and query it from another terminal:
+
+```bash
+pip install fastapi "hypequery[server]==0.1.0b3"
+uvicorn main:app --port 8000
 ```
 
 ```bash
