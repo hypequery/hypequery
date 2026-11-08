@@ -764,7 +764,6 @@ def test_handle_answers_a_page_even_for_a_streaming_request() -> None:
     from hypequery.serve import ServeRequest
     from hypequery.serve.core.messages import Headers
 
-    case = {"accept": "application/x-ndjson", "json": {"dimensions": [APP["dimension"]]}}
     api = create_api(
         auth=lambda credential: Principal(subject="alice"),
         security=HttpSecurity(allowed_hosts=("testserver",)),
@@ -790,14 +789,114 @@ def test_handle_answers_a_page_even_for_a_streaming_request() -> None:
             [
                 ("host", "testserver"),
                 ("content-type", "application/json"),
-                ("accept", case["accept"]),
+                ("accept", "application/x-ndjson"),
                 ("authorization", "Bearer x"),
             ]
         ),
-        body=json.dumps(case["json"]).encode(),
+        body=json.dumps({"dimensions": [APP["dimension"]]}).encode(),
         streaming=True,
     )
     response = asyncio.run(api.handle(request))
     assert response.stream is None
     assert response.headers["content-type"] == "application/json"
     assert len(json.loads(response.body)["data"]) == 2
+
+
+def test_a_stream_past_the_production_deadline_is_broken_off_not_ended() -> None:
+    import asyncio
+    from collections.abc import AsyncIterator
+
+    from hypequery.datasets import create_async_dataset_client
+    from hypequery.serve import to_asgi_app
+
+    class SlowAsync:
+        """An async driver that, like run_with_policy, reports its caller's
+        cancellation as an aborted query."""
+
+        async def execute(self, compiled: CompiledQuery) -> Rows:
+            raise AssertionError("a stream must not run a page")
+
+        async def stream(self, compiled: CompiledQuery) -> Any:
+            columns, _ = _selected(compiled)
+
+            class _Stream:
+                def __init__(self) -> None:
+                    self.columns = columns
+
+                def __aiter__(self) -> AsyncIterator[Rows]:
+                    return self
+
+                async def __anext__(self) -> Rows:
+                    try:
+                        await asyncio.sleep(0.2)
+                    except asyncio.CancelledError:
+                        raise CompiledQueryError("aborted", "") from None
+                    return Rows(columns, (("C", 1),))
+
+                async def aclose(self) -> None:
+                    pass
+
+            return _Stream()
+
+    dataset = Dataset(
+        name=APP["dataset"],
+        source=APP["source"],
+        dimensions={APP["dimension"]: dimension("string", column=APP["column"])},
+        measures={APP["measure"]: measure(count(APP["measureField"]))},
+    )
+    api = create_api(
+        auth=lambda credential: Principal(subject="alice"),
+        security=HttpSecurity(allowed_hosts=("testserver",)),
+        production=ProductionProfile(timeout_seconds=1),
+    )
+    add_dataset_endpoint(
+        api,
+        PATH,
+        dataset=dataset,
+        client=create_async_dataset_client(executor=SlowAsync()),
+        policy=EndpointPolicy(stream_max_rows=10_000),
+    )
+    body = json.dumps({"dimensions": [APP["dimension"]]}).encode()
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": PATH,
+        "raw_path": PATH.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "scheme": "http",
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+        "headers": [
+            (b"host", b"testserver"),
+            (b"content-type", b"application/json"),
+            (b"accept", b"application/x-ndjson"),
+            (b"authorization", b"Bearer x"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+    }
+    written: list[bytes] = []
+
+    async def run() -> None:
+        delivered = False
+
+        async def receive() -> dict[str, object]:
+            nonlocal delivered
+            if not delivered:
+                delivered = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await asyncio.Event().wait()
+            raise AssertionError
+
+        async def send(message: Any) -> None:
+            if message["type"] == "http.response.body":
+                written.append(message.get("body", b""))
+
+        # The deadline passed mid-body: the transport must close the connection.
+        with pytest.raises(TimeoutError):
+            await to_asgi_app(api)(scope, receive, send)
+
+    asyncio.run(run())
+    frames = [json.loads(line) for line in b"".join(written).decode().splitlines()]
+    assert frames[0]["type"] == "start"
+    assert frames[-1]["type"] == "rows"

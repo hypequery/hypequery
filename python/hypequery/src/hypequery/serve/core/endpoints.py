@@ -323,12 +323,25 @@ class DatasetEndpointCore:
                 completed = True
             except (Exception, asyncio.CancelledError) as exc:
                 failure = exc
+                # Read before cancelling the work, which sets the same flag:
+                # only a caller who left has set it by now.
+                caller_gone = lifetime.cancellation.is_set()
                 state.work.cancel()
+                current = asyncio.current_task()
+                if (
+                    not isinstance(exc, asyncio.CancelledError)
+                    and current is not None
+                    and current.cancelling()
+                ):
+                    # The production deadline cancelled the request while a
+                    # driver turned that into a query error: the cancellation
+                    # goes on, so the gate breaks the response off.
+                    raise asyncio.CancelledError from None
                 if (
                     answering
+                    and caller_gone
                     and isinstance(exc, CompiledQueryError)
                     and exc.category == "aborted"
-                    and lifetime.cancellation.is_set()
                 ):
                     # The caller has gone: nothing is left to tell, so the
                     # stream ends quietly rather than as a server error.
