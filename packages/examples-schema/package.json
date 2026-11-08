@@ -1,0 +1,58 @@
+{
+  "name": "@hypequery/examples-schema",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod schemas and validator for the hypequery examples registry (examples/*/example.json, recipes/*/recipe.json)",
+  "keywords": [
+    "hypequery",
+    "examples",
+    "manifest",
+    "zod",
+    "json-schema"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "hypequery-examples-validate": "./dist/bin/validate.js"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint \"src/**/*.ts\" && pnpm build && node dist/bin/json-schema.js --check && node dist/bin/validate.js",
+    "validate": "pnpm build && node dist/bin/validate.js",
+    "schema:write": "pnpm build && node dist/bin/json-schema.js",
+    "test": "vitest run",
+    "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/examples-schema"
+  },
+  "homepage": "https://hypequery.com",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
+  }
+}

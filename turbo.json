@@ -38,6 +38,20 @@
       "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/website-next/docs/telemetry.mdx"]
     },
+    "@hypequery/examples-schema#lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/examples/*/example.json",
+        "$TURBO_ROOT$/examples/*/README.md",
+        "$TURBO_ROOT$/examples/*/**/*.ts",
+        "$TURBO_ROOT$/examples/*/**/*.tsx",
+        "$TURBO_ROOT$/recipes/*/recipe.json",
+        "$TURBO_ROOT$/recipes/*/README.md",
+        "$TURBO_ROOT$/recipes/*/**/*.ts",
+        "$TURBO_ROOT$/recipes/*/**/*.sql",
+        "$TURBO_ROOT$/recipes/*/**/*.json"
+      ]
+    },
     "lint": {},
     "dev": {
       "cache": false,
