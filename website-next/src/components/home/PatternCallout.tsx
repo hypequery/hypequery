@@ -1,12 +1,12 @@
 import Link from 'next/link';
 
-/** The problem, stated once, with the companies that built this backend themselves as proof. */
+/** The problem, stated once, with the companies that built this layer themselves as proof. */
 export function PatternCallout() {
   return (
     <section aria-labelledby="pattern-callout-title" className="mx-auto max-w-[1280px] px-5 pt-6 sm:px-8">
       <div className="grid items-center gap-x-12 gap-y-4 border-y border-border max-md:py-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:py-7">
         <h2 id="pattern-callout-title" className="font-normal leading-snug tracking-[-0.02em] text-text max-md:text-lg md:text-xl">
-          Every team that scales ClickHouse ends up building this backend.
+          Give your agents numbers you can trust.
         </h2>
         <div>
           <p className="text-sm leading-6 text-text-muted sm:text-base">
@@ -16,7 +16,7 @@ export function PatternCallout() {
             >
               Read why
             </Link>{' '}
-            Uber, Cloudflare, and Instacart each built their own. hypequery is that backend as a library you own.
+            Uber, Cloudflare, and Instacart each built their own analytics layer on ClickHouse. hypequery gives you that layer as code you own.
           </p>
         </div>
       </div>

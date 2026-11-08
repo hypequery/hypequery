@@ -615,6 +615,11 @@ html[data-theme="dark"] .home-page .shiki code {
 .feature-detail-link:hover svg { transform: translateX(3px); }
 .feature-detail-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .feature-detail-link svg { transition: none; } }
+/* Cards in a row share their five tracks (header, title, copy, proof, link), so proofs line up top and bottom. */
+@supports (grid-template-rows: subgrid) {
+  .product-feature-grid > article { display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 0; }
+  .product-feature-grid .feature-proof { margin-top: 0; }
+}
 
 .static-code { font-size: 11px; line-height: 1.7; }
 .static-code .shiki { margin: 0; background: transparent !important; }

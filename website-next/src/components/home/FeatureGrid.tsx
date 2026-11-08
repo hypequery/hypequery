@@ -7,13 +7,13 @@ export function FeatureGrid() {
   return (
     <section aria-labelledby="feature-grid-title" className="mx-auto max-w-[1280px] px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
       <div className="mb-8 max-w-[620px] sm:max-w-none">
-        <h2 id="feature-grid-title" className="home-section-title text-text sm:whitespace-nowrap">Built for production from day one</h2>
-        <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Tenant isolation, joins, access control, and caching are part of the model, so every tool gets them for free.</p>
+        <h2 id="feature-grid-title" className="home-section-title text-text sm:whitespace-nowrap">The hard parts, handled</h2>
+        <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">Tenant isolation, joins, access control and caching live in the model, so every dashboard, API and agent inherits them.</p>
       </div>
       <div className="product-feature-grid grid gap-4">
         <FeatureCard number="01" animationDelay={0} topRight={<LockKeyhole className="h-5 w-5 text-accent" aria-hidden="true" />}>
           <h3>Keep customers isolated</h3>
-          <p>Every query is scoped to the signed-in customer. No tenant context? The query is rejected.</p>
+          <p>Every query is scoped to the signed-in customer, enforced in the model rather than in each endpoint.</p>
           <div className="feature-proof" role="img" aria-label="An authenticated tenant scopes each query; missing tenant context is rejected">
             <div className="flex items-center gap-2 text-xs"><KeyRound className="h-3.5 w-3.5 text-accent" aria-hidden="true" /><span>Authenticated tenant</span><code className="ml-auto text-text-muted">acme</code></div>
             <div className="mt-3 border-t border-border pt-3 font-mono text-[11px] text-text-muted">WHERE tenant_id = <span className="text-accent">&apos;acme&apos;</span></div>
@@ -35,7 +35,7 @@ export function FeatureGrid() {
         </FeatureCard>
 
         <FeatureCard number="03" animationDelay={140} topRight={<Network className="h-5 w-5 text-accent" aria-hidden="true" />}>
-          <h3>Connect your business data</h3>
+          <h3>Joins, written for you</h3>
           <p>Declare relationships once. hypequery writes the joins.</p>
           <div className="feature-proof" role="img" aria-label="Orders connect to customers to group revenue by customer country">
             <div className="flex items-center gap-3 font-mono text-[11px]"><span className="rounded-md border border-border px-3 py-2">orders</span><span className="h-px flex-1 bg-border-strong" aria-hidden="true" /><span className="rounded-md border border-border px-3 py-2">customers</span></div>
@@ -47,7 +47,7 @@ export function FeatureGrid() {
 
         <FeatureCard number="04" animationDelay={210} topRight={<ShieldCheck className="h-5 w-5 text-accent" aria-hidden="true" />}>
           <h3>Control what&apos;s queryable</h3>
-          <p>Publish only the fields you choose. Agent tools reject anything else.</p>
+          <p>Publish only the fields you choose. Queries and agent tools reject anything else.</p>
           <div className="feature-proof" role="img" aria-label="Declared revenue measure is accepted; an undeclared field is rejected">
             <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted">Published query contract</div>
             <div className="mt-3 flex items-center gap-2 font-mono text-[11px]"><Check className="h-3.5 w-3.5 text-accent" aria-hidden="true" /><span>revenue</span><span className="ml-auto font-sans text-text-muted">Declared measure</span></div>
@@ -67,8 +67,8 @@ export function FeatureGrid() {
         </FeatureCard>
 
         <FeatureCard number="06" animationDelay={350} topRight={<Zap className="h-5 w-5 text-accent" aria-hidden="true" />}>
-          <h3>Fast, without leaking</h3>
-          <p>Repeated questions are cached, with separate cache entries for every tenant.</p>
+          <h3>Cached per tenant</h3>
+          <p>Repeated questions come from cache, never from another tenant&apos;s.</p>
           <div className="feature-proof" role="img" aria-label="A repeated query can use a cached result for the same tenant, with a 60 second freshness window">
             <div className="flex items-center justify-between gap-2 text-xs"><span>Repeated query</span><span className="flex items-center gap-1 text-[11px] text-accent"><Zap className="h-3 w-3" aria-hidden="true" />Cache hit</span></div>
             <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-text-muted"><span>Fresh for</span><span className="text-text">60 seconds</span></div>
