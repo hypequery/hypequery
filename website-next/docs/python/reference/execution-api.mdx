@@ -39,6 +39,14 @@ at a time. See [Embedded ClickHouse (chDB)](/docs/python/datasets/chdb).
 
 Pass the executor to `create_dataset_client(executor=...)` or `create_async_dataset_client(executor=...)`.
 
+### Streaming
+
+Every executor above also implements `stream(compiled)` and `stream_arrow(compiled)`, which the clients' `stream` and
+`stream_arrow` call. ClickHouse Arrow streams read the server's `ArrowStream` body and decode it as it arrives, so a
+query that fails partway reports ClickHouse's error rather than a broken connection. A custom executor streams by
+implementing `StreamingQueryExecutor` (or `AsyncStreamingQueryExecutor`) from `hypequery.datasets.client`; a client
+given an executor without it raises `TypeError` from `stream`.
+
 ## Results and read-only policy
 
 `QueryRows` is the row type executors return.

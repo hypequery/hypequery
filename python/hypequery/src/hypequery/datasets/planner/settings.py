@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Final
 
 from .errors import CompiledQueryError
 
@@ -80,6 +81,41 @@ def query_settings(**overrides: int) -> QuerySettings:
 
 
 DEFAULT_QUERY_SETTINGS = query_settings()
+
+#: The largest ``max_result_bytes`` a stream may run under. A stream's memory
+#: stays flat whatever its size, so rows and time bound it; this ceiling, far
+#: above the 1 GiB a buffered result may reach, only stops a runaway.
+STREAM_MAX_RESULT_BYTES: Final = 1 << 40
+
+
+def setting_maximum(name: str, *, stream: bool = False) -> int:
+    """The largest value *name* may take on the wire, for a page or a stream."""
+
+    if stream and name == "max_result_bytes":
+        return STREAM_MAX_RESULT_BYTES
+    return SETTING_DEFINITIONS[name].maximum
+
+
+def stream_query_settings(base: QuerySettings, max_result_bytes: int | None) -> QuerySettings:
+    """*base* for a stream: the same limits, but ``max_result_bytes`` of its own.
+
+    Only a trusted component calls this, with a value in
+    [1, ``STREAM_MAX_RESULT_BYTES``]; a request context still tightens it.
+    Without one, a stream keeps a ``max_result_bytes`` *base* set and takes
+    ``STREAM_MAX_RESULT_BYTES`` in place of the default: a byte budget an
+    operator chose is never loosened unasked.
+    """
+
+    if max_result_bytes is None:
+        default = SETTING_DEFINITIONS["max_result_bytes"].default
+        chosen = base["max_result_bytes"]
+        max_result_bytes = STREAM_MAX_RESULT_BYTES if chosen == default else chosen
+    if type(max_result_bytes) is not int or not 1 <= max_result_bytes <= STREAM_MAX_RESULT_BYTES:
+        raise CompiledQueryError(
+            "internal",
+            f"stream max_result_bytes must be an integer in [1, {STREAM_MAX_RESULT_BYTES}]",
+        )
+    return QuerySettings(values={**base.values, "max_result_bytes": max_result_bytes})
 
 
 def tighten_query_settings(base: QuerySettings, ceiling: QuerySettings | None) -> QuerySettings:
