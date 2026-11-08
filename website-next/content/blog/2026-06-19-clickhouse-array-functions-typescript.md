@@ -250,3 +250,4 @@ That's a deliberate design position rather than a gap. Array function calls are 
 - [How to use ARRAY JOIN in ClickHouse with TypeScript](/blog/clickhouse-array-join-typescript) — the flattening side in full: multiple arrays, LEFT ARRAY JOIN, tag explosion patterns.
 - [Filter operators in the hypequery builder](/blog/clickhouse-filter-operators-typescript) — the typed `.where()` surface used alongside every array expression above.
 - [ClickHouse for product analytics](/clickhouse-product-analytics) — the broader event-analytics patterns that journeys, tags, and engagement metrics feed into.
+- [groupArray()](/clickhouse/functions/group-array): how to keep values in timestamp order, since groupArray doesn't guarantee row order.
