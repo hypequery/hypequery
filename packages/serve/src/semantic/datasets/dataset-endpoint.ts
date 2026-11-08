@@ -24,13 +24,21 @@ import type {
 } from '@hypequery/datasets';
 import { buildDatasetInputSchema } from '@hypequery/datasets/schemas';
 import type { DatasetQuery } from '@hypequery/datasets/internal';
+import { datasetForStream } from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
-import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
+import { resolveDatasetEntry, resolveStreamMaxRows, type DatasetEntry } from './utils/dataset-entry.js';
+import {
+  ARROW_STREAM_MEDIA_TYPE,
+  NDJSON_MEDIA_TYPE,
+  requestedStreamFormat,
+} from './utils/stream-format.js';
+import { datasetNdjsonStream } from './utils/ndjson-frames.js';
+import { streamBody } from '../../utils/stream-body.js';
 import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
 import { endpointMaxLimit } from './utils/client-endpoint-profile.js';
 import { assertRelatedDatasetAccess, type RelatedDatasetPolicies } from './utils/related-dataset-policy.js';
@@ -77,6 +85,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
   const effectiveMaxLimit = endpointMaxLimit(ds, resolved.maxLimit);
+  const streamMaxRows = resolveStreamMaxRows(name, ds, resolved.stream, effectiveMaxLimit);
   // Build a schema whose dimension/measure/filter fields are enumerated from
   // this dataset's contract, so OpenAPI/docs and clients see the valid fields.
   const datasetQueryInputSchema = buildDatasetInputSchema(ds, {
@@ -116,6 +125,11 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     const input = ctx.input ?? {};
     const start = Date.now();
     const runtime = resolveSemanticExecutionRuntime(semanticContext);
+    // A stream is asked for with Accept; an endpoint that does not stream answers with a page.
+    const streamFormat = streamMaxRows === undefined
+      ? undefined
+      : requestedStreamFormat(ctx.request?.headers?.accept);
+    const rowCap = streamFormat ? streamMaxRows! : effectiveMaxLimit;
 
     // Validate
     const query: DatasetQuery = {
@@ -125,7 +139,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       having: input.having,
       segments: input.segments,
       orderBy: input.orderBy,
-      limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
+      limit: Math.min(input.limit ?? rowCap, rowCap),
       offset: input.offset,
       by: input.by,
       timeKey: input.timeKey,
@@ -133,7 +147,12 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     };
     assertRelatedDatasetAccess(ds, query, ctx.auth ?? null, relatedPolicies);
     const validationContext = runtime ? { runtime } : undefined;
-    const validation = analytics.validate(ds, query, validationContext);
+    // A stream is validated against the dataset's stream ceiling (maxStreamRows).
+    const validation = analytics.validate(
+      streamFormat ? datasetForStream(ds) : ds,
+      query,
+      validationContext,
+    );
     if (!validation.valid) {
       throw new ServeHttpError(
         400,
@@ -156,21 +175,34 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
         );
       }
     }
+    const executionRuntime = {
+      ...runtime,
+      builderFactory: runtimeBuilderFactory,
+      tenant: runtime?.tenant,
+    };
+    // Meta — opt in via the `includeMeta` input field or the x-include-meta header.
+    const includeMeta = input.includeMeta === true
+      || ctx.request?.headers?.['x-include-meta'] === 'true';
+
+    if (streamFormat === 'arrow') {
+      const { data } = await analytics.streamArrow(ds, query, { runtime: executionRuntime });
+      return streamBody(data, ARROW_STREAM_MEDIA_TYPE);
+    }
+    if (streamFormat === 'ndjson') {
+      const { data, meta } = await analytics.stream(ds, query, { runtime: executionRuntime });
+      const startMeta = includeMeta
+        ? semanticResponseMeta({ ...meta, timingMs: Date.now() - start }, resolved.trustedDiagnostics)
+        : undefined;
+      return streamBody(datasetNdjsonStream(data, startMeta), NDJSON_MEDIA_TYPE);
+    }
+
     const result = await analytics.execute(ds, query, {
-      runtime: {
-        ...runtime,
-        builderFactory: runtimeBuilderFactory,
-        tenant: runtime?.tenant,
-      },
+      runtime: executionRuntime,
       cache: typeof resolved.cache === 'number' && resolved.cache > 0
         ? { ttlMs: resolved.cache }
         : undefined,
     });
     const timingMs = Date.now() - start;
-
-    // Meta — opt in via the `includeMeta` input field or the x-include-meta header.
-    const includeMeta = input.includeMeta === true
-      || ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
       data: result.data,
