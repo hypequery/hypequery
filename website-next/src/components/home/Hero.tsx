@@ -20,18 +20,18 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
           <NpmDownloadsBadge counts={npmDownloads} />
           <OpenSourceBadge />
         </div>
-        <h1 className="mt-5 text-[clamp(2.25rem,4.6vw,4rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Connect{' '}
+        <h1 className="mt-5 text-[clamp(2rem,3.6vw,3.25rem)] font-normal leading-[1.06] tracking-[-0.045em] text-text">Connect{' '}
           <span className="ml-[0.18em] inline-flex items-center gap-[0.14em] whitespace-nowrap align-[-0.06em]">
             {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
             <span className="flex h-[0.86em] w-[0.86em] shrink-0 items-center justify-center rounded-[0.16em] bg-[#161517]" aria-hidden="true">
               <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />
             </span>
-            <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>
-          </span>.
+            <span className="whitespace-nowrap"><span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>.</span>
+          </span>
           <br />
           Ship analytics.
         </h1>
-        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Dashboards, APIs and AI agents for your customers, each seeing only their own data. Define it once in TypeScript or Python and run it in your own backend today. hypequery cloud, the hosted option, is in early access.</p>
+        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Define your metrics once, in TypeScript or Python. Serve them to dashboards, APIs and AI agents, with every customer seeing only their own data.</p>
         {/* The open-source path only. Cloud has its own section further down. */}
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link href="/docs/quick-start" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>

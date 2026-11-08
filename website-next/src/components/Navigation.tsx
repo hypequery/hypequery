@@ -9,7 +9,6 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
   return (
     <nav className={`fixed ${hasBanner ? 'top-[42px]' : 'top-0'} left-0 right-0 z-50 h-[62px] backdrop-blur-[14px] bg-bg/80 border-b border-border`}>
       <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between px-5 sm:px-8">
-        <div className="flex min-w-0 items-center">
         <Link href="/" className="inline-flex shrink-0 items-center gap-2 rounded-sm font-mono text-[15px] font-bold text-text tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
           <Image
             src="/mascot/hypequery-logo-compact-blink.svg"
@@ -21,8 +20,6 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
           />
           <span>hypequery</span>
         </Link>
-        <span className="ml-3 shrink-0 border-l border-border pl-3 text-[13px] leading-none text-text-muted max-lg:hidden">The analytics backend for ClickHouse</span>
-        </div>
         <div className="flex items-center gap-3 sm:gap-8">
         <ProductMenu />
         <Link href="/docs" className="nav-desktop-only text-[13.5px] font-medium text-text-muted transition hover:text-text">
