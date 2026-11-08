@@ -61,7 +61,7 @@ jobs:
         with:
           node-version: '22'
       - name: Test the discovery scripts
-        run: node --test scripts/examples/
+        run: node --test "scripts/examples/*.test.mjs"
       - id: ls
         name: List examples and recipes
         run: |
@@ -98,8 +98,9 @@ jobs:
       - name: Validate manifests
         run: pnpm examples:validate
 
+  # No `name`: GitHub appends the matrix values, so each job reads
+  # `smoke (examples/<slug>, example, <slug>, true)`.
   smoke:
-    name: ${{ matrix.dir }} (${{ github.event_name == 'schedule' && 'latest' || inputs.source || 'workspace' }})
     needs: discover
     if: needs.discover.outputs.count != '0'
     runs-on: ubuntu-latest
@@ -147,6 +148,7 @@ jobs:
       - name: Smoke test
         working-directory: ${{ matrix.dir }}
         run: |
+          echo "Testing ${{ matrix.dir }} against @hypequery/* from: $HYPEQUERY_SOURCE"
           if [ "$HYPEQUERY_SOURCE" = "latest" ]; then
             pnpm --ignore-workspace run test
           else
