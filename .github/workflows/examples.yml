@@ -132,6 +132,12 @@ jobs:
         # `<package>^...` selects dependencies only; the ./dir form would also
         # build the example itself, which its own `test` script does.
         run: pnpm turbo run build --filter='${{ matrix.package }}^...'
+      - name: Relink workspace binaries
+        if: env.HYPEQUERY_SOURCE == 'workspace'
+        # pnpm only creates a bin shim (e.g. `hypequery` from @hypequery/cli)
+        # if the target file exists at install time; the first install ran
+        # before the build, so link again now that dist/ exists.
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       # Latest mode: what a user gets from `npx hypequery create <slug>` today.
       - name: Point the example at published packages
