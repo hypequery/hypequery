@@ -187,7 +187,7 @@ All eight events are counted: four from before the view, two that arrived betwee
 
 The order matters. In a second run I did the backfill right after creating the view, before the cutoff had passed, and then inserted the same rows. The result was `raw_total 8, target_total 6`: the two events from 18:10 and 23:59 were older than the cutoff, so the view skipped them, and they did not exist yet when the backfill ran.
 
-Running the backfill twice is the other way to get it wrong. A second identical `INSERT INTO page_views_daily SELECT ...` took `target_total` from 8 to 14 (six pre-cutoff events counted again), because `SummingMergeTree` adds the duplicate counts together. If a backfill fails partway, delete or truncate what it wrote before running it again.
+Running the backfill twice is the other way to get it wrong. A second identical `INSERT INTO page_views_daily SELECT ...` took `target_total` from 8 to 14 (six pre-cutoff events counted again), because `SummingMergeTree` adds the duplicate counts together. If a backfill slice fails partway, don't truncate the target: it also holds the rows the live view wrote. Delete only the failed slice's days and rerun that slice, for example `ALTER TABLE page_views_daily DELETE WHERE day = '2026-11-06'`. That is safe for days that end before the cutoff, because the view's filter means it never writes them; the day the cutoff falls on holds rows from both, so recompute it last, from the source, after the cutoff has passed. Alternatively, backfill into a separate staging table with the same schema and insert from it into the target once every slice has succeeded.
 
 For large tables, run the backfill in slices (one day, or one partition, per statement) so that each statement reads less data and a failure only costs one slice:
 
@@ -201,7 +201,7 @@ GROUP BY day, page;
 
 The backfilling guide also describes inserting the history into a table with the `Null` engine that has a copy of the view attached, so the view transforms it block by block the same way it handles live inserts, without storing the raw rows a second time.
 
-Leaving the cutoff filter in the view is harmless once the cutoff is in the past, with one catch: a late row whose `ts` is before the cutoff, inserted after the backfill, is skipped by the view. If your data can arrive late, remove the filter with `ALTER TABLE ... MODIFY QUERY` (covered below) right after the backfill.
+This procedure assumes no rows older than the cutoff arrive while the backfill runs. A late row for 6 November that arrives after the 6 November slice has finished is skipped by the view, because of its filter, and missed by the slice, and changing the view afterwards does not bring it back. If your data can arrive late, either hold late ingestion until the backfill is done, or reconcile afterwards: for each day before the cutoff that may have received late rows, delete that day from the target and insert it again from the source. Once the backfill and any reconciliation are finished, remove the cutoff filter with `ALTER TABLE ... MODIFY QUERY` (covered below) so later late rows are counted.
 
 ## How do you aggregate with SummingMergeTree or AggregatingMergeTree?
 
