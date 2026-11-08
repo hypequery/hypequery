@@ -56,4 +56,4 @@ If you are running Postgres alongside ClickHouse (common in mixed workloads), us
 
 The quick start covers schema generation and your first typed ClickHouse query. If you are coming from Drizzle, the mental model transfers — schema first, then queries, then serving.
 
-For the broader context on TypeScript options for ClickHouse, read the [ClickHouse query builders comparison](/blog/clickhouse-query-builder-typescript) and the [ClickHouse TypeScript](/clickhouse-typescript) pillar page.
+For the broader context on TypeScript options for ClickHouse, read the [ClickHouse query builders comparison](/clickhouse-query-builder) and the [ClickHouse TypeScript](/clickhouse-typescript) pillar page.
