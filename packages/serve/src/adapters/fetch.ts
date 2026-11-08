@@ -6,6 +6,7 @@ import {
   parseRequestBody,
   serializeResponseBody,
 } from "./utils.js";
+import { isServeStreamBody } from "../utils/stream-body.js";
 
 export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
   return async (request: Request) => {
@@ -23,6 +24,18 @@ export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
     };
 
     const response = await handler(serveRequest);
+    if (isServeStreamBody(response.body)) {
+      if (isNullBodyStatus(response.status)) {
+        // These statuses carry no body: stop the stream rather than leave it open.
+        await response.body.stream.cancel().catch(() => undefined);
+        return new Response(null, { status: response.status, headers: response.headers });
+      }
+      // The runtime cancels the stream when the client goes away.
+      return new Response(response.body.stream, {
+        status: response.status,
+        headers: { ...response.headers, "content-type": response.body.contentType },
+      });
+    }
     const responseHeaders = {
       "content-type": "application/json; charset=utf-8",
       ...response.headers,

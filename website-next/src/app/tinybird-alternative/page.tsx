@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure',
+  title: 'Tinybird Alternative: Typed ClickHouse APIs, Self-Hosted',
   description:
     'Looking for a Tinybird alternative? hypequery + your own ClickHouse gives you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.',
   alternates: { canonical: absoluteUrl('/tinybird-alternative') },
@@ -198,7 +198,7 @@ export default function TinybirdAlternativePage() {
           description: 'The full comparison: infrastructure, pricing model, type safety, and code ownership.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'How @hypequery/serve turns query definitions into validated, documented endpoints.',
         },
@@ -216,7 +216,7 @@ export default function TinybirdAlternativePage() {
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
         { href: '/moosestack-alternative', label: 'MooseStack Alternative' },
       ]}

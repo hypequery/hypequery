@@ -1,7 +1,7 @@
 ---
 title: "hypequery vs Prisma: Why Prisma Does Not Work for ClickHouse"
 description: "Prisma does not support ClickHouse. If you want a schema-first TypeScript experience for ClickHouse analytics, hypequery is the alternative — built for the ClickHouse data model."
-seoTitle: "hypequery vs Prisma for ClickHouse — TypeScript Analytics Alternative"
+seoTitle: "hypequery vs Prisma for ClickHouse"
 seoDescription: "Prisma does not support ClickHouse. hypequery gives you the schema-first, TypeScript-first experience for ClickHouse analytics — without the wrong abstractions."
 pubDate: 2026-04-25
 heroImage: ""

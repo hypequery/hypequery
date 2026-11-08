@@ -203,7 +203,7 @@ export default function CubeJsAlternativePage() {
           description: 'The same datasets, defined and served from Python with FastAPI, Django, or Flask.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'How @hypequery/serve turns query definitions into validated, documented endpoints.',
         },

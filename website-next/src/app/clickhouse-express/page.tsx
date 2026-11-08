@@ -124,7 +124,7 @@ export default function ClickHouseExpressPage() {
       title="Mount typed ClickHouse analytics on your Express.js server"
       description="Most backend teams already have an Express.js server. Adding ClickHouse analytics means writing route handlers, request validation, auth extraction, and documentation. @hypequery/serve provides a framework-agnostic handler that you can mount in Express with the Node adapter — validated inputs, typed responses, and OpenAPI docs included."
       primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
-      secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API guide' }}
+      secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API guide' }}
       stats={[
         { label: 'Framework', value: 'Express.js' },
         { label: 'Package', value: '@hypequery/serve' },
@@ -213,7 +213,7 @@ export default function ClickHouseExpressPage() {
           description: 'Node.js-specific ClickHouse patterns — the foundation for Express integration.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'The complete guide to serving ClickHouse queries as typed REST endpoints.',
         },
@@ -230,7 +230,7 @@ export default function ClickHouseExpressPage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-nodejs', label: 'ClickHouse Node.js' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       ]}

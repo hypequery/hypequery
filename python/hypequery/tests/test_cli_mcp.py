@@ -185,7 +185,10 @@ def test_a_real_stdio_session(project: Path) -> None:
         parameters = mcp.StdioServerParameters(
             command=sys.executable,
             args=["-m", "hypequery", "mcp", "app:api", "--project", str(project)],
-            env={"HYPEQUERY_API_KEY": "secret", "PATH": ""},
+            # This env replaces the parent's, so PYTEST_CURRENT_TEST (the test
+            # opt-out) and HOME are gone: opt out explicitly, or every run sends
+            # telemetry from a fresh install id.
+            env={"HYPEQUERY_API_KEY": "secret", "PATH": "", "DO_NOT_TRACK": "1"},
         )
         async with mcp.Client(parameters) as client:
             tools = await client.list_tools()

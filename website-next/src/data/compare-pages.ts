@@ -361,7 +361,7 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-moose',
     title: 'hypequery vs Moose (MooseStack)',
     verdict:
-      'MooseStack has reached end of life and its GitHub repository is archived. Do not start a new production system on it. hypequery is the active, narrower replacement for typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools.',
+      'MooseStack has reached end of life and is no longer actively maintained. Do not start a new production system on it. hypequery is the active, narrower replacement for its query models, APIs, React hooks, and MCP tools, in TypeScript or Python.',
     rows: [
       {
         label: 'Project status',
@@ -381,7 +381,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         label: 'Scope',
         hypequery: 'Actively maintained TypeScript and Python packages inside your application',
-        alternative: 'Archived framework code can inform migration but should not be a new dependency',
+        alternative: 'Unmaintained framework code can inform migration but should not be a new dependency',
       },
     ],
     faq: [
@@ -393,7 +393,12 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Should I choose MooseStack for a new project?',
         answer:
-          'No. MooseStack’s maintainers announced end of life and archived the repository. Use the historical architecture as migration context, not as a new production dependency.',
+          'No. MooseStack’s maintainers announced end of life and the project is no longer actively maintained. Use the historical architecture as migration context, not as a new production dependency.',
+      },
+      {
+        question: 'I used MooseStack from Python. Is there a Python path?',
+        answer:
+          'Yes. The hypequery Python SDK (beta) defines the same datasets in Python, serves them from FastAPI, Django, or Flask, exposes them to agents with hypequery mcp, and feeds the same React hooks through an exported client contract. Python has no query builder; queries go through datasets.',
       },
       {
         question: 'Can hypequery replace every MooseStack module?',

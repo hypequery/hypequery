@@ -218,7 +218,7 @@ export default function ClickHouseDashboardPage() {
           description: 'Full guide to typed hooks and hook setup for ClickHouse dashboards.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Expose ClickHouse queries as a typed HTTP API without writing Express routes.',
         },
@@ -232,10 +232,15 @@ export default function ClickHouseDashboardPage() {
           title: 'Turn your ClickHouse schema into a type-safe analytics layer',
           description: 'The complete path from schema generation to working dashboard hooks.',
         },
+        {
+          href: '/blog/internal-analytics-tool-clickhouse-typescript',
+          title: 'How to Build an Internal Analytics Tool with ClickHouse and TypeScript',
+          description: 'Build an internal analytics tool on ClickHouse with TypeScript: generated types, a typed query builder, and a Next.js page — no BI platform required.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-react', label: 'ClickHouse React' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-saas-analytics', label: 'ClickHouse SaaS Analytics' },
       ]}

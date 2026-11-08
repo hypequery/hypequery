@@ -13,6 +13,7 @@ import { buildDerivedMetricSql } from './utils/metric-derived-query.js';
 import { overfetchLimit } from './utils/pagination.js';
 import { toMetricQueryResult } from './utils/metric-query-result.js';
 import { renderStatement } from './utils/statement-parameters.js';
+import { statementRunner, type StatementRunner } from './utils/statement-runner.js';
 
 export interface MetricQueryEngineOptions {
   /** Query builder factory for executing metrics. */
@@ -124,13 +125,30 @@ export class MetricQueryEngine {
     context: ExecutionContext | undefined,
     start: number,
   ): Promise<MetricResult<T>> {
+    const prepared = this.prepareMetricStatement(metric, query, context, 'execution');
+    const rows = await prepared.execute() as T[];
+    return toMetricQueryResult(rows, {
+      metric: getMetricRef(metric).name, query, sql: prepared.sql, timingMs: Date.now() - start, context,
+    });
+  }
+
+  /**
+   * Compile a validated metric query into something runnable. `execution`
+   * over-fetches one row so the result can report `hasMore` without a count
+   * query; `stream` runs the limit as is, since a stream reports no pagination.
+   */
+  protected prepareMetricStatement(
+    metric: MetricRef | GrainedMetricRef,
+    query: MetricQuery,
+    context: ExecutionContext | undefined,
+    mode: 'execution' | 'stream',
+  ): StatementRunner & { sql: string } {
     const ref = getMetricRef(metric);
     const grain = getMetricGrain(metric, query);
     const spec = ref.spec;
     const activeBuilderFactory = this.resolveBuilderFactory(context);
-
-    // Over-fetch one row so we can report `hasMore` without a count query.
-    const buildQuery = { ...query, limit: overfetchLimit(query.limit) };
+    const abortSignal = context?.abortSignal;
+    const buildQuery = mode === 'execution' ? { ...query, limit: overfetchLimit(query.limit) } : query;
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
@@ -140,21 +158,18 @@ export class MetricQueryEngine {
         ref.dataset,
         buildRelationshipBuilderContext(ref.dataset, buildQuery, context, resolveDatasetSqlDialect(activeBuilderFactory)),
       );
-      const { sql, parameters: params } = withFinalSafety(readsFinal, planned);
-      const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
-        abortSignal: context?.abortSignal,
-      });
-      return toMetricQueryResult(rows, {
-        metric: ref.name, query, sql, timingMs: Date.now() - start, context,
-      });
+      const statement = withFinalSafety(readsFinal, planned);
+      return {
+        sql: statement.sql,
+        ...statementRunner(activeBuilderFactory, { kind: 'raw', statement }, { abortSignal }),
+      };
     }
 
-    // Base metrics: fully use the builder's execute()
+    // Base metrics: fully use the builder, which carries its own settings.
     const builder = buildMetricQueryBuilder(ref, spec, ref.dataset, buildQuery, grain, activeBuilderFactory, context);
-    const { sql } = builder.toSQLWithParams();
-    const rows = await builder.execute<T>({ abortSignal: context?.abortSignal });
-    return toMetricQueryResult(rows, {
-      metric: ref.name, query, sql, timingMs: Date.now() - start, context,
-    });
+    return {
+      sql: builder.toSQLWithParams().sql,
+      ...statementRunner(activeBuilderFactory, { kind: 'builder', builder }, { abortSignal }),
+    };
   }
 }

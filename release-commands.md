@@ -39,6 +39,20 @@ and MCP stdio. Record package versions, registry integrity values, source SHA an
 qualification evidence. A green packed-development run alone does not establish
 registry availability or provenance.
 
+### MCP Registry
+
+When a stable release publishes `@hypequery/mcp`, main's `mcp-registry` job
+lists that version in the official MCP Registry as
+`io.github.hypequery/hypequery`. It publishes `packages/mcp-server/server.json`,
+whose versions the release version step keeps equal to the package's.
+
+- The registry accepts a version only if that npm release declares the matching
+  `mcpName`. The job waits for npm and fails if the field is missing.
+- To publish by hand, or to retry, run the **MCP Registry** workflow from the
+  Actions tab. It skips a version the registry already lists.
+- Validate a manifest locally with `mcp-publisher validate
+  packages/mcp-server/server.json`.
+
 ## Python SDK and CLI
 
 Python uses its own version, Towncrier fragments and PyPI release workflow. npm

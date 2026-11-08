@@ -274,7 +274,7 @@ export default function ClickHouseAuditLogPage() {
           description: 'Deeper treatment of tenant isolation patterns and safe multi-tenant query design.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Expose typed ClickHouse queries as HTTP endpoints with input validation.',
         },
@@ -291,7 +291,7 @@ export default function ClickHouseAuditLogPage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-saas-analytics', label: 'ClickHouse SaaS Analytics' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       ]}

@@ -162,7 +162,7 @@ That gets you a few things for free:
 - **Client generation.** Point any OpenAPI codegen tool at the document to generate typed clients in other languages.
 - **Interactive docs.** Serve the spec through Swagger UI or similar so consumers can explore and try endpoints from the browser.
 
-The property that makes this worth it: the docs cannot lie. Add a field to a zod schema and the OpenAPI output reflects it immediately — there is no second source of truth to keep in sync, no stale spec describing a parameter that was renamed two quarters ago. This is the difference between a documented [ClickHouse REST API](/clickhouse-rest-api) and a pile of undocumented handlers.
+The property that makes this worth it: the docs cannot lie. Add a field to a zod schema and the OpenAPI output reflects it immediately — there is no second source of truth to keep in sync, no stale spec describing a parameter that was renamed two quarters ago. This is the difference between a documented [ClickHouse REST API](/clickhouse-api) and a pile of undocumented handlers.
 
 ## The Same Query, In-Process or Over HTTP
 
@@ -240,7 +240,6 @@ Honest scoping: if you have one internal endpoint and no second consumer, a plai
 
 ## Where to Go From Here
 
-- [ClickHouse API design approaches](/clickhouse-api) — REST vs GraphQL vs tRPC for analytics endpoints, and when each fits.
-- [Serving a ClickHouse REST API](/clickhouse-rest-api) — the pillar page on exposing governed HTTP routes.
+- [Serving a ClickHouse REST API](/clickhouse-api) — the pillar page on exposing governed HTTP routes.
 - [ClickHouse OpenAPI guide](/clickhouse-openapi) — customizing the generated spec and generating typed clients from it.
 - [SaaS analytics API tutorial](/blog/saas-analytics-api-clickhouse-typescript) — the full-stack version: schema, semantic layer, serve, and frontend in one build.

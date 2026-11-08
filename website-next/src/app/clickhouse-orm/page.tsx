@@ -174,7 +174,7 @@ export default function ClickHouseOrmPage() {
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-schema', label: 'ClickHouse Schema' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

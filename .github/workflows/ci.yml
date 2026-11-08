@@ -110,7 +110,7 @@ jobs:
       - name: Run unit tests
         run: pnpm test
       - name: Setup uv for Python conformance
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -236,6 +236,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      # publishedPackages is a JSON list of { name, version } for this run.
+      mcp_published: ${{ steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '"@hypequery/mcp"') }}
 
     steps:
       - uses: actions/checkout@v7
@@ -256,6 +259,7 @@ jobs:
       - name: Build all hypequery packages
         run: pnpm turbo run build --filter='@hypequery/*'
       - name: Create release PR or publish packages
+        id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm release:version
@@ -265,3 +269,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # A stable @hypequery/mcp release is also listed in the official MCP Registry.
+  mcp-registry:
+    needs: release
+    if: needs.release.outputs.mcp_published == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/mcp-registry.yml

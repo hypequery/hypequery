@@ -164,6 +164,11 @@ export default function ClickHouseReactPage() {
           title: 'Turn your ClickHouse schema into a type-safe analytics layer',
           description: 'See the full path from schema generation to hooks.',
         },
+        {
+          href: '/blog/clickhouse-react-hooks',
+          title: 'ClickHouse React Hooks: Type-Safe Data Fetching Without the Boilerplate',
+          description: 'Use typed React hooks on top of your ClickHouse API instead of rebuilding fetch logic and response types in every component.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
