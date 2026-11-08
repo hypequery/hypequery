@@ -83,6 +83,101 @@
     {
       "manifest": {
         "$schema": "https://hypequery.com/schemas/example.schema.json",
+        "slug": "multi-tenant-embedded-analytics",
+        "title": "Multi-tenant embedded analytics on ClickHouse with signed tokens",
+        "outcome": "Embed tenant-scoped ClickHouse analytics in your product: your server mints a short-lived token, hypequery enforces the tenant on every query.",
+        "language": "typescript",
+        "stack": [
+          "node",
+          "hono",
+          "clickhouse"
+        ],
+        "useCases": [
+          "embedded-analytics",
+          "multi-tenant",
+          "saas-analytics"
+        ],
+        "packages": [
+          "@hypequery/serve",
+          "@hypequery/datasets",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "analytics/api.ts",
+        "env": [
+          {
+            "name": "HYPEQUERY_AUTH_SECRET",
+            "description": "HS256 secret shared by the token issuer and the verifier. The demo has an insecure default; set your own.",
+            "required": false
+          },
+          {
+            "name": "PORT",
+            "description": "HTTP port (default 3000)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "TOKEN=$(curl -s -X POST localhost:3000/api/analytics/token -H 'content-type: application/json' -d '{\"email\":\"ada@quartz.example\"}' | jq -r .token) && curl -s -X POST localhost:3000/api/analytics/datasets/events/query -H \"authorization: Bearer $TOKEN\" -H 'content-type: application/json' -d '{\"measures\":[\"events\",\"uniqueUsers\"]}'",
+        "related": [
+          "nextjs-dashboard",
+          "p95-latency"
+        ],
+        "leadPages": [
+          "/clickhouse-multi-tenant-analytics",
+          "/clickhouse-saas-analytics",
+          "/clickhouse-hono",
+          "/clickhouse-api",
+          "/clickhouse-nodejs"
+        ],
+        "functionPages": [
+          "count",
+          "uniq",
+          "quantile"
+        ],
+        "keywords": [
+          "clickhouse multi-tenant",
+          "clickhouse embedded analytics",
+          "clickhouse row level security tenant",
+          "clickhouse saas analytics api"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "example"
+      },
+      "dir": "examples/multi-tenant-embedded-analytics",
+      "readme": "# Multi-tenant embedded analytics on ClickHouse with signed tokens\n\nEmbed tenant-scoped ClickHouse analytics in your product: your server mints a short-lived token, hypequery enforces the tenant on every query.\n\n## Demo\n\n![The embed signed in as Ada at Quartz Metrics: four tiles, events by type, and the 400 returned when the browser tries to filter on tenantId](./screenshot.png)\n\n```text\nSigned in as Ada · Quartz Metrics (enterprise)      last 30 days of seed data\n\nEvents   Active users   Error rate   p95 latency\n17,054   174            2.43%        673 ms\n\nEvents by type   page_view 7,689 · api_call 4,246 · query_run 2,559 · ...\n\nThe same token, asked to filter on tenantId explicitly:\nHTTP 400  \"Cannot filter on tenant field \\\"tenantId\\\" when runtime tenancy enforcement is active.\"\n```\n\nSwitch to Grace at Relay Works and every number changes to her tenant's. Nothing in the browser ever names a tenant.\n\n## Install\n\n```bash\nnpx hypequery create multi-tenant-embedded-analytics -y\ncd multi-tenant-embedded-analytics\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse\npnpm install\npnpm dev\n```\n\nOpen http://localhost:3000. Set `HYPEQUERY_AUTH_SECRET` before deploying; the default is for the demo only.\n\n## What it shows\n\n- **Fail-closed tenancy on the dataset** (`analytics/datasets.ts`): `tenantKey: 'tenant_id'` means hypequery injects the tenant predicate itself, rejects queries without tenant context, and returns 400 on an explicit tenant filter.\n- **Your server mints the token** (`src/app.ts`): `createAnalyticsTokenIssuer` signs a 15-minute HS256 token with the tenant in `org_id`, inside a route that already knows the user. The demo's \"login\" is a dropdown; yours is your session.\n- **serve verifies and scopes** (`analytics/api.ts`): `createJwtStrategy` checks signature, issuer and audience; `tenant.extract` reads the tenant from the claims; `required: true` and `requiredScopes: ['read:analytics']` close the gaps.\n- **An embed with no framework** (`public/embed.js`): fetch a token, call `/api/analytics/datasets/events/query`, render. Drop it in an iframe or a `<script>`.\n- **Isolation proven by the smoke test** (`test/smoke.test.ts`): per-tenant totals equal raw SQL for that tenant, no token is 401, a forged token is 401, and a tenant filter is 400.\n\n## Key file\n\n`analytics/api.ts` is the whole security boundary:\n\n```ts\nexport const issueAnalyticsToken = createAnalyticsTokenIssuer({ ...AUTH, expiresIn: '15m' });\n\nconst { serve } = initServe({\n  context: () => ({ db }),\n  auth: createJwtStrategy(AUTH), // sub → userId, org_id → tenantId, roles, scopes\n  basePath: '/api/analytics',\n});\n\nexport const api = serve({\n  queryBuilder: db,\n  tenant: { extract: (auth) => auth.tenantId, required: true },\n  datasets: {\n    events: { dataset: Events, requiredScopes: ['read:analytics'], maxLimit: 200, cache: 10_000 },\n  },\n});\n```\n\n## Architecture\n\n```text\nbrowser (public/embed.js)                 your server (Hono)                              ClickHouse\n────────────────────────                  ─────────────────────────────────────────       ──────────\nPOST /api/analytics/token  ──session──▶   issueAnalyticsToken({ tenantId })  ◀─ user store\n        ◀── { token (15m, org_id=153) }\nPOST /api/analytics/datasets/events/query\n  Authorization: Bearer <token>   ─────▶  createJwtStrategy ─▶ tenant.extract ─▶ dataset(tenantKey)\n                                           └─ SELECT ... FROM events WHERE tenant_id = 153 ... ─▶\n```\n\n## Adapt it\n\n- **Your identity provider.** Replace `createJwtStrategy({ secret })` with `createJwtStrategy({ jwksUri, issuer, audience })` to accept tokens from Auth0, Clerk or Cognito directly, and map claims with `mapClaims` if your tenant claim is not `org_id`.\n- **Roles.** Add `requiredRoles: ['admin']` to a dataset entry, or a second dataset for admin-only measures. Roles ride in the token.\n- **Cross-tenant reporting.** Internal jobs can run `analytics.execute(Events, query, { runtime: { tenant: { scope: 'all' } } })` server-side. Never expose that path to a browser.\n- **More datasets.** Register `subscriptions` or `users` with the same `tenantKey`; the widget picks them up by name.\n- **React.** Swap `public/embed.js` for `@hypequery/react` hooks with a `token` resolver, as in the Next.js dashboard example.\n- **Hosting.** It is a plain Node server; `pnpm build && pnpm start` runs it anywhere Node runs.\n\n## Related recipes\n\n- [p95-latency](../../recipes/p95-latency): the p95 tile, explained.\n\n## Related examples\n\n- [nextjs-dashboard](../nextjs-dashboard): the same dataset pattern with typed React hooks.\n\nTested on ClickHouse 25.8 with `@hypequery/serve` 0.x, `@hypequery/datasets` 0.29 and Hono 4.\n",
+      "keyFile": {
+        "path": "analytics/api.ts",
+        "language": "typescript",
+        "source": "import { createAnalyticsTokenIssuer, createJwtStrategy, initServe } from '@hypequery/serve';\nimport { db } from './client.js';\nimport { Events } from './datasets.js';\n\n/**\n * Embedded analytics, tenant-scoped end to end.\n *\n * 1. Your app authenticates the user and mints a short-lived analytics token\n *    (`issueAnalyticsToken`) whose `org_id` claim is the tenant.\n * 2. The embed sends that token as a Bearer header.\n * 3. serve verifies it (`createJwtStrategy`), extracts the tenant, and every\n *    dataset query is scoped by `tenantKey` before it reaches ClickHouse.\n */\nexport const AUTH = {\n  secret: process.env.HYPEQUERY_AUTH_SECRET ?? 'demo-only-change-me-7c9a4b1f2e3d',\n  issuer: 'https://embedded-analytics.example',\n  audience: 'hypequery-analytics',\n};\n\n/** Mint on your server, in a route that already knows who the user is. */\nexport const issueAnalyticsToken = createAnalyticsTokenIssuer({\n  ...AUTH,\n  expiresIn: '15m',\n});\n\nconst { serve } = initServe({\n  context: () => ({ db }),\n  auth: createJwtStrategy(AUTH), // sub → userId, org_id → tenantId, roles, scopes\n  basePath: '/api/analytics',\n});\n\nexport const api = serve({\n  queryBuilder: db,\n  tenant: {\n    extract: (auth) => auth.tenantId,\n    required: true, // no tenant, no query\n  },\n  datasets: {\n    events: { dataset: Events, requiredScopes: ['read:analytics'], maxLimit: 200, cache: 10_000 },\n  },\n});\n"
+      },
+      "screenshot": "/examples/multi-tenant-embedded-analytics/screenshot.png"
+    },
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/example.schema.json",
         "slug": "nextjs-dashboard",
         "title": "Next.js dashboard on ClickHouse with cross-filtering",
         "outcome": "A Next.js 16 dashboard over ClickHouse: one typed dataset, a serve endpoint, React hooks, and click-to-filter across every panel.",

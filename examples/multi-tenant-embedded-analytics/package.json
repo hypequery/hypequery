@@ -1,0 +1,26 @@
+{
+  "name": "@hypequery-examples/multi-tenant-embedded-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embedded, tenant-scoped ClickHouse analytics: short-lived analytics tokens, fail-closed tenant isolation on datasets, and an embeddable widget",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "pnpm build && node dist/src/index.js",
+    "start": "node dist/src/index.js",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*",
+    "@hypequery/serve": "workspace:*",
+    "hono": "^4.13.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
