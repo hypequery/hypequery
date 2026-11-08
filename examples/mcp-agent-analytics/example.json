@@ -1,0 +1,84 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "mcp-agent-analytics",
+  "kind": "example",
+  "title": "A governed ClickHouse MCP server: agents query the semantic layer, not the database",
+  "outcome": "Give Claude Code, Cursor or any MCP client ClickHouse analytics through four governed tools: only published datasets, no SQL, one tenant per server.",
+  "language": "typescript",
+  "stack": [
+    "node",
+    "mcp",
+    "clickhouse"
+  ],
+  "useCases": [
+    "ai-agents",
+    "multi-tenant",
+    "semantic-layer"
+  ],
+  "packages": [
+    "@hypequery/mcp",
+    "@hypequery/datasets",
+    "@hypequery/clickhouse"
+  ],
+  "keyFile": "src/server.ts",
+  "env": [
+    {
+      "name": "TENANT_ID",
+      "description": "The tenant this server process may see (seed tenants: 153, 170, 146). Set by the MCP client's launch config, never by the agent.",
+      "required": true
+    },
+    {
+      "name": "HYPEQUERY_MCP_INCLUDE_SQL",
+      "description": "Set to 1 to include generated SQL in tool results, for a trusted debugging session only",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "pnpm install",
+    "dev": "pnpm dev",
+    "test": "pnpm test"
+  },
+  "exampleRequest": "TENANT_ID=153 node dist/src/agent.js --json",
+  "related": [
+    "multi-tenant-embedded-analytics",
+    "p95-latency"
+  ],
+  "leadPages": [
+    "/clickhouse-mcp",
+    "/clickhouse-multi-tenant-analytics",
+    "/clickhouse-semantic-layer",
+    "/clickhouse-nodejs"
+  ],
+  "functionPages": [
+    "count",
+    "uniq",
+    "quantile"
+  ],
+  "keywords": [
+    "clickhouse mcp",
+    "clickhouse mcp server",
+    "mcp server clickhouse claude",
+    "clickhouse ai agent analytics"
+  ],
+  "minVersion": "2.14.0"
+}

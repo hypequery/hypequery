@@ -1,0 +1,25 @@
+{
+  "name": "@hypequery-examples/mcp-agent-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A governed ClickHouse MCP server: agents get four tools over published, tenant-scoped datasets and never see SQL or credentials",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "serve": "node dist/src/server.js",
+    "agent": "node dist/src/agent.js",
+    "dev": "pnpm build && node dist/src/agent.js",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*",
+    "@hypequery/mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
