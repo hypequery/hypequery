@@ -280,7 +280,7 @@ function ReviewScreen() {
   );
 }
 
-function DeploymentsScreen() {
+export function DeploymentsScreen() {
   const versions = [
     ['v42', 'Rename session dimensions', 'Live', 'Draft session-dims · MK', '3 days ago'],
     ['v41', 'Model subscriptions table', '', 'Draft subscriptions · LR', '9 days ago'],
@@ -324,7 +324,7 @@ function DeploymentsScreen() {
   );
 }
 
-function PageTitle({ children }: { children: React.ReactNode }) {
+export function PageTitle({ children }: { children: React.ReactNode }) {
   return <span className="whitespace-nowrap text-[13.5px] font-semibold text-text max-md:hidden">{children}</span>;
 }
 
