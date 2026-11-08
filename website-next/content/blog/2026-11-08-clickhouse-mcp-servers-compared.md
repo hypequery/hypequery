@@ -1,8 +1,8 @@
 ---
-title: "ClickHouse MCP Servers Compared: Connecting Claude, Cursor and AI Agents to ClickHouse"
+title: "Official ClickHouse MCP vs Governed MCP: When Raw SQL Access Is a Problem"
 description: "How to connect Claude Code, Claude Desktop, Cursor and other AI agents to ClickHouse over MCP, what the official mcp-clickhouse server, the ClickHouse Cloud remote MCP server and a governed MCP server each expose, and how to lock them down with a read-only user."
-seoTitle: "ClickHouse MCP Server: Official, Cloud and Governed Compared"
-seoDescription: "ClickHouse MCP options: mcp-clickhouse (raw SQL, read-only by default), the Cloud remote MCP (managed, OAuth) and governed dataset tools, with setup."
+seoTitle: "Official ClickHouse MCP vs Governed MCP: Raw SQL or Metrics"
+seoDescription: "The official ClickHouse MCP server gives agents a read-only SQL tool; a governed MCP gives them named metrics. When raw SQL access becomes a problem."
 pubDate: 2026-11-08
 updatedAt: 2026-11-08
 heroImage: ""
@@ -40,6 +40,28 @@ There are three practical choices, and they differ mainly in where the server ru
 Sources: the [`mcp-clickhouse` README](https://github.com/ClickHouse/mcp-clickhouse), [Remote MCP in Cloud](https://clickhouse.com/docs/products/cloud/features/ai-ml/remote-mcp), and the [`@hypequery/mcp` tools reference](/docs/mcp/overview).
 
 One naming note: the current `mcp-clickhouse` README calls its query tool `run_query`. Its first release called it `run_select_query`, and some ClickHouse docs pages still use that name. The ClickHouse docs say the tool names "may vary by version".
+
+## When is raw SQL access a problem?
+
+A read-only SQL tool is the right default when the person using the agent already has, and should have, read access to everything the ClickHouse user can see: an engineer exploring their own data, for example. It becomes a problem in four situations, and none of them is solved by `readonly = 1`, which stops writes and DDL but lets the user read every table it has `SELECT` on.
+
+### The agent serves more than one customer or team
+
+With a SQL tool, keeping one tenant's question away from another tenant's rows depends on the agent writing the right `WHERE` clause. A prompt is not an access control. Either give the MCP server a ClickHouse user whose grants and row policies already restrict it to one tenant (shown [below](#how-do-i-create-a-read-only-clickhouse-user-for-an-mcp-server)), or use a server where the tenant is fixed when the server starts and is not an argument the model can change.
+
+### The numbers have to match your product
+
+"Revenue" or "active users" usually has one agreed definition in your backend and dashboards. An agent writing its own SQL will pick its own filters and joins, so its answer can differ from the number on the dashboard. Exposing the metric by name means the agent runs the same definition.
+
+### Some columns should never leave the database
+
+If a table holds emails, addresses or free-text notes, a SQL tool can select them unless the ClickHouse grants exclude those columns. A governed server only exposes the dimensions and measures you list.
+
+### Queries can be expensive
+
+A model can write a full scan over billions of rows. Settings such as `max_execution_time`, `max_result_rows` and `max_bytes_to_read` in the MCP user's profile cap the damage (see [settings for application backends](/blog/clickhouse-settings-for-application-backends)). A governed server also caps result sizes per dataset.
+
+If none of these applies, the official server is simpler: point it at a read-only user and you're done.
 
 ## What does the official ClickHouse MCP server (mcp-clickhouse) expose?
 
