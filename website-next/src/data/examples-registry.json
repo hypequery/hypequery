@@ -168,6 +168,96 @@
     },
     {
       "manifest": {
+        "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+        "slug": "p95-latency",
+        "title": "p95 latency per event type in ClickHouse with a typed dataset",
+        "outcome": "Define p50, p95 and p99 latency once as dataset measures and get the quantile() SQL, the result on a million events, and the exactness trade-off.",
+        "language": "typescript",
+        "stack": [
+          "node",
+          "clickhouse"
+        ],
+        "useCases": [
+          "observability",
+          "time-series"
+        ],
+        "packages": [
+          "@hypequery/datasets",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "src/recipe.ts",
+        "env": [
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "node dist/recipe.js --json",
+        "related": [
+          "materialized-view-rollups",
+          "nextjs-dashboard"
+        ],
+        "leadPages": [
+          "/clickhouse-typescript",
+          "/clickhouse-time-series",
+          "/clickhouse-real-time-analytics"
+        ],
+        "functionPages": [
+          "quantile",
+          "count"
+        ],
+        "keywords": [
+          "clickhouse p95",
+          "clickhouse quantile",
+          "clickhouse percentile latency",
+          "clickhouse quantile vs quantileexact"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "recipe",
+        "datasetFile": "src/dataset.ts",
+        "expectedSqlFile": "expected.sql",
+        "outputFile": "output.json"
+      },
+      "dir": "recipes/p95-latency",
+      "readme": "# p95 latency per event type in ClickHouse with a typed dataset\n\nDefine p50, p95 and p99 latency once as dataset measures and get the quantile() SQL, the result on a million events, and the exactness trade-off.\n\n## Demo\n\n```text\np95 latency per event type, 2026-10-25 to 2026-10-31\n\neventType   events   p50   p95     p99\nexport        1233  1128  2609    3451\nquery_run     4851   514  1080    1405\nerror          984   244   513     681\nlogin         2644   210   445     603\napi_call      8073   152   324     431\npage_view    14549   102   219     290\n```\n\n## Install\n\n```bash\nnpx hypequery create p95-latency -y\ncd p95-latency\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse\npnpm install\npnpm dev\n```\n\n## What it shows\n\n- **Percentiles as measures** (`src/dataset.ts`): `measure.median`, `measure.percentile(field, 0.95)` and `measure.percentile(field, 0.99)` next to a plain `count`, named once for every caller.\n- **One semantic query, one SQL statement** (`src/recipe.ts`): group by event type, order by p95; hypequery renders `quantile(0.95)(events.latency_ms)` and parameterises the date range.\n- **The generated SQL is asserted** (`expected.sql`): the smoke test fails if a package upgrade changes it.\n- **The exactness trade-off** (`src/smoke.test.ts`): `quantile` is approximate; the test checks it lands within 3% of `quantileExact` over the same rows, and documents when to swap.\n\n## Key file\n\n```ts\nexport const query: DatasetQuery = {\n  dimensions: ['eventType'],\n  measures: ['events', 'p50LatencyMs', 'p95LatencyMs', 'p99LatencyMs'],\n  filters: [between('occurredAt', RANGE[0], RANGE[1])],\n  orderBy: [{ field: 'p95LatencyMs', direction: 'desc' }],\n};\n\nconst result = await analytics.execute(Events, query);\n```\n\n## Architecture\n\n```text\nsrc/dataset.ts   dataset('events') with percentile measures\n      │\nsrc/recipe.ts    analytics.toSQL(Events, query)  ──▶  expected.sql   (asserted in CI)\n                 analytics.execute(Events, query) ──▶  output.json    (asserted in CI, ±2%)\n```\n\n## Adapt it\n\n- **Exact when it matters.** `quantile` samples up to 8,192 values per group. For SLO reporting on small groups, or when two teams must agree to the millisecond, use `quantileExact` in SQL; in a dataset today that means a plain `measure.max`/`min` plus a `rawQuery` for the exact figure, or a rollup table that stores `quantilesState`.\n- **Per tenant.** Add `tenantId` to `dimensions` in the query, or set `tenantKey: 'tenant_id'` on the dataset to scope every call to one tenant.\n- **Over time.** Replace `dimensions: ['eventType']` with `by: 'day'` to get a daily p95 series; the measures do not change.\n- **Pre-aggregate.** For dashboards over billions of rows, store `quantileTDigestState(latency_ms)` in an AggregatingMergeTree target (see the materialized view example) and read it with a `-Merge` query.\n\n## Related recipes\n\n- [retention-cohorts](../retention-cohorts): the same dataset pattern over a cohort view.\n\n## Related examples\n\n- [materialized-view-rollups](../materialized-view-rollups): pre-aggregate the same events.\n- [nextjs-dashboard](../nextjs-dashboard): the p95 tile on a dashboard.\n\nTested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.\n",
+      "keyFile": {
+        "path": "src/recipe.ts",
+        "language": "typescript",
+        "source": "import fs from 'node:fs';\nimport path from 'node:path';\nimport { fileURLToPath } from 'node:url';\nimport { between, type DatasetQueryFor } from '@hypequery/datasets';\nimport { analytics, db } from './client.js';\nimport { Events } from './dataset.js';\n\n/** The seed's last full week; fixed so the output is reproducible. */\nexport const RANGE: [string, string] = ['2026-10-25 00:00:00', '2026-10-31 23:59:59'];\n\n/**\n * The question: for each event type over the last week, how many requests\n * were there and what were the p50, p95 and p99 latencies? Slowest first.\n */\nexport const query = {\n  dimensions: ['eventType'],\n  measures: ['events', 'p50LatencyMs', 'p95LatencyMs', 'p99LatencyMs'],\n  filters: [between('occurredAt', RANGE[0], RANGE[1])],\n  orderBy: [{ field: 'p95LatencyMs', direction: 'desc' }],\n} satisfies DatasetQueryFor<typeof Events>;\n\nexport function toSQL(): string {\n  return analytics.toSQL(Events, query);\n}\n\nexport async function run() {\n  const result = await analytics.execute(Events, query);\n  return result.data;\n}\n\nconst root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');\nconst isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;\nif (isMain) {\n  run()\n    .then(async (rows) => {\n      if (process.argv.includes('--write')) {\n        // Capture the artifacts shown on the recipe page and asserted in CI.\n        fs.writeFileSync(path.join(root, 'expected.sql'), `${toSQL()}\\n`);\n        fs.writeFileSync(path.join(root, 'output.json'), `${JSON.stringify(rows, null, 2)}\\n`);\n        console.log('wrote expected.sql and output.json');\n      } else if (process.argv.includes('--json')) {\n        console.log(JSON.stringify(rows, null, 2));\n      } else {\n        console.log(`p95 latency per event type, ${RANGE[0].slice(0, 10)} to ${RANGE[1].slice(0, 10)}\\n`);\n        console.table(rows);\n        console.log('\\nGenerated SQL:\\n' + toSQL());\n      }\n      await db.close();\n    })\n    .catch(async (error) => {\n      console.error(error instanceof Error ? error.message : error);\n      await db.close();\n      process.exit(1);\n    });\n}\n"
+      },
+      "recipe": {
+        "dataset": {
+          "path": "src/dataset.ts",
+          "language": "typescript",
+          "source": "import { dataset, dimension, measure } from '@hypequery/datasets';\n\n/**\n * Request events with latency. `measure.percentile` renders ClickHouse's\n * `quantile(level)`, an approximate percentile that is fast and uses bounded\n * memory on any number of rows. Swap in `quantileExact` only when the exact\n * value matters more than the cost.\n */\nexport const Events = dataset('events', {\n  source: 'events',\n  timeKey: 'occurred_at',\n  dimensions: {\n    eventId: dimension.number({ column: 'event_id' }),\n    occurredAt: dimension.timestamp({ column: 'occurred_at' }),\n    eventType: dimension.string({ column: 'event_type', label: 'Event type' }),\n    path: dimension.string(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    latencyMs: dimension.number({ column: 'latency_ms' }),\n  },\n  measures: {\n    events: measure.count('eventId', { label: 'Requests' }),\n    p50LatencyMs: measure.median('latencyMs', { label: 'p50 latency (ms)' }),\n    p95LatencyMs: measure.percentile('latencyMs', 0.95, { label: 'p95 latency (ms)' }),\n    p99LatencyMs: measure.percentile('latencyMs', 0.99, { label: 'p99 latency (ms)' }),\n    maxLatencyMs: measure.max('latencyMs', { label: 'Max latency (ms)' }),\n  },\n});\n"
+        },
+        "expectedSql": "SELECT events.event_type AS `eventType`, COUNT(events.event_id) AS `events`, quantile(0.5)(events.latency_ms) AS `p50LatencyMs`, quantile(0.95)(events.latency_ms) AS `p95LatencyMs`, quantile(0.99)(events.latency_ms) AS `p99LatencyMs` FROM events WHERE toDateTime64(events.occurred_at, 9, 'UTC') BETWEEN ? AND ? GROUP BY `eventType` ORDER BY `p95LatencyMs` DESC\n",
+        "output": "[\n  {\n    \"eventType\": \"export\",\n    \"events\": \"1233\",\n    \"p50LatencyMs\": \"1128\",\n    \"p95LatencyMs\": \"2609.3999999999996\",\n    \"p99LatencyMs\": \"3451.280000000003\"\n  },\n  {\n    \"eventType\": \"query_run\",\n    \"events\": \"4851\",\n    \"p50LatencyMs\": \"514\",\n    \"p95LatencyMs\": \"1080\",\n    \"p99LatencyMs\": \"1405\"\n  },\n  {\n    \"eventType\": \"error\",\n    \"events\": \"984\",\n    \"p50LatencyMs\": \"244\",\n    \"p95LatencyMs\": \"513\",\n    \"p99LatencyMs\": \"681\"\n  },\n  {\n    \"eventType\": \"login\",\n    \"events\": \"2644\",\n    \"p50LatencyMs\": \"210\",\n    \"p95LatencyMs\": \"444.8499999999999\",\n    \"p99LatencyMs\": \"602.7100000000005\"\n  },\n  {\n    \"eventType\": \"api_call\",\n    \"events\": \"8073\",\n    \"p50LatencyMs\": \"152\",\n    \"p95LatencyMs\": \"324.39999999999964\",\n    \"p99LatencyMs\": \"431\"\n  },\n  {\n    \"eventType\": \"page_view\",\n    \"events\": \"14549\",\n    \"p50LatencyMs\": \"102\",\n    \"p95LatencyMs\": \"219\",\n    \"p99LatencyMs\": \"290\"\n  }\n]\n"
+      }
+    },
+    {
+      "manifest": {
         "$schema": "https://hypequery.com/schemas/guide.schema.json",
         "slug": "refreshable-materialized-views",
         "kind": "guide",
@@ -234,6 +324,97 @@
             "source": "-- Change the schedule in place; the next run follows the new interval.\nALTER TABLE guide_tenant_daily_rmv MODIFY REFRESH EVERY 6 HOUR;\n\n-- DEPENDS ON is kept (or changed) in the same statement. It only works with\n-- REFRESH EVERY, never with REFRESH AFTER.\nALTER TABLE guide_plan_daily_rmv MODIFY REFRESH EVERY 6 HOUR DEPENDS ON guide_tenant_daily_rmv;\n\n-- REFRESH AFTER re-runs an interval after the previous run finished, rather\n-- than on the wall clock. An APPEND view must say APPEND again: adding or\n-- removing APPEND is not allowed once the view exists.\nALTER TABLE guide_active_tenants_rmv MODIFY REFRESH AFTER 30 MINUTE RANDOMIZE FOR 5 MINUTE APPEND;\n\nSELECT view, status, last_success_time, last_success_duration_ms, next_refresh_time\nFROM system.view_refreshes\nWHERE view IN ('guide_tenant_daily_rmv', 'guide_plan_daily_rmv', 'guide_active_tenants_rmv')\nORDER BY view;\n\n-- Dropping a refreshable view leaves its target table and rows in place.\nDROP VIEW IF EXISTS guide_active_tenants_rmv;\nDROP VIEW IF EXISTS guide_plan_daily_rmv;\nDROP VIEW IF EXISTS guide_tenant_daily_rmv;\nSELECT count() AS rows_kept FROM guide_tenant_daily;\n\n-- Clean up so the files can run again from scratch.\nDROP TABLE IF EXISTS guide_active_tenants_snapshots;\nDROP TABLE IF EXISTS guide_plan_daily;\nDROP TABLE IF EXISTS guide_tenant_daily;\n"
           }
         ]
+      }
+    },
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+        "slug": "retention-cohorts",
+        "title": "Weekly retention cohorts in ClickHouse with a typed dataset",
+        "outcome": "Turn signup cohorts and weekly activity into a retention dataset: cohort size, active users and retention ratio, sliceable by cohort and week offset.",
+        "language": "typescript",
+        "stack": [
+          "node",
+          "clickhouse"
+        ],
+        "useCases": [
+          "product-analytics",
+          "retention"
+        ],
+        "packages": [
+          "@hypequery/datasets",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "src/recipe.ts",
+        "env": [
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "node dist/recipe.js --json",
+        "related": [
+          "p95-latency",
+          "nextjs-dashboard"
+        ],
+        "leadPages": [
+          "/clickhouse-product-analytics",
+          "/clickhouse-saas-analytics",
+          "/clickhouse-typescript"
+        ],
+        "functionPages": [
+          "to-start-of-week",
+          "uniq",
+          "count"
+        ],
+        "keywords": [
+          "clickhouse retention cohort",
+          "clickhouse cohort analysis",
+          "clickhouse retention query",
+          "clickhouse weekly cohorts typescript"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "recipe",
+        "datasetFile": "src/dataset.ts",
+        "expectedSqlFile": "expected.sql",
+        "outputFile": "output.json"
+      },
+      "dir": "recipes/retention-cohorts",
+      "readme": "# Weekly retention cohorts in ClickHouse with a typed dataset\n\nTurn signup cohorts and weekly activity into a retention dataset: cohort size, active users and retention ratio, sliceable by cohort and week offset.\n\n## Demo\n\n```text\nWeekly retention, signup cohorts 2026-06-01 to 2026-06-30\n\ncohort      size   w0    w1    w2    w3    w4    w5    w6\n2026-06-01    93  55%   72%   59%   59%   58%   55%   55%\n2026-06-08    88  69%   64%   59%   58%   56%   55%   51%\n2026-06-15    91  67%   69%   68%   63%   62%   62%   56%\n2026-06-22    72  63%   71%   56%   54%   50%   50%   50%\n2026-06-29    94  65%   70%   61%   60%   62%   60%   52%\n```\n\n## Install\n\n```bash\nnpx hypequery create retention-cohorts -y\ncd retention-cohorts\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse\npnpm install\npnpm dev\n```\n\n`pnpm dev` creates the `user_cohort_activity` view, runs the query and prints the grid.\n\n## What it shows\n\n- **Shape the data once, in SQL** (`sql/cohort-activity.sql`): a view joins users to events, tags each active week with the user's signup cohort, and carries the cohort size via a window function.\n- **Retention as a dataset** (`src/dataset.ts`): `countDistinct(userId)` for active users, `max(cohortSize)` to read the window value back, and a derived `retention = active / size`.\n- **One query, the familiar grid** (`src/recipe.ts`): group by cohort week and weeks-since-signup, then a ten-line pivot for display.\n- **Exactness** (`src/smoke.test.ts`): distinct counts are exact, so the captured `output.json` must match exactly, and a hand-written SQL query is the ground truth.\n\n## Key file\n\n```ts\nexport const query: DatasetQuery = {\n  dimensions: ['cohortWeek', 'weeksSinceSignup'],\n  measures: ['cohortSize', 'activeUsers', 'retention'],\n  filters: [between('cohortWeek', '2026-06-01 00:00:00', '2026-06-30 23:59:59'), lte('weeksSinceSignup', 6)],\n  orderBy: [{ field: 'cohortWeek', direction: 'asc' }, { field: 'weeksSinceSignup', direction: 'asc' }],\n};\n```\n\n## Architecture\n\n```text\nusers ──┐\n        ├─ VIEW user_cohort_activity (cohort_week, cohort_size, user_id, weeks_since_signup)\nevents ─┘        │\n                 └─ dataset CohortRetention ── activeUsers / cohortSize = retention\n                          │\n                 analytics.execute(CohortRetention, query) ──▶ 35 rows ──▶ toGrid() ──▶ 5 cohorts × 7 weeks\n```\n\n## Adapt it\n\n- **Daily or monthly cohorts.** Change `toStartOfWeek` to `toDate` or `toStartOfMonth` in the view, and the `dateDiff` unit to match. The dataset and the query do not change.\n- **Retention relative to first activity.** Replace `signed_up_at` in the view's cohort CTE with each user's first event (`min(occurred_at) OVER (PARTITION BY user_id)`).\n- **Per tenant.** Add `tenant_id` to the view and `tenantKey: 'tenant_id'` to the dataset; every query is then scoped to one tenant.\n- **Materialize it.** On large tables, turn the view into a table filled by a refreshable materialized view (see the refreshable guide) and point `source` at it.\n- **Serve it.** Register the dataset with `@hypequery/serve` and the same query becomes a `useDataset('cohortRetention', …)` hook in React.\n\n## Related recipes\n\n- [p95-latency](../p95-latency): the same dataset pattern over raw events.\n\n## Related examples\n\n- [nextjs-dashboard](../nextjs-dashboard): where a retention grid would live.\n- [materialized-view-rollups](../materialized-view-rollups): make the view a refreshable table.\n\nTested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.\n",
+      "keyFile": {
+        "path": "src/recipe.ts",
+        "language": "typescript",
+        "source": "import fs from 'node:fs';\nimport path from 'node:path';\nimport { fileURLToPath } from 'node:url';\nimport { between, lte, type DatasetQueryFor } from '@hypequery/datasets';\nimport { analytics, db } from './client.js';\nimport { CohortRetention } from './dataset.js';\n\n/** June 2026 signup cohorts, followed for six weeks. Fixed so the output is reproducible. */\nexport const COHORTS: [string, string] = ['2026-06-01', '2026-06-30'];\nexport const MAX_WEEKS = 6;\n\n/**\n * The question: of the users who signed up each week, what share was active\n * 0, 1, 2 ... 6 weeks later? One row per (cohort, week offset).\n */\nexport const query = {\n  dimensions: ['cohortWeek', 'weeksSinceSignup'],\n  measures: ['cohortSize', 'activeUsers', 'retention'],\n  filters: [between('cohortWeek', `${COHORTS[0]} 00:00:00`, `${COHORTS[1]} 23:59:59`), lte('weeksSinceSignup', MAX_WEEKS)],\n  orderBy: [\n    { field: 'cohortWeek', direction: 'asc' },\n    { field: 'weeksSinceSignup', direction: 'asc' },\n  ],\n} satisfies DatasetQueryFor<typeof CohortRetention>;\n\nexport function toSQL(): string {\n  return analytics.toSQL(CohortRetention, query);\n}\n\nexport async function run() {\n  const result = await analytics.execute(CohortRetention, query);\n  return result.data;\n}\n\n/** Pivot rows into the familiar cohort grid: one line per cohort, one column per week. */\nexport function toGrid(rows: Awaited<ReturnType<typeof run>>): Array<Record<string, string>> {\n  const grid = new Map<string, Record<string, string>>();\n  for (const row of rows) {\n    const cohort = String(row.cohortWeek).slice(0, 10);\n    const line = grid.get(cohort) ?? { cohort, size: String(row.cohortSize) };\n    line[`w${row.weeksSinceSignup}`] = `${(Number(row.retention) * 100).toFixed(0)}%`;\n    grid.set(cohort, line);\n  }\n  return [...grid.values()];\n}\n\nconst root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');\nconst isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;\nif (isMain) {\n  run()\n    .then(async (rows) => {\n      if (process.argv.includes('--write')) {\n        fs.writeFileSync(path.join(root, 'expected.sql'), `${toSQL()}\\n`);\n        fs.writeFileSync(path.join(root, 'output.json'), `${JSON.stringify(rows, null, 2)}\\n`);\n        console.log('wrote expected.sql and output.json');\n      } else if (process.argv.includes('--json')) {\n        console.log(JSON.stringify(rows, null, 2));\n      } else {\n        console.log(`Weekly retention, signup cohorts ${COHORTS[0]} to ${COHORTS[1]}\\n`);\n        console.table(toGrid(rows));\n        console.log('\\nGenerated SQL:\\n' + toSQL());\n      }\n      await db.close();\n    })\n    .catch(async (error) => {\n      console.error(error instanceof Error ? error.message : error);\n      await db.close();\n      process.exit(1);\n    });\n}\n"
+      },
+      "recipe": {
+        "dataset": {
+          "path": "src/dataset.ts",
+          "language": "typescript",
+          "source": "import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';\n\n/**\n * Retention as a dataset. The view (sql/cohort-activity.sql) yields one row\n * per user per active week with the cohort it belongs to; the dataset turns\n * that into cohort size, active users and a retention ratio that callers can\n * slice by cohort and by weeks since signup without rewriting the SQL.\n */\nexport const CohortRetention = dataset('cohortRetention', {\n  source: 'user_cohort_activity',\n  timeKey: 'cohort_week',\n  timeGrains: ['week', 'month', 'quarter'],\n  dimensions: {\n    cohortWeek: dimension.timestamp({ column: 'cohort_week', label: 'Signup week' }),\n    weeksSinceSignup: dimension.number({ column: 'weeks_since_signup', label: 'Weeks since signup' }),\n    userId: dimension.number({ column: 'user_id' }),\n    cohortSizeColumn: dimension.number({ column: 'cohort_size' }),\n  },\n  measures: {\n    activeUsers: measure.countDistinct('userId', { label: 'Active users' }),\n    // Every row of a cohort carries the same cohort_size, so max() reads it back.\n    cohortSize: measure.max('cohortSizeColumn', { label: 'Cohort size' }),\n    retention: measure.derived({\n      label: 'Retention',\n      description: 'Share of the signup cohort active in the week',\n      uses: { active: 'activeUsers', size: 'cohortSize' },\n      formula: ({ active, size }) => divide(active, nullIfZero(size)),\n    }),\n  },\n});\n"
+        },
+        "expectedSql": "WITH base AS (SELECT user_cohort_activity.cohort_week AS `cohortWeek`, user_cohort_activity.weeks_since_signup AS `weeksSinceSignup`, MAX(user_cohort_activity.cohort_size) AS `cohortSize`, COUNT(DISTINCT user_cohort_activity.user_id) AS `activeUsers` FROM user_cohort_activity WHERE toDateTime64(user_cohort_activity.cohort_week, 9, 'UTC') BETWEEN ? AND ? AND user_cohort_activity.weeks_since_signup <= ? GROUP BY `cohortWeek`, `weeksSinceSignup`) SELECT `cohortWeek`, `weeksSinceSignup`, `cohortSize`, `activeUsers`, (toFloat64(`activeUsers`) / NULLIF(`cohortSize`, 0)) AS `retention` FROM base ORDER BY `cohortWeek` ASC, `weeksSinceSignup` ASC\n",
+        "output": "[\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"0\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.5483870967741935\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"1\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"67\",\n    \"retention\": \"0.7204301075268817\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"2\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"55\",\n    \"retention\": \"0.5913978494623656\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"3\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"55\",\n    \"retention\": \"0.5913978494623656\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"4\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"54\",\n    \"retention\": \"0.5806451612903226\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"5\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.5483870967741935\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-01\",\n    \"weeksSinceSignup\": \"6\",\n    \"cohortSize\": \"93\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.5483870967741935\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"0\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"61\",\n    \"retention\": \"0.6931818181818182\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"1\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"56\",\n    \"retention\": \"0.6363636363636364\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"2\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"52\",\n    \"retention\": \"0.5909090909090909\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"3\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.5795454545454546\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"4\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"49\",\n    \"retention\": \"0.5568181818181818\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"5\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"48\",\n    \"retention\": \"0.5454545454545454\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-08\",\n    \"weeksSinceSignup\": \"6\",\n    \"cohortSize\": \"88\",\n    \"activeUsers\": \"45\",\n    \"retention\": \"0.5113636363636364\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"0\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"61\",\n    \"retention\": \"0.6703296703296703\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"1\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"63\",\n    \"retention\": \"0.6923076923076923\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"2\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"62\",\n    \"retention\": \"0.6813186813186813\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"3\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"57\",\n    \"retention\": \"0.6263736263736264\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"4\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"56\",\n    \"retention\": \"0.6153846153846154\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"5\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"56\",\n    \"retention\": \"0.6153846153846154\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-15\",\n    \"weeksSinceSignup\": \"6\",\n    \"cohortSize\": \"91\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.5604395604395604\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"0\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"45\",\n    \"retention\": \"0.625\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"1\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"51\",\n    \"retention\": \"0.7083333333333334\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"2\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"40\",\n    \"retention\": \"0.5555555555555556\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"3\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"39\",\n    \"retention\": \"0.5416666666666666\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"4\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"36\",\n    \"retention\": \"0.5\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"5\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"36\",\n    \"retention\": \"0.5\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-22\",\n    \"weeksSinceSignup\": \"6\",\n    \"cohortSize\": \"72\",\n    \"activeUsers\": \"36\",\n    \"retention\": \"0.5\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"0\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"61\",\n    \"retention\": \"0.648936170212766\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"1\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"66\",\n    \"retention\": \"0.7021276595744681\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"2\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"57\",\n    \"retention\": \"0.6063829787234043\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"3\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"56\",\n    \"retention\": \"0.5957446808510638\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"4\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"58\",\n    \"retention\": \"0.6170212765957447\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"5\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"56\",\n    \"retention\": \"0.5957446808510638\"\n  },\n  {\n    \"cohortWeek\": \"2026-06-29\",\n    \"weeksSinceSignup\": \"6\",\n    \"cohortSize\": \"94\",\n    \"activeUsers\": \"49\",\n    \"retention\": \"0.5212765957446809\"\n  }\n]\n"
       }
     }
   ]

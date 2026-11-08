@@ -1,0 +1,24 @@
+{
+  "name": "@hypequery-recipes/retention-cohorts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Weekly retention cohorts in ClickHouse with a hypequery dataset over a cohort view: the dataset, the SQL it generates, and the output on the seed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "setup": "pnpm build && node dist/setup.js",
+    "dev": "pnpm setup && node dist/recipe.js",
+    "capture": "pnpm setup && node dist/recipe.js --write",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

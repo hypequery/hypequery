@@ -1,0 +1,1 @@
+SELECT events.event_type AS `eventType`, COUNT(events.event_id) AS `events`, quantile(0.5)(events.latency_ms) AS `p50LatencyMs`, quantile(0.95)(events.latency_ms) AS `p95LatencyMs`, quantile(0.99)(events.latency_ms) AS `p99LatencyMs` FROM events WHERE toDateTime64(events.occurred_at, 9, 'UTC') BETWEEN ? AND ? GROUP BY `eventType` ORDER BY `p95LatencyMs` DESC
