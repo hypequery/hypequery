@@ -45,6 +45,21 @@ as exact strings.
 Any setting you pass yourself with `.settings({...})` follows the same rule: a
 `readonly = 1` user rejects it unless the value already matches the profile.
 
+### Arrow streams
+
+`streamArrow()` and `rawArrowStream()` request the format with a
+`FORMAT ArrowStream` clause in the query, which needs no setting. They also send
+`output_format_arrow_compression_method = 'none'` by default, because
+JavaScript Arrow readers can't decode the LZ4 batches ClickHouse sends otherwise.
+
+- `readonly = 2` and unrestricted users work without changes.
+- A `readonly = 1` user works without changes if its profile already sets
+  `output_format_arrow_compression_method = 'none'`.
+- Otherwise, set `arrowCompression: 'server-default'` to omit the setting.
+  Batches then use the server's compression method (`lz4_frame` by default),
+  which suits readers with an LZ4 codec, such as `pyarrow`, but not
+  JavaScript Arrow readers.
+
 ## Python datasets
 
 The Python planner attaches `readonly = 1`, `max_execution_time`,

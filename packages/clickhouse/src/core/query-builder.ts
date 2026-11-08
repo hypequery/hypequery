@@ -173,6 +173,8 @@ export type ClickHouseConfig = ClickHouseConnectionOptions | ClickHouseClientCon
 
 export type IntegerJsonEncoding = 'quoted' | 'server-default';
 
+export type ArrowCompression = 'none' | 'server-default';
+
 /** Options owned by HypeQuery's built-in ClickHouse adapter. */
 export interface ClickHouseAdapterOptions {
   /**
@@ -188,6 +190,20 @@ export interface ClickHouseAdapterOptions {
    * authoritative in either mode.
    */
   integerJsonEncoding?: IntegerJsonEncoding;
+  /**
+   * Controls whether Arrow streams request uncompressed record batches.
+   *
+   * - `none` (default) sends `output_format_arrow_compression_method: 'none'`,
+   *   because JavaScript Arrow readers ship without the LZ4 codec ClickHouse
+   *   uses by default.
+   * - `server-default` omits that adapter-owned setting, which is required for
+   *   strict `readonly = 1` connections whose profile does not already set it
+   *   to `'none'`. Batches then use the server's compression method.
+   *
+   * Explicit connection-level and per-call ClickHouse settings remain
+   * authoritative in either mode.
+   */
+  arrowCompression?: ArrowCompression;
 }
 
 /** Configuration accepted by HypeQuery's built-in ClickHouse adapter. */
@@ -909,8 +925,11 @@ export class QueryBuilder<
    * ```
    *
    * The bytes can also be passed on unchanged, e.g. as an HTTP response body.
-   * A ClickHouse failure after the first batches errors the stream with
-   * ClickHouse's own error.
+   * A ClickHouse failure after the first batches errors the stream, and so
+   * does a body that ends without Arrow's end-of-stream marker. ClickHouse
+   * 25.11+ marks the failure, so the error is ClickHouse's own; older servers
+   * do not, so the error carries ClickHouse's message only where it can be
+   * recovered from the body.
    */
   async streamArrow(options?: StreamOptions): Promise<ReadableStream<Uint8Array>> {
     return this.executor.streamArrow(options);
@@ -1559,8 +1578,9 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
     },
     /**
      * Streams a raw statement's result as Arrow IPC stream bytes. Leave out a
-     * `FORMAT` clause: it would override the Arrow format the adapter requests.
-     * See {@link QueryBuilder.streamArrow}.
+     * `FORMAT` clause: the adapter appends `FORMAT ArrowStream` itself, after
+     * dropping a trailing `;` or comment, and refuses a statement that asks
+     * for another format. See {@link QueryBuilder.streamArrow}.
      */
     async rawArrowStream(
       sql: string,

@@ -13,6 +13,9 @@ export const EXCEPTION_TAG_HEADER = 'x-clickhouse-exception-tag';
  */
 export const EXCEPTION_BLOCK_MAX_BYTES = 16 * 1024;
 
+/** The start of the exception text servers before 25.11 append to a failed body. */
+const UNTAGGED_EXCEPTION_RE = /Code: \d+\. DB::Exception: /g;
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8');
 
@@ -58,7 +61,24 @@ export function splitStreamException(
   return { data: bytes.subarray(0, startAt), error: parseError(message) };
 }
 
-function endsWith(bytes: Uint8Array, suffix: Uint8Array): boolean {
+/**
+ * Finds the plain exception text a ClickHouse server older than 25.11 appends
+ * when a query fails after data was sent. Those servers mark nothing, so this
+ * is only meaningful once the body is already known to be incomplete: binary
+ * data could contain the same text by chance.
+ */
+export function findUntaggedStreamException(bytes: Uint8Array): StreamException | undefined {
+  // windows-1252 decodes one character per byte, so indices stay byte offsets.
+  const text = new TextDecoder('windows-1252').decode(bytes);
+  let startAt = -1;
+  for (const match of text.matchAll(UNTAGGED_EXCEPTION_RE)) startAt = match.index;
+  if (startAt < 0) return undefined;
+
+  const message = decoder.decode(bytes.subarray(startAt)).trim();
+  return { data: bytes.subarray(0, startAt), error: parseError(message) };
+}
+
+export function endsWith(bytes: Uint8Array, suffix: Uint8Array): boolean {
   if (bytes.length < suffix.length) return false;
   const offset = bytes.length - suffix.length;
   for (let i = 0; i < suffix.length; i++) {
