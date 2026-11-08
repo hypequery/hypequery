@@ -1,0 +1,34 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "nextjs-dashboard",
+  "kind": "example",
+  "title": "Next.js dashboard on ClickHouse with cross-filtering",
+  "outcome": "A Next.js 16 dashboard over ClickHouse: one typed dataset, a serve endpoint, React hooks, and click-to-filter across every panel.",
+  "language": "typescript",
+  "stack": ["nextjs", "react", "clickhouse"],
+  "useCases": ["dashboards", "product-analytics", "embedded-analytics"],
+  "packages": ["@hypequery/datasets", "@hypequery/serve", "@hypequery/react", "@hypequery/clickhouse"],
+  "keyFile": "components/dashboard.tsx",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": {
+    "install": "pnpm install",
+    "dev": "pnpm dev",
+    "test": "pnpm test"
+  },
+  "exampleRequest": "curl -s -X POST http://localhost:3000/api/analytics/datasets/events/query -H 'content-type: application/json' -d '{\"dimensions\":[\"eventType\"],\"measures\":[\"events\",\"uniqueUsers\"]}'",
+  "related": ["materialized-view-rollups"],
+  "leadPages": ["/clickhouse-nextjs", "/clickhouse-react", "/clickhouse-dashboard", "/clickhouse-product-analytics", "/clickhouse-typescript"],
+  "functionPages": ["count", "uniq", "quantile", "to-start-of-day"],
+  "keywords": [
+    "clickhouse nextjs",
+    "clickhouse react dashboard",
+    "clickhouse dashboard typescript",
+    "nextjs analytics dashboard clickhouse"
+  ],
+  "minVersion": "2.14.0"
+}
