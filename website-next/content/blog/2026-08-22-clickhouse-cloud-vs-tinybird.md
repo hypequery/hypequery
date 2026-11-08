@@ -126,6 +126,7 @@ const client = createClient({
   url: process.env.CLICKHOUSE_URL!, // https://<service>.<region>.<provider>.clickhouse.cloud:8443
   username: process.env.CLICKHOUSE_USERNAME!,
   password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
 });
 
 const result = await client.query({
