@@ -271,6 +271,148 @@ GROUP BY day, app;
 
 Inserts into `events` cascade through both views. In our check, 700 raw rows over two inserts gave a daily row with 700 events, 11 unique users and 70,000 bytes, the same as aggregating the raw table directly.
 
+## Query the target table from TypeScript and Python
+
+Application code reads the target table, not the view, and it has to merge partial rows the same way the SQL above does. Every result below came from the `events_daily` example on ClickHouse 26.6 and matched the same aggregation run on the raw `events` table.
+
+### TypeScript: the query builder
+
+Declare only the columns you read directly. `AggregateFunction` columns are read through `-Merge` functions, so they go in `rawAs` expressions:
+
+```ts
+import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+
+type Schema = {
+  events_daily: { day: 'Date'; app: 'String' };
+};
+
+const db = createQueryBuilder<Schema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+export async function dailyUsage(app: string, from: string, to: string) {
+  return db
+    .table('events_daily')
+    .select([
+      'day',
+      rawAs<string, 'events'>('countMerge(events)', 'events'),
+      rawAs<string, 'unique_users'>('uniqMerge(unique_users)', 'unique_users'),
+      rawAs<string, 'total_bytes'>('sumMerge(total_bytes)', 'total_bytes'),
+    ])
+    .where('app', 'eq', app)
+    .where('day', 'gte', from)
+    .where('day', 'lt', to)
+    .groupBy('day')
+    .orderBy('day', 'ASC')
+    .execute();
+}
+
+// dailyUsage('web', '2026-11-02', '2026-11-05') returned:
+// { day: '2026-11-03', events: '117', unique_users: '16', total_bytes: '62758' }, ...
+```
+
+The values arrive as strings because `countMerge`, `uniqMerge` and `sumMerge` over `UInt64` return 64-bit integers, which the client quotes in JSON so they don't lose precision.
+
+### TypeScript: a dataset over the view's output
+
+If several parts of the product read the same rollup, define it once as a dataset. `measure.merge` applies the matching `-Merge` function, so callers pick measures and dimensions and never write the combinator:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient, dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+export const EventsDaily = dataset('eventsDaily', {
+  source: 'events_daily',
+  timeKey: 'day',
+  dimensions: {
+    day: dimension.timestamp(),
+    app: dimension.string(),
+  },
+  measures: {
+    events: measure.merge('count', 'events'),            // countMerge(events)
+    uniqueUsers: measure.merge('uniq', 'unique_users'),  // uniqMerge(unique_users)
+    totalBytes: measure.merge('sum', 'total_bytes'),     // sumMerge(total_bytes)
+  },
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const byApp = await analytics.execute(EventsDaily, {
+  dimensions: ['app'],
+  measures: ['events', 'uniqueUsers', 'totalBytes'],
+  filters: [eq('app', 'web')],
+});
+// [{ app: 'web', events: '225', uniqueUsers: '29', totalBytes: '184330' }]
+```
+
+Because the states are merged, the distinct count stays correct at any grain: 29 users across all days, not the sum of each day's count. `measure.merge` shipped in `@hypequery/datasets` 0.29.0; the [measures docs](/docs/datasets/measures) list the supported state functions. The same dataset can then back an [HTTP API](/clickhouse-api), a [React hook](/clickhouse-react) or an [MCP tool](/clickhouse-mcp).
+
+### Python
+
+With a `SummingMergeTree` target, a dataset's `measure.sum` adds the partial rows up again at read time. For an `AggregatingMergeTree` target, send the `-Merge` query through clickhouse-connect with a bound parameter:
+
+```python
+import clickhouse_connect
+
+from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+# CREATE TABLE app_daily (day Date, app String, events UInt64, bytes UInt64)
+# ENGINE = SummingMergeTree ORDER BY (app, day), filled by a materialized view
+app_daily = dataset(
+    "appDaily",
+    source="app_daily",
+    time_key="day",
+    dimensions={
+        "day": dimension.timestamp(),
+        "app": dimension.string(),
+    },
+    measures={
+        "events": measure.sum("events"),
+        "bytes": measure.sum("bytes"),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    analytics = create_dataset_client(executor=executor)
+    result = analytics.execute(
+        app_daily,
+        DatasetQuery(
+            dimensions=("app",),
+            measures=("events", "bytes"),
+            filters=(filter.eq("app", "web"),),
+        ),
+    )
+    print(result.data)  # ({'app': 'web', 'events': 225, 'bytes': 184330},)
+
+# The AggregatingMergeTree target from earlier
+client = clickhouse_connect.get_client(host="localhost", port=8123)
+rows = client.query(
+    """
+    SELECT day, countMerge(events) AS events, uniqMerge(unique_users) AS unique_users
+    FROM events_daily
+    WHERE app = {app:String}
+    GROUP BY day
+    ORDER BY day
+    LIMIT 3
+    """,
+    parameters={"app": "web"},
+).result_rows
+# [(date(2026, 11, 1), 12, 12), (date(2026, 11, 2), 12, 12), (date(2026, 11, 3), 117, 16)]
+```
+
+This ran on hypequery 0.1.0b3 and clickhouse-connect 1.12.0. `ClickHouseConnection.from_env()` reads `CLICKHOUSE_URL`, or the separate host, user and database variables, but not both. The Python `measure.merge("uniq", "users")`, which works like the TypeScript one, is in the SDK source and not yet in 0.1.0b3 on PyPI. See [ClickHouse with Python](/clickhouse-python) for how the Python clients compare.
+
 ## Common mistakes
 
 ### Too many small inserts
@@ -338,4 +480,7 @@ Skip the view when the raw query is already fast enough for how often it runs. C
 - [Projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views)
 - [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)
 - [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)
+- [ClickHouse with TypeScript](/clickhouse-typescript) and [ClickHouse with Python](/clickhouse-python)
+- [Semantic layer for ClickHouse](/clickhouse-semantic-layer): define rollup metrics once
+- [Dataset measures, including `measure.merge`](/docs/datasets/measures)
 - ClickHouse docs: [CREATE VIEW](https://clickhouse.com/docs/sql-reference/statements/create/view), [refreshable materialized views](https://clickhouse.com/docs/materialized-view/refreshable-materialized-view), [system.query_views_log](https://clickhouse.com/docs/operations/system-tables/query_views_log)
