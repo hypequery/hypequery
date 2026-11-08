@@ -21,7 +21,7 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
           />
           <span>hypequery</span>
         </Link>
-        <span className="ml-3 hidden shrink-0 border-l border-border pl-3 text-[13px] leading-none text-text-muted lg:inline">The analytics backend for ClickHouse</span>
+        <span className="ml-3 shrink-0 border-l border-border pl-3 text-[13px] leading-none text-text-muted max-lg:hidden">The analytics backend for ClickHouse</span>
         </div>
         <div className="flex items-center gap-3 sm:gap-8">
         <ProductMenu />
