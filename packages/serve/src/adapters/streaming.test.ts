@@ -5,15 +5,19 @@ import { describe, expect, it, vi } from "vitest";
 import { createNodeHandler, startNodeServer } from "./node";
 import { createFetchHandler } from "./fetch";
 import { streamBody } from "../utils/stream-body";
+import { StreamTimeoutError } from "../utils/stream-timeout";
 import type { ServeHandler } from "../types";
 
 const encoder = new TextEncoder();
 
 /** A stream of *count* lines, recording cancellation. */
-function lines(count: number, options: { failAt?: number; delayMs?: number } = {}) {
-  const state = { cancelled: false, sent: 0 };
+function lines(count: number, options: { failAt?: number; delayMs?: number; stallAt?: number } = {}) {
+  const state = { cancelled: false, sent: 0, reason: undefined as unknown };
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
+      if (options.stallAt !== undefined && state.sent === options.stallAt) {
+        await new Promise(() => undefined);
+      }
       if (options.delayMs) await new Promise(resolve => setTimeout(resolve, options.delayMs));
       if (options.failAt !== undefined && state.sent === options.failAt) {
         controller.error(new Error("query failed"));
@@ -26,8 +30,9 @@ function lines(count: number, options: { failAt?: number; delayMs?: number } = {
       controller.enqueue(encoder.encode(`${JSON.stringify({ n: state.sent })}\n`));
       state.sent += 1;
     },
-    cancel() {
+    cancel(reason) {
       state.cancelled = true;
+      state.reason = reason;
     },
   });
   return { stream, state };
@@ -53,8 +58,12 @@ function get(url: string, onFirstChunk?: (destroy: () => void) => void) {
   });
 }
 
-async function serve(handler: ServeHandler, requestTimeout?: number) {
-  const started = await startNodeServer(handler, { port: 0, hostname: "127.0.0.1", quiet: true, requestTimeout });
+async function serve(
+  handler: ServeHandler,
+  requestTimeout?: number,
+  limits: { streamIdleTimeout?: number; streamTimeout?: number } = {},
+) {
+  const started = await startNodeServer(handler, { port: 0, hostname: "127.0.0.1", quiet: true, requestTimeout, ...limits });
   const { port } = started.server.address() as AddressInfo;
   return { url: `http://127.0.0.1:${port}/stream`, stop: started.stop };
 }
@@ -157,6 +166,59 @@ describe("streamed response bodies", () => {
     }
   });
 
+  it("stops a stream that goes idle, breaking the connection", async () => {
+    const { stream, state } = lines(10, { stallAt: 3 });
+    const server = await serve(async () => ({ status: 200, body: streamBody(stream, "application/x-ndjson") }), 1000, { streamIdleTimeout: 50 });
+    try {
+      const response = await get(server.url);
+      expect(response.aborted).toBe(true);
+      expect(response.body.trimEnd().split("\n")).toHaveLength(3);
+      await vi.waitFor(() => expect(state.cancelled).toBe(true));
+      expect(state.reason).toBeInstanceOf(StreamTimeoutError);
+      expect((state.reason as StreamTimeoutError).kind).toBe("idle");
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("defaults the idle timeout to the request timeout", async () => {
+    const { stream, state } = lines(10, { stallAt: 1 });
+    const server = await serve(async () => ({ status: 200, body: streamBody(stream, "application/x-ndjson") }), 50);
+    try {
+      const response = await get(server.url);
+      expect(response.aborted).toBe(true);
+      await vi.waitFor(() => expect(state.cancelled).toBe(true));
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("stops a stream that runs past the total stream timeout", async () => {
+    const { stream, state } = lines(1_000, { delayMs: 5 });
+    const server = await serve(async () => ({ status: 200, body: streamBody(stream, "application/x-ndjson") }), 1000, { streamTimeout: 80 });
+    try {
+      const response = await get(server.url);
+      expect(response.aborted).toBe(true);
+      await vi.waitFor(() => expect(state.cancelled).toBe(true));
+      expect((state.reason as StreamTimeoutError).kind).toBe("total");
+      expect(state.sent).toBeLessThan(1_000);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("leaves a slow but steady stream alone when timeouts are disabled", async () => {
+    const { stream } = lines(5, { delayMs: 30 });
+    const server = await serve(async () => ({ status: 200, body: streamBody(stream, "application/x-ndjson") }), 0, { streamIdleTimeout: 0 });
+    try {
+      const response = await get(server.url);
+      expect(response.aborted).toBe(false);
+      expect(response.body.trimEnd().split("\n")).toHaveLength(5);
+    } finally {
+      await server.stop();
+    }
+  });
+
   it("cancels a stream its handler opened after the request timed out", async () => {
     const { stream, state } = lines(5);
     const server = await serve(async () => {
@@ -167,6 +229,7 @@ describe("streamed response bodies", () => {
       const response = await get(server.url);
       expect(response.status).toBe(504);
       await vi.waitFor(() => expect(state.cancelled).toBe(true));
+      expect((state.reason as StreamTimeoutError).kind).toBe("request");
     } finally {
       await server.stop();
     }
@@ -199,5 +262,20 @@ describe("streamed response bodies", () => {
     expect(response.headers.get("content-type")).toBe("application/x-ndjson");
     expect(response.headers.get("x-request-id")).toBe("r");
     expect((await response.text()).trimEnd().split("\n")).toHaveLength(3);
+  });
+
+  it("sends one content type when custom headers carry Content-Type", async () => {
+    const streamed = createFetchHandler(async () => ({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: streamBody(lines(1).stream, "application/x-ndjson"),
+    }));
+    const request = () => new Request("http://localhost/stream", { method: "POST", body: "{}", headers: { "content-type": "application/json" } });
+    const response = await streamed(request());
+    expect(response.headers.get("content-type")).toBe("application/x-ndjson");
+    await response.body?.cancel();
+
+    const page = createFetchHandler(async () => ({ status: 200, headers: { "Content-Type": "text/csv" }, body: "a,b" }));
+    expect((await page(request())).headers.get("content-type")).toBe("text/csv");
   });
 });

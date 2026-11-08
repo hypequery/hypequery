@@ -193,7 +193,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       const startMeta = includeMeta
         ? semanticResponseMeta({ ...meta, timingMs: Date.now() - start }, resolved.trustedDiagnostics)
         : undefined;
-      return streamBody(datasetNdjsonStream(data, startMeta), NDJSON_MEDIA_TYPE);
+      const frames = datasetNdjsonStream(data, startMeta);
+      return streamBody(frames.stream, NDJSON_MEDIA_TYPE, { failure: frames.failure });
     }
 
     const result = await analytics.execute(ds, query, {
@@ -224,7 +225,9 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     tenant: resolved.tenant,
     metadata,
     cacheTtlMs: resolved.cache ?? null,
-    defaultHeaders: undefined,
+    // The same request answers with a JSON page or a stream depending on
+    // Accept, so a cache must key on it.
+    defaultHeaders: streamMaxRows === undefined ? undefined : { vary: 'Accept' },
     requiredRoles: resolved.requiredRoles,
     requiredScopes: resolved.requiredScopes,
   };
