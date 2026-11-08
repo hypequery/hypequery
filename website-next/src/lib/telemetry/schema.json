@@ -239,6 +239,8 @@
             "version",
             "telemetry",
             "skill",
+            "examples",
+            "create",
             "unknown"
           ]
         },
@@ -291,6 +293,13 @@
             "--release",
             "--agent",
             "--scope",
+            "--json",
+            "--kind",
+            "--yes",
+            "--dir",
+            "--no-install",
+            "--no-seed",
+            "--tag",
             "--no-telemetry",
             "--help",
             "--version"
@@ -895,6 +904,8 @@
         "version": {},
         "telemetry": {},
         "skill": {},
+        "examples": {},
+        "create": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -922,7 +933,9 @@
               "help",
               "version",
               "telemetry",
-              "skill"
+              "skill",
+              "examples",
+              "create"
             ],
             "optional": true
           }
@@ -956,6 +969,8 @@
               "version",
               "telemetry",
               "skill",
+              "examples",
+              "create",
               "unknown"
             ],
             "optional": true
@@ -1481,6 +1496,8 @@
             "version",
             "telemetry",
             "skill",
+            "examples",
+            "create",
             "unknown"
           ]
         },
@@ -1658,6 +1675,17 @@
       "--scope",
       "--force",
       "--check"
+    ],
+    "examples": [
+      "--json",
+      "--kind"
+    ],
+    "create": [
+      "--yes",
+      "--dir",
+      "--no-install",
+      "--no-seed",
+      "--tag"
     ],
     "help": [],
     "version": [],

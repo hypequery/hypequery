@@ -36,6 +36,12 @@ export interface RegistryEntry {
 export interface Registry {
   /** Bump when the shape of entries changes. */
   version: 1;
+  /**
+   * Versions of the workspace's published `@hypequery/*` packages at the time
+   * the registry was generated. `hypequery create` pins an example's
+   * `workspace:*` dependencies to these.
+   */
+  packageVersions: Record<string, string>;
   entries: RegistryEntry[];
 }
 
@@ -153,7 +159,25 @@ export function buildRegistry(options: BuildRegistryOptions): Registry {
   }
 
   entries.sort((a, b) => a.manifest.slug.localeCompare(b.manifest.slug));
-  return { version: 1, entries };
+  return { version: 1, packageVersions: readPackageVersions(options.repoRoot), entries };
+}
+
+/** `@hypequery/<name>` → version, from every public package under packages/. */
+export function readPackageVersions(repoRoot: string): Record<string, string> {
+  const packagesDir = path.join(repoRoot, 'packages');
+  const versions: Record<string, string> = {};
+  if (!fs.existsSync(packagesDir)) return versions;
+  for (const dir of fs.readdirSync(packagesDir).sort()) {
+    const file = path.join(packagesDir, dir, 'package.json');
+    if (!fs.existsSync(file)) continue;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(file, 'utf8')) as { name?: string; version?: string; private?: boolean };
+      if (pkg.name?.startsWith('@hypequery/') && pkg.version && !pkg.private) versions[pkg.name] = pkg.version;
+    } catch {
+      // not a package we care about
+    }
+  }
+  return versions;
 }
 
 /** Stable text so the committed file diffs cleanly. */

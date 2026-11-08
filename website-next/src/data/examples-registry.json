@@ -1,5 +1,16 @@
 {
   "version": 1,
+  "packageVersions": {
+    "@hypequery/cli": "1.28.0",
+    "@hypequery/clickhouse": "2.14.0",
+    "@hypequery/datasets": "0.29.0",
+    "@hypequery/deployment": "0.11.2",
+    "@hypequery/mcp": "0.11.3",
+    "@hypequery/protocol": "0.24.2",
+    "@hypequery/protocol-conformance": "0.17.0",
+    "@hypequery/react": "0.8.0",
+    "@hypequery/serve": "0.24.4"
+  },
   "entries": [
     {
       "manifest": {

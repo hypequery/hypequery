@@ -82,6 +82,7 @@ export interface RegistryEntry {
 
 interface Registry {
   version: 1;
+  packageVersions: Record<string, string>;
   entries: RegistryEntry[];
 }
 
@@ -99,6 +100,8 @@ for (const entry of registry.entries) {
 }
 
 export const registryEntries: readonly RegistryEntry[] = registry.entries;
+/** `@hypequery/*` versions the examples were last tested against; `hypequery create` pins to these. */
+export const packageVersions: Readonly<Record<string, string>> = registry.packageVersions ?? {};
 export const examples = registryEntries.filter((e) => e.manifest.kind === 'example');
 export const recipes = registryEntries.filter((e) => e.manifest.kind === 'recipe');
 export const guides = registryEntries.filter((e) => e.manifest.kind === 'guide');

@@ -25,4 +25,4 @@ export {
 export { isKebabCase, KEBAB_CASE } from './utils/slug.js';
 export { isSemver, SEMVER } from './utils/semver.js';
 export { isSafeRelativePath } from './utils/relative-path.js';
-export { buildRegistry, renderRegistry, languageForFile, expandSqlIncludes, type Registry, type RegistryEntry, type BuildRegistryOptions } from './registry.js';
+export { buildRegistry, renderRegistry, languageForFile, expandSqlIncludes, readPackageVersions, type Registry, type RegistryEntry, type BuildRegistryOptions } from './registry.js';

@@ -38,6 +38,8 @@ describe('buildRegistry', () => {
     write(root, 'recipes/p95-latency/expected.sql', 'SELECT 1');
     write(root, 'recipes/p95-latency/output.json', '[]');
     write(root, 'website-next/src/app/clickhouse-nextjs/page.tsx', '');
+    write(root, 'packages/clickhouse/package.json', JSON.stringify({ name: '@hypequery/clickhouse', version: '9.9.9' }));
+    write(root, 'packages/examples-schema/package.json', JSON.stringify({ name: '@hypequery/examples-schema', version: '0.1.0', private: true }));
 
     const registry = buildRegistry({
       repoRoot: root,
@@ -46,6 +48,7 @@ describe('buildRegistry', () => {
     });
 
     expect(registry.version).toBe(1);
+    expect(registry.packageVersions).toEqual({ '@hypequery/clickhouse': '9.9.9' });
     expect(registry.entries.map((e) => e.manifest.slug)).toEqual(['nextjs-dashboard', 'p95-latency']);
     const [example, recipe] = registry.entries;
     expect(example.readme).toBe('# Dash\n\nBody');
