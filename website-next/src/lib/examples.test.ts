@@ -34,7 +34,9 @@ test('facets and filters work together', () => {
   assert.ok(facets.stack.includes('nextjs'));
   const onlyNext = filterEntries(examples, { stack: 'nextjs' });
   assert.ok(onlyNext.every((e) => e.manifest.kind !== 'guide' && e.manifest.stack.includes('nextjs')));
-  assert.equal(filterEntries(examples, { language: 'python' }).length, 0);
+  const python = filterEntries(examples, { language: 'python' });
+  assert.deepEqual(python.map((e) => e.manifest.slug), ['fastapi-analytics-api']);
+  assert.ok(facets.languages.includes('python'));
 });
 
 test('readmeBody drops the H1 and the repeated outcome, and rewrites relative links', () => {

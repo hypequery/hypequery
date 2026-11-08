@@ -9,9 +9,102 @@
     "@hypequery/protocol": "0.24.2",
     "@hypequery/protocol-conformance": "0.17.0",
     "@hypequery/react": "0.8.0",
-    "@hypequery/serve": "0.24.4"
+    "@hypequery/serve": "0.24.4",
+    "hypequery": "0.1.0b3"
   },
   "entries": [
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/example.schema.json",
+        "slug": "fastapi-analytics-api",
+        "title": "A FastAPI analytics API on ClickHouse with tenant-scoped datasets",
+        "outcome": "Serve governed ClickHouse analytics from FastAPI: datasets defined once in Python, query endpoints mounted beside your routes, tenant fixed by the token.",
+        "language": "python",
+        "stack": [
+          "python",
+          "fastapi",
+          "clickhouse"
+        ],
+        "useCases": [
+          "analytics-api",
+          "multi-tenant",
+          "saas-analytics"
+        ],
+        "packages": [
+          "hypequery"
+        ],
+        "keyFile": "analytics/api.py",
+        "env": [
+          {
+            "name": "HYPEQUERY_AUTH_SECRET",
+            "description": "HS256 secret shared by the token issuer and the verifier. The demo has an insecure default; set your own.",
+            "required": false
+          },
+          {
+            "name": "HYPEQUERY_DEV_DOCS",
+            "description": "Set to 1 to serve the generated OpenAPI document and Swagger UI at /analytics/docs",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "uv sync",
+          "dev": "uv run uvicorn app:app --reload --port 8000",
+          "test": "uv run pytest -q"
+        },
+        "exampleRequest": "TOKEN=$(curl -s -X POST localhost:8000/auth/token -H 'content-type: application/json' -d '{\"email\":\"ada@quartz.example\"}' | jq -r .token) && curl -s -X POST localhost:8000/analytics/datasets/events/query -H \"authorization: Bearer $TOKEN\" -H 'content-type: application/json' -d '{\"dimensions\":[\"event_type\"],\"measures\":[\"events\",\"error_rate\"]}'",
+        "related": [
+          "multi-tenant-embedded-analytics",
+          "p95-latency"
+        ],
+        "leadPages": [
+          "/clickhouse-fastapi",
+          "/clickhouse-python",
+          "/clickhouse-python-analytics",
+          "/clickhouse-python-multi-tenant",
+          "/clickhouse-api"
+        ],
+        "functionPages": [
+          "count",
+          "uniq",
+          "quantile"
+        ],
+        "keywords": [
+          "clickhouse fastapi",
+          "clickhouse python api",
+          "fastapi analytics api",
+          "clickhouse python multi-tenant"
+        ],
+        "minVersion": "0.1.0",
+        "kind": "example"
+      },
+      "dir": "examples/fastapi-analytics-api",
+      "readme": "# A FastAPI analytics API on ClickHouse with tenant-scoped datasets\n\nServe governed ClickHouse analytics from FastAPI: datasets defined once in Python, query endpoints mounted beside your routes, tenant fixed by the token.\n\n## Demo\n\n```bash\nTOKEN=$(curl -s -X POST localhost:8000/auth/token -H 'content-type: application/json' \\\n  -d '{\"email\":\"ada@quartz.example\"}' | jq -r .token)\n\ncurl -s -X POST localhost:8000/analytics/datasets/events/query \\\n  -H \"authorization: Bearer $TOKEN\" -H 'content-type: application/json' \\\n  -d '{\"dimensions\":[\"event_type\"],\"measures\":[\"events\",\"error_rate\"],\"orderBy\":[{\"field\":\"events\",\"direction\":\"desc\"}]}'\n```\n\n```json\n{\"data\":[{\"event_type\":\"page_view\",\"events\":\"7689\",\"error_rate\":\"0\"},\n         {\"event_type\":\"api_call\",\"events\":\"4246\",\"error_rate\":\"0\"},\n         {\"event_type\":\"query_run\",\"events\":\"2559\",\"error_rate\":\"0\"},\n         {\"event_type\":\"login\",\"events\":\"1358\",\"error_rate\":\"0\"},\n         {\"event_type\":\"export\",\"events\":\"669\",\"error_rate\":\"0\"},\n         {\"event_type\":\"error\",\"events\":\"533\",\"error_rate\":\"0.7786116322701688\"}]}\n```\n\nAda's token carries tenant 153 in `org_id`. Mint one for `grace@relay.example` and the same request returns Relay Works' numbers. No request body ever names a tenant; one that tries (`{\"field\":\"tenant_id\",...}`) gets a 400.\n\nYour own route, same scoping:\n\n```bash\ncurl -s \"localhost:8000/reports/top-paths?limit=3\" -H \"authorization: Bearer $TOKEN\"\n# {\"tenant_id\":\"153\",\"data\":[{\"path\":\"/explore\",\"events\":7676,\"unique_users\":204}, ...]}\n```\n\n## Install\n\n```bash\nnpx hypequery create fastapi-analytics-api -y\ncd fastapi-analytics-api\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait   # or set CLICKHOUSE_* for your own ClickHouse\nuv sync\nuv run uvicorn app:app --reload --port 8000\n```\n\n`uv` is the only requirement (`pip install uv`, or see astral.sh/uv). Set `HYPEQUERY_AUTH_SECRET` before deploying; the default is for the demo only. `HYPEQUERY_DEV_DOCS=1` adds Swagger UI at `/analytics/docs`.\n\n## What it shows\n\n- **Datasets defined once, in Python** (`analytics/datasets.py`): `dataset(...)` with `tenant_key=\"tenant_id\"`, filtered measures (`errors` is `count` with a `status_code >= 500` filter), a percentile, and a derived `error_rate` that stays correct however the query groups.\n- **hypequery's endpoints mounted in your app** (`analytics/api.py`, `app.py`): `create_api(...)` builds validated `POST /datasets/<name>/query` endpoints; `app.mount(\"/analytics\", to_asgi_app(api))` puts them next to your routes. `EndpointPolicy(tenant=\"required\", max_limit=500)` refuses tenant-free requests and caps rows.\n- **Your server mints the token** (`analytics/api.py`, `app.py`): `analytics_token_issuer` signs a 15-minute HS256 token with the tenant in `org_id`; `jwt_strategy` verifies it and the default tenant resolver scopes the request. Swap the demo \"login\" for your session.\n- **Hand-written routes reuse the same client** (`app.py`): `/reports/top-paths` calls `client.for_tenant(tenant(tenant_id)).execute(events, {...})`, so your custom endpoints get the same tenant predicate and the same semantic layer.\n- **Isolation proven by the smoke test** (`tests/test_smoke.py`): per-tenant totals equal raw SQL via `clickhouse_connect`, no token is 401, a forged token is 401, and a tenant filter is 400.\n\n## Key file\n\n`analytics/api.py` is the whole security boundary; `app.py` mounts it and adds the demo login and a report route:\n\n```python\nexecutor = create_async_from_sync_clickhouse_executor(connection_from_env())\nclient = create_async_dataset_client(executor=executor)\n\nSECRET = os.environ.get(\"HYPEQUERY_AUTH_SECRET\", \"demo-only-change-me-7c9a4b1f2e3d\")\nissue_token = analytics_token_issuer(SECRET, audience=\"analytics\")  # (subject, tenant_id=, roles=) -> str\nverify_token = jwt_strategy(secret=SECRET, audience=\"analytics\")   # sub, org_id -> tenant, roles\n\npolicy = EndpointPolicy(tenant=\"required\", max_limit=500)\n\napi = create_api(\n    auth=verify_token,\n    client=client,\n    client_mount_path=\"/analytics\",\n    datasets={\n        \"events\": create_dataset_endpoint(dataset=events, client=client, policy=policy),\n        \"subscriptions\": create_dataset_endpoint(dataset=subscriptions, client=client, policy=policy),\n    },\n)\n```\n\nThen in `app.py`:\n\n```python\napp = FastAPI(title=\"Analytics API\", lifespan=lifespan)   # lifespan closes the executor\napp.mount(\"/analytics\", to_asgi_app(api))\n\n@app.get(\"/reports/top-paths\")\nasync def top_paths(tenant_id: Annotated[str, Depends(current_tenant)], limit: int = 5):\n    scoped = client.for_tenant(tenant(tenant_id))\n    result = await scoped.execute(events, {\"dimensions\": [\"path\"], \"measures\": [\"events\", \"unique_users\"],\n                                           \"order_by\": [{\"field\": \"events\", \"direction\": \"desc\"}], \"limit\": min(limit, 20)})\n    return {\"tenant_id\": tenant_id, \"data\": list(result.data)}\n```\n\n## Architecture\n\n```text\nclient                                   FastAPI (app.py)                                           ClickHouse\n──────                                   ───────────────────────────────────────────────────         ──────────\nPOST /auth/token {email}  ──────────▶    your login  ─▶ analytics_token_issuer(org_id=153)\n        ◀── { token (15m) }\nPOST /analytics/datasets/events/query    to_asgi_app(api): jwt_strategy ─▶ Principal(tenant_id=153)\n  Authorization: Bearer <token>  ───▶      ─▶ create_dataset_endpoint ─▶ dataset(tenant_key)\n                                             └─ SELECT ... FROM events WHERE tenant_id = 153 ... ─▶\nGET /reports/top-paths  ─────────────▶   current_tenant ─▶ client.for_tenant(...).execute(events) ─▶\n```\n\n## Adapt it\n\n- **Your identity provider.** `jwt_strategy(jwks_url=..., issuer=..., audience=...)` accepts tokens from Auth0, Clerk or Cognito directly; pass `map_claims` if your tenant claim is not `org_id`.\n- **Session auth instead of tokens.** `create_api(auth=from_context(...))` reads your app's own session from the request, so a browser already signed in to your product needs no analytics token.\n- **Django or Flask.** The datasets and `create_api` are framework-agnostic: `to_asgi_app` mounts in any ASGI app, and `to_wsgi_app` exists for WSGI. `create_async_from_sync_clickhouse_executor` needs no aiohttp, so it suits apps without a shutdown hook.\n- **Cross-tenant reporting.** Internal jobs call `client.execute(events, query, context=...)` with a tenant scope of `all`, server-side only. Never route that through a customer-facing endpoint.\n- **Typed clients.** `GET /analytics/discovery` and the OpenAPI document describe the datasets, so `hypequery` can generate a TypeScript client for your front end, as in the Next.js dashboard example.\n- **Deploy.** It is a plain ASGI app: `uv run uvicorn app:app --host 0.0.0.0` behind your usual proxy, or `gunicorn -k uvicorn.workers.UvicornWorker app:app`.\n\n## Related recipes\n\n- [p95-latency](../../recipes/p95-latency): the `p95_latency_ms` measure, explained.\n\n## Related examples\n\n- [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): the same datasets and token flow in TypeScript with `@hypequery/serve`.\n- [mcp-agent-analytics](../mcp-agent-analytics): the semantic layer exposed to agents over MCP.\n\nTested on ClickHouse 25.8 with `hypequery` 0.1.0b3 (PyPI), FastAPI 0.162 and Python 3.13.\n",
+      "keyFile": {
+        "path": "analytics/api.py",
+        "language": "python",
+        "source": "\"\"\"The security boundary: one ClickHouse client, token issuing and verifying,\nand hypequery's query endpoints over the datasets. app.py mounts `api`.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\n\nfrom hypequery.datasets import create_async_dataset_client\nfrom hypequery.execution import create_async_from_sync_clickhouse_executor\nfrom hypequery.serve import (\n    EndpointPolicy,\n    analytics_token_issuer,\n    create_api,\n    create_dataset_endpoint,\n    jwt_strategy,\n)\n\nfrom analytics.connection import connection_from_env\nfrom analytics.datasets import events, subscriptions\n\n# One executor per process: bounded worker threads over the sync driver, so\n# nothing leaks if the host has no shutdown hook. app.py closes it on shutdown.\nexecutor = create_async_from_sync_clickhouse_executor(connection_from_env())\nclient = create_async_dataset_client(executor=executor)\n\n# Your server mints short-lived tokens; hypequery verifies them and takes the\n# tenant from the token's org_id claim. Set HYPEQUERY_AUTH_SECRET in production.\nSECRET = os.environ.get(\"HYPEQUERY_AUTH_SECRET\", \"demo-only-change-me-7c9a4b1f2e3d\")\nAUDIENCE = \"analytics\"\nissue_token = analytics_token_issuer(SECRET, audience=AUDIENCE)  # (subject, tenant_id=, roles=) -> str\nverify_token = jwt_strategy(secret=SECRET, audience=AUDIENCE)  # await verify_token(Credential) -> Principal\n\n# Every request must carry a tenant, and no page is larger than 500 rows.\npolicy = EndpointPolicy(tenant=\"required\", max_limit=500)\n\napi = create_api(\n    auth=verify_token,\n    client=client,\n    client_mount_path=\"/analytics\",  # where app.mount() puts it, for generated clients\n    development_docs=os.environ.get(\"HYPEQUERY_DEV_DOCS\") == \"1\",  # GET /analytics/docs\n    datasets={\n        \"events\": create_dataset_endpoint(dataset=events, client=client, policy=policy),\n        \"subscriptions\": create_dataset_endpoint(dataset=subscriptions, client=client, policy=policy),\n    },\n)\n"
+      }
+    },
     {
       "manifest": {
         "$schema": "https://hypequery.com/schemas/example.schema.json",
@@ -89,6 +182,99 @@
         "path": "src/datasets.ts",
         "language": "typescript",
         "source": "import { dataset, dimension, divide, gte, measure, nullIfZero } from '@hypequery/datasets';\n\nconst DAY_GRAINS = ['day', 'week', 'month', 'quarter', 'year'] as const;\n\n/** The raw fact table: a million rows, aggregated at query time. */\nexport const Events = dataset('events', {\n  source: 'events',\n  timeKey: 'occurred_at',\n  dimensions: {\n    eventId: dimension.number({ column: 'event_id' }),\n    occurredAt: dimension.timestamp({ column: 'occurred_at' }),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    userId: dimension.number({ column: 'user_id' }),\n    eventType: dimension.string({ column: 'event_type' }),\n    statusCode: dimension.number({ column: 'status_code' }),\n  },\n  measures: {\n    events: measure.count('eventId'),\n    uniqueUsers: measure.countDistinct('userId'),\n    errors: measure.count('statusCode', { filters: [gte('statusCode', 500)] }),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n\n/**\n * Incremental rollup (sql/01-incremental.sql). Reads aggregate states, so\n * `measure.merge` applies `uniqExactMerge` and uniques stay exact at any grain.\n */\nexport const EventsDaily = dataset('eventsDaily', {\n  source: 'events_daily',\n  timeKey: 'day',\n  timeGrains: [...DAY_GRAINS],\n  dimensions: {\n    day: dimension.timestamp(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    eventType: dimension.string({ column: 'event_type' }),\n  },\n  measures: {\n    events: measure.sum('events'),\n    errors: measure.sum('errors'),\n    uniqueUsers: measure.merge('uniqExact', 'users'),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n\n/**\n * Refreshable rollup (sql/02-refreshable.sql). Final values per tenant-day,\n * including a JOIN to `tenants` and an exact p95, recomputed every hour.\n */\nexport const TenantDailySummary = dataset('tenantDailySummary', {\n  source: 'tenant_daily_summary',\n  timeKey: 'day',\n  timeGrains: [...DAY_GRAINS],\n  dimensions: {\n    day: dimension.timestamp(),\n    tenantId: dimension.number({ column: 'tenant_id' }),\n    tenantName: dimension.string({ column: 'tenant_name' }),\n    plan: dimension.string(),\n  },\n  measures: {\n    events: measure.sum('events'),\n    errors: measure.sum('errors'),\n    worstP95LatencyMs: measure.max('p95_latency_ms', { label: 'Worst daily p95 latency (ms)' }),\n    errorRate: measure.derived({\n      uses: { errors: 'errors', events: 'events' },\n      formula: ({ errors, events }) => divide(errors, nullIfZero(events)),\n    }),\n  },\n});\n"
+      }
+    },
+    {
+      "manifest": {
+        "$schema": "https://hypequery.com/schemas/example.schema.json",
+        "slug": "mcp-agent-analytics",
+        "title": "A governed ClickHouse MCP server: agents query the semantic layer, not the database",
+        "outcome": "Give Claude Code, Cursor or any MCP client ClickHouse analytics through four governed tools: only published datasets, no SQL, one tenant per server.",
+        "language": "typescript",
+        "stack": [
+          "node",
+          "mcp",
+          "clickhouse"
+        ],
+        "useCases": [
+          "ai-agents",
+          "multi-tenant",
+          "semantic-layer"
+        ],
+        "packages": [
+          "@hypequery/mcp",
+          "@hypequery/datasets",
+          "@hypequery/clickhouse"
+        ],
+        "keyFile": "src/server.ts",
+        "env": [
+          {
+            "name": "TENANT_ID",
+            "description": "The tenant this server process may see (seed tenants: 153, 170, 146). Set by the MCP client's launch config, never by the agent.",
+            "required": true
+          },
+          {
+            "name": "HYPEQUERY_MCP_INCLUDE_SQL",
+            "description": "Set to 1 to include generated SQL in tool results, for a trusted debugging session only",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_URL",
+            "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_USERNAME",
+            "description": "ClickHouse user (default: default)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_PASSWORD",
+            "description": "ClickHouse password (default: hypequery, the seed's password)",
+            "required": false
+          },
+          {
+            "name": "CLICKHOUSE_DATABASE",
+            "description": "Database holding the seed tables (default hypequery_examples)",
+            "required": false
+          }
+        ],
+        "run": {
+          "install": "pnpm install",
+          "dev": "pnpm dev",
+          "test": "pnpm test"
+        },
+        "exampleRequest": "TENANT_ID=153 node dist/src/agent.js --json",
+        "related": [
+          "multi-tenant-embedded-analytics",
+          "p95-latency"
+        ],
+        "leadPages": [
+          "/clickhouse-mcp",
+          "/clickhouse-multi-tenant-analytics",
+          "/clickhouse-semantic-layer",
+          "/clickhouse-nodejs"
+        ],
+        "functionPages": [
+          "count",
+          "uniq",
+          "quantile"
+        ],
+        "keywords": [
+          "clickhouse mcp",
+          "clickhouse mcp server",
+          "mcp server clickhouse claude",
+          "clickhouse ai agent analytics"
+        ],
+        "minVersion": "2.14.0",
+        "kind": "example"
+      },
+      "dir": "examples/mcp-agent-analytics",
+      "readme": "# A governed ClickHouse MCP server: agents query the semantic layer, not the database\n\nGive Claude Code, Cursor or any MCP client ClickHouse analytics through four governed tools: only published datasets, no SQL, one tenant per server.\n\n## Demo\n\n`pnpm agent` runs a scripted agent (the exact tool calls an LLM client makes, minus the model) against the server, started for tenant 153:\n\n```text\ntools:    get_dataset_schema, list_datasets, query_dataset, query_metric\ndatasets: events (9 dimensions, 4 measures), subscriptions (6 dimensions, 3 measures)\n\n\"How many events by type did we have in October, and the error rate?\"\n  eventType   events  uniqueUsers  errorRate\n  page_view   7689    170          0\n  api_call    4246    157          0\n  query_run   2559    150          0\n  login       1358    140          0\n  export      669     131          0\n  error       533     121          0.7786\n\n\"Subscriptions by plan and status\"\n  enterprise  active    1   999\n\n\"Show me tenant 1 instead\"  ->  refused (MCP_EXECUTION_FAILED)\n```\n\nStart it with `TENANT_ID=170` and every number is Relay Works' instead. The agent never names a tenant, never sees a table name it was not given, and never sees SQL.\n\n## Install\n\n```bash\nnpx hypequery create mcp-agent-analytics -y\ncd mcp-agent-analytics\ndocker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse\npnpm install && pnpm build\npnpm agent          # the scripted walkthrough above\n```\n\nThen point a real agent at it. Claude Code:\n\n```bash\nclaude mcp add hypequery-seed-analytics -e TENANT_ID=153 -e CLICKHOUSE_PASSWORD=hypequery -- node \"$PWD/dist/src/server.js\"\n```\n\nCursor, Claude Desktop and most other clients read an `mcp.json`:\n\n```json\n{\n  \"mcpServers\": {\n    \"hypequery-seed-analytics\": {\n      \"command\": \"node\",\n      \"args\": [\"/absolute/path/to/mcp-agent-analytics/dist/src/server.js\"],\n      \"env\": { \"TENANT_ID\": \"153\", \"CLICKHOUSE_PASSWORD\": \"hypequery\" }\n    }\n  }\n}\n```\n\nAsk it \"what was our error rate by event type last month?\" and watch it call `get_dataset_schema` then `query_dataset`.\n\n## What it shows\n\n- **Four tools, nothing else** (`src/server.ts`): `createMCPServer` exposes `list_datasets`, `get_dataset_schema`, `query_dataset` and `query_metric`. There is no `run_sql`; the agent composes dimensions and measures, hypequery writes the SQL.\n- **Only what you publish** (`src/server.ts`): `publishDatasets().publish(Events).publish(Subscriptions)` is the allowlist. The seed's `tenants` table exists, but the agent cannot see it.\n- **Tenant from the launch, not the prompt** (`analytics/datasets.ts`, `src/server.ts`): both datasets have `tenantKey`, so the server refuses to start without `TENANT_ID`, injects the tenant predicate on every query, and rejects a prompt-injected `tenantId` filter.\n- **Descriptions are the agent's documentation** (`analytics/datasets.ts`): `label` and `description` on dimensions and measures are what `get_dataset_schema` returns, so the agent picks `errorRate` instead of guessing a formula.\n- **A deterministic agent for CI** (`src/agent.ts`, `test/smoke.test.ts`): the MCP SDK client spawns the server over stdio, replays the transcript, and the smoke test checks per-tenant totals against raw SQL and that no SQL leaks.\n\n## Key file\n\n`src/server.ts` is the whole server:\n\n```ts\nconst tenantId = process.env.TENANT_ID;\nif (!tenantId) {\n  console.error('Set TENANT_ID to the tenant this server is allowed to see, e.g. TENANT_ID=153.');\n  process.exit(2);\n}\n\nexport const datasets = publishDatasets().publish(Events).publish(Subscriptions).build();\n\nawait createMCPServer({\n  datasets,\n  analytics,\n  tenantId,\n  name: 'hypequery-seed-analytics',\n  version: '0.1.0',\n  includeSql: process.env.HYPEQUERY_MCP_INCLUDE_SQL === '1', // trusted debugging only\n});\n```\n\n## Architecture\n\n```text\nMCP client (Claude Code, Cursor, src/agent.ts)        this process (stdio)                     ClickHouse\n──────────────────────────────────────────────         ─────────────────────────────────────    ──────────\nlaunches: node dist/src/server.js  TENANT_ID=153  ──▶  createMCPServer({ datasets, tenantId })\ntools/list                         ◀────────────────── list_datasets · get_dataset_schema · query_dataset · query_metric\nquery_dataset { dataset, dimensions, measures } ────▶  publishDatasets allowlist ─▶ dataset(tenantKey) ─▶ planner\n                                   ◀── { data, meta }  (no sql)                    SELECT ... WHERE tenant_id = 153 ─▶\n```\n\n## Adapt it\n\n- **One server per tenant is the simple model.** The MCP client's launch config carries `TENANT_ID`, so a per-user Claude Code or Cursor setup is already tenant-safe. For a shared, remote server, put `createMCPServer` behind your own auth and pass the authenticated tenant as `tenantId`.\n- **Internal, cross-tenant analytics.** Publish datasets without `tenantKey`, or scope with `runtime: { tenant: { scope: 'all' } }` on a server only your team can launch. Never hand that server to a customer-facing agent.\n- **Metrics.** Define `Events.metric('errorRate', { ... })` style metrics and `query_metric` serves them by name, so the agent asks for \"error rate\" rather than composing it.\n- **Budgets.** `createMCPServer` takes `queryLimits` and `executionBudget` to cap rows, time and response size per tool call.\n- **Debugging.** `HYPEQUERY_MCP_INCLUDE_SQL=1` puts the generated SQL in tool results so you can see what the agent's request compiled to. Leave it off for real agents.\n- **Python.** The same shape exists in the Python package: see the FastAPI example for the datasets and `hypequery.mcp` for the server.\n\n## Related recipes\n\n- [p95-latency](../../recipes/p95-latency): the `p95LatencyMs` measure the agent can ask for.\n\n## Related examples\n\n- [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): the same datasets served over HTTP with signed tokens instead of MCP.\n- [fastapi-analytics-api](../fastapi-analytics-api): the Python version of the semantic layer.\n\nTested on ClickHouse 25.8 with `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32.\n",
+      "keyFile": {
+        "path": "src/server.ts",
+        "language": "typescript",
+        "source": "import { createMCPServer } from '@hypequery/mcp';\nimport { publishDatasets } from '@hypequery/datasets';\nimport { analytics } from '../analytics/client.js';\nimport { Events, Subscriptions } from '../analytics/datasets.js';\n\n/**\n * A governed MCP server over the seed dataset.\n *\n * The agent gets exactly four tools: list_datasets, get_dataset_schema,\n * query_dataset and query_metric. It can only reach the datasets published\n * here, with the dimensions and measures they declare; generated SQL is\n * redacted; and because both datasets have a tenantKey, every query is\n * scoped to the tenant this process was started for. The tenant comes from\n * the environment the MCP client launches the server with, never from the\n * agent.\n */\nconst tenantId = process.env.TENANT_ID;\nif (!tenantId) {\n  console.error('Set TENANT_ID to the tenant this server is allowed to see, e.g. TENANT_ID=153.');\n  process.exit(2);\n}\n\nexport const datasets = publishDatasets().publish(Events).publish(Subscriptions).build();\n\nawait createMCPServer({\n  datasets,\n  analytics,\n  tenantId,\n  name: 'hypequery-seed-analytics',\n  version: '0.1.0',\n  // Only turn on in a trusted debugging session: it puts SQL in tool results.\n  includeSql: process.env.HYPEQUERY_MCP_INCLUDE_SQL === '1',\n});\n// The server now speaks MCP over stdio until the client closes the pipe.\n"
       }
     },
     {
