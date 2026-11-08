@@ -1,0 +1,25 @@
+{
+  "name": "@hypequery-examples/seed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic SaaS seed dataset shared by every hypequery example, recipe and guide",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "seed": "pnpm build && node dist/bin/seed.js",
+    "seed:check": "pnpm build && node dist/bin/seed.js --check",
+    "seed:write-checksums": "pnpm build && node dist/bin/seed.js --write-checksums",
+    "run-sql": "pnpm build && node dist/bin/run-sql.js",
+    "test": "vitest run",
+    "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
