@@ -222,6 +222,44 @@ describe("Serve live integration — datasets", () => {
       ]);
     });
 
+    it("streams the same rows as NDJSON and Arrow when the endpoint opts in", async () => {
+      const api = createAPI({
+        datasets: { orders: { dataset: Orders, stream: { maxRows: 1000 } } },
+        queryBuilder: db,
+      });
+      const query = {
+        dimensions: ["status"],
+        measures: ["revenue", "orderCount", "uniqueUsers"],
+        orderBy: [{ field: "status", direction: "asc" }],
+      };
+      const page = semanticBody(await api.handler(createRequest({ path: "/datasets/orders/query", body: query })));
+
+      const ndjson = await api.handler(createRequest({
+        path: "/datasets/orders/query",
+        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
+        body: query,
+      }));
+      expect(ndjson.status).toBe(200);
+      const body = ndjson.body as { contentType: string; stream: ReadableStream<Uint8Array> };
+      expect(body.contentType).toBe("application/x-ndjson");
+      const frames = (await new Response(body.stream).text()).trimEnd().split("\n").map(line => JSON.parse(line));
+      expect(frames[0]).toEqual({ type: "start" });
+      expect(frames.at(-1)).toEqual({ type: "end", rowCount: page.data.length });
+      expect(frames.filter(frame => frame.type === "rows").flatMap(frame => frame.data)).toEqual(page.data);
+
+      const arrow = await api.handler(createRequest({
+        path: "/datasets/orders/query",
+        headers: { "content-type": "application/json", accept: "application/vnd.apache.arrow.stream" },
+        body: query,
+      }));
+      const arrowBody = arrow.body as { contentType: string; stream: ReadableStream<Uint8Array> };
+      expect(arrowBody.contentType).toBe("application/vnd.apache.arrow.stream");
+      const bytes = new Uint8Array(await new Response(arrowBody.stream).arrayBuffer());
+      expect(Array.from(bytes.slice(0, 4))).toEqual([0xff, 0xff, 0xff, 0xff]);
+      // An IPC stream ends with its end-of-stream marker.
+      expect(Array.from(bytes.slice(-8))).toEqual([0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0]);
+    });
+
     it("applies filters, ordering, and limit against live data", async () => {
       const api = createAPI({
         datasets: { orders: Orders },

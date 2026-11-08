@@ -35,7 +35,7 @@ export const api = serve({
     },
     datasets: {
       type: 'Record<string, DatasetEntry>',
-      description: 'Semantic datasets. Each generates `POST /datasets/:name/query`. Entry is a dataset instance or `{ dataset, auth, requiredRoles, requiredScopes, cache, maxLimit, middlewares, tenant }`.',
+      description: 'Semantic datasets. Each generates `POST /datasets/:name/query`. Entry is a dataset instance or `{ dataset, auth, requiredRoles, requiredScopes, cache, maxLimit, stream, middlewares, tenant }`. `stream: true | { maxRows }` lets the endpoint stream NDJSON or Arrow when a request asks with `Accept`.',
     },
     queryBuilder: {
       type: 'QueryBuilderFactoryLike',

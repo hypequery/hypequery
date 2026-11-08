@@ -122,6 +122,17 @@ export interface QueryBuilderLike {
    */
   toSQLWithPlaceholders?(placeholder: (value: unknown) => string): string;
   execute<T = Record<string, unknown>>(options?: { abortSignal?: AbortSignal }): Promise<T[]>;
+  /**
+   * Optional: stream the rows in batches. Required by the dataset client's
+   * `stream()`; `@hypequery/clickhouse` implements it.
+   */
+  stream?<T = Record<string, unknown>>(options?: { abortSignal?: AbortSignal }): Promise<ReadableStream<T[]>>;
+  /**
+   * Optional: stream the result as Arrow IPC stream bytes. Required by the
+   * dataset client's `streamArrow()`; `@hypequery/clickhouse` implements it
+   * from 2.15.0.
+   */
+  streamArrow?(options?: { abortSignal?: AbortSignal }): Promise<ReadableStream<Uint8Array>>;
 }
 
 export interface QueryBuilderJoinCondition {
@@ -140,6 +151,27 @@ export interface QueryBuilderFactoryLike {
     params?: unknown[],
     options?: { abortSignal?: AbortSignal },
   ): Promise<T[]>;
+  /**
+   * Optional: stream a raw statement's rows in batches. Required by the
+   * dataset client's `stream()` for plans that run raw SQL;
+   * `@hypequery/clickhouse` implements it from 2.15.0.
+   */
+  rawStream?<T = Record<string, unknown>>(
+    sql: string,
+    params?: unknown[],
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<ReadableStream<T[]>>;
+  /**
+   * Optional: stream a raw statement's result as Arrow IPC stream bytes. The
+   * statement carries no `FORMAT` clause. Required by the dataset client's
+   * `streamArrow()` for plans that run raw SQL; `@hypequery/clickhouse`
+   * implements it from 2.15.0.
+   */
+  rawArrowStream?(
+    sql: string,
+    params?: unknown[],
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<ReadableStream<Uint8Array>>;
 }
 
 /**

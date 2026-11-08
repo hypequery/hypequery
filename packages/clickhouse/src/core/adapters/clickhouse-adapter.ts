@@ -12,6 +12,8 @@ import type {
 } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
+import { createByteStream } from '../utils/byte-stream.js';
+import { EXCEPTION_TAG_HEADER } from '../utils/stream-exception.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 import { consumeResultWithAbort } from '../utils/abortable-result.js';
 import { throwIfAborted } from '../utils/abort.js';
@@ -118,6 +120,42 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     );
     const stream = result.stream();
     return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream, options?.abortSignal);
+  }
+
+  /**
+   * Streams the result as uncompressed Arrow IPC stream bytes. Batches are
+   * uncompressed by default because JavaScript Arrow readers ship without the
+   * LZ4 codec ClickHouse would otherwise use; a connection-level
+   * `output_format_arrow_compression_method` outranks that default, and a
+   * per-call one outranks both. Use HTTP response compression to shrink the
+   * transfer instead.
+   *
+   * The format is requested through `default_format`, so the statement is
+   * sent as written: a trailing `;` or comment needs no special handling.
+   */
+  async streamArrow(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<Uint8Array>> {
+    throwIfAborted(options?.abortSignal);
+    const finalSQL = substituteParameters(sql, params);
+    // A caller-supplied client does not carry the adapter's connection-level
+    // settings, so they are merged here, as query() and stream() do.
+    const settings: Record<string, unknown> = {
+      output_format_arrow_compression_method: 'none',
+      ...this.configSettings,
+      ...options?.clickhouseSettings,
+      default_format: 'ArrowStream',
+    };
+    const result = await this.client.exec({
+      query: finalSQL,
+      // The clients' `default_format` type omits ArrowStream, which the server accepts.
+      clickhouse_settings: toClientSettings(settings as unknown as ClickHouseSettings),
+      query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
+    });
+    const tag = result.response_headers[EXCEPTION_TAG_HEADER];
+    return createByteStream(result.stream as NodeJS.ReadableStream | ReadableStream<Uint8Array>, {
+      exceptionTag: typeof tag === 'string' ? tag : undefined,
+      abortSignal: options?.abortSignal,
+    });
   }
 
   async insert<T extends Record<string, unknown>>(
