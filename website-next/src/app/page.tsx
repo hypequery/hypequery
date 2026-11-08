@@ -59,7 +59,7 @@ const softwareSchema = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
   description:
-    'The analytics backend for ClickHouse. Define metrics once in TypeScript or Python and serve them as tenant-safe APIs, React hooks and MCP tools from your own app.',
+    'Connect your ClickHouse and ship analytics: dashboards, APIs and AI agents for your customers, each seeing only their own data. Define it once in TypeScript or Python and run it in your own backend.',
   softwareVersion: 'latest',
   codeRepository: 'https://github.com/hypequery/hypequery',
   programmingLanguage: ['TypeScript', 'Python'],

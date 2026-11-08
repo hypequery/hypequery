@@ -62,7 +62,7 @@ export function GET() {
   const lines: string[] = [
     '# hypequery',
     '',
-    '> The analytics layer for ClickHouse, in your codebase. Open-source SDKs for TypeScript and Python (beta): semantic datasets, an HTTP/OpenAPI serve runtime, typed React hooks, and an MCP server for agents. TypeScript also includes a type-safe ClickHouse query builder. hypequery cloud, a hosted option, is not live yet.',
+    '> The analytics backend for ClickHouse. Connect your ClickHouse and ship analytics for your customers, each seeing only their own data. Open-source SDKs for TypeScript and Python (beta): semantic datasets, an HTTP/OpenAPI serve runtime, typed React hooks, and an MCP server for agents. TypeScript also includes a type-safe ClickHouse query builder. hypequery cloud, a hosted option, is not live yet.',
     '',
     'Each link below points to the clean Markdown version of the page. The full corpus is available at /llms-full.txt.',
     '',

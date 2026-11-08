@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     default: "hypequery | The analytics backend for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "The analytics backend for ClickHouse. Define metrics once in TypeScript or Python and serve them as tenant-safe APIs, React hooks and MCP tools from your own app.",
+  description: "Connect your ClickHouse and ship analytics: dashboards, APIs and AI agents for your customers, each seeing only their own data. Define it once in TypeScript or Python and run it in your own backend.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
@@ -41,13 +41,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: absoluteUrl('/'),
     title: 'hypequery | The analytics backend for ClickHouse',
-    description: 'The analytics backend for ClickHouse. Define metrics once in TypeScript or Python and serve them as tenant-safe APIs, React hooks and MCP tools from your own app.',
+    description: 'Connect your ClickHouse and ship analytics: dashboards, APIs and AI agents for your customers, each seeing only their own data. Define it once in TypeScript or Python and run it in your own backend.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'hypequery | The analytics backend for ClickHouse',
-    description: 'The analytics backend for ClickHouse. Define metrics once in TypeScript or Python and serve them as tenant-safe APIs, React hooks and MCP tools from your own app.',
+    description: 'Connect your ClickHouse and ship analytics: dashboards, APIs and AI agents for your customers, each seeing only their own data. Define it once in TypeScript or Python and run it in your own backend.',
   },
   manifest: "/site.webmanifest",
   icons: {
