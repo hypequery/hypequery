@@ -69,12 +69,29 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR cancels that PR's superseded run. Main pushes and
+# workflow_call runs (release verification) each get their own group and are
+# never cancelled.
+concurrency:
+  group: python-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Pull requests run a reduced matrix: the oldest and newest supported Python
+# (3.11, 3.14) for every version-sensitive job. Pushes to main and the release
+# workflows, which reach this file through workflow_call with a non-PR event,
+# run every Python version. The org shares 20 concurrent runners, so job count
+# per push, not job length, sets PR wall-clock time.
+
 defaults:
   run:
     working-directory: python/hypequery
 
 jobs:
   client-qualification:
+    # On pull requests "CI Build and Release" already runs this exact
+    # qualification on the same commit (its python-clients job), and that
+    # workflow has no path filter, so every PR that reaches here gets it.
+    if: github.event_name != 'pull_request'
     uses: ./.github/workflows/python-clients.yml
     with:
       ref: ${{ inputs.ref || github.sha }}
@@ -85,12 +102,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12', '3.13', '3.14']
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11", "3.14"]' || '["3.11", "3.12", "3.13", "3.14"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -131,7 +148,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -156,8 +173,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12', '3.13', '3.14']
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11", "3.14"]' || '["3.11", "3.12", "3.13", "3.14"]') }}
         artifact: ['wheel', 'sdist']
+        # Pull requests build each artifact kind once: sdist on the oldest
+        # Python, wheel on the newest.
+        exclude: ${{ fromJSON(github.event_name == 'pull_request' && '[{"python-version":"3.11","artifact":"wheel"}, {"python-version":"3.14","artifact":"sdist"}]' || '[]') }}
     services:
       clickhouse:
         image: clickhouse/clickhouse-server:26.3
@@ -176,7 +196,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -213,7 +233,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -231,7 +251,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -253,7 +273,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -289,7 +309,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -308,7 +328,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv build
       - name: Audit archive contents
         run: uv run python scripts/audit_artifacts.py dist
@@ -330,7 +350,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'pnpm'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/hypequery/uv.lock
@@ -352,14 +372,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12', '3.13', '3.14']
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11", "3.14"]' || '["3.11", "3.12", "3.13", "3.14"]') }}
         resolution: [locked, floor]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.12.0'
           python-version: ${{ matrix.python-version }}

@@ -19,7 +19,7 @@ The important difference: **ClickHouse loads the right-side table into memory in
 - For large right-side tables, memory becomes the constraint, not IO
 - ClickHouse is not optimised for JOINs the way a row-oriented OLTP database is — its strengths are aggregations over many rows in a single table, not multi-table relational queries
 
-For production analytics workloads where JOINs are frequent or the joined tables are large, the standard alternatives are [Dictionaries](https://clickhouse.com/docs/en/sql-reference/dictionaries) (for lookup tables), [materialized views](/blog/clickhouse-materialized-views-typescript) that pre-join data at write time, or just denormalizing into a single wide table.
+For production analytics workloads where JOINs are frequent or the joined tables are large, the standard alternatives are [Dictionaries](https://clickhouse.com/docs/en/sql-reference/dictionaries) (for lookup tables), [materialized views](/blog/a-guide-to-materialized-views-in-clickhouse) that pre-join data at write time, or just denormalizing into a single wide table.
 
 With that said — JOINs work, and for moderate data sizes they're fine.
 

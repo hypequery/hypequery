@@ -36,17 +36,34 @@ export function resolveClientContractProfile(profile: ClientContractProfile = {}
 
 const narrower = (ceiling: number, value: number | undefined) => value === undefined ? ceiling : Math.min(ceiling, value);
 
-/** Intersect the profile with the dataset's own ceilings; never widen them. */
-export function clientQueryLimits(dataset: ProtocolDeploymentDataset, profile: Required<ClientContractProfile>): ClientQueryLimits {
-  const maxLimit = narrower(narrower(profile.maxLimit, dataset.limits?.maxResultSize), dataset.endpoint?.maxLimit);
+/** A definition's own query ceilings, as datasets and deployment datasets both carry them. */
+export interface ClientLimitCeilings {
+  readonly maxResultSize?: number;
+  readonly maxDimensions?: number;
+  readonly maxMeasures?: number;
+  readonly maxFilters?: number;
+}
+
+/** Intersect the profile with a definition's ceilings and an endpoint's page cap; never widen them. */
+export function narrowClientQueryLimits(
+  ceilings: ClientLimitCeilings | undefined,
+  endpointMaxLimit: number | undefined,
+  profile: Required<ClientContractProfile>,
+): ClientQueryLimits {
+  const maxLimit = narrower(narrower(profile.maxLimit, ceilings?.maxResultSize), endpointMaxLimit);
   return {
     defaultLimit: Math.min(profile.defaultLimit, maxLimit),
     maxLimit,
     maxOffset: profile.maxOffset,
-    maxDimensions: narrower(profile.maxDimensions, dataset.limits?.maxDimensions),
-    maxMeasures: narrower(profile.maxMeasures, dataset.limits?.maxMeasures),
-    maxPredicates: narrower(profile.maxPredicates, dataset.limits?.maxFilters),
+    maxDimensions: narrower(profile.maxDimensions, ceilings?.maxDimensions),
+    maxMeasures: narrower(profile.maxMeasures, ceilings?.maxMeasures),
+    maxPredicates: narrower(profile.maxPredicates, ceilings?.maxFilters),
     maxOrderBy: profile.maxOrderBy,
     maxFilterValues: profile.maxFilterValues,
   };
+}
+
+/** Intersect the profile with the dataset's own ceilings; never widen them. */
+export function clientQueryLimits(dataset: ProtocolDeploymentDataset, profile: Required<ClientContractProfile>): ClientQueryLimits {
+  return narrowClientQueryLimits(dataset.limits, dataset.endpoint?.maxLimit, profile);
 }

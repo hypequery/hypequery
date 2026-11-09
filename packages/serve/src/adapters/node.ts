@@ -9,12 +9,16 @@ import type {
   StartServerOptions,
 } from "../types.js";
 import {
+  isNullBodyStatus,
   normalizeHeaders,
   parseQueryParams,
   parseRequestBody,
   serializeResponseBody,
 } from "./utils.js";
 import { adapterErrorHeaders } from "../utils/error-headers.js";
+import { isServeStreamBody, type ServeStreamBody } from "../utils/stream-body.js";
+import { drained } from "../utils/response-drain.js";
+import { StreamTimeoutError } from "../utils/stream-timeout.js";
 import {
   declaresRequestBody,
   isNodeBodyConsumed,
@@ -25,6 +29,12 @@ import {
 const DEFAULT_REQUEST_TIMEOUT = 30_000; // 30 seconds
 const DEFAULT_BODY_LIMIT = 1_048_576; // 1 MB
 const DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT = 10_000; // 10 seconds
+
+/** How long a streamed response may run; `0` disables a limit. */
+interface StreamDeadlines {
+  idleMs: number;
+  totalMs: number;
+}
 
 const payloadTooLarge = () => {
   const error = new Error("Request body too large");
@@ -111,10 +121,17 @@ const buildServeRequest = async (
   };
 };
 
-const sendResponse = (res: ServerResponse, response: ServeResponse) => {
+const sendResponse = async (
+  res: ServerResponse,
+  response: ServeResponse,
+  deadlines: StreamDeadlines = { idleMs: 0, totalMs: 0 },
+) => {
   // headersSent guards against a mount handler that wrote part of a response
   // and then threw: status/headers can no longer be changed at that point.
-  if (res.writableEnded || res.headersSent) return;
+  if (res.writableEnded || res.headersSent) {
+    if (isServeStreamBody(response.body)) await response.body.stream.cancel().catch(() => undefined);
+    return;
+  }
 
   res.statusCode = response.status;
   const headers = response.headers ?? {};
@@ -125,12 +142,95 @@ const sendResponse = (res: ServerResponse, response: ServeResponse) => {
     }
   }
 
+  if (isServeStreamBody(response.body)) {
+    if (isNullBodyStatus(response.status)) {
+      // These statuses carry no body: stop the stream rather than read it into nothing.
+      await response.body.stream.cancel().catch(() => undefined);
+      res.end();
+      return;
+    }
+    res.setHeader("content-type", response.body.contentType);
+    await sendStream(res, response.body, deadlines);
+    return;
+  }
+
   if (!res.hasHeader("content-type")) {
     res.setHeader("content-type", "application/json; charset=utf-8");
   }
 
   const serialized = serializeResponseBody(response.body);
   res.end(serialized);
+};
+
+/**
+ * Writes a streamed body with backpressure. A client that disconnects, even
+ * before the first chunk, cancels the stream, which stops the query behind
+ * it; a stream that fails partway destroys the response, since its status has
+ * already been sent. A stream that sends nothing for `idleMs`, or runs past
+ * `totalMs`, is cancelled with a {@link StreamTimeoutError} and the response
+ * destroyed, so a reader never mistakes it for a complete one.
+ */
+const sendStream = async (
+  res: ServerResponse,
+  body: ServeStreamBody,
+  deadlines: StreamDeadlines,
+) => {
+  const reader = body.stream.getReader();
+  let settled = false;
+  const stop = (reason?: unknown) => {
+    if (settled) return;
+    settled = true;
+    reader.cancel(reason).catch(() => undefined);
+  };
+  const cancel = () => stop();
+  if (res.destroyed || res.writableEnded) {
+    // The client left while the handler was opening the stream.
+    cancel();
+    return;
+  }
+
+  const expire = (kind: "idle" | "total", ms: number) => {
+    stop(new StreamTimeoutError(kind, ms));
+    res.destroy();
+  };
+  const timer = (kind: "idle" | "total", ms: number) => {
+    if (ms <= 0) return undefined;
+    const handle = setTimeout(() => expire(kind, ms), ms);
+    handle.unref();
+    return handle;
+  };
+  let idleTimer = timer("idle", deadlines.idleMs);
+  const totalTimer = timer("total", deadlines.totalMs);
+
+  res.on("close", cancel);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      // Cancelled meanwhile (client gone or timed out): the read reports done.
+      if (settled) return;
+      if (done) {
+        settled = true;
+        res.end();
+        return;
+      }
+      if (res.destroyed) {
+        cancel();
+        return;
+      }
+      if (!res.write(value)) await drained(res);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = timer("idle", deadlines.idleMs);
+      }
+    }
+  } catch (error) {
+    settled = true;
+    res.destroy(error instanceof Error ? error : undefined);
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (totalTimer) clearTimeout(totalTimer);
+    res.off("close", cancel);
+  }
 };
 
 const sendError = (res: ServerResponse, error: unknown) => {
@@ -150,7 +250,7 @@ const sendError = (res: ServerResponse, error: unknown) => {
     "code" in error &&
     (error as any).code === "PAYLOAD_TOO_LARGE"
   ) {
-    sendResponse(res, {
+    void sendResponse(res, {
       status: 413,
       headers: adapterErrorHeaders(),
       body: {
@@ -178,7 +278,7 @@ const sendError = (res: ServerResponse, error: unknown) => {
           },
         } satisfies ServeResponse;
 
-  sendResponse(res, {
+  void sendResponse(res, {
     ...payload,
     // A thrown response-shaped object is still an adapter error. These
     // headers must override any supplied casing or value.
@@ -192,6 +292,10 @@ export const createNodeHandler = (
 ) => {
   const bodyLimit = options.bodyLimit ?? DEFAULT_BODY_LIMIT;
   const requestTimeout = options.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT;
+  const deadlines: StreamDeadlines = {
+    idleMs: options.streamIdleTimeout ?? requestTimeout,
+    totalMs: options.streamTimeout ?? 0,
+  };
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
@@ -220,14 +324,20 @@ export const createNodeHandler = (
           timer.unref();
         });
 
-        const response = await Promise.race([
-          handler(request),
-          timeoutPromise,
-        ]);
-        sendResponse(res, response);
+        const handled = handler(request);
+        const response = await Promise.race([handled, timeoutPromise]);
+        if (response.status === 504 && !isServeStreamBody(response.body)) {
+          // The handler lost the race; a stream it opens later is never read.
+          void handled.then(late => {
+            if (isServeStreamBody(late.body)) {
+              return late.body.stream.cancel(new StreamTimeoutError("request", requestTimeout));
+            }
+          }).catch(() => undefined);
+        }
+        await sendResponse(res, response, deadlines);
       } else {
         const response = await handler(request);
-        sendResponse(res, response);
+        await sendResponse(res, response, deadlines);
       }
     } catch (error) {
       sendError(res, error);

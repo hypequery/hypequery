@@ -1,15 +1,16 @@
 ---
 title: "hypequery vs Tinybird: Managed Platform vs Code-First TypeScript Layer"
 description: "Tinybird is a managed analytics API platform. hypequery is a code-first TypeScript layer for your own ClickHouse. Here is when each is the right fit."
-seoTitle: "hypequery vs Tinybird — ClickHouse Analytics API Comparison"
+seoTitle: "hypequery vs Tinybird for ClickHouse APIs (2026)"
 seoDescription: "Tinybird manages your ClickHouse infrastructure. hypequery gives you TypeScript-first control over your own ClickHouse. Compare both for analytics API use cases."
 pubDate: 2026-04-25
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-tinybird
 status: published
 ---
 
-Tinybird is a managed analytics platform built on ClickHouse. You point your data at Tinybird, define SQL queries as "Pipes," and Tinybird turns those Pipes into HTTP API endpoints automatically. It handles the ClickHouse infrastructure, the API layer, auth, rate limiting, and caching — none of which you have to build or operate.
+Tinybird is a managed analytics platform built on ClickHouse. You point your data at Tinybird, define SQL queries as "Pipes," and Tinybird turns those Pipes into HTTP API endpoints automatically. It handles the ClickHouse infrastructure, ingestion, the API layer, auth, and rate limiting, none of which you have to build or operate.
 
 hypequery is a TypeScript-first query layer for your own ClickHouse. You bring your own ClickHouse instance — self-hosted, ClickHouse Cloud, or any provider — and hypequery gives you schema generation, a typed query builder, and a serve package for creating typed HTTP endpoints. Everything lives in your codebase.
 
@@ -19,11 +20,11 @@ These are different approaches to a similar problem: exposing analytics from Cli
 
 Tinybird is a well-executed managed platform for teams that want to move fast without operating infrastructure:
 
-- **Zero ops** — Tinybird manages the ClickHouse cluster. You never provision nodes, configure replication, tune memory, or handle upgrades.
-- **Pipes UI** — SQL Pipes are defined in a dashboard and instantly become API endpoints. For teams comfortable with SQL and wanting fast turnaround, this is genuinely fast.
-- **Built-in auth and rate limiting** — Tinybird issues API tokens, enforces rate limits per token, and tracks usage out of the box. No middleware to write.
-- **Built-in caching** — Query results are cached automatically, which reduces both latency and compute cost for repeated requests.
-- **Observability** — Tinybird surfaces request logs, query execution times, and error rates in its dashboard without any additional setup.
+- **Zero ops**: Tinybird manages the ClickHouse cluster. You never provision nodes, configure replication, tune memory, or handle upgrades.
+- **Pipes as code**: In Tinybird Forward, data sources, pipes and endpoints are datafiles (or TypeScript definitions) in a local project. You develop against Tinybird Local, commit to Git, and deploy with the CLI. A pipe published as an endpoint becomes an HTTP API with no extra code. For teams comfortable with SQL and wanting fast turnaround, this is genuinely fast.
+- **Built-in auth and rate limiting**: Tinybird issues tokens, and JWTs can carry a requests-per-second limit and fixed parameters such as a tenant ID that callers cannot override. No middleware to write.
+- **Observability**: Every endpoint request is logged to service data sources such as `tinybird.pipe_stats_rt`, with duration, rows read, status code and errors, which you can query with SQL.
+- **An MCP server**: Agents get token-scoped access to a workspace, including its published endpoints.
 
 For a data team or startup that needs a quick analytics API from ClickHouse data without investing in infrastructure or a bespoke API layer, Tinybird removes a lot of friction.
 
@@ -31,17 +32,17 @@ For a data team or startup that needs a quick analytics API from ClickHouse data
 
 The managed platform model comes with tradeoffs that matter for some teams.
 
-**Your data leaves your infrastructure.** To use Tinybird, data must be ingested into Tinybird's managed ClickHouse environment. For teams with data residency requirements, strict compliance controls, or a preference for keeping analytics data inside their own cloud account, this is a hard stop.
+**Your data leaves your infrastructure.** To use Tinybird, data must be ingested into Tinybird's managed ClickHouse environment. Self-managed regions that run in your own AWS account exist, but Tinybird marks them beta and for development environments only. For teams with data residency requirements, strict compliance controls, or a preference for keeping analytics data inside their own cloud account, this is usually a hard stop.
 
-**Vendor lock-in on the data layer.** Your tables, Pipes, and ingestion pipelines are defined in Tinybird's platform. Migrating away means re-implementing the schema, the transformation logic, and the API layer elsewhere.
+**Vendor lock-in on the data layer.** Your data, ingestion and endpoints run on Tinybird. Forward keeps the definitions as files in your repo, but they describe Tinybird resources, so moving away still means re-implementing ingestion, transformations and the API layer elsewhere.
 
-**SQL-first, not TypeScript-first.** Pipes are SQL. There is no TypeScript SDK — you call Tinybird's HTTP endpoints manually or use a thin community-maintained client. Response types are not generated from your schema. Every consumer of a Tinybird endpoint needs to maintain its own interface definition.
+**SQL-first, not TypeScript-first.** Pipes are SQL. Tinybird does have a TypeScript SDK, `@tinybirdco/sdk`, which it marks experimental: you define data sources and endpoints in TypeScript, and it infers row, parameter and output types from those definitions. The types describe resources you define for Tinybird, including output columns you declare by hand.
 
-**No schema-generated types.** Because Tinybird is a managed API platform, it does not emit TypeScript types from your table schema. TypeScript teams end up with untyped fetch calls and manually-maintained interfaces, which is a significant ergonomics gap.
+**Types follow Tinybird's definitions, not your database.** If your data already lives in your own ClickHouse, nothing in Tinybird generates types from that schema. You would first move the data and redefine the tables as Tinybird data sources.
 
-**Pricing at scale.** Tinybird charges based on data processed and API calls. For high-throughput production analytics workloads, this can become expensive relative to running your own ClickHouse Cloud instance.
+**A second platform bill.** Tinybird plans are sized in vCPUs, with a free plan and overages for vCPU time, storage and data transfer. If you already pay for ClickHouse Cloud or run your own ClickHouse, Tinybird is a second ClickHouse-based platform to pay for and keep in sync.
 
-**Queries may live outside your main application codebase.** Tinybird Pipes are managed in Tinybird's workflow rather than as ordinary TypeScript query definitions in your app. Teams can still build review and deployment workflows around that, but it is a different operating model.
+**Queries live in a Tinybird project, not your application.** Even as files in Git, pipes are SQL deployed to Tinybird and called over HTTP, rather than query definitions your application imports and type-checks. Teams can build review and deployment workflows around that, but it is a different operating model.
 
 ## What hypequery offers
 
@@ -53,26 +54,28 @@ The workflow is fully code-first:
 2. Build analytics queries in TypeScript using the composable query builder — filters, aggregations, joins, and time ranges are all typed
 3. Use `@hypequery/serve` to expose those queries as typed HTTP endpoints with OpenAPI documentation generated automatically
 4. Consume the endpoints in React components via typed hooks, or from any HTTP client with the generated types
+5. Add JWT auth, tenant scoping and the `rateLimit` middleware from `@hypequery/serve`, and an optional query result cache in the query builder, where you need them
 
 The result is an analytics API layer that lives entirely in your existing TypeScript codebase, is versioned alongside your application code, and benefits from TypeScript's full compile-time safety.
 
 Because you bring your own ClickHouse — whether that is ClickHouse Cloud, a self-hosted instance, or any other provider — your data never moves. You control the infrastructure, the query logic, and the API surface.
 
-hypequery is open source and free. There is no platform dependency and no per-query pricing.
+hypequery is open source and free. There is no platform dependency and no platform fee.
 
 ## The honest comparison
 
 | | Tinybird | hypequery |
 |---|---|---|
 | Infrastructure | Managed ClickHouse platform | Bring your own ClickHouse |
-| Data location | Ingested into Tinybird | Stays in your infrastructure |
-| TypeScript types | Manual — call HTTP endpoints yourself | Generated from your live schema |
-| Code ownership | SQL Pipes defined in Tinybird UI | Queries live in your TypeScript codebase |
-| Auth and rate limiting | Built-in | Handled by your existing API layer |
-| Caching | Built-in | Not included |
+| Data location | Ingested into Tinybird; self-managed regions are beta, for development only | Stays in your infrastructure |
+| TypeScript types | Inferred from your Tinybird definitions by `@tinybirdco/sdk` (experimental) | Generated from your live schema |
+| Code ownership | Datafiles or TypeScript in a Tinybird project, deployed with the CLI | Queries live in your TypeScript codebase |
+| Auth and rate limiting | Tokens, plus JWTs with per-token rate limits | JWT auth, tenant scoping and `rateLimit` middleware in `@hypequery/serve` |
+| Rollups and caching | Materialized views and copy pipes | ClickHouse materialized views, plus an optional query result cache |
+| Agents and MCP | Tinybird MCP server | `@hypequery/mcp` over your datasets |
 | Open source | No | Yes |
-| Pricing model | Data processed and API calls | Free |
-| Version control | Possible but external | Native — Git like any other code |
+| Pricing model | Free plan, then plans sized in vCPUs plus overages | Free |
+| Version control | Datafiles in Git, deployed to Tinybird | Native — Git like any other code |
 | Ops burden | None | Manage your own ClickHouse instance |
 
 ## When to choose Tinybird
@@ -89,11 +92,11 @@ hypequery is open source and free. There is no platform dependency and no per-qu
 - You have a TypeScript team building product features, not a standalone data team
 - You are already on ClickHouse Cloud or running self-hosted ClickHouse
 - You want schema-generated types and compile-time safety across the full stack
-- You prefer open source with no per-query pricing
+- You prefer open source with no platform fee
 - You want analytics queries to live in your Git repository alongside the rest of your application
 
 ## Getting started with hypequery
 
 If hypequery is the right fit, the [quick start](/docs/quick-start) covers schema generation, your first typed query, and serving it as a REST endpoint in under five minutes.
 
-For the broader ClickHouse TypeScript picture, read the [ClickHouse TypeScript](/clickhouse-typescript) guide. If you are specifically exploring how to build a typed analytics API layer, the [ClickHouse REST API](/clickhouse-rest-api) guide covers the patterns that `@hypequery/serve` is built on.
+For the broader ClickHouse TypeScript picture, read the [ClickHouse TypeScript](/clickhouse-typescript) guide. If you are specifically exploring how to build a typed analytics API layer, the [ClickHouse REST API](/clickhouse-api) guide covers the patterns that `@hypequery/serve` is built on.

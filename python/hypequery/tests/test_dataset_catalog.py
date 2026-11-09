@@ -44,6 +44,7 @@ from hypequery.datasets.aggregations import (
     sum,  # noqa: A004
 )
 from hypequery.datasets.contract import contract_to_stable_json, hash_contract, normalize_sql
+from hypequery.datasets.formulas import divide
 from hypequery.datasets.query_helpers import (
     eq,
 )
@@ -84,6 +85,11 @@ Orders = Dataset(
         "orderCount": measure(count("id")),
         "uniqueCustomers": measure(count_distinct("customerId")),
         "approxCustomers": measure(approx_count_distinct("customerId")),
+        "rollingRevenue": measure.trailing("revenue", 7, "day", label="Rolling revenue"),
+        "monthToDateRevenue": measure.to_date("revenue", "month"),
+        "runningOrders": measure.cumulative("orderCount"),
+        "revenueLastWeek": measure.shift("revenue", 7, "day"),
+        "weekOverWeek": measure.derived(divide("revenue", "revenueLastWeek")),
         "topStatus": measure(arg_max("status", "amount")),
         "p95Amount": measure(percentile("amount", 0.95)),
         "paidRevenue": measure(sum("amount"), filters=(eq("status", "paid"),)),

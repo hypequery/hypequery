@@ -11,6 +11,7 @@ a JSON path.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import cast
 
 from ..derived_measures import DerivedMeasure
 from ..formulas import Formula, FormulaBinary, FormulaCall, FormulaLiteral, FormulaReference
@@ -82,7 +83,7 @@ def _call_issue(
 
 
 def deployable_measure_issues(
-    measures: Mapping[str, Measure | DerivedMeasure],
+    measures: Mapping[str, object],
 ) -> list[tuple[str, str]]:
     """Every ``(measure name, issue)`` pair among *measures*, in definition order."""
 
@@ -90,7 +91,9 @@ def deployable_measure_issues(
     for name, definition in measures.items():
         if not isinstance(definition, DerivedMeasure):
             continue
-        issue = deployable_formula_issue(definition.formula, measures)
+        issue = deployable_formula_issue(
+            definition.formula, cast(Mapping[str, Measure | DerivedMeasure], measures)
+        )
         if issue is not None:
             issues.append((name, issue))
     return issues

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from ...derived_measures import DerivedMeasure
-from ...formulas import Formula, FormulaBinary, FormulaLiteral, FormulaReference
+from ...formulas import Formula
 from ...measures import Measure
-from ...utils.derived_measures import literal_parameter_type
 from ...utils.relationship_measures import measure_filter_field
 from ..aggregates import AggregateCall
 from ..errors import CompiledQueryError
+from ..formula_sql import formula_sql
 from ..identifiers import SafeIdentifier, safe_identifier
 from ..resolution import is_qualified, physical_column, resolve_relationship_measure
 from ..sql_fragments import aliased, trusted_expression
@@ -18,9 +18,6 @@ from .base import CompilerFeature
 
 if TYPE_CHECKING:
     from ..compiler import DatasetQueryCompiler
-
-_FORMULA_OPERATORS = {"add": "+", "subtract": "-", "multiply": "*"}
-_FORMULA_FUNCTIONS = {"coalesce": "COALESCE", "round": "ROUND", "floor": "FLOOR", "ceil": "CEIL"}
 
 
 class MeasureFeature(CompilerFeature):
@@ -124,33 +121,18 @@ class MeasureFeature(CompilerFeature):
 
         if name not in self.measure_sql:
             measure = self.compiler.dataset.measures[name]
-            self.measure_sql[name] = (
-                self._formula_sql(measure.formula)
-                if isinstance(measure, DerivedMeasure)
-                else self._base_measure_sql(name, measure)
-            )
+            if isinstance(measure, DerivedMeasure):
+                self.measure_sql[name] = self._formula_sql(measure.formula)
+            elif isinstance(measure, Measure):
+                self.measure_sql[name] = self._base_measure_sql(name, measure)
+            else:
+                # The planner routes window and shift queries to the time-measure
+                # statement; reaching here is a planner fault, not caller input.
+                raise CompiledQueryError(
+                    "internal", f'Measure "{name}" needs the time-measure planner.'
+                )
         return self.measure_sql[name]
 
     def _formula_sql(self, formula: Formula) -> str:
-        binder = self.compiler.binder
-        if isinstance(formula, FormulaReference):
-            return self._local_measure_sql(formula.name)
-        if isinstance(formula, FormulaLiteral):
-            if formula.value is None:
-                return "NULL"
-            # Bind as ClickHouse would type the same literal written inline.
-            return binder.bind(formula.value, literal_parameter_type(formula.value))
-        if isinstance(formula, FormulaBinary):
-            left, right = self._formula_sql(formula.left), self._formula_sql(formula.right)
-            if formula.operator == "divide":
-                return self.compiler.dialect.divide(left, right)
-            return f"({left} {_FORMULA_OPERATORS[formula.operator]} {right})"
-        if formula.name == "round":
-            decimals = cast(FormulaLiteral, formula.args[1])
-            decimal_parameter = binder.bind(decimals.value, "Int64")
-            expression = self._formula_sql(formula.args[0])
-            return f"ROUND({expression}, {decimal_parameter})"
-        args = [self._formula_sql(arg) for arg in formula.args]
-        if formula.name == "nullIfZero":
-            return f"NULLIF({args[0]}, 0)"
-        return f"{_FORMULA_FUNCTIONS[formula.name]}({', '.join(args)})"
+        compiler = self.compiler
+        return formula_sql(formula, self._local_measure_sql, compiler.binder, compiler.dialect)

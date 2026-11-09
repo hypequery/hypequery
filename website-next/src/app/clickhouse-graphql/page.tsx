@@ -235,7 +235,7 @@ export default function ClickHouseGraphQLPage() {
       ]}
       readingLinks={[
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Expose the same ClickHouse queries as typed REST endpoints alongside your GraphQL API.',
         },
@@ -256,7 +256,7 @@ export default function ClickHouseGraphQLPage() {
         },
       ]}
       relatedPillars={[
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-nodejs', label: 'ClickHouse Node.js' },

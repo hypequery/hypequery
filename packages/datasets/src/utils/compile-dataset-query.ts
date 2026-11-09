@@ -15,25 +15,32 @@ import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
+import { statementRunner, type StatementRunner, type StatementTarget } from './statement-runner.js';
 
-export interface PreparedDatasetQuery {
+export interface PreparedDatasetQuery extends StatementRunner {
   readonly compilation: DatasetCompilation;
-  execute(): Promise<Record<string, unknown>[]>;
 }
+
+/**
+ * `execution` over-fetches one row for pagination's `hasMore`; `stream` runs
+ * the effective limit as is, since a stream reports no pagination; `logical`
+ * compiles the query as written, without the dataset's ceiling.
+ */
+export type DatasetQueryMode = 'execution' | 'stream' | 'logical';
 
 /** The one dispatch point for dataset preview and query-builder execution. */
 export function prepareDatasetQuery(
   source: AnyDatasetInstance,
   input: DatasetQuery,
   options: DatasetQueryExecutionOptions,
-  mode: 'execution' | 'logical' = 'execution',
+  mode: DatasetQueryMode = 'execution',
 ): PreparedDatasetQuery {
   // Every planner below compiles against the selected time axis. An unknown
   // axis is left for each planner's validation to report as a query error.
   const dataset = selectedTimeKeyError(source, input.timeKey) ? source : datasetOnTimeKey(source, input.timeKey);
   const query: DatasetQuery = structuredClone({
     ...input,
-    limit: mode === 'execution' ? resolveResultLimit(input.limit, dataset.limits).limit : input.limit,
+    limit: mode === 'logical' ? input.limit : resolveResultLimit(input.limit, dataset.limits).limit,
   });
   // Preserve omission while validating/planning: maxMeasures constrains an
   // explicit selection, not the dataset's default set of base measures.
@@ -42,7 +49,7 @@ export function prepareDatasetQuery(
   const executionOptions = { ...options, executionLimit };
   const preflightStatements: DatasetCompiledStatement[] = [];
   let statement: { sql: string; parameters: unknown[] };
-  let execute: PreparedDatasetQuery['execute'];
+  let target: StatementTarget;
   let plan: DatasetCompilationDescription['plan'];
   const abortSignal = options.context?.abortSignal;
   // Raw-SQL plans lose builder settings, so they carry the FINAL pin in their SQL.
@@ -59,21 +66,18 @@ export function prepareDatasetQuery(
     const preflight = withFinalSafety(readsFinal(), renderStatement(planned.preflight));
     statement = main;
     preflightStatements.push(preflight);
-    execute = async () => {
-      await options.builderFactory.rawQuery(preflight.sql, preflight.parameters, { abortSignal });
-      return options.builderFactory.rawQuery(main.sql, main.parameters, { abortSignal });
-    };
+    target = { kind: 'raw', statement: main };
   } else if (needsOuterDatasetQuery(dataset, query)) {
     plan = hasSelectedDerivedMeasure(dataset, query) ? 'derived' : 'aggregate';
     const derived = renderStatement(buildDerivedDatasetSql(dataset, query, executionOptions, buildDatasetQueryBuilder));
     statement = withFinalSafety(readsFinal(), derived);
-    execute = () => options.builderFactory.rawQuery(statement.sql, statement.parameters, { abortSignal });
+    target = { kind: 'raw', statement };
   } else {
     plan = 'aggregate';
     const builder = buildDatasetQueryBuilder(dataset, query, executionOptions);
     statement = builder.toSQLWithParams();
     // Retain builder execution: custom builders may carry adapter settings.
-    execute = () => builder.execute({ abortSignal });
+    target = { kind: 'builder', builder };
   }
 
   const description: DatasetCompilationDescription = Object.freeze({
@@ -99,5 +103,9 @@ export function prepareDatasetQuery(
     describe: () => description,
     toJSON: () => description,
   });
-  return { compilation, execute };
+  const runner = statementRunner(options.builderFactory, target, {
+    abortSignal,
+    preflight: preflightStatements,
+  });
+  return { compilation, ...runner };
 }

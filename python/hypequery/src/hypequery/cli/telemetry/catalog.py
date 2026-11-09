@@ -19,6 +19,7 @@ COMMANDS: Final = (
     "export:client-contract",
     "mcp",
     "skill",
+    "demo",
     "help",
     "version",
     "unknown",

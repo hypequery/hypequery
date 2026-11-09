@@ -80,12 +80,18 @@ describe('compiled CLI telemetry regression', () => {
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as { port: number };
     try {
+      const offStarted = performance.now();
       const off = await run(['init', '--help'], 'off');
+      const offElapsed = performance.now() - offStarted;
       const started = performance.now();
       const stalled = await run(['init', '--help'], 'stalled', directory, { HYPEQUERY_TELEMETRY_URL: `https://127.0.0.1:${port}/batch` });
       const elapsed = performance.now() - started;
       expect({ code: stalled.code, stdout: stalled.stdout, stderr: stalled.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
-      expect(elapsed).toBeLessThan(2_000);
+      // Measured against the telemetry-off run of the same command so Node startup
+      // and CLI load time (slow and noisy on shared CI runners) cancel out. The
+      // regressions this guards against add ~5 s (waiting on the delivery budget)
+      // or ~10 s (fetch's connect timeout), far above this margin.
+      expect(elapsed - offElapsed).toBeLessThan(1_500);
     } finally {
       // The server never reads, so it must drop accepted sockets itself.
       for (const socket of sockets) socket.destroy();

@@ -173,6 +173,8 @@ export type ClickHouseConfig = ClickHouseConnectionOptions | ClickHouseClientCon
 
 export type IntegerJsonEncoding = 'quoted' | 'server-default';
 
+export type ArrowCompression = 'none' | 'server-default';
+
 /** Options owned by HypeQuery's built-in ClickHouse adapter. */
 export interface ClickHouseAdapterOptions {
   /**
@@ -188,6 +190,20 @@ export interface ClickHouseAdapterOptions {
    * authoritative in either mode.
    */
   integerJsonEncoding?: IntegerJsonEncoding;
+  /**
+   * Controls whether Arrow streams request uncompressed record batches.
+   *
+   * - `none` (default) sends `output_format_arrow_compression_method: 'none'`,
+   *   because JavaScript Arrow readers ship without the LZ4 codec ClickHouse
+   *   uses by default.
+   * - `server-default` omits that adapter-owned setting, which is required for
+   *   strict `readonly = 1` connections whose profile does not already set it
+   *   to `'none'`. Batches then use the server's compression method.
+   *
+   * Explicit connection-level and per-call ClickHouse settings remain
+   * authoritative in either mode.
+   */
+  arrowCompression?: ArrowCompression;
 }
 
 /** Configuration accepted by HypeQuery's built-in ClickHouse adapter. */
@@ -896,6 +912,30 @@ export class QueryBuilder<
   }
 
   /**
+   * Streams the result as Arrow IPC stream bytes, with ClickHouse's native
+   * column types, for any Arrow reader to decode:
+   *
+   * ```ts
+   * import { RecordBatchReader } from 'apache-arrow';
+   *
+   * const bytes = await db.table('events').select(['id', 'data']).streamArrow();
+   * for await (const batch of await RecordBatchReader.from(bytes)) {
+   *   batch.getChild('id');
+   * }
+   * ```
+   *
+   * The bytes can also be passed on unchanged, e.g. as an HTTP response body.
+   * A ClickHouse failure after the first batches errors the stream, and so
+   * does a body that ends without Arrow's end-of-stream marker. ClickHouse
+   * 25.11+ marks the failure, so the error is ClickHouse's own; older servers
+   * do not, so the error carries ClickHouse's message only where it can be
+   * recovered from the body.
+   */
+  async streamArrow(options?: StreamOptions): Promise<ReadableStream<Uint8Array>> {
+    return this.executor.streamArrow(options);
+  }
+
+  /**
    * Processes each row in a stream with the provided callback function
    * @param callback Function to call for each row in the stream
    */
@@ -1522,6 +1562,35 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       options?: QueryExecutionOptions
     ) {
       return resolvedAdapter.query<TResult>(sql, params, options);
+    },
+    /**
+     * Streams a raw statement's rows in batches. See {@link QueryBuilder.stream}.
+     */
+    async rawStream<TResult = any>(
+      sql: string,
+      params: unknown[] = [],
+      options?: QueryExecutionOptions
+    ): Promise<ReadableStream<TResult[]>> {
+      if (!resolvedAdapter.stream) {
+        throw new Error(`Streaming is not supported by adapter "${resolvedAdapter.name}".`);
+      }
+      return resolvedAdapter.stream<TResult>(sql, params, options);
+    },
+    /**
+     * Streams a raw statement's result as Arrow IPC stream bytes. Leave out a
+     * `FORMAT` clause: the adapter appends `FORMAT ArrowStream` itself, after
+     * dropping a trailing `;` or comment; ClickHouse rejects a statement that
+     * already has another `FORMAT` clause. See {@link QueryBuilder.streamArrow}.
+     */
+    async rawArrowStream(
+      sql: string,
+      params: unknown[] = [],
+      options?: QueryExecutionOptions
+    ): Promise<ReadableStream<Uint8Array>> {
+      if (!resolvedAdapter.streamArrow) {
+        throw new Error(`Arrow streaming is not supported by adapter "${resolvedAdapter.name}".`);
+      }
+      return resolvedAdapter.streamArrow(sql, params, options);
     },
     /**
      * Closes the underlying connection pool for graceful shutdown. A client

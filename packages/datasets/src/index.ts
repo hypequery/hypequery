@@ -124,6 +124,8 @@ export { publishToCloud } from './cloud-publishing.js';
 export { buildClientContract } from './client-contract/build-from-deployment.js';
 export type { BuildClientContractOptions, ClientContractCapabilities } from './client-contract/build-from-deployment.js';
 export type { ClientContractProfile } from './client-contract/deployment-profile.js';
+export { buildDatasetClientContract } from './client-contract/build-from-datasets.js';
+export type { BuildDatasetClientContractOptions, DatasetClientEndpoint } from './client-contract/build-from-datasets.js';
 export type { CloudPublishingOptions } from './cloud-publishing.js';
 
 // Portable native execution of a semantic invocation (decision 0005).
@@ -321,6 +323,9 @@ export type {
   MetricResultMeta,
   MetricResult,
   DatasetQueryResult,
+  SemanticStreamMeta,
+  SemanticStreamResult,
+  SemanticArrowStreamResult,
   MetricHandle,
   ExecutionContext,
   SemanticExecutionRuntime,

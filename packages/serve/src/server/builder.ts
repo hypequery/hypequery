@@ -20,6 +20,8 @@ import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
+import type { PreparedProtocolClientContract } from "@hypequery/protocol";
+import { exportClientContract } from "./client-contract.js";
 
 const loadNodeAdapter = async () => {
   if (typeof require !== "undefined") {
@@ -47,6 +49,7 @@ export const createBuilderMethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability = createCacheObservability({}),
+  clientContract: () => PreparedProtocolClientContract = () => exportClientContract([], ''),
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
@@ -68,6 +71,8 @@ export const createBuilderMethods = <
       }
       return manifest;
     },
+
+    clientContract,
 
     route: (path: string, endpoint: ServeEndpoint<any, any, TContext, TAuth>, options: Partial<RouteRegistrationOptions<TContext, TAuth>> = {}) => {
       if (!endpoint) {

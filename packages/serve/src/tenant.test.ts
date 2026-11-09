@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
+import { createTenantScope, resolveTenantMode, warnTenantMisconfiguration } from "./tenant.js";
 
 const createTableMock = <TReturn>(value: TReturn) => {
   const table = vi.fn<(name: string) => TReturn>();
@@ -309,6 +309,20 @@ describe("Multi-Tenant Isolation", () => {
           { column: "tenant_id", op: "eq", value: "secure-tenant" },
         ]);
       });
+    });
+  });
+
+  describe("resolveTenantMode", () => {
+    it("defaults to auto-inject when a column is set", () => {
+      expect(resolveTenantMode({ column: "tenant_id" })).toBe("auto-inject");
+    });
+
+    it("defaults to manual without a column", () => {
+      expect(resolveTenantMode({})).toBe("manual");
+    });
+
+    it("keeps an explicit mode", () => {
+      expect(resolveTenantMode({ column: "tenant_id", mode: "manual" })).toBe("manual");
     });
   });
 

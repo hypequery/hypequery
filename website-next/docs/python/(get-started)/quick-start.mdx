@@ -1,5 +1,6 @@
 ---
 title: Quick start
+seoTitle: 'Quick start: Python SDK for ClickHouse'
 description: Generate datasets from your ClickHouse schema with the Python CLI, or define them in your own code, then query and serve them.
 ---
 
@@ -12,6 +13,47 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
   `0.1.0b3` implements the same datasets and Serve protocol as TypeScript, and the same React hooks and MCP server work
   against it. Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
+
+## Try it in one command [#try-it-in-one-command]
+
+With only [uv](https://docs.astral.sh/uv/) installed, one command serves a sample semantic layer to an AI agent over MCP.
+It runs on ClickHouse embedded in the process (chDB), so there's no server to start and nothing to configure:
+
+<CodeBlock>
+```bash
+uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
+```
+</CodeBlock>
+
+<Callout type="info">
+`hypequery demo` ships in the first Python release after 0.1.0b3. chDB publishes wheels for Linux and macOS only.
+</Callout>
+
+The demo seeds a small shop for two tenants, `acme` and `globex`, in a temporary directory, from data shipped in the
+package. `--self-test` answers its questions in the terminal, each beside the answer a query that ignores ClickHouse's
+table engines gets:
+
+- **Orders** live in a `ReplacingMergeTree`, where every update is a new row version. A plain read counts 2,864 orders;
+  the dataset reads them with `row_resolution=resolved_rows.replacing(deleted_column="is_deleted")` and counts 1,536.
+- **Distinct users**: exact `count_distinct` (`uniqExact`) beside `approx_count_distinct` (`uniq`), and
+  `measure.merge("uniq", "users_state")` over an `AggregatingMergeTree` of daily states. Summing each day's distinct
+  users instead counts a returning user once per day, about twice the real number.
+- **Revenue by month** with `measure.shift` and a growth formula, and **daily revenue** with a 7-day `measure.trailing`.
+- **Tenancy**: every dataset has a `tenant_key`. The agent's credential picks the tenant, and it never reads the other
+  tenant's rows.
+
+To let Claude Code query the demo, add it as an MCP server:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]" hypequery demo
+```
+</CodeBlock>
+
+For Cursor or another MCP client, `hypequery demo --print-config` prints the `mcpServers` entry. Ask the agent which
+country had the most revenue, or how many distinct users were active. Window and shift measures aren't in the MCP tools
+yet, because client contracts can't express the bounded time range they need. `--self-test` shows them through the
+Python client. When you're ready for your own tables, pick a route below.
 
 ## Choose your route
 

@@ -69,7 +69,7 @@ export default function ClickHouseNodejsPage() {
       title="Use ClickHouse from Node.js without hand-maintained query types"
       description="Scripts, workers, and Express servers all end up querying ClickHouse. hypequery gives them generated types and one place for each query, so a helper buried in a service file can become a typed API when it needs to."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
-      secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
+      secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API' }}
       stats={[
         { label: 'Runtime', value: 'Node.js and Bun' },
         { label: 'Frameworks', value: 'Express, Next.js, custom Node servers' },
@@ -163,7 +163,7 @@ export default function ClickHouseNodejsPage() {
           description: 'Integrating ClickHouse into Next.js App Router — server components and API routes.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'Full guide to serving typed ClickHouse queries as HTTP endpoints with @hypequery/serve.',
         },
@@ -172,12 +172,22 @@ export default function ClickHouseNodejsPage() {
           title: 'ClickHouse TypeScript',
           description: 'The full TypeScript workflow — schema types, typed queries, HTTP APIs, and React hooks.',
         },
+        {
+          href: '/blog/add-clickhouse-analytics-nodejs-backend',
+          title: 'How to Add ClickHouse Analytics to an Existing Node.js Backend',
+          description: 'Add ClickHouse to an existing Node.js app: generate TypeScript types from your live schema, wire a typed query builder into Express or Nest, and ship one endpoint first.',
+        },
+        {
+          href: '/blog/clickhouse-connection-pooling-nodejs',
+          title: 'ClickHouse Connection Management in Node.js',
+          description: 'ClickHouse uses HTTP — there is no traditional connection pool. Learn the right connection management patterns for Node.js and TypeScript with ClickHouse.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-js', label: 'ClickHouse JavaScript' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
@@ -185,7 +195,7 @@ export default function ClickHouseNodejsPage() {
         description:
           'Pick one script, worker, or route that currently owns its own ClickHouse query code, move it onto the shared builder, and then decide whether it also deserves a served API surface.',
         primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
-        secondaryCta: { href: '/clickhouse-rest-api', label: 'See the REST API guide' },
+        secondaryCta: { href: '/clickhouse-api', label: 'See the REST API guide' },
       }}
     />
   );

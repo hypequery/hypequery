@@ -40,8 +40,8 @@ class OrderingFeature(CompilerFeature):
 
         compiler = self.compiler
         limit = compiler.query.limit
-        if limit is None and compiler.dataset.limits is not None:
-            limit = compiler.dataset.limits.max_result_size
+        if limit is None:
+            limit = compiler.result_ceiling
         if compiler.overfetch and limit is not None:
             limit += 1
         compiler.node.limit = limit

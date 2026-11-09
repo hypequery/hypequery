@@ -7,6 +7,7 @@ import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
 import { generateClientCommand, type GenerateClientOptions } from './commands/generate-client.js';
 import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
+import { exportClientContractCommand, type ExportClientContractOptions } from './commands/export-client-contract.js';
 import {
   buildDeploymentCommand,
   prepareDeploymentReleaseCommand,
@@ -251,6 +252,17 @@ program
   }));
 
 program
+  .command('export:client-contract <api>')
+  .description('Export the client contract of a TypeScript serve API for hypequery generate:client')
+  .option('-o, --output <path>', 'Output JSON file (default: client-contract.json)')
+  .option('--stdout', 'Write the canonical contract to stdout only')
+  .option('--check', 'Check for drift without writing')
+  .option('--force', 'Replace an existing contract file')
+  .action(runCommand(async (api: string, options: ExportClientContractOptions) => {
+    await exportClientContractCommand(api, options);
+  }));
+
+program
   .command('deployment:build <cloud>')
   .description('Build a verified dataset-only Cloud deployment bundle')
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
@@ -361,6 +373,7 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
+  console.log('  hypequery export:client-contract analytics/api.ts --output client-contract.json');
   console.log('  hypequery deploy analytics/cloud.ts');
   console.log('  hypequery deploy analytics/cloud.ts --project my-project --environment production');
   console.log('  hypequery deployment:build analytics/cloud.ts');

@@ -6,6 +6,7 @@ import { serializeSemanticContract } from './contract.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
+import { divide } from './formulas.js';
 import { belongsTo, hasMany, hasOne } from './relationships.js';
 
 /**
@@ -60,6 +61,14 @@ const Orders = dataset('orders', {
     orderCount: measure.count('id'),
     uniqueCustomers: measure.countDistinct('customerId'),
     approxCustomers: measure.approxCountDistinct('customerId'),
+    rollingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }, { label: 'Rolling revenue' }),
+    monthToDateRevenue: measure.toDate('revenue', 'month'),
+    runningOrders: measure.cumulative('orderCount'),
+    revenueLastWeek: measure.shift('revenue', { amount: 7, unit: 'day' }),
+    weekOverWeek: measure.derived({
+      uses: { revenue: 'revenue', revenueLastWeek: 'revenueLastWeek' },
+      formula: ({ revenue, revenueLastWeek }) => divide(revenue, revenueLastWeek),
+    }),
     topStatus: measure.argMax('status', 'amount'),
     p95Amount: measure.percentile('amount', 0.95),
     paidRevenue: measure.sum('amount', {

@@ -43,11 +43,12 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "jose": "^6.2.14",
+    "jose": "^6.2.15",
     "openapi-typescript": "^7.13.0",
     "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2",
-    "@hypequery/datasets": "^0.29.0"
+    "@hypequery/datasets": "^0.29.0",
+    "@hypequery/protocol": "^0.24.2"
   },
   "peerDependencies": {
     "tsx": "^4.0.0",
@@ -64,12 +65,12 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "express": "^5.3.0",
-    "fastify": "^5.12.7",
+    "fastify": "^5.12.8",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "repository": {
     "type": "git",

@@ -16,6 +16,7 @@ from ..sql_fragments import (
     select_clause,
     where_clause,
 )
+from .clickhouse_time import ClickHouseTimeSql
 
 if TYPE_CHECKING:
     from ...dimensions import DimensionType
@@ -47,7 +48,7 @@ _AGGREGATE_FUNCTIONS: Final = {
 }
 
 
-class ClickHouseDialect:
+class ClickHouseDialect(ClickHouseTimeSql):
     """ClickHouse SQL with `{name:Type}` server parameters."""
 
     __slots__ = ()

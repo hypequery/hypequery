@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent, { type RelatedContentLink } from '@/components/RelatedContent';
+import { ArticleCta, ArticleIntroCta } from '@/components/ArticleCta';
 import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import { absoluteUrl } from '@/lib/site';
@@ -180,8 +181,12 @@ export default async function BlogPostPage({
 
   const { data, content } = post;
   const publishDate = data.date;
+  // Show an "Updated" date only when the post changed on a later day than it was published.
+  const updatedDate =
+    data.updated && publishDate && data.updated.slice(0, 10) > publishDate.slice(0, 10) ? data.updated : undefined;
   const articleUrl = absoluteUrl(`/blog/${post.slug}`).toString();
   const relatedLinks = getRelatedLinks(post.slug);
+  const language = /python/i.test(`${post.slug} ${data.title}`) ? 'python' : 'typescript';
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -189,7 +194,7 @@ export default async function BlogPostPage({
     headline: data.title,
     description: data.description ?? undefined,
     datePublished: publishDate ?? undefined,
-    dateModified: publishDate ?? undefined,
+    dateModified: updatedDate ?? publishDate ?? undefined,
     url: articleUrl,
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -235,6 +240,21 @@ export default async function BlogPostPage({
                 day: 'numeric',
               })}
             </time>
+            {updatedDate ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  Updated{' '}
+                  <time dateTime={updatedDate}>
+                    {new Date(updatedDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </time>
+                </span>
+              </>
+            ) : null}
             <span aria-hidden="true">·</span>
             {data.author ? (
               <span>By {blogAuthorName(data.author)}</span>
@@ -255,11 +275,13 @@ export default async function BlogPostPage({
               {data.description}
             </p>
           )}
+          <ArticleIntroCta language={language} />
         </div>
 
         <div className="prose prose-gray dark:prose-invert max-w-none">
           <MarkdownContent content={content} />
         </div>
+        <ArticleCta language={language} />
         <Newsletter className="mt-14" />
         <RelatedContent links={relatedLinks} />
       </article >

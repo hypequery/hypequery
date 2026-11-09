@@ -22,7 +22,7 @@ The whole retrofit is four steps. If you want the condensed version, the [quick 
 
 The instinct when adding a second database to a Node.js app is to reach for the pattern you already use: define models, write migrations, sync the schema from code. That pattern does not transfer, for two reasons.
 
-First, your existing ORM cannot help. Prisma and Drizzle have no native ClickHouse driver, and TypeORM's entity model doesn't map to a columnar, append-heavy database at all (more on coexistence in [Prisma and ClickHouse](/prisma-clickhouse)). ClickHouse needs its own client layer.
+First, your existing ORM cannot help. Prisma and Drizzle have no native ClickHouse driver, and TypeORM's entity model doesn't map to a columnar, append-heavy database at all (more on coexistence in [Prisma and ClickHouse](/clickhouse-orm)). ClickHouse needs its own client layer.
 
 Second, the direction of truth flips. With ClickHouse the schema usually exists before the application code does — an ops or data engineer created the tables, or a managed pipeline is already writing events into them. A code-first, migration-driven workflow fights that reality. A database-first workflow embraces it: point a generator at the live database and derive the types from what is actually there.
 

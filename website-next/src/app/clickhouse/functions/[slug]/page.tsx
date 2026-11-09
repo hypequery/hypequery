@@ -9,6 +9,7 @@ import {
   clickhouseFunctions,
   findFunction,
   functionPathSegment,
+  indexedFunctionSlugs,
 } from '@/data/clickhouse-functions';
 
 type Props = {
@@ -30,6 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: fn.metaTitle,
     description: fn.metaDescription,
     alternates: { canonical },
+    // Pages without search demand stay readable but out of the index.
+    ...(!indexedFunctionSlugs.has(fn.slug) && { robots: { index: false, follow: true } }),
     openGraph: {
       type: 'website',
       url: canonical,
@@ -78,6 +81,8 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
         headline: fn.metaTitle,
         description: fn.metaDescription,
         url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
+        ...(fn.updated && { dateModified: fn.updated }),
+        ...(fn.docsUrl && { citation: fn.docsUrl }),
         author: { '@type': 'Organization', name: 'hypequery' },
         publisher: {
           '@type': 'Organization',
@@ -119,17 +124,53 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             </h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-text-muted">{fn.tagline}</p>
 
-            {/* Signature */}
-            <div className="mt-8 inline-block rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">
-              <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Signature</p>
-              <code className="mt-1 block font-mono text-sm text-accent">{fn.signature}</code>
+            <div className="mt-8 flex flex-wrap gap-4">
+              {/* Signature */}
+              <div className="rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Signature</p>
+                <code className="mt-1 block font-mono text-sm text-accent">{fn.signature}</code>
+              </div>
+
+              {/* Return type */}
+              <div className="rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Returns</p>
+                <p className="mt-1 font-mono text-sm text-text">{fn.returnType}</p>
+              </div>
+
+              {fn.tsType && (
+                <div className="rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">
+                  <p className="text-xs uppercase tracking-[0.2em] text-text-dim">In TypeScript</p>
+                  <p className="mt-1 font-mono text-sm text-text">{fn.tsType}</p>
+                </div>
+              )}
             </div>
 
-            {/* Return type */}
-            <div className="mt-4 ml-4 inline-block rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">
-              <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Returns</p>
-              <p className="mt-1 font-mono text-sm text-text">{fn.returnType}</p>
-            </div>
+            {(fn.updated || fn.docsUrl) && (
+              <p className="mt-6 text-sm text-text-dim">
+                {fn.updated && (
+                  <>
+                    Updated{' '}
+                    <time dateTime={fn.updated}>
+                      {new Date(fn.updated).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      })}
+                    </time>
+                  </>
+                )}
+                {fn.updated && fn.docsUrl && ' · '}
+                {fn.docsUrl && (
+                  <>
+                    Official reference:{' '}
+                    <a href={fn.docsUrl} className="text-accent underline-offset-4 hover:underline" rel="noopener">
+                      {fn.name} in the ClickHouse docs
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </section>
 
@@ -172,6 +213,26 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             </div>
           </div>
         </section>
+
+        {/* Common questions: placed high because these answers are what searchers and AI answers look for */}
+        {fn.faqItems.length > 0 && (
+          <section>
+            <div className="mx-auto max-w-7xl px-4 pb-14 lg:px-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Common questions</p>
+              <h2 className="mt-3 text-2xl font-semibold text-text">
+                {fn.name} questions, answered
+              </h2>
+              <div className="mt-8 space-y-6">
+                {fn.faqItems.map((item) => (
+                  <div key={item.question} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
+                    <h3 className="text-lg font-semibold text-text">{item.question}</h3>
+                    <p className="mt-3 text-sm leading-7 text-text-muted">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* TypeScript / hypequery example */}
         <section className="border-y border-border bg-bg-alt/60">
@@ -220,9 +281,9 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
 
         {/* Search intent cards */}
         <section className="mx-auto max-w-7xl px-4 py-14 lg:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Common questions</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Use cases</p>
           <h2 className="mt-3 text-2xl font-semibold text-text">
-            What developers search for with {fn.name}
+            What teams use {fn.name} for
           </h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {fn.searchIntentCards.map((card) => (
@@ -233,26 +294,6 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             ))}
           </div>
         </section>
-
-        {/* FAQ */}
-        {fn.faqItems.length > 0 && (
-          <section className="border-y border-border bg-bg-alt/60">
-            <div className="mx-auto max-w-7xl px-4 py-14 lg:px-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">FAQ</p>
-              <h2 className="mt-3 text-2xl font-semibold text-text">
-                Frequently asked questions about {fn.name}
-              </h2>
-              <div className="mt-8 space-y-6">
-                {fn.faqItems.map((item) => (
-                  <div key={item.question} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                    <h3 className="text-lg font-semibold text-text">{item.question}</h3>
-                    <p className="mt-3 text-sm leading-7 text-text-muted">{item.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* Related functions + pillars */}
         <section className="mx-auto max-w-7xl px-4 py-14 lg:px-6">

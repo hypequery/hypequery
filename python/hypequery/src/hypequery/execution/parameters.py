@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import cast
 
 from hypequery.datasets.planner import SETTING_DEFINITIONS, CompiledQuery, CompiledQueryError
+from hypequery.datasets.planner.settings import setting_maximum
 
 from .cancellation import terminal_error
 from .utils.datetime_parameters import unix_seconds
@@ -40,7 +41,10 @@ def bound_parameters(compiled: CompiledQuery) -> dict[str, object]:
 
     if compiled.operation != "query":
         raise CompiledQueryError("internal", "unsupported operation", query_id=compiled.query_id)
-    if type(compiled.sql) is not str or not compiled.sql.lstrip().upper().startswith("SELECT "):
+    # A window or shift query is one `WITH ... SELECT` statement.
+    if type(compiled.sql) is not str or not compiled.sql.lstrip().upper().startswith(
+        ("SELECT ", "WITH ")
+    ):
         raise CompiledQueryError("internal", "invalid compiled query", query_id=compiled.query_id)
     matches = _PLACEHOLDER.findall(compiled.sql)
     found = dict(matches)
@@ -73,8 +77,13 @@ def _wire_value(scalar: str, value: object) -> object:
     return unix_seconds(value)
 
 
-def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[str, int]]:
-    """Checked parameters and settings, or the caller's cancellation or deadline."""
+def query_arguments(
+    compiled: CompiledQuery, *, stream: bool = False
+) -> tuple[dict[str, object], dict[str, int]]:
+    """Checked parameters and settings, or the caller's cancellation or deadline.
+
+    Only a *stream* may run above a page's byte ceiling.
+    """
 
     reason = terminal_error(compiled)
     if reason is not None:
@@ -85,7 +94,7 @@ def query_arguments(compiled: CompiledQuery) -> tuple[dict[str, object], dict[st
     settings = dict(compiled.settings.values)
     if set(settings) != set(SETTING_DEFINITIONS) or any(
         type(value) is not int
-        or not SETTING_DEFINITIONS[name].minimum <= value <= SETTING_DEFINITIONS[name].maximum
+        or not SETTING_DEFINITIONS[name].minimum <= value <= setting_maximum(name, stream=stream)
         for name, value in settings.items()
     ):
         raise CompiledQueryError("internal", "invalid query settings", query_id=compiled.query_id)

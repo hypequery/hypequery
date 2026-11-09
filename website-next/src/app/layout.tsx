@@ -6,6 +6,7 @@ import DefaultSearchDialog from "@/components/search";
 import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
 import { WaitlistDialog } from "@/components/home/DeployWaitlist";
+import { CodeCopyTracker } from "@/components/CodeCopyTracker";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -132,8 +133,9 @@ export default function RootLayout({
 })();`,
           }}
         />
-        {/* Optional analytics and marketing trackers are injected only after
-            opt-in by CookieConsentBanner. */}
+        {/* Umami is anonymous and cookieless, so it loads without consent. Cookie-based
+            analytics and marketing trackers are injected only after opt-in by
+            CookieConsentBanner. */}
         <UmamiScript />
       </head>
       <body
@@ -153,6 +155,7 @@ export default function RootLayout({
         >
           {children}
           <WaitlistDialog />
+          <CodeCopyTracker />
         </RootProvider>
         <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>

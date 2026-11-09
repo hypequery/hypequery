@@ -26,11 +26,12 @@ from .features.having import HavingFeature
 from .features.joins import JoinFeature
 from .features.measures import MeasureFeature
 from .features.ordering import OrderingFeature
+from .features.time_measures import TimeMeasureFeature
 from .identifiers import SafeIdentifier, safe_qualified_identifier
 from .parameters import ParameterBinder, TypedParameter
 from .query import DatasetQuery
 from .query_node import DatasetSelectNode
-from .query_validation import resolve_tenant_scope
+from .query_validation import resolve_tenant_scope, result_ceiling
 from .resolution import references_a_relationship, selected_measure_names
 
 
@@ -53,6 +54,7 @@ class DatasetQueryCompiler:
         context: ExecutionContext,
         *,
         overfetch: bool = False,
+        stream: bool = False,
         dialect: SqlDialect = CLICKHOUSE,
     ) -> None:
         self.dialect = dialect
@@ -61,6 +63,8 @@ class DatasetQueryCompiler:
         self.registry = registry
         self.context = context
         self.overfetch = overfetch
+        #: The limit a query that sets none runs under, a stream's when streaming.
+        self.result_ceiling = result_ceiling(dataset, stream=stream)
         self.selected_measures = selected_measure_names(dataset, query)
         self.timezone = validate_timezone(query.timezone or "UTC")
         # Qualify base columns only when a relationship could make them ambiguous.
@@ -79,9 +83,18 @@ class DatasetQueryCompiler:
         self.filtering = FilterFeature(self)
         self.having = HavingFeature(self)
         self.ordering = OrderingFeature(self)
+        self.time_measures = TimeMeasureFeature(self)
 
     def compile(self) -> DatasetSql:
         scope = resolve_tenant_scope(self.dataset, self.context)
+        if self.time_measures.selected():
+            for name in self.query.dimensions:
+                if name in self.selected_measures:
+                    raise CompiledQueryError(
+                        "input-invalid",
+                        f'Output "{name}" cannot be selected as both a dimension and a measure.',
+                    )
+            return DatasetSql(self.time_measures.compile(scope), self.binder.parameters)
         for name in self.query.dimensions:
             if name in self.selected_measures:
                 raise CompiledQueryError(

@@ -3,6 +3,8 @@ import { QueryBuilder } from '../query-builder.js';
 import { logger, type QueryLog } from '../utils/logger.js';
 import { substituteParameters } from '../utils.js';
 import { splitSqlPlaceholders } from '../utils/sql-parens.js';
+import type { DatabaseAdapter } from '../adapters/database-adapter.js';
+import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -99,6 +101,38 @@ export class ExecutorFeature<
   }
 
   async stream(options?: ExecutorStreamOptions): Promise<ReadableStream<State['output'][]>> {
+    return this.openStream((adapter, sql, parameters, clickhouseSettings) => {
+      if (!adapter.stream) {
+        throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
+      }
+      return adapter.stream<State['output']>(sql, parameters, {
+        clickhouseSettings,
+        abortSignal: options?.abortSignal,
+      });
+    });
+  }
+
+  async streamArrow(options?: ExecutorStreamOptions): Promise<ReadableStream<Uint8Array>> {
+    return this.openStream((adapter, sql, parameters, clickhouseSettings) => {
+      if (!adapter.streamArrow) {
+        throw new Error(`Arrow streaming is not supported by adapter "${adapter.name}".`);
+      }
+      return adapter.streamArrow(sql, parameters, {
+        clickhouseSettings,
+        abortSignal: options?.abortSignal,
+      });
+    });
+  }
+
+  /** Opens a result stream with the builder's settings, logging the request. */
+  private async openStream<R>(
+    open: (
+      adapter: DatabaseAdapter,
+      sql: string,
+      parameters: unknown[],
+      clickhouseSettings: ClickHouseSettings | undefined,
+    ) => Promise<R>,
+  ): Promise<R> {
     const adapter = this.builder.getAdapter();
     const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
@@ -112,13 +146,7 @@ export class ExecutorFeature<
     });
 
     try {
-      if (!adapter.stream) {
-        throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
-      }
-      const webStream = await adapter.stream<State['output']>(sql, parameters, {
-        clickhouseSettings: queryNode.settings,
-        abortSignal: options?.abortSignal,
-      });
+      const stream = await open(adapter, sql, parameters, queryNode.settings);
 
       const endTime = Date.now();
       logger.logQuery({
@@ -130,7 +158,7 @@ export class ExecutorFeature<
         status: 'completed'
       });
 
-      return webStream;
+      return stream;
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({

@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from hypequery.datasets import (
     Dataset,
@@ -22,11 +21,12 @@ from hypequery.datasets.deployment import build_protocol_deployment_contract
 from hypequery.datasets.formulas import (
     add,
 )
-from hypequery.datasets.measures import Measure
 from hypequery.datasets.planner import DatasetQuery, ExecutionContext, plan_dataset_query, tenant
 from hypequery.datasets.query_helpers import (
+    between,
     eq,
 )
+from hypequery.datasets.time_measures import ShiftMeasure, WindowMeasure
 from hypequery.protocol import (
     validate_protocol_deployment_contract_v3,
     validate_protocol_semantic_query,
@@ -147,11 +147,35 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             build_protocol_deployment_contract(create_dataset_registry(segmented))
         assert support == {"local": True, "publish": False}
         return
-    assert support == {"local": False, "publish": False}
-    kinds = {"windowMeasures": "window", "shiftMeasures": "shift"}
-    assert feature in kinds  # New matrix features need an executable probe.
-    with pytest.raises(ValidationError):
-        Measure.model_validate({"kind": kinds[feature], "measure": "revenue"})
+    probes: dict[str, tuple[str, WindowMeasure | ShiftMeasure]] = {
+        "windowMeasures": ("rolling", measure.trailing("revenue", 7, "day")),
+        "shiftMeasures": ("lastWeek", measure.shift("revenue", 1, "week")),
+    }
+    assert feature in probes  # New matrix features need an executable probe.
+    name, definition = probes[feature]
+    ds = orders()
+    timed = Dataset(
+        name=ds.name,
+        source=ds.source,
+        tenant_key=ds.tenant_key,
+        time_key=ds.time_key,
+        dimensions=ds.dimensions,
+        measures={**ds.measures, name: definition},
+    )
+    compiled = plan_dataset_query(
+        timed,
+        DatasetQuery(
+            measures=(name,),
+            by="day",
+            filters=(between("createdAt", "2026-01-01", "2026-01-31"),),
+        ),
+        context=ExecutionContext(tenant=tenant("acme")),
+    )
+    assert compiled.sql.startswith("WITH ")
+    # Window and shift measures need deployment contract 3 (RFC 0015).
+    with pytest.raises(ValueError, match=name):
+        build_protocol_deployment_contract(create_dataset_registry(timed))
+    assert support == {"local": True, "publish": False}
 
 
 def test_protocol_v3_acceptance_does_not_imply_python_authoring_support() -> None:
