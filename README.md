@@ -9,7 +9,7 @@
 
 Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend today. A hosted option, hypequery cloud, is coming soon.
 
-hypequery is open source, with SDKs for TypeScript and Python. Model datasets, dimensions, and measures in code, query them by name with tenant isolation built in, then serve them as authenticated HTTP endpoints, typed React hooks, and MCP tools for agents. There's no separate BI server and no YAML project.
+hypequery is an open-source analytics layer for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
 
 <p align="center">
   <a href="https://hypequery.com/docs/quick-start">TypeScript quick start</a> ·
