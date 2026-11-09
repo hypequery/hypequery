@@ -105,3 +105,36 @@ def decode_json_compact(payload: bytes, query_id: str) -> JsonCompactResult:
     except (ValueError, KeyError, TypeError, InvalidOperation):
         raise CompiledQueryError("internal", "invalid result", query_id=query_id) from None
     return JsonCompactResult(names, rows)
+
+
+#: The format a chDB stream reads: every chunk opens with the column names and
+#: types, then one JSON array per row, under the same output settings.
+JSON_COMPACT_EACH_ROW = "JSONCompactEachRowWithNamesAndTypes"
+
+
+def decode_json_compact_each_row(payload: bytes, query_id: str) -> JsonCompactResult:
+    """Parse one ``JSONCompactEachRowWithNamesAndTypes`` chunk of a chDB stream."""
+
+    try:
+        lines = payload.decode("utf-8").splitlines()
+        names, kinds = json.loads(lines[0]), json.loads(lines[1])
+        if (
+            type(names) is not list
+            or type(kinds) is not list
+            or len(names) != len(kinds)
+            or any(type(item) is not str for item in [*names, *kinds])
+        ):
+            raise ValueError("header")
+        bases = tuple(_base_type(kind) for kind in cast(list[str], kinds))
+        rows: list[tuple[object, ...]] = []
+        for line in lines[2:]:
+            if not line:
+                continue
+            raw = json.loads(line)
+            if type(raw) is not list or len(cast(list[object], raw)) != len(bases):
+                raise ValueError("row")
+            values = cast(Sequence[object], raw)
+            rows.append(tuple(_value(kind, item) for kind, item in zip(bases, values, strict=True)))
+    except (ValueError, IndexError, TypeError, InvalidOperation, UnicodeDecodeError):
+        raise CompiledQueryError("internal", "invalid result", query_id=query_id) from None
+    return JsonCompactResult(tuple(cast(list[str], names)), rows)

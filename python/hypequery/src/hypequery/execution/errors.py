@@ -88,8 +88,13 @@ def safe_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     from clickhouse_connect.driver.exceptions import (
         Error,
         OperationalError,
+        StreamFailureError,
     )
 
+    if isinstance(exc, StreamFailureError):
+        # A query that fails after its result began: the driver keeps only the
+        # server's message, whose last "(CODE_NAME)" is the code.
+        return server_message_error(str(exc), query_id)
     if isinstance(exc, Error):
         mapped = server_error_for(exc.name, query_id) if exc.name else None
         if mapped is not None:
@@ -110,8 +115,19 @@ def chdb_driver_error(exc: Exception, query_id: str) -> CompiledQueryError:
     """The public error for a failed chDB query, never chDB's own text."""
 
     if isinstance(exc, RuntimeError):
-        names = _CHDB_ERROR_NAME.findall(str(exc))
-        mapped = server_error_for(names[-1], query_id) if names else None
-        if mapped is not None:
-            return mapped
+        return server_message_error(str(exc), query_id)
+    return CompiledQueryError("internal", "", query_id=query_id)
+
+
+def server_message_error(message: str, query_id: str) -> CompiledQueryError:
+    """The public error for ClickHouse's own message text, never the text itself.
+
+    For chDB failures and for the exception block a server writes into a result
+    stream: both end "... (CODE_NAME)", and the last name is the code.
+    """
+
+    names = _CHDB_ERROR_NAME.findall(message)
+    mapped = server_error_for(names[-1], query_id) if names else None
+    if mapped is not None:
+        return mapped
     return CompiledQueryError("internal", "", query_id=query_id)

@@ -46,7 +46,9 @@ create_dataset_client(*, executor, registry=None, settings=QuerySettings(...), c
 create_async_dataset_client(*, executor, registry=None, settings=QuerySettings(...), cache=None, timezone="UTC") -> AsyncDatasetClient
 ```
 
-`DatasetClient` and `AsyncDatasetClient` expose `execute`, `to_sql`, `validate` and `for_tenant`. `for_tenant` returns a `TenantDatasetClient` (or `AsyncTenantDatasetClient`) bound to one tenant.
+`DatasetClient` and `AsyncDatasetClient` expose `execute`, `stream`, `stream_arrow`, `to_sql`, `validate` and `for_tenant`. `for_tenant` returns a `TenantDatasetClient` (or `AsyncTenantDatasetClient`) bound to one tenant, with the same query methods.
+
+`stream` returns a `DatasetRowStream` (`AsyncDatasetRowStream` on the async client): a context manager yielding `RowBatch`es, tuples of the rows `execute` returns, with `rows()`, `columns`, `column_types`, `query_id` and `timezone`. `stream_arrow` returns a `DatasetArrowStream` (`AsyncDatasetArrowStream`) yielding `pyarrow.RecordBatch`es, with `schema`, `read_all()` and, on the sync client, `to_reader()`. See [Stream large results](/docs/python/datasets/execution#stream-large-results).
 
 The default settings are read-only, `max_execution_time` 30 seconds, `max_result_rows` 100,000, `max_result_bytes` 64 MiB and `max_threads` 4.
 
