@@ -479,7 +479,9 @@ export const executeEndpoint = async <
     // nor caller-supplied context may replace it after authorization ran.
     context.auth = authContext;
 
-    const activeTenantConfig = resolveTenantConfig(tenantConfig, endpoint.tenant);
+    const activeTenantConfig = endpoint.tenantIndependent
+      ? undefined
+      : resolveTenantConfig(tenantConfig, endpoint.tenant);
     if (activeTenantConfig) {
       const tenantRequired = activeTenantConfig.required !== false;
       const tenantId = authContext ? activeTenantConfig.extract(authContext) : null;
@@ -771,6 +773,7 @@ export const createOpenApiEndpoint = (
   let cachedDocument: unknown = null;
   return {
     key: '__hypequery_openapi__',
+    tenantIndependent: true,
     method: 'GET',
     inputSchema: undefined,
     outputSchema: z.any(),
@@ -804,6 +807,7 @@ export const createDocsEndpoint = (
   options?: DocsOptions,
 ) => ({
   key: '__hypequery_docs__',
+    tenantIndependent: true,
   method: 'GET',
   inputSchema: undefined,
   outputSchema: z.string(),
