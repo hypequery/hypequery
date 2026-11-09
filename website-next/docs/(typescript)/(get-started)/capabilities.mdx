@@ -6,7 +6,7 @@ description: Current capability matrix for the ClickHouse TypeScript query build
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-This page records the shipped surface of the TypeScript packages; the [changelog](/docs/changelog) lists what changed since. For Python, see [Python feature status](/docs/python/feature-status). It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
+This page records the shipped surface of the TypeScript packages; the [changelog](/changelog) lists what changed since. For Python, see [Python feature status](/docs/python/feature-status). It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
 
 <Callout type="info" title="Short version">
   `argMax`, `argMin`, percentiles, median, standard deviation, variance, `final()`, `limitBy()`, array joins, `PREWHERE`, CTEs, and window expressions are supported today. The tables below show the exact public syntax.
@@ -231,4 +231,4 @@ export const Orders = dataset('orders', {
 
 ## Keep this page current
 
-When a public capability is added or renamed, update this matrix in the same pull request as the implementation and package README. Use the [changelog](/docs/changelog) for release-by-release history. For the Python SDK, see [Python feature status](/docs/python/feature-status).
+When a public capability is added or renamed, update this matrix in the same pull request as the implementation and package README. Use the [changelog](/changelog) for release-by-release history. For the Python SDK, see [Python feature status](/docs/python/feature-status).
