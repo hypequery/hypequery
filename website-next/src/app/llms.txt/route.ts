@@ -18,6 +18,9 @@ function sectionOf(url: string): string {
 // Product pages that answer "which tool should I use" questions. These have no
 // Markdown copy, so they link to the HTML page.
 const PRODUCT_PAGES: Entry[] = [
+  { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and 8 tools compared on embed model, licensing, self-hosting and pricing.' },
+  { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
+  { title: 'ClickHouse semantic layer', url: '/clickhouse-semantic-layer', description: 'What a semantic layer is, and how to define one for ClickHouse in TypeScript or Python with typed datasets, tenant keys and time keys.' },
   { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
   { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
   { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },

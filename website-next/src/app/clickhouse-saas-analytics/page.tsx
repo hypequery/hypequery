@@ -196,6 +196,7 @@ export default function ClickHouseSaasAnalyticsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },

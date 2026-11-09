@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, functionsByCluster } from '@/data/clickhouse-functions';
 
@@ -85,7 +86,12 @@ export default function ClickHouseFunctionsIndexPage() {
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-slate-800/80">
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
+            <Breadcrumbs
+              items={[{ label: 'ClickHouse', href: '/clickhouse' }, { label: 'Functions' }]}
+              currentPath="/clickhouse/functions"
+              className="text-slate-400"
+            />
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               ClickHouse Functions
             </p>
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
