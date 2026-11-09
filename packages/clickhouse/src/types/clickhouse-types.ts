@@ -57,8 +57,18 @@ export type ClickHouseBaseType =
   | ClickHouseBoolean
   | ClickHouseEnum;
 
+/**
+ * Columns of AggregatingMergeTree tables. An `AggregateFunction` column holds
+ * partial aggregation states (read them with `mergeState`); a
+ * `SimpleAggregateFunction(fn, T)` column holds plain `T` values.
+ */
+export type ClickHouseAggregateFunction =
+  | `AggregateFunction(${string})`
+  | `SimpleAggregateFunction(${string})`;
+
 export type ClickHouseType =
   | ClickHouseBaseType
+  | ClickHouseAggregateFunction
   | `Array(${string})`
   | `Nullable(${string})`
   | `LowCardinality(${string})`
@@ -78,6 +88,13 @@ export type InferClickHouseType<T extends string, Depth extends number = 0> =
   : T extends ClickHouseJson ? unknown
   : T extends ClickHouseEnum ? string
   : T extends ClickHouseBoolean ? boolean
+  // A value is read as its underlying type; the function only matters to merges.
+  : T extends `SimpleAggregateFunction(${string}, ${infer U})`
+  ? U extends ClickHouseType
+    ? InferClickHouseType<U, Add1<Depth>>
+    : unknown
+  // Selected directly, a partial state arrives as an opaque binary string.
+  : T extends `AggregateFunction(${string})` ? string
   : T extends `Array(${infer U})`
   ? U extends ClickHouseType
   ? Array<InferClickHouseType<U, Add1<Depth>>>
