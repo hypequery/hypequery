@@ -8,17 +8,24 @@
  *   npm run check:functions
  *   CLICKHOUSE_BINARIES="/opt/ch/26.6/clickhouse,/opt/ch/26.10/clickhouse" npm run check:functions
  *
- * Each binary is run as `<binary> local`, so no server is needed. Exit code is
- * 1 if any example fails on any binary.
+ * Each binary is run as `<binary> local`, so no server is needed. Every
+ * example's output must match the one recorded in function-examples.expected.json,
+ * so a changed filter, time grain or measure fails the check, not just an error.
+ * Exit code is 1 if any example errors or differs on any binary.
+ *
+ * After an intended change to an example, record its new output:
+ *   npm run check:functions -- --update
+ * and review the diff of function-examples.expected.json before committing.
  *
  * Python examples need a ClickHouse server with the fixture tables loaded and
  * a Python with hypequery and clickhouse-connect installed:
  *   npm run --silent check:functions -- --print-fixtures | clickhouse client --multiquery
  *   CHECK_PYTHON=/path/to/venv/bin/python CLICKHOUSE_URL=http://default@localhost:8123/default npm run check:functions
- * Each example runs with `python -I` and must exit 0. Its printed rows are
- * shown so they can be compared with the SQL example's output.
+ * Each example runs with `python -I`, must exit 0, and must print the rows
+ * recorded for it. `--update` records Python output too when CHECK_PYTHON is set.
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { clickhouseFunctions, indexedFunctionSlugs } from '../src/data/clickhouse-functions';
 
 // Tables the examples query, with a few rows each so every example returns data.
@@ -43,9 +50,33 @@ if (process.argv.includes('--print-fixtures')) {
 }
 
 type Result = { slug: string; binary: string; version: string; ok: boolean; error?: string };
+type Expected = { sql: Record<string, string>; python: Record<string, string> };
+
+const EXPECTED_FILE = new URL('./function-examples.expected.json', import.meta.url);
+const update = process.argv.includes('--update');
+const expected: Expected = (() => {
+  try {
+    return JSON.parse(readFileSync(EXPECTED_FILE, 'utf8')) as Expected;
+  } catch {
+    return { sql: {}, python: {} };
+  }
+})();
+
+/** Compares an example's output with the recorded one; returns why it differs, if it does. */
+function mismatch(recorded: string | undefined, actual: string): string | undefined {
+  if (recorded === undefined) return 'no recorded output; run with --update';
+  if (recorded === actual) return undefined;
+  const want = recorded.split('\n');
+  const got = actual.split('\n');
+  const line = want.findIndex((w, i) => w !== got[i]);
+  const at = line === -1 ? want.length : line;
+  return `output differs at line ${at + 1}: expected ${JSON.stringify(want[at] ?? '')}, got ${JSON.stringify(got[at] ?? '')}`;
+}
 
 function run(binary: string, sql: string): string {
-  return execFileSync(binary, ['local', '--multiquery', '--query', sql], {
+  // One thread makes read order, and so `LIMIT` without `ORDER BY` and
+  // `groupArray(n)`, deterministic on the single-part fixture tables.
+  return execFileSync(binary, ['local', '--multiquery', '--max_threads', '1', '--query', sql], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -61,8 +92,10 @@ for (const binary of binaries) {
   const version = run(binary, 'SELECT version()').trim();
   for (const fn of clickhouseFunctions.filter((f) => indexedFunctionSlugs.has(f.slug))) {
     try {
-      run(binary, `${FIXTURES}\n${fn.exampleSql}`);
-      results.push({ slug: fn.slug, binary, version, ok: true });
+      const output = run(binary, `${FIXTURES}\n${fn.exampleSql}`).trimEnd();
+      if (update && binary === binaries[0]) expected.sql[fn.slug] = output;
+      const error = update ? undefined : mismatch(expected.sql[fn.slug], output);
+      results.push({ slug: fn.slug, binary, version, ok: !error, error });
     } catch (error) {
       const stderr = (error as { stderr?: string }).stderr ?? String(error);
       results.push({ slug: fn.slug, binary, version, ok: false, error: stderr.split('\n')[0] });
@@ -84,8 +117,11 @@ if (python) {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      results.push({ slug: fn.slug, binary: python, version: 'python', ok: true });
-      console.log(`ok    Python  ${fn.slug}\n${output.trimEnd().replace(/^/gm, '      ')}`);
+      const printed = output.trimEnd();
+      if (update) expected.python[fn.slug] = printed;
+      const differs = update ? undefined : mismatch(expected.python[fn.slug], printed);
+      results.push({ slug: fn.slug, binary: python, version: 'python', ok: !differs, error: differs });
+      console.log(`${differs ? 'FAIL' : 'ok  '}  Python  ${fn.slug}${differs ? `  ${differs}` : ''}`);
     } catch (error) {
       const stderr = (error as { stderr?: string }).stderr ?? String(error);
       const lastLine = stderr.trim().split('\n').at(-1);
@@ -94,6 +130,10 @@ if (python) {
     }
   }
 }
+if (update) {
+  writeFileSync(EXPECTED_FILE, `${JSON.stringify(expected, null, 2)}\n`);
+  console.log(`\nRecorded outputs in ${EXPECTED_FILE.pathname}.`);
+}
 const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} examples ran.`);
+console.log(`\n${results.length - failed}/${results.length} examples returned the recorded output.`);
 process.exit(failed > 0 ? 1 : 0);
