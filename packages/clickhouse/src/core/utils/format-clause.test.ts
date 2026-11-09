@@ -47,14 +47,14 @@ describe('withFormatClause', () => {
     expect(arrow('SELECT 1 format `ArrowStream`')).toBe('SELECT 1 format `ArrowStream`');
   });
 
-  it('refuses a statement that requests another format', () => {
-    expect(() => arrow('SELECT 1 FORMAT JSONEachRow')).toThrow(
-      'The statement ends in FORMAT JSONEachRow, but this call returns ArrowStream',
-    );
+  it('appends to a statement with another format, for ClickHouse to reject', () => {
+    expect(arrow('SELECT 1 FORMAT JSONEachRow')).toBe('SELECT 1 FORMAT JSONEachRow\nFORMAT ArrowStream');
   });
 
   it('does not mistake a column named format for the clause', () => {
     expect(arrow('SELECT format FROM t')).toBe('SELECT format FROM t\nFORMAT ArrowStream');
     expect(arrow("SELECT format('{}', x)")).toBe("SELECT format('{}', x)\nFORMAT ArrowStream");
+    expect(arrow('SELECT format FROM t ORDER BY format DESC')).toBe('SELECT format FROM t ORDER BY format DESC\nFORMAT ArrowStream');
+    expect(arrow('SELECT 1 AS format')).toBe('SELECT 1 AS format\nFORMAT ArrowStream');
   });
 });

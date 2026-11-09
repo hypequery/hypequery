@@ -8,21 +8,16 @@
  * skipped as ClickHouse's lexer does, so markers inside them are not mistaken
  * for the end of the statement.
  *
- * A statement that already ends in `FORMAT <format>` is returned trimmed; one
- * that ends in another format is refused, since its bytes would not be what the
- * caller asked for.
+ * A statement that already ends in `FORMAT <format>` is returned trimmed.
+ * Nothing else is treated as a format clause: a trailing `format DESC` is a
+ * sort on a column named `format`. A statement with a different `FORMAT`
+ * clause gets a second one, which ClickHouse rejects as a syntax error.
  */
 export function withFormatClause(sql: string, format: string): string {
   const { end, trailingFormat } = scanStatementEnd(sql);
   const statement = sql.slice(0, end);
 
-  if (trailingFormat !== undefined) {
-    if (trailingFormat.toLowerCase() === format.toLowerCase()) return statement;
-    throw new Error(
-      `The statement ends in FORMAT ${trailingFormat}, but this call returns ${format}. ` +
-      'Leave out the FORMAT clause; the adapter requests the format itself.',
-    );
-  }
+  if (trailingFormat?.toLowerCase() === format.toLowerCase()) return statement;
   return `${statement}\nFORMAT ${format}`;
 }
 
@@ -34,7 +29,7 @@ interface Token {
 interface StatementEnd {
   /** Index just past the statement's last token that is not a comment, whitespace or `;`. */
   end: number;
-  /** The format named by a trailing `FORMAT <name>`, if the statement ends in one. */
+  /** `<name>` when the statement's last two tokens are `FORMAT <name>`. */
   trailingFormat?: string;
 }
 

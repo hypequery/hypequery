@@ -596,15 +596,16 @@ describe('ClickHouseAdapter.streamArrow', () => {
     })).rejects.toBe(cause);
   });
 
-  it('refuses a statement that already asks for another format', async () => {
+  it('keeps a trailing FORMAT ArrowStream and sorts on a column named format', async () => {
     const execMock = exec();
     const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any });
 
-    await expect(adapter.streamArrow('SELECT 1 FORMAT JSONEachRow')).rejects.toThrow('Leave out the FORMAT clause');
-    expect(execMock).not.toHaveBeenCalled();
-
     await adapter.streamArrow('SELECT 1 format ArrowStream;');
     expect(execMock.mock.calls[0]![0].query).toBe('SELECT 1 format ArrowStream');
+
+    const db = createQueryBuilder<{ events: { format: 'String' } }>({ client: { exec: execMock } as any });
+    await db.table('events').select(['format']).orderBy('format', 'DESC').streamArrow();
+    expect(execMock.mock.calls[1]![0].query).toMatch(/ORDER BY format DESC\nFORMAT ArrowStream$/);
   });
 
   it("fails the stream with ClickHouse's error when the response carries an exception block", async () => {

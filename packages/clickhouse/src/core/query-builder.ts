@@ -1579,8 +1579,8 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
     /**
      * Streams a raw statement's result as Arrow IPC stream bytes. Leave out a
      * `FORMAT` clause: the adapter appends `FORMAT ArrowStream` itself, after
-     * dropping a trailing `;` or comment, and refuses a statement that asks
-     * for another format. See {@link QueryBuilder.streamArrow}.
+     * dropping a trailing `;` or comment; ClickHouse rejects a statement that
+     * already has another `FORMAT` clause. See {@link QueryBuilder.streamArrow}.
      */
     async rawArrowStream(
       sql: string,

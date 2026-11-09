@@ -209,7 +209,7 @@ Batches are uncompressed by default, because JavaScript Arrow readers don't incl
 
 If ClickHouse fails after sending part of the result, the stream errors. ClickHouse 25.11 or later marks the failure, so the error is ClickHouse's own. Older servers don't; the stream still errors because the bytes end without Arrow's end-of-stream marker, but ClickHouse's message is included only when it can be recovered from the response.
 
-For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Leave out a `FORMAT` clause: `rawArrowStream` appends `FORMAT ArrowStream` itself, after dropping a trailing `;` or comment, and refuses a statement that asks for another format.
+For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Leave out a `FORMAT` clause: `rawArrowStream` appends `FORMAT ArrowStream` itself, after dropping a trailing `;` or comment, so ClickHouse rejects a statement that already has another `FORMAT` clause.
 
 ### streamForEach()
 
