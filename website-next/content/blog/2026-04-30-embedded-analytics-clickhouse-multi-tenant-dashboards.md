@@ -53,7 +53,7 @@ Next.js App Router
                     ├── auth: session → { userId, tenantId }
                     ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
                     ├── datasets: tenantKey enforced at plan time
-                    └── .settings({ SQL_tenant_id, quota_key })
+                    └── context: per-request ctx.db sends { SQL_tenant_id, quota_key }
 
 ClickHouse
   ├── events: ORDER BY (tenant_id, event_time, event_id)
@@ -245,17 +245,27 @@ This works, but every function must remember both lines, and nothing stops a han
 [hypequery](https://github.com/hypequery/hypequery)'s serve runtime resolves the tenant once per request from your auth strategy, then injects it for you. With `tenant.column` set, every `ctx.db.table(...)` call in a query gets `WHERE tenant_id = <tenant>` added automatically, and requests without a tenant are rejected.
 
 ```typescript
+import { createClient } from '@clickhouse/client';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import type { IntrospectedSchema } from './schema';
 import { verifySession } from './auth'; // your JWT or session check
 
-const db = createQueryBuilder<IntrospectedSchema>({
+// One connection pool for the app.
+const client = createClient({
   url: process.env.CLICKHOUSE_URL!,
   username: 'app_analytics',
   password: process.env.CLICKHOUSE_PASSWORD,
 });
+
+// A per-request builder on that pool. Every query it runs, hand-written or
+// dataset, sends the tenant's row-policy setting and quota key.
+const tenantDb = (tenantId: string) =>
+  createQueryBuilder<IntrospectedSchema>({
+    client,
+    clickhouse_settings: { SQL_tenant_id: tenantId, quota_key: tenantId },
+  });
 
 type AppAuth = { userId: string; tenantId: string };
 
@@ -265,7 +275,8 @@ const { query, serve } = initServe({
     const token = request.headers['authorization']?.replace('Bearer ', '');
     return token ? verifySession(token) : null;
   },
-  context: () => ({ db }),
+  // No session means no settings: the row policy and quota fail the query closed.
+  context: ({ auth }) => ({ db: tenantDb(auth?.tenantId ?? '') }),
 });
 
 const eventCounts = query({
@@ -282,7 +293,6 @@ const eventCounts = query({
       )
       .groupBy(['event_type'])
       .orderBy('total_events', 'DESC')
-      .settings({ SQL_tenant_id: ctx.tenantId, quota_key: ctx.tenantId })
       .execute(),
 });
 
@@ -300,6 +310,7 @@ Three things to notice:
 
 - **`input` is what the client sends; `ctx` is what the server derives.** No input schema accepts a tenant, so a client cannot ask for one.
 - **Tenant resolution lives in one place.** Change auth providers and you edit `auth` and `extract`, not every endpoint.
+- **The ClickHouse settings live in one place too.** `context` builds `ctx.db` per request, so no query can forget `SQL_tenant_id` or `quota_key`.
 - **Exceptions are explicit.** An internal admin query opts out with a per-query override, `tenant: { required: false, mode: 'manual' }`, which is easy to grep for in review. The [multi-tenancy docs](/docs/multi-tenancy) cover the options.
 
 One caveat from the docs: calling a query definition's own `.execute()` directly skips the tenant pipeline. Run tenant-scoped queries through `api.run(...)`, `api.execute(...)` or HTTP.
@@ -362,16 +373,17 @@ The second rule stops an endpoint from filtering for one tenant while the runtim
 
 ## A Typed Analytics API for Your Dashboards
 
-The same `serve()` call can publish hand-written queries, datasets and metrics as one HTTP API. Datasets registered here use the serve tenant identity and their own `tenantKey`:
+The same `serve()` call can publish hand-written queries, datasets and metrics as one HTTP API. Datasets registered here use the serve tenant identity and their own `tenantKey`, and they run on the request's `ctx.db`, so they send the same `SQL_tenant_id` and `quota_key` as the queries:
 
 ```typescript
 export const api = serve({
-  queryBuilder: db,
   tenant: { extract: (auth) => auth.tenantId, required: true, column: 'tenant_id' },
   queries: { eventCounts },
   datasets: { orders: Orders },
 });
 ```
+
+The role needs `SELECT` on `orders` and a row policy of its own there, because policies are per table.
 
 Each query gets a validated route, such as `GET /api/analytics/queries/eventCounts?days=7`; the zod schema rejects bad input before any SQL runs, and a request without a session gets a 401. Datasets get `POST /api/analytics/datasets/orders/query`. Serve also publishes an OpenAPI document at `/api/analytics/openapi.json` with interactive docs at `/api/analytics/docs`, generated from the same definitions, so the docs cannot drift from the code. With a required tenant, those two routes need a signed-in tenant too. See [HTTP and OpenAPI](/docs/http-openapi).
 
@@ -382,10 +394,13 @@ import { createHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/api';
 import manifest from '@/analytics/hypequery-manifest.json';
+import { getSessionToken } from '@/lib/auth'; // your auth SDK's client-side token getter
 
 export const { useQuery } = createHooks<InferApiType<typeof api>>({
   baseUrl: '/api/analytics',
   manifest,
+  // The server's auth reads a bearer token, so send one with every request.
+  token: () => getSessionToken(),
 });
 
 export function EventCountsWidget() {
