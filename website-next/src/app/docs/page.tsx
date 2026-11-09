@@ -84,6 +84,7 @@ export default function DocsHome() {
 
         <h2>Learn more</h2>
         <Cards>
+          <Card title="What is hypequery" href="/docs/what-is-hypequery" description="A precise definition, the packages, how it compares, and release status." />
           <Card title="Why hypequery" href="/docs/why-hypequery" description="The problem it solves, who it fits, and when to pick something else." />
           <Card title="Core concepts" href="/docs/core-concepts" description="Datasets, serving, and clients, and how they relate." />
         </Cards>
