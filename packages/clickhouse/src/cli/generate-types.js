@@ -2,6 +2,7 @@ import { ClickHouseConnection } from '../core/connection.js';
 import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';
+import { describeRelation } from './describe-relation.js';
 import { clickhouseToTsType } from './type-parsing.js';
 
 export { clickhouseToTsType } from './type-parsing.js';
@@ -86,13 +87,19 @@ export async function generateTypeDefinitions(client, options = {}) {
  */
 export interface IntrospectedSchema {`;
 
+  // Describe each table once; parameterized views need a described call.
+  const described = new Map();
+  for (const table of tables) {
+    described.set(table.name, await describeRelation(client, table.name));
+  }
+
   // Get columns for each table
   for (const table of tables) {
-    const columnsQuery = await client.query({
-      query: `DESCRIBE TABLE ${table.name}`,
-      format: 'JSONEachRow'
-    });
-    const columns = await columnsQuery.json();
+    const { columns, parameters } = described.get(table.name);
+    if (parameters) {
+      const signature = parameters.map(({ name, type }) => `${name}: ${type}`).join(', ');
+      typeDefinitions += `\n  /** Parameterized view: select from ${table.name}(${signature}). */`;
+    }
     typeDefinitions += `\n  ${table.name}: {`;
     for (const column of columns) {
       typeDefinitions += `\n    '${column.name}': ${JSON.stringify(column.type)};`;
@@ -105,11 +112,7 @@ export interface IntrospectedSchema {`;
   // Also generate a type-safe record type for each table
   typeDefinitions += `\n// Type-safe record types for each table\n`;
   for (const table of tables) {
-    const columnsQuery = await client.query({
-      query: `DESCRIBE TABLE ${table.name}`,
-      format: 'JSONEachRow'
-    });
-    const columns = await columnsQuery.json();
+    const { columns } = described.get(table.name);
 
     typeDefinitions += `export interface ${capitalizeFirstLetter(table.name)}Record {`;
     for (const column of columns) {

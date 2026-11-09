@@ -39,6 +39,35 @@ const usersAndEvents = {
 };
 
 describe('generateTypeDefinitions', () => {
+  // ClickHouse describes a parameterized view as having no columns; calling
+  // it with default arguments returns them.
+  it('types a parameterized view from a described call', async () => {
+    const client: TypeGenerationClickHouseClient = {
+      async query({ query }) {
+        if (query === 'SHOW TABLES') return { json: async () => [{ name: 'daily_by_app' }] };
+        if (query === 'DESCRIBE TABLE daily_by_app') return { json: async () => [] };
+        if (query.startsWith('SELECT create_table_query FROM system.tables')) {
+          return {
+            json: async () => [{
+              create_table_query: 'CREATE VIEW db.daily_by_app AS SELECT day, bytes FROM rollup WHERE app = {app:String} AND day >= {from:Date}',
+            }],
+          };
+        }
+        if (query === "DESCRIBE (SELECT * FROM `daily_by_app`(`app` = defaultValueOfTypeName('String'), `from` = defaultValueOfTypeName('Date')))") {
+          return { json: async () => [{ name: 'day', type: 'Date' }, { name: 'bytes', type: 'UInt64' }] };
+        }
+        throw new Error(`Unexpected query: ${query}`);
+      },
+    };
+
+    const contents = await generateTypeDefinitions(client, { includeUsageExample: false });
+
+    expect(contents).toContain('/** Parameterized view: select from daily_by_app(app: String, from: Date). */');
+    expect(contents).toContain("'day': \"Date\";");
+    expect(contents).toContain("'bytes': \"UInt64\";");
+    expect(contents).toContain("'bytes': string;");
+  });
+
   it('generates schema and record interfaces from a provided client', async () => {
     const contents = await generateTypeDefinitions(fakeClient({ users: usersAndEvents.users }), {
       generatedBy: 'hypequery',
