@@ -7,6 +7,7 @@ import { DeployWaitlist } from '@/components/home/DeployWaitlist';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand, type Language } from '@/components/home/SetupCommand';
 import { marketing } from '@/components/ui/marketing';
+import { faqPageSchema, type FaqItem } from '@/lib/faq-schema';
 
 type LinkItem = {
   href: string;
@@ -97,7 +98,14 @@ export type ClickhousePillarPageProps = {
   solutionSection: Section;
   implementationSection: Section;
   comparisonTable?: ComparisonTable;
+  /** Honest list of situations where the other tool is the better choice. */
+  chooseAlternative?: {
+    title: string;
+    bullets: string[];
+  };
   searchIntentCards: Card[];
+  /** Rendered as an FAQ section with matching FAQPage structured data. */
+  faq?: FaqItem[];
   readingLinks: ReadingLink[];
   relatedPillars: LinkItem[];
   nextStep: {
@@ -122,13 +130,18 @@ export function ClickhousePillarPage({
   solutionSection,
   implementationSection,
   comparisonTable,
+  chooseAlternative,
   searchIntentCards,
+  faq,
   readingLinks,
   relatedPillars,
   nextStep,
 }: ClickhousePillarPageProps) {
   return (
     <>
+      {faq && faq.length > 0 ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faq)) }} />
+      ) : null}
       <Navigation />
       <main className="min-h-screen bg-bg pt-[62px] text-text">
         <section className="border-b border-border">
@@ -361,6 +374,22 @@ export function ClickhousePillarPage({
           </section>
         ) : null}
 
+        {chooseAlternative ? (
+          <section className={`${marketing.container} pb-14 sm:pb-20`}>
+            <div className="rounded-xl border border-border-strong bg-bg-card p-6 shadow-card sm:p-8">
+              <h2 className={marketing.sectionTitle}>{chooseAlternative.title}</h2>
+              <ul className="mt-6 space-y-3">
+                {chooseAlternative.bullets.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm leading-6 text-text-muted">
+                    <span aria-hidden="true" className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                    <span><RichText text={item} /></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
+
         <section className={marketing.band}>
           <div className={`${marketing.container} py-14 sm:py-20`}>
             <p className="font-mono text-xs text-text-dim">
@@ -379,6 +408,21 @@ export function ClickhousePillarPage({
             </div>
           </div>
         </section>
+
+        {faq && faq.length > 0 ? (
+          <section className={`${marketing.container} pt-14 sm:pt-20`}>
+            <p className={marketing.eyebrow}>FAQ</p>
+            <h2 className={`mt-3 ${marketing.sectionTitle}`}>Frequently asked questions</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {faq.map((item) => (
+                <div key={item.question} className={marketing.card}>
+                  <h3 className={marketing.cardTitle}>{item.question}</h3>
+                  <p className="mt-3 text-sm leading-6 text-text-muted">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-10 lg:grid-cols-[0.65fr_0.35fr]">
