@@ -254,6 +254,11 @@ const guides: HubLink[] = [
     description: 'Meter customer usage in ClickHouse and show it back to customers.',
   },
   {
+    href: '/blog/power-bi-embedded-pricing',
+    title: 'Power BI Embedded pricing',
+    description: 'What A and F SKU capacity costs, who needs a license, and cheaper alternatives.',
+  },
+  {
     href: '/compare/hypequery-vs-metabase',
     title: 'hypequery vs Metabase',
     description: 'A BI tool you embed compared with a code-first layer you build on.',

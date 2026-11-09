@@ -1,15 +1,15 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./website-next/public/logo-on-dark.png" />
-    <img src="./website-next/public/logo.png" alt="hypequery, the analytics layer for ClickHouse" width="300" />
+    <img src="./website-next/public/logo.png" alt="hypequery, embedded analytics on ClickHouse" width="300" />
   </picture>
 </p>
 
-<p align="center"><strong>The analytics layer for ClickHouse.</strong></p>
+<p align="center"><strong>Embedded analytics on ClickHouse.</strong></p>
 
 Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend today. A hosted option, hypequery cloud, is coming soon.
 
-hypequery is an open-source analytics layer for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
+hypequery is an open-source embedded analytics toolkit for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
 
 <p align="center">
   <a href="https://hypequery.com/docs/quick-start">TypeScript quick start</a> ·

@@ -1,10 +1,10 @@
 ---
-title: "Embedded Analytics with ClickHouse: A Practical Guide to Multi-Tenant Dashboards"
+title: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
 description: "How to build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed tenant-scoped API, dashboard performance, quotas, and tenant offboarding."
-seoTitle: "Multi-Tenant Embedded Analytics with ClickHouse"
-seoDescription: "Build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed API, quotas and offboarding."
+seoTitle: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+seoDescription: "Multi-tenant embedded analytics architecture on ClickHouse: shared tables, row policies plus app-side tenant scoping, a typed API, quotas, fast dashboards."
 pubDate: 2026-04-30
-updated: 2026-11-08
+updated: 2026-11-09
 heroImage: ""
 slug: embedded-analytics-clickhouse-multi-tenant-dashboards
 status: published
@@ -34,7 +34,37 @@ Both. App-side scoping knows who the user is and which workspace or role they ha
 
 ### What does a multi-tenant embedded analytics architecture look like?
 
-One shared ClickHouse table per event type, one read-only database user with a tenant row policy, and one typed API layer that injects the tenant into every query. The [reference architecture](#a-reference-architecture) puts it together.
+One shared ClickHouse table per event type, one read-only database user with a tenant row policy, and one typed API layer that injects the tenant into every query. The [architecture section](#multi-tenant-embedded-analytics-architecture) shows each layer.
+
+## Multi-Tenant Embedded Analytics Architecture
+
+A multi-tenant embedded analytics stack on ClickHouse has four layers, and each one has a single job:
+
+1. **Storage.** One shared table per event type, with `tenant_id` first in the sort key, so a tenant's query reads only that tenant's part of the data. See [the schema that scales](#the-schema-that-scales).
+2. **Database guard.** A read-only role with a row policy that reads the tenant from a per-query setting, plus settings profiles and keyed quotas per plan tier, so a bug or a heavy tenant can't reach other tenants' rows or starve them. See [row-level security done right](#row-level-security-done-right) and [resource isolation](#resource-isolation-and-noisy-neighbors).
+3. **API layer.** The server resolves the tenant from the verified session and injects the tenant filter into every query in one place; datasets reject queries that would bypass the tenant key. See [enforcing tenancy at plan time](#enforcing-tenancy-at-plan-time-with-datasets).
+4. **Dashboard.** React components call typed endpoints. The browser never sends SQL or a tenant id. See [a typed analytics API](#a-typed-analytics-api-for-your-dashboards).
+
+```text
+Next.js App Router
+  └── app/api/analytics/[...path]/route.ts
+        └── createFetchHandler(api.handler)
+              └── serve({ tenant: { extract, column: 'tenant_id' } })
+                    ├── auth: session → { userId, tenantId }
+                    ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
+                    ├── datasets: tenantKey enforced at plan time
+                    └── context: per-request ctx.db sends { SQL_tenant_id, quota_key }
+
+ClickHouse
+  ├── events: ORDER BY (tenant_id, event_time, event_id)
+  ├── projection: (tenant_id, hour, event_type) → count()
+  ├── row policy: tenant_id = getSetting('SQL_tenant_id')
+  ├── role settings: SQL_tenant_id CHANGEABLE_IN_READONLY
+  ├── settings profile per plan tier
+  └── quota KEYED BY client_key
+```
+
+The rest of this guide builds each layer, in that order.
 
 ---
 
@@ -215,17 +245,27 @@ This works, but every function must remember both lines, and nothing stops a han
 [hypequery](https://github.com/hypequery/hypequery)'s serve runtime resolves the tenant once per request from your auth strategy, then injects it for you. With `tenant.column` set, every `ctx.db.table(...)` call in a query gets `WHERE tenant_id = <tenant>` added automatically, and requests without a tenant are rejected.
 
 ```typescript
+import { createClient } from '@clickhouse/client';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import type { IntrospectedSchema } from './schema';
 import { verifySession } from './auth'; // your JWT or session check
 
-const db = createQueryBuilder<IntrospectedSchema>({
+// One connection pool for the app.
+const client = createClient({
   url: process.env.CLICKHOUSE_URL!,
   username: 'app_analytics',
   password: process.env.CLICKHOUSE_PASSWORD,
 });
+
+// A per-request builder on that pool. Every query it runs, hand-written or
+// dataset, sends the tenant's row-policy setting and quota key.
+const tenantDb = (tenantId: string) =>
+  createQueryBuilder<IntrospectedSchema>({
+    client,
+    clickhouse_settings: { SQL_tenant_id: tenantId, quota_key: tenantId },
+  });
 
 type AppAuth = { userId: string; tenantId: string };
 
@@ -235,7 +275,8 @@ const { query, serve } = initServe({
     const token = request.headers['authorization']?.replace('Bearer ', '');
     return token ? verifySession(token) : null;
   },
-  context: () => ({ db }),
+  // No session means no settings: the row policy and quota fail the query closed.
+  context: ({ auth }) => ({ db: tenantDb(auth?.tenantId ?? '') }),
 });
 
 const eventCounts = query({
@@ -252,7 +293,6 @@ const eventCounts = query({
       )
       .groupBy(['event_type'])
       .orderBy('total_events', 'DESC')
-      .settings({ SQL_tenant_id: ctx.tenantId, quota_key: ctx.tenantId })
       .execute(),
 });
 
@@ -270,6 +310,7 @@ Three things to notice:
 
 - **`input` is what the client sends; `ctx` is what the server derives.** No input schema accepts a tenant, so a client cannot ask for one.
 - **Tenant resolution lives in one place.** Change auth providers and you edit `auth` and `extract`, not every endpoint.
+- **The ClickHouse settings live in one place too.** `context` builds `ctx.db` per request, so no query can forget `SQL_tenant_id` or `quota_key`.
 - **Exceptions are explicit.** An internal admin query opts out with a per-query override, `tenant: { required: false, mode: 'manual' }`, which is easy to grep for in review. The [multi-tenancy docs](/docs/multi-tenancy) cover the options.
 
 One caveat from the docs: calling a query definition's own `.execute()` directly skips the tenant pipeline. Run tenant-scoped queries through `api.run(...)`, `api.execute(...)` or HTTP.
@@ -332,16 +373,17 @@ The second rule stops an endpoint from filtering for one tenant while the runtim
 
 ## A Typed Analytics API for Your Dashboards
 
-The same `serve()` call can publish hand-written queries, datasets and metrics as one HTTP API. Datasets registered here use the serve tenant identity and their own `tenantKey`:
+The same `serve()` call can publish hand-written queries, datasets and metrics as one HTTP API. Datasets registered here use the serve tenant identity and their own `tenantKey`, and they run on the request's `ctx.db`, so they send the same `SQL_tenant_id` and `quota_key` as the queries:
 
 ```typescript
 export const api = serve({
-  queryBuilder: db,
   tenant: { extract: (auth) => auth.tenantId, required: true, column: 'tenant_id' },
   queries: { eventCounts },
   datasets: { orders: Orders },
 });
 ```
+
+The role needs `SELECT` on `orders` and a row policy of its own there, because policies are per table.
 
 Each query gets a validated route, such as `GET /api/analytics/queries/eventCounts?days=7`; the zod schema rejects bad input before any SQL runs, and a request without a session gets a 401. Datasets get `POST /api/analytics/datasets/orders/query`. Serve also publishes an OpenAPI document at `/api/analytics/openapi.json` with interactive docs at `/api/analytics/docs`, generated from the same definitions, so the docs cannot drift from the code. With a required tenant, those two routes need a signed-in tenant too. See [HTTP and OpenAPI](/docs/http-openapi).
 
@@ -352,10 +394,13 @@ import { createHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/api';
 import manifest from '@/analytics/hypequery-manifest.json';
+import { getSessionToken } from '@/lib/auth'; // your auth SDK's client-side token getter
 
 export const { useQuery } = createHooks<InferApiType<typeof api>>({
   baseUrl: '/api/analytics',
   manifest,
+  // The server's auth reads a bearer token, so send one with every request.
+  token: () => getSessionToken(),
 });
 
 export function EventCountsWidget() {
@@ -517,29 +562,6 @@ WHERE type = 'QueryFinish'
   AND event_date >= today() - 30
 GROUP BY tenant_id
 ORDER BY rows_read DESC;
-```
-
----
-
-## A Reference Architecture
-
-```text
-Next.js App Router
-  └── app/api/analytics/[...path]/route.ts
-        └── createFetchHandler(api.handler)
-              └── serve({ tenant: { extract, column: 'tenant_id' } })
-                    ├── auth: session → { userId, tenantId }
-                    ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
-                    ├── datasets: tenantKey enforced at plan time
-                    └── .settings({ SQL_tenant_id, quota_key })
-
-ClickHouse
-  ├── events: ORDER BY (tenant_id, event_time, event_id)
-  ├── projection: (tenant_id, hour, event_type) → count()
-  ├── row policy: tenant_id = getSetting('SQL_tenant_id')
-  ├── role settings: SQL_tenant_id CHANGEABLE_IN_READONLY
-  ├── settings profile per plan tier
-  └── quota KEYED BY client_key
 ```
 
 ---

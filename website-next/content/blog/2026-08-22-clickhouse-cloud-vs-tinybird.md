@@ -1,10 +1,10 @@
 ---
-title: "Tinybird vs ClickHouse Cloud: Differences, Pricing and Which to Pick"
-description: "ClickHouse Cloud is a managed ClickHouse database. Tinybird is a platform on ClickHouse that adds ingestion and hosted API endpoints. How each one bills, where each wins, and how to connect from TypeScript."
-seoTitle: "Tinybird vs ClickHouse Cloud: Pricing and Which to Pick"
-seoDescription: "ClickHouse Cloud is managed ClickHouse billed by compute and storage. Tinybird adds ingestion and hosted APIs, billed by plan size. Which one to pick."
+title: "Tinybird vs ClickHouse Cloud: Is Tinybird More Expensive?"
+description: "Not at the entry level: Tinybird starts at $25/month, while the smallest ClickHouse Cloud service costs about $160/month in compute running around the clock. The pricing side by side, how each one bills, and where each one wins."
+seoTitle: "Is Tinybird More Expensive Than ClickHouse Cloud? (2026)"
+seoDescription: "Not at the entry level: Tinybird starts at $25/month; an always-on ClickHouse Cloud Basic service is about $160/month. Pricing table and when each wins."
 pubDate: 2026-08-22
-updatedAt: 2026-11-08
+updatedAt: 2026-11-09
 heroImage: ""
 slug: clickhouse-cloud-vs-tinybird
 status: published
@@ -13,9 +13,21 @@ tags:
   - Tinybird
 ---
 
-ClickHouse Cloud is the managed ClickHouse database run by ClickHouse, Inc.: you get a service with full SQL access over HTTPS, the native protocol and the MySQL wire protocol, and you pay for compute (metered per minute) and compressed storage separately. Tinybird is a data platform from a separate company that runs ClickHouse underneath and adds ingestion connectors, SQL-to-REST API endpoints, access tokens and a branch-based development workflow, priced by plan size in vCPUs with a free plan that has no time limit. Pick Tinybird when what you want is hosted analytics APIs with as little backend work as possible; pick ClickHouse Cloud when your own services, jobs and BI tools need to read and write a ClickHouse database directly.
+Not at the entry level. Tinybird's Developer plan starts at $25/month, and its 0.5 vCPU size costs $49/month with 25 GB of storage and hosted API endpoints included. The smallest ClickHouse Cloud service (Basic, 8 GiB of RAM and 2 vCPUs) costs about $160/month in compute if it runs around the clock, before storage. ClickHouse's own example that keeps it awake 6 hours a day comes to $66.52/month in total. For that money ClickHouse Cloud gives you four times the vCPUs of Tinybird's $49 size, and Tinybird's larger SaaS and Enterprise plans are custom-priced on 12-month credits, so beyond the smallest workloads the cheaper option depends on your hours, data and query rate.
 
-Prices, limits and features on this page come from each vendor's pricing pages and docs, checked on 8 November 2026.
+| | Tinybird | ClickHouse Cloud |
+|---|---|---|
+| Free option | Free plan with no time limit: 0.25 vCPU, 1,000 requests a day, 10 GB of storage | $300 of credits for 30 days |
+| Entry paid price | Developer from $25/month; the 0.5 vCPU size is $49/month with 25 GB of storage | Basic, 1 replica of 8 GiB and 2 vCPUs: $159.66/month of compute running 24/7 on AWS us-east-1, plus storage |
+| How compute is billed | A plan sized in vCPUs; use above the plan is $0.0002 per vCPU-second | Per minute of active compute: $0.2181 (Basic), $0.2985 (Scale) or $0.3903 (Enterprise) per compute-unit-hour on AWS us-east-1; idle services scale to zero |
+| Storage | 25 GB included on Developer, then $0.058/GB | $25.30 per TB-month of compressed data; backups at the same rate |
+| Egress | $0.01/GB within a cloud, $0.10/GB between clouds | Public internet from $0.1152/GB, inter-region from $0.0312/GB |
+| API hosting | Included: endpoints are the product | Query API endpoints for saved queries, or your own API service, paid separately |
+| Larger plans | SaaS and Enterprise, custom-priced on credits with a 12-month commitment | Scale and Enterprise tiers, pay-as-you-go or committed spend |
+
+Prices come from [Tinybird's pricing page](https://www.tinybird.co/pricing), the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing) and the worked examples in [ClickHouse's billing docs](https://clickhouse.com/docs/cloud/manage/billing/overview), checked on 9 November 2026. Rates vary by cloud and region.
+
+ClickHouse Cloud is the managed ClickHouse database run by ClickHouse, Inc.: a service with full SQL access over HTTPS, the native protocol and the MySQL wire protocol. Tinybird is a data platform from a separate company that runs ClickHouse underneath and adds ingestion connectors, SQL-to-REST API endpoints, access tokens and a branch-based development workflow. Pick Tinybird when what you want is hosted analytics APIs with as little backend work as possible; pick ClickHouse Cloud when your own services, jobs and BI tools need to read and write a ClickHouse database directly.
 
 ## How is Tinybird different from ClickHouse Cloud?
 
@@ -35,7 +47,7 @@ ClickHouse Cloud sells the database as a service, and Tinybird sells a platform 
 
 ## Is Tinybird more expensive than ClickHouse Cloud?
 
-It depends on your workload, because the two bill on different units and neither publishes a like-for-like price. ClickHouse Cloud charges for compute time and stored data, so cost follows how many hours your service is awake and how much data you keep. Tinybird charges a plan fee sized in vCPUs and then overages, so cost follows the plan you need to stay inside its limits.
+At the entry level Tinybird costs less in dollars, as the table above shows. Past that it depends on your workload, because the two bill on different units and neither publishes a like-for-like price. ClickHouse Cloud charges for compute time and stored data, so cost follows how many hours your service is awake and how much data you keep. Tinybird charges a plan fee sized in vCPUs and then overages, so cost follows the plan you need to stay inside its limits.
 
 ### How ClickHouse Cloud bills
 
@@ -53,7 +65,7 @@ From the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing):
 From Tinybird's [pricing page](https://www.tinybird.co/pricing) and [plan docs](https://www.tinybird.co/docs/forward/pricing):
 
 - The Free plan gives 0.25 vCPU, 1,000 requests per day, 10 GB of storage and one query thread, with no time limit. Requests over the burst limit get HTTP 429.
-- Developer plans are a fixed monthly fee by size, starting at $25/month (the 0.5 vCPU size is listed at $49/month), with 25 GB of storage included. Extra storage is $0.058/GB and vCPU use above the plan is $0.0002 per second. Self-service sizes go up to 8 vCPUs.
+- Developer plans are a fixed monthly fee by size. The pricing page says they start at $25/month and lists the 0.5 vCPU size at $49/month; the plan docs name sizes from S-1/4 (a quarter vCPU) upward. Every size includes 25 GB of storage. Extra storage is $0.058/GB and vCPU use above the plan is $0.0002 per second. Self-service sizes go up to 8 vCPUs.
 - SaaS plans run on shared infrastructure from 4 vCPUs, use credits with a 12-month minimum commitment, and bill active minutes, queries per second and storage overages.
 - Enterprise plans give you a dedicated ClickHouse cluster with at least 1 TB of storage, also on credits with a 12-month commitment.
 - Every plan includes unlimited tables, pipes and endpoints, so hosting the API is part of the fee.
@@ -113,7 +125,7 @@ Yes, if your workload fits the plan limits: Tinybird sells its paid plans for pr
 
 ## What are the alternatives to Tinybird, including open source?
 
-The closest alternative is a managed ClickHouse service with your own API layer on top: ClickHouse Cloud, or one of the other hosts in our [comparison of managed ClickHouse services](/blog/managed-clickhouse-services-compared). If you want open source, ClickHouse itself is Apache-2.0 and you can self-host it. Tinybird Local is a development and CI container whose prerequisites include a Tinybird account, so it can't stand in for a self-hosted deployment. If what you liked about Tinybird is turning SQL into HTTP endpoints, ClickHouse Cloud's Query API endpoints do that for saved queries in the console.
+The closest alternative is a managed ClickHouse service with your own API layer on top: ClickHouse Cloud, or one of the other hosts in our [comparison of managed ClickHouse services](/blog/managed-clickhouse-services-compared). If you want open source, ClickHouse itself is Apache-2.0 and you can self-host it. Tinybird Local is a development and CI container whose prerequisites include a Tinybird account, so it can't stand in for a self-hosted deployment. If what you liked about Tinybird is turning SQL into HTTP endpoints, ClickHouse Cloud's Query API endpoints do that for saved queries in the console. If you want typed analytics endpoints defined in your own code and served from your own backend, [hypequery](/tinybird-alternative) is an open-source (Apache 2.0) TypeScript and Python layer that runs against any ClickHouse, including ClickHouse Cloud; the [hypequery vs Tinybird comparison](/compare/hypequery-vs-tinybird) covers the trade-offs. It is our product, and it does not ingest data or host anything for you, which Tinybird does.
 
 ## TypeScript client for ClickHouse Cloud
 

@@ -20,6 +20,9 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
       { label: 'Compare', href: '/compare' },
+      { label: 'Use Cases', href: '/use-cases' },
+      { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
+      { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
       { label: 'Changelog', href: '/changelog' },
     ],
   },
@@ -61,16 +64,8 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Blog', href: '/blog' },
       { label: 'Newsletter', href: '/blog#newsletter' },
       { label: 'RSS', href: '/blog/rss.xml' },
-      { label: 'Use Cases', href: '/use-cases' },
-      { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
-      { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
       { label: 'Contact', href: '/contact-us' },
       { label: 'Book a call', href: 'https://cal.com/luke-reilly-jdi9su/hypequery-chat', external: true, track: 'book_call' },
-    ],
-  },
-  {
-    title: 'Social',
-    links: [
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
       { label: 'X / Twitter', href: 'https://x.com/hypequery', external: true },
       { label: 'LinkedIn', href: 'https://www.linkedin.com/company/110435355/', external: true },
@@ -84,18 +79,19 @@ export default function Footer() {
   return (
     <footer className="border-t border-border px-8 pt-[60px] pb-9 bg-bg">
       <div className="mx-auto max-w-[1280px] footer-grid">
-        <div className="max-w-[240px]" style={{ width: '240px', flexShrink: 0 }}>
+        {/* Brand and columns shrink rather than overflow when the row is narrower than their full widths. */}
+        <div className="min-w-0 max-w-[240px]" style={{ flex: '0 1 240px' }}>
           <div className="inline-flex items-center gap-2 font-mono text-[15px] font-bold text-text tracking-tight">
             <HypequeryMascotIcon className="h-6 w-auto shrink-0" />
             <span>hypequery</span>
           </div>
           <p className="mt-2 text-[13px] leading-snug text-text-muted">
-            The analytics layer for ClickHouse.
+            Embedded analytics on ClickHouse.
           </p>
         </div>
 
         {footerColumns.map((column) => (
-          <div key={column.title} className="min-w-0" style={{ width: '160px', flexShrink: 0 }}>
+          <div key={column.title} className="min-w-0" style={{ flex: '0 1 160px' }}>
             <div className="mb-3.5 font-mono text-[11.5px] font-bold uppercase tracking-[0.12em] text-text-dim">
               {column.title}
             </div>
