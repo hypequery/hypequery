@@ -31,3 +31,9 @@ async function assertStreams() {
 }
 
 void assertStreams;
+
+// Arrow compression is an adapter option, alongside integerJsonEncoding.
+createQueryBuilder<Schema>({ url: 'http://localhost:8123', arrowCompression: 'server-default' });
+createQueryBuilder<Schema>({ url: 'http://localhost:8123', arrowCompression: 'none', integerJsonEncoding: 'server-default' });
+// @ts-expect-error only 'none' and 'server-default' are accepted
+createQueryBuilder<Schema>({ url: 'http://localhost:8123', arrowCompression: 'lz4_frame' });

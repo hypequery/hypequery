@@ -165,13 +165,13 @@ export type ClickhousePillarPageProps = {
   /** Further sections in the implementation layout, after `implementationSection`. */
   additionalSections?: Section[];
   comparisonTable?: ComparisonTable;
+  /** External references, listed after the question cards. */
+  sources?: SourceLink[];
   /** Honest list of situations where the other tool is the better choice. */
   chooseAlternative?: {
     title: string;
     bullets: string[];
   };
-  /** External references, listed after the question cards. */
-  sources?: SourceLink[];
   searchIntentCards: Card[];
   /** Rendered as an FAQ section with matching FAQPage structured data. */
   faq?: FaqItem[];
@@ -202,8 +202,8 @@ export function ClickhousePillarPage({
   implementationSection,
   additionalSections,
   comparisonTable,
-  chooseAlternative,
   sources,
+  chooseAlternative,
   searchIntentCards,
   faq,
   readingLinks,

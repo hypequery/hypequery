@@ -5,6 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
+import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
 const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.slug), ...retiredBlogSlugs]);
 
@@ -15,6 +16,8 @@ const staticRoutes = [
   '/embedded-analytics',
   '/',
   '/blog',
+  '/changelog',
+  ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`),
   '/compare',
   '/clickhouse-js',
   '/clickhouse-nodejs',

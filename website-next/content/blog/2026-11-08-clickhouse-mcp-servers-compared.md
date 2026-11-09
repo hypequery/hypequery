@@ -225,7 +225,7 @@ Asked "what was revenue by region last month?", the agent sends a call like this
 }
 ```
 
-Per the [MCP docs](/docs/mcp/overview), every query gets a server-side limit even when the agent omits one (100 rows by default, offsets capped at 10,000), plus a 30-second deadline and a 1 MiB response budget by default. Generated SQL and database error details are left out of tool responses unless you enable `includeSql` for debugging. For tenant-scoped datasets the tenant comes from trusted configuration, and the tool schemas have no tenant argument. The standalone `hypequery-mcp --config` command shown above has no tenant option, so for tenant-scoped datasets either serve your Serve API's datasets with `npx hypequery mcp --tenant acme`, or start the server from your own process with `createMCPServer({ datasets, analytics, tenantId: 'acme' })` ([programmatic setup](/docs/mcp/programmatic)). The trade-off is the obvious one: the agent can only answer questions you modelled. The [ClickHouse MCP page](/clickhouse-mcp) and the [step-by-step tutorial](/blog/clickhouse-mcp-typescript) cover this server in more depth.
+Per the [MCP docs](/docs/mcp/overview), every query gets a server-side limit even when the agent omits one (100 rows by default, offsets capped at 10,000), plus a 30-second deadline and a 1 MiB response budget by default. Generated SQL and database error details are left out of tool responses unless you enable `includeSql` for debugging. For tenant-scoped datasets the tenant comes from trusted configuration, and the tool schemas have no tenant argument. The standalone `hypequery-mcp --config` command shown above has no tenant option, so for tenant-scoped datasets either serve your Serve API's datasets with `npx hypequery mcp --tenant acme`, or start the server from your own process with `createMCPServer({ datasets, analytics, tenantId: 'acme' })` ([programmatic setup](/docs/mcp/programmatic)). The trade-off is the obvious one: the agent can only answer questions you modelled. The [ClickHouse MCP page](/clickhouse-mcp) and the [MCP client setup guides](/docs/mcp/clients) cover this server in more depth.
 
 ## What is the difference between giving an AI agent a raw connection string and connecting through MCP?
 
@@ -296,7 +296,6 @@ Many teams run both: a raw SQL server for engineers working on their own data, a
 ## Related
 
 - [ClickHouse MCP server for governed AI analytics](/clickhouse-mcp)
-- [Tutorial: give your AI agent type-safe access to ClickHouse analytics](/blog/clickhouse-mcp-typescript)
 - [hypequery MCP docs](/docs/mcp/overview)
 - [Read-only ClickHouse users](/docs/reference/readonly-users)
 - [ClickHouse semantic layer](/clickhouse-semantic-layer)

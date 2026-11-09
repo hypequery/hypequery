@@ -253,7 +253,12 @@ for await (const batch of await RecordBatchReader.from(data)) {
 
 Arrow skips JSON parsing, which is most of the client's work on a large result, and is smaller on the wire.
 
-If ClickHouse fails after sending part of a result, the stream errors with ClickHouse's own error. A stream that ends without an error is complete.
+If ClickHouse fails after sending part of a result, the stream errors. How much it can tell you depends on the server version:
+
+- **ClickHouse 25.11 or later** marks the failure in the response, so the stream errors with ClickHouse's own error, and a stream that ends without an error is complete.
+- **Older servers** send no marker. An Arrow stream still errors, because a complete Arrow stream ends with an end-of-stream marker that a failed one lacks; the error carries ClickHouse's message when it can be recovered from the response, and otherwise says the result is incomplete. A row stream from an older server cannot be checked this way, so run exports whose completeness matters against 25.11 or later.
+
+Arrow streams also work for `readonly = 1` users; see [Read-only ClickHouse users](/docs/reference/readonly-users#arrow-streams) for the one setting they send.
 
 Streaming needs `@hypequery/clickhouse` 2.15.0 or later. A query builder without streaming support makes `stream` and `streamArrow` reject with an error that names the missing method.
 
