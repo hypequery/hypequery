@@ -9,7 +9,8 @@ import { notFound } from 'next/navigation';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
 import type { Metadata } from 'next';
 import { absoluteUrl, ogImage } from '@/lib/site';
-import { docsSectionLabel } from '@/lib/docs-section-label';
+import { docsPageTitle } from '@/lib/docs-section-label';
+import { softwareApplicationSchema, softwareSourceCodeSchema, WHAT_IS_URL } from '@/data/product';
 
 export async function generateMetadata({
   params,
@@ -23,29 +24,30 @@ export async function generateMetadata({
     return {};
   }
 
-  const pageTitle = typeof page.data.title === 'string' ? page.data.title : 'Documentation';
   // TypeScript, Python, and Cloud share page names (Measures, Quick start), so the browser and search
-  // title carries the section; the sidebar keeps the short name.
-  const section = docsSectionLabel(page.url);
-  const title = section ? `${pageTitle} · ${section}` : pageTitle;
+  // title carries the section or a frontmatter `seoTitle`; the sidebar keeps the short name.
+  const title = docsPageTitle(page);
   const description = page.data.description ?? 'Documentation for hypequery.';
+  const markdownUrl = `/llms.mdx${page.url}`;
 
   return {
     title,
     description,
     alternates: {
       canonical: absoluteUrl(page.url),
+      // Advertise the clean Markdown copy so agents can fetch prose instead of HTML.
+      types: { 'text/markdown': absoluteUrl(markdownUrl).toString() },
     },
     openGraph: {
       type: 'article',
       url: absoluteUrl(page.url),
-      title,
+      title: `${title} | hypequery docs`,
       description,
       images: ogImage(title),
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: `${title} | hypequery docs`,
       description,
     },
   };
@@ -64,6 +66,17 @@ export default async function Page({
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
+      {page.url === WHAT_IS_URL && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [softwareApplicationSchema, softwareSourceCodeSchema],
+            }),
+          }}
+        />
+      )}
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pt-2 pb-6 mb-4">

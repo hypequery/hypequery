@@ -26,22 +26,36 @@ export const metadata: Metadata = {
 const generateCode = `# generate TypeScript types from your live ClickHouse schema
 npx @hypequery/cli generate --output ./src/schema.ts
 
-# schema.ts output:
-# export interface DB {
+# schema.ts (excerpt):
+# export interface IntrospectedSchema {
 #   orders: {
-#     id: string;           // UUID
-#     total: string;        // Decimal(18,4)
-#     created_at: string;   // DateTime
-#     tenant_id: string;    // String
+#     'id': "UUID";
+#     'total': "Decimal(18, 4)";
+#     'status': "LowCardinality(String)";
+#     'created_at': "DateTime";
+#     'tenant_id': "String";
 #   };
+# }
+#
+# export interface OrdersRecord {
+#   'id': string;
+#   'total': number;
+#   'status': string;
+#   'created_at': string;
+#   'tenant_id': string;
 # }`;
 
 const queryCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { DB } from './schema';
+import type { IntrospectedSchema } from './schema';
 
-const db = createQueryBuilder<DB>({ host: process.env.CLICKHOUSE_HOST });
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-// fully typed — autocomplete on table names, column names, and return values
+// typed: autocomplete on table names, column names, and return values
 const orders = await db
   .table('orders')
   .select(['id', 'total', 'created_at'])
@@ -50,8 +64,7 @@ const orders = await db
   .orderBy('created_at', 'DESC')
   .limit(100)
   .execute();
-
-// orders: { id: string; total: string; created_at: string }[]`;
+// orders: { id: string; total: number; created_at: string }[]`;
 
 export default function ClickHouseOrmPage() {
   return (
@@ -132,6 +145,11 @@ export default function ClickHouseOrmPage() {
             'Drizzle does not support ClickHouse. hypequery is the TypeScript-first ClickHouse alternative — schema generation, a composable query builder, and typed HTTP APIs designed for analytics-heavy applications.',
         },
         {
+          title: 'TypeORM alternative for ClickHouse',
+          copy:
+            'TypeORM does not support ClickHouse, and its entity and decorator model is built for transactional row stores. The usual setup keeps TypeORM on Postgres or MySQL and uses hypequery for the ClickHouse side, with types generated from the live schema.',
+        },
+        {
           title: 'Type-safe ClickHouse queries without hand-written interfaces',
           copy:
             'The useful part of the ORM promise is simple: types should come from the database, not from your imagination. That is exactly what hypequery gives you for ClickHouse.',
@@ -149,19 +167,24 @@ export default function ClickHouseOrmPage() {
           description: 'What you gain moving from raw queries to a typed, structured analytics layer.',
         },
         {
-          href: '/drizzle-clickhouse',
-          title: 'Drizzle ORM for ClickHouse',
-          description: 'A dedicated page for teams searching for Drizzle ORM support on ClickHouse and what to use instead.',
+          href: '/compare/hypequery-vs-drizzle',
+          title: 'hypequery vs Drizzle',
+          description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
         },
         {
-          href: '/prisma-clickhouse',
-          title: 'Prisma for ClickHouse',
-          description: 'A dedicated page for teams searching for Prisma on ClickHouse and the TypeScript-first alternative.',
+          href: '/blog/does-prisma-support-clickhouse',
+          title: 'Does Prisma support ClickHouse?',
+          description: 'Why Prisma has no ClickHouse connector, and the options TypeScript teams use instead.',
         },
         {
-          href: '/typeorm-clickhouse',
-          title: 'TypeORM for ClickHouse',
-          description: 'A dedicated page for teams searching for TypeORM on ClickHouse and the TypeScript-first alternative.',
+          href: '/compare/hypequery-vs-typeorm',
+          title: 'hypequery vs TypeORM',
+          description: 'TypeORM has no ClickHouse driver. How teams run TypeORM on Postgres next to a ClickHouse query layer.',
+        },
+        {
+          href: '/blog/query-builder-vs-orm-clickhouse',
+          title: 'Query builder vs ORM for ClickHouse',
+          description: 'Why a query builder fits ClickHouse analytics better than a transactional ORM.',
         },
         {
           href: '/clickhouse-schema',
@@ -170,6 +193,7 @@ export default function ClickHouseOrmPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-sqlalchemy', label: 'ClickHouse SQLAlchemy' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },

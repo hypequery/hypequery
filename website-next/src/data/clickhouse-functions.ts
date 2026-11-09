@@ -13,13 +13,44 @@ export type ClickHouseFunctionDef = {
   exampleSql: string;
   hypequeryExample: string;
   hypequeryFilename: string;
+  /** A Python example, run against the fixture tables in scripts/check-function-examples.mts. */
+  pythonExample?: string;
+  pythonFilename?: string;
+  /** One sentence shown beside the Python example, such as why it calls the driver directly. */
+  pythonNote?: string;
   returnType: string;
   notes: string[];
   relatedFunctions: string[];
   relatedPillars: { href: string; label: string }[];
   searchIntentCards: { title: string; copy: string }[];
   faqItems: { question: string; answer: string }[];
+  /** What a hypequery query returns for this function in TypeScript. */
+  tsType?: string;
+  /** The official ClickHouse reference for this function. */
+  docsUrl?: string;
+  /** ISO date the page was last checked against ClickHouse. Shown on the page and as dateModified. */
+  updated?: string;
 };
+
+/**
+ * Function pages that stay in Google's index. These are the pages with search
+ * demand in Search Console (500+ impressions over three months in November
+ * 2026), plus sumIf, which targets sumIf searches that currently land on the
+ * sum page without clicks. The rest stay reachable for readers but are
+ * noindexed and left out of the sitemap: ClickHouse's own docs answer those
+ * queries, so they add pages to crawl without bringing visitors.
+ */
+export const indexedFunctionSlugs: ReadonlySet<string> = new Set([
+  'quantile',
+  'groupArray',
+  'sum',
+  'sumIf',
+  'formatDateTime',
+  'toStartOfWeek',
+  'multiIf',
+  'toString',
+  'toDate',
+]);
 
 export function functionPathSegment(value: string): string {
   return value
@@ -116,23 +147,24 @@ const daily = await db
     slug: 'toStartOfWeek',
     name: 'toStartOfWeek',
     cluster: 'date',
-    tagline: 'Round a DateTime to the start of the week — weekly cohort and trend analysis.',
-    metaTitle: 'ClickHouse toStartOfWeek — TypeScript weekly bucketing',
+    tagline: 'Round a date down to the start of its week. Mode 0, the default, starts weeks on Sunday; mode 1 starts them on Monday.',
+    metaTitle: 'ClickHouse toStartOfWeek: Sunday or Monday (mode 0 vs mode 1)',
     metaDescription:
-      'toStartOfWeek truncates a DateTime to the first day of the ISO week. Use it in TypeScript with hypequery for weekly trend charts and cohort retention.',
-    signature: 'toStartOfWeek(datetime: DateTime, mode?: UInt8): Date',
+      'toStartOfWeek(d) starts weeks on Sunday by default (mode 0). Use toStartOfWeek(d, 1) or toMonday(d) for Monday weeks. Return type, TypeScript example and gotchas.',
+    signature: 'toStartOfWeek(t: Date | DateTime, mode?: UInt8, timezone?: String): Date',
     description:
-      'Rounds a DateTime or Date value down to the start of the calendar week. Mode 0 (default) starts on Monday; mode 1 starts on Sunday.',
+      'Rounds a Date or DateTime down to the nearest Sunday (mode 0, the default) or Monday (mode 1), and returns a Date.',
     longDescription:
-      'toStartOfWeek is used for weekly reporting: weekly active users (WAU), week-over-week growth, and cohort retention by week. The mode argument controls whether the week starts on Monday (ISO 8601, mode 0) or Sunday (US convention, mode 1). Returns a Date, not DateTime.',
-    exampleSql: `SELECT
-  toStartOfWeek(created_at) AS week,
+      'toStartOfWeek is used for weekly reporting: weekly active users, week-over-week growth and cohort retention by week. The mode argument sets the first day of the week: mode 0, the default, starts on Sunday, and mode 1 starts on Monday as ISO 8601 does. toMonday(t) is a shorthand for Monday weeks. The result is a Date, with no time component.',
+    exampleSql: `-- Monday-start weeks (mode 1). Without the 1, weeks start on Sunday.
+SELECT
+  toStartOfWeek(created_at, 1) AS week,
   count() AS events
 FROM events
 GROUP BY week
 ORDER BY week DESC
 LIMIT 12`,
-    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
@@ -142,20 +174,52 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// week: string ("2026-11-02"); events: string (count() is UInt64)
 const weekly = await db
   .table('events')
-  .select([selectExpr('toStartOfWeek(created_at)', 'week')])
-  .count('id', 'events')
+  .select([
+    rawAs<string, 'week'>('toStartOfWeek(created_at, 1)', 'week'),
+    rawAs<string, 'events'>('count()', 'events'),
+  ])
   .groupBy('week')
   .orderBy('week', 'DESC')
   .limit(12)
   .execute();`,
     hypequeryFilename: 'weekly-events.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+events = dataset(
+    "events",
+    source="events",
+    time_key="created_at",
+    dimensions={
+        "created_at": dimension.timestamp(),
+        # Monday-start weeks, as in the SQL example
+        "week": dimension.timestamp(sql="toStartOfWeek(created_at, 1)"),
+    },
+    measures={"events": measure.count("id")},
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    monday = client.execute(events, DatasetQuery(
+        dimensions=("week",), order_by=(order.desc("week"),), limit=12,
+    ))
+    # The built-in week grain is toStartOfWeek(created_at): mode 0, Sunday weeks
+    sunday = client.execute(events, DatasetQuery(by="week", order_by=(order.desc("period"),)))
+
+print(monday.data)  # ({'week': '2026-03-02', 'events': 356}, {'week': '2026-02-23', 'events': 144})
+print(sunday.data)  # ({'period': '2026-03-01', 'events': 500},)`,
+    pythonFilename: 'weekly_events.py',
+    pythonNote:
+      'The built-in week grain (by="week") compiles to toStartOfWeek(created_at) with mode 0, so it starts weeks on Sunday; declare a dimension with mode 1 for Monday weeks.',
     returnType: 'Date',
     notes: [
-      'Returns a Date, not a DateTime — no time component.',
-      'Mode 0 = Monday start (ISO), Mode 1 = Sunday start (US/Google Analytics convention).',
-      'For retention cohorts, use toStartOfWeek on both signup_date and event_date, then compare.',
+      'Mode 0, the default, starts weeks on Sunday. Mode 1 starts them on Monday. For Sunday 2026-11-08, toStartOfWeek(d) returns 2026-11-08 and toStartOfWeek(d, 1) returns 2026-11-02.',
+      'toMonday(t) returns the same value as toStartOfWeek(t, 1).',
+      'The result is a Date with no time component. Cast with toDateTime(toStartOfWeek(t)) when you need a DateTime.',
+      'For retention cohorts, use the same mode on signup_date and event_date, or the weeks will not line up.',
     ],
     relatedFunctions: ['toStartOfDay', 'toStartOfMonth', 'toStartOfInterval', 'toMonday'],
     relatedPillars: [
@@ -166,23 +230,34 @@ const weekly = await db
     searchIntentCards: [
       {
         title: 'Weekly active users in ClickHouse',
-        copy: 'WAU is toStartOfWeek + COUNT(DISTINCT user_id). The mode argument lets you match Monday or Sunday week starts to align with your BI tool.',
+        copy: 'Weekly active users are toStartOfWeek(ts, 1) plus uniqExact(user_id), grouped by week. Pick the mode that matches the week start in your BI tool.',
       },
       {
-        title: 'Week-over-week growth ClickHouse',
-        copy: 'Calculate WoW by joining the same table on toStartOfWeek offset by 7 days, or use a window function with lagInFrame over the weekly time series.',
+        title: 'Week-over-week growth in ClickHouse',
+        copy: 'Build the weekly series first, then compare each week with the one before it using lagInFrame() over the week column.',
       },
     ],
     faqItems: [
       {
-        question: 'Does toStartOfWeek return a Date or DateTime?',
-        answer: 'It returns a Date (no time component). If you need a DateTime for joins, cast it: toDateTime(toStartOfWeek(ts)).',
+        question: 'Does toStartOfWeek start the week on Monday or Sunday?',
+        answer: 'Sunday, by default. toStartOfWeek(t) uses mode 0, which starts weeks on Sunday. Use toStartOfWeek(t, 1) or toMonday(t) for weeks that start on Monday.',
       },
       {
-        question: 'How do I start the week on Sunday instead of Monday?',
-        answer: 'Pass mode=1 as the second argument: toStartOfWeek(created_at, 1).',
+        question: 'What does toStartOfWeek mode 1 mean?',
+        answer: 'Mode 1 starts the week on Monday, the ISO 8601 convention. For Sunday 2026-11-08, toStartOfWeek(d, 1) returns 2026-11-02, while toStartOfWeek(d) returns 2026-11-08.',
+      },
+      {
+        question: 'Does toStartOfWeek return a Date or a DateTime?',
+        answer: 'A Date, with no time component. Wrap it in toDateTime() if you need to compare or join it with a DateTime column.',
+      },
+      {
+        question: 'What type is toStartOfWeek in TypeScript?',
+        answer: 'A string such as "2026-11-02". ClickHouse sends Date values as strings in JSON, and hypequery types them as string.',
       },
     ],
+    tsType: 'string ("YYYY-MM-DD")',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/date-time-functions#toStartOfWeek',
+    updated: '2026-11-08',
   },
 
   {
@@ -327,24 +402,29 @@ const qArr = await db
     slug: 'toStartOfInterval',
     name: 'toStartOfInterval',
     cluster: 'date',
-    tagline: 'Bucket by any arbitrary interval — 5-minute, hourly, bi-weekly, or custom.',
-    metaTitle: 'ClickHouse toStartOfInterval — custom time buckets',
+    tagline: 'Bucket timestamps by any interval: 100 milliseconds, 5 minutes, 2 weeks.',
+    metaTitle: 'ClickHouse toStartOfInterval: return types, DateTime64 and week buckets',
     metaDescription:
-      'toStartOfInterval rounds a DateTime to the start of any custom interval (5 min, 2 hours, 4 weeks). Use it in TypeScript with hypequery for flexible time bucketing.',
-    signature: 'toStartOfInterval(datetime: DateTime, interval: Interval, [origin: DateTime]): DateTime',
+      'toStartOfInterval returns DateTime, Date or DateTime64 depending on the interval. Why a DateTime64 column comes back as DateTime, how sub-second buckets work, and where week buckets start.',
+    signature: 'toStartOfInterval(t, INTERVAL n unit [, origin | timezone])',
     description:
-      'Rounds a DateTime to the start of the nearest interval boundary. Supports INTERVAL n SECOND/MINUTE/HOUR/DAY/WEEK/MONTH/QUARTER/YEAR. The origin parameter controls where intervals are anchored.',
+      'Rounds a timestamp down to the start of an interval of any length. SECOND to YEAR work on any timestamp; MILLISECOND, MICROSECOND and NANOSECOND need a DateTime64.',
     longDescription:
-      'toStartOfInterval is the most flexible date-bucketing function in ClickHouse. It handles any granularity that the specialised functions (toStartOfDay, toStartOfWeek…) cannot. Common uses: 5-minute candles for time-series charts, 15-minute activity heatmaps, bi-weekly billing cycles. The optional origin parameter anchors intervals at a specific timestamp rather than the Unix epoch.',
-    exampleSql: `-- 5-minute buckets
+      'toStartOfInterval covers the granularities the fixed functions (toStartOfDay, toStartOfWeek and the rest) do not: 5-minute buckets for monitoring charts, 15-minute heatmaps, 2-week billing cycles. Its return type depends on the interval, which matters when the result feeds a join, a comparison or a typed API. The optional third argument is either an origin timestamp, which anchors the buckets, or a time zone name.',
+    exampleSql: `-- 5-minute buckets over the last hour
 SELECT
   toStartOfInterval(created_at, INTERVAL 5 MINUTE) AS bucket,
   count() AS events
 FROM events
 WHERE created_at >= now() - INTERVAL 1 HOUR
 GROUP BY bucket
-ORDER BY bucket`,
-    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+ORDER BY bucket;
+
+-- Keep milliseconds: sub-second intervals on a DateTime64 column return DateTime64
+SELECT toStartOfInterval(ts64, INTERVAL 100 MILLISECOND) AS bucket, count() AS events
+FROM spans
+GROUP BY bucket;`,
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
@@ -354,25 +434,28 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// bucket: string (DateTime); events: string (count() is UInt64)
 const fiveMin = await db
   .table('events')
   .select([
-    selectExpr('toStartOfInterval(created_at, INTERVAL 5 MINUTE)', 'bucket'),
-    rawAs('count()', 'events'),
+    rawAs<string, 'bucket'>('toStartOfInterval(created_at, INTERVAL 5 MINUTE)', 'bucket'),
+    rawAs<string, 'events'>('count()', 'events'),
   ])
-  .where('created_at', 'gte', new Date(Date.now() - 3600 * 1000))
+  // Compute the cutoff in ClickHouse so it uses the column's own time zone
+  .where((expr) => expr.raw('created_at >= now() - INTERVAL 1 HOUR'))
   .groupBy('bucket')
   .orderBy('bucket', 'ASC')
   .execute();`,
     hypequeryFilename: 'five-minute-buckets.ts',
-    returnType: 'DateTime',
+    returnType: 'DateTime (SECOND to DAY), Date (WEEK to YEAR), DateTime64 (sub-second)',
     notes: [
-      'Intervals smaller than 1 second are not supported.',
-      'The origin parameter (third argument) defaults to the Unix epoch (1970-01-01 00:00:00 UTC).',
-      'For week intervals, origin controls which day of the week is considered the "start".',
-      'More flexible than toStartOfDay/Week/Month but slightly slower on very large datasets.',
+      'The return type depends on the interval: SECOND, MINUTE, HOUR and DAY return DateTime; WEEK, MONTH, QUARTER and YEAR return Date; MILLISECOND, MICROSECOND and NANOSECOND return DateTime64. With an origin argument, the result is a DateTime.',
+      'A DateTime64 column bucketed by SECOND, MINUTE, HOUR or DAY comes back as DateTime, so the fraction of a second is dropped; WEEK to YEAR return Date. Checked on ClickHouse 26.6.',
+      'Sub-second intervals only work on DateTime64. On a DateTime column they fail with ILLEGAL_TYPE_OF_ARGUMENT.',
+      'Without an origin, week buckets start on Monday.',
+      'The third argument can be a time zone instead of an origin: toStartOfInterval(t, INTERVAL 1 HOUR, \'Asia/Kolkata\').',
     ],
-    relatedFunctions: ['toStartOfDay', 'toStartOfMinute', 'toStartOfFiveMinute', 'toStartOfHour'],
+    relatedFunctions: ['toStartOfDay', 'toStartOfWeek', 'toStartOfMinute', 'toStartOfHour'],
     relatedPillars: [
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
@@ -381,23 +464,34 @@ const fiveMin = await db
     searchIntentCards: [
       {
         title: 'ClickHouse 5-minute buckets',
-        copy: 'toStartOfInterval(ts, INTERVAL 5 MINUTE) groups events into 5-minute windows. Ideal for real-time monitoring dashboards and rate charts.',
+        copy: 'toStartOfInterval(ts, INTERVAL 5 MINUTE) groups events into 5-minute windows for monitoring dashboards and rate charts.',
       },
       {
-        title: 'Custom time interval grouping ClickHouse',
-        copy: 'When toStartOfDay and toStartOfHour are too coarse, toStartOfInterval handles any granularity. Pass the interval as a literal INTERVAL n UNIT expression.',
+        title: 'Custom time buckets in ClickHouse',
+        copy: 'When toStartOfDay and toStartOfHour are too coarse or too fine, pass any INTERVAL n UNIT. Check the return type if the bucket feeds a join.',
       },
     ],
     faqItems: [
       {
-        question: 'What intervals does toStartOfInterval support?',
-        answer: 'SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, and YEAR. Sub-second intervals are not supported.',
+        question: 'Why does toStartOfInterval return DateTime for a DateTime64 column?',
+        answer: 'For SECOND, MINUTE, HOUR and DAY intervals, toStartOfInterval returns DateTime even when the input is DateTime64, so the fraction of a second is dropped. WEEK, MONTH, QUARTER and YEAR return Date. Only sub-second intervals (MILLISECOND, MICROSECOND, NANOSECOND) return DateTime64. This is current behaviour, checked on ClickHouse 26.6.',
       },
       {
-        question: 'How do I anchor a weekly interval to Saturday instead of Monday?',
-        answer: 'Set origin to any Saturday date: toStartOfInterval(ts, INTERVAL 1 WEEK, toDateTime(\'2024-01-06\')).',
+        question: 'What intervals does toStartOfInterval support?',
+        answer: 'SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER and YEAR on any timestamp, plus MILLISECOND, MICROSECOND and NANOSECOND on DateTime64 values.',
+      },
+      {
+        question: 'Which day do week buckets start on?',
+        answer: 'Monday, when you pass no origin. To start weeks on another day, pass an origin on that weekday: toStartOfInterval(ts, INTERVAL 1 WEEK, toDateTime(\'2024-01-06 00:00:00\')) starts weeks on Saturday.',
+      },
+      {
+        question: 'What type does toStartOfInterval return in TypeScript?',
+        answer: 'A string. hypequery types Date, DateTime and DateTime64 values as strings, so pass the type when you select the expression: rawAs<string, \'bucket\'>(...).',
       },
     ],
+    tsType: 'string',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/date-time-functions#toStartOfInterval',
+    updated: '2026-11-08',
   },
 
   {
@@ -477,81 +571,24 @@ const recent = await db
     slug: 'toDate',
     name: 'toDate',
     cluster: 'date',
-    tagline: 'Convert a string or DateTime to a ClickHouse Date value.',
-    metaTitle: 'ClickHouse toDate — parse strings to Date in TypeScript',
+    tagline: 'Convert a DateTime, string or number to a Date, and know which inputs it clamps.',
+    metaTitle: 'ClickHouse toDate: strings, DateTime and the 1970–2149 range',
     metaDescription:
-      'toDate converts strings (\'YYYY-MM-DD\') and DateTimes to ClickHouse Date values. Learn how to use it in TypeScript with hypequery for date comparisons and filtering.',
-    signature: 'toDate(value: String | DateTime | Int): Date',
+      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those. With examples.',
+    signature: 'toDate(value: String | DateTime | DateTime64 | Int [, timezone]): Date',
     description:
-      'Converts a string in YYYY-MM-DD format, a DateTime value, or a Unix timestamp integer to a ClickHouse Date. Used for date literals in WHERE clauses and INSERT statements.',
+      'Converts a DateTime, a date string or a number to a Date. Date covers 1970-01-01 to 2149-06-06; values outside that range are clamped without an error.',
     longDescription:
-      'toDate is the standard way to write date literals in ClickHouse SQL. When filtering by date ranges without a time component, toDate is cleaner than full DateTime literals. It also strips the time portion from a DateTime, which is useful when comparing a DateTime column against a Date value.',
-    exampleSql: `-- Filter by date range using toDate literals
-SELECT count() FROM events
-WHERE toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')
-
--- Strip time from DateTime
-SELECT user_id, toDate(created_at) AS signup_date FROM users`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './schema';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-
-const q1events = await db
-  .table('events')
-  .select(['id', 'user_id', 'created_at'])
-  .where((expr) => expr.raw("toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')"))
-  .execute();`,
-    hypequeryFilename: 'q1-events.ts',
-    returnType: 'Date',
-    notes: [
-      'Accepted string format is YYYY-MM-DD only. Other formats require parseDateTimeBestEffort.',
-      'toDate(0) returns 1970-01-01 — useful for NULL-safe comparisons.',
-      'For DateTime64 columns, use toDate32 to preserve dates before 1970.',
-    ],
-    relatedFunctions: ['toDateTime', 'toDate32', 'parseDateTimeBestEffort', 'toStartOfDay'],
-    relatedPillars: [
-      { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
-      { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
-    ],
-    searchIntentCards: [
-      {
-        title: 'ClickHouse date literal in WHERE clause',
-        copy: 'Use toDate(\'2024-01-01\') to write date literals in ClickHouse SQL. Avoid string comparison — ClickHouse won\'t use the index correctly.',
-      },
-    ],
-    faqItems: [
-      {
-        question: 'What string format does toDate accept?',
-        answer: '\'YYYY-MM-DD\' only. For other formats use parseDateTimeBestEffort or formatDateTimeInJodaSyntax.',
-      },
-    ],
-  },
-
-  {
-    slug: 'formatDateTime',
-    name: 'formatDateTime',
-    cluster: 'date',
-    tagline: 'Format a DateTime as a string using strftime-style patterns.',
-    metaTitle: 'ClickHouse formatDateTime — format dates in TypeScript',
-    metaDescription:
-      'formatDateTime converts a ClickHouse DateTime to a formatted string using strftime patterns. Use it in TypeScript with hypequery for display-ready date labels.',
-    signature: 'formatDateTime(datetime: DateTime, format: String, [timezone: String]): String',
-    description:
-      'Formats a DateTime value as a string using a format string with strftime-compatible directives. Used to produce human-readable date labels for charts and reports.',
-    longDescription:
-      'formatDateTime is the primary way to produce date strings for display. It supports all standard strftime directives: %Y (4-digit year), %m (month), %d (day), %H (hour), %M (minute), %S (second), %u (day of week 1-7), %W (week of year), and more. The time zone argument overrides the column\'s stored time zone for display purposes.',
-    exampleSql: `SELECT
-  formatDateTime(created_at, '%Y-%m') AS month_label,
-  count() AS events
+      'toDate drops the time from a DateTime, parses a date string, or turns a number into a date. Small integers are read as days since 1970-01-01 and large ones as Unix timestamps: toDate(19000) is 2022-01-08 and toDate(1700000000) is 2023-11-14. The Date type stores days from 1970-01-01 to 2149-06-06, and toDate clamps anything outside that range, so a birth date in 1969 becomes 1970-01-01. Use toDate32 (1900 to 2299) for those values.',
+    exampleSql: `-- Count events per day
+SELECT toDate(created_at) AS day, count() AS events
 FROM events
-GROUP BY month_label
-ORDER BY month_label`,
+GROUP BY day
+ORDER BY day;
+
+-- Two full days, whatever the time of day
+SELECT count() FROM events
+WHERE toDate(created_at) BETWEEN '2026-03-01' AND '2026-03-02';`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -562,39 +599,195 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// day: string ("2026-03-01"); events: string (count() is UInt64)
+const daily = await db
+  .table('events')
+  .select([rawAs<string, 'day'>('toDate(created_at)', 'day')])
+  .count('id', 'events')
+  .where((expr) => expr.raw("toDate(created_at) BETWEEN '2026-03-01' AND '2026-03-02'"))
+  .groupBy('day')
+  .orderBy('day', 'ASC')
+  .execute();`,
+    hypequeryFilename: 'daily-events.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+events = dataset(
+    "events",
+    source="events",
+    dimensions={"day": dimension.timestamp(sql="toDate(created_at)")},
+    measures={"events": measure.count("id")},
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    # Count events per day
+    daily = client.execute(events, DatasetQuery(dimensions=("day",), order_by=(order.asc("day"),)))
+    # Two full days, whatever the time of day
+    two_days = client.execute(events, DatasetQuery(
+        filters=(filter.between("day", "2026-03-01", "2026-03-02"),),
+    ))
+
+print(daily.data)  # ({'day': '2026-03-01', 'events': 144}, {'day': '2026-03-02', 'events': 144}, ...)
+print(two_days.data)  # ({'events': 288},)`,
+    pythonFilename: 'daily_events.py',
+    pythonNote:
+      'The built-in day grain (by="day") compiles to toStartOfDay and returns a DateTime such as "2026-03-01 00:00:00", so this example declares a toDate dimension to get Date values.',
+    returnType: 'Date',
+    notes: [
+      'Filtering a DateTime column with date strings cuts off the last day: created_at BETWEEN \'2026-03-01\' AND \'2026-03-02\' stops at 2026-03-02 00:00:00. In our check it returned 2,881 rows where toDate(created_at) BETWEEN the same dates returned 5,760.',
+      'toDate(created_at) on a sorting-key column still uses the primary key: on 2 million rows, toDate(created_at) = \'2026-03-01\' read the same 16,384 rows as an explicit time range.',
+      'Values outside 1970-01-01 to 2149-06-06 are clamped silently: toDate(\'1969-12-31\') returns 1970-01-01. Use toDate32 for wider ranges.',
+      'Strings in 2024/01/02 and 20240103 form parse on ClickHouse 26.6. US order such as 01/02/2024 fails with CANNOT_PARSE_DATE.',
+      'A time zone argument changes which day a DateTime falls on: toDate(created_at, \'America/New_York\').',
+    ],
+    relatedFunctions: ['toStartOfWeek', 'toStartOfInterval', 'formatDateTime', 'toString'],
+    relatedPillars: [
+      { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+      { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
+    ],
+    searchIntentCards: [
+      {
+        title: 'ClickHouse DateTime to Date',
+        copy: 'toDate(created_at) drops the time. Pass a time zone, toDate(created_at, \'Europe/London\'), when the day should follow a user\'s local calendar.',
+      },
+      {
+        title: 'Date ranges in ClickHouse',
+        copy: 'Compare toDate(created_at) with date strings, or compare created_at with a half-open range (>= start AND < next day). BETWEEN with date strings on a DateTime column drops the last day.',
+      },
+    ],
+    faqItems: [
+      {
+        question: 'How do I convert a DateTime to a Date in ClickHouse?',
+        answer: 'toDate(created_at). It uses the column\'s time zone to decide the day unless you pass one: toDate(created_at, \'UTC\').',
+      },
+      {
+        question: 'Why does toDate return 1970-01-01 for my date?',
+        answer: 'The Date type starts at 1970-01-01, and toDate clamps earlier values without an error. Use toDate32, which covers 1900 to 2299.',
+      },
+      {
+        question: 'What string formats does toDate accept?',
+        answer: 'On ClickHouse 26.6, ISO dates (2024-01-01), slashes (2024/01/02) and compact dates (20240103) all parse. US order such as 01/02/2024 fails, so parse those with parseDateTimeBestEffortUS.',
+      },
+      {
+        question: 'Does wrapping a column in toDate stop ClickHouse using the index?',
+        answer: 'No. toDate is monotonic, and in our check WHERE toDate(created_at) = \'2026-03-01\' on a table ordered by created_at read the same 16,384 rows as an explicit time range.',
+      },
+    ],
+    tsType: 'string ("YYYY-MM-DD")',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/type-conversion-functions#toDate',
+    updated: '2026-11-08',
+  },
+
+  {
+    slug: 'formatDateTime',
+    name: 'formatDateTime',
+    cluster: 'date',
+    tagline: 'Format a date as a string with MySQL-style % directives. %M is the month name; %i is minutes.',
+    metaTitle: 'ClickHouse formatDateTime: %M is month, %i is minutes, ISO weeks',
+    metaDescription:
+      'In ClickHouse formatDateTime, %M prints the month name and %i prints minutes. How to format ISO weeks with %G-W%V, weekday names with %W, and time zones, with TypeScript examples.',
+    signature: 'formatDateTime(t: Date | DateTime, format: String, [timezone: String]): String',
+    description:
+      'Formats a Date or DateTime as a String using % directives. Two differ from strftime: %M is the full month name and %i is minutes.',
+    longDescription:
+      'formatDateTime produces display labels for charts, exports and reports. The directives follow MySQL more than strftime: %Y year, %m month, %d day, %H hour, %i minute, %S second, %M full month name, %b short month name, %W weekday name, %u weekday number (1 is Monday), %V ISO week number, %G ISO week-based year and %j day of year. The time zone argument changes how the value is displayed, not the stored value.',
+    exampleSql: `SELECT
+  formatDateTime(created_at, '%Y-%m') AS month_label,
+  formatDateTime(created_at, '%G-W%V') AS iso_week,
+  count() AS events
+FROM events
+GROUP BY month_label, iso_week
+ORDER BY month_label, iso_week`,
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+// month_label: string ("2026-11"); events: string (count() is UInt64)
 const labels = await db
   .table('events')
   .select([
-    rawAs("formatDateTime(created_at, '%Y-%m')", 'month_label'),
-    rawAs('count()', 'events'),
+    rawAs<string, 'month_label'>("formatDateTime(created_at, '%Y-%m')", 'month_label'),
+    rawAs<string, 'events'>('count()', 'events'),
   ])
   .groupBy('month_label')
   .orderBy('month_label', 'ASC')
   .execute();`,
     hypequeryFilename: 'monthly-labels.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# The format strings are bound server-side as {name:String} parameters
+result = client.query(
+    """
+    SELECT
+      formatDateTime(created_at, {month_format:String}) AS month_label,
+      formatDateTime(created_at, {week_format:String}) AS iso_week,
+      count() AS events
+    FROM events
+    GROUP BY month_label, iso_week
+    ORDER BY month_label, iso_week
+    """,
+    parameters={"month_format": "%Y-%m", "week_format": "%G-W%V"},
+)
+for row in result.named_results():
+    print(row)  # {'month_label': '2026-03', 'iso_week': '2026-W09', 'events': 144}`,
+    pythonFilename: 'monthly_labels.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'String',
     notes: [
-      'For sorting, always sort on the underlying DateTime or toStartOfMonth — string sort of formatted dates can break for non-ISO formats.',
-      'Use %F as a shorthand for %Y-%m-%d.',
-      'The timezone argument is for display only — it does not change the stored value.',
+      '%M prints the full month name ("January"). Minutes are %i. Writing %H:%M:%S for a time is the most common mistake. Checked on ClickHouse 26.6.',
+      '%W prints the weekday name ("Friday"), not a week number.',
+      'For ISO weeks, pair %V with %G, not %Y: formatDateTime(t, \'%G-W%V\') returns "2026-W53" for 2027-01-01.',
+      'Sort on the underlying DateTime, or on toStartOfMonth, not on the formatted string.',
+      '%F is shorthand for %Y-%m-%d.',
     ],
-    relatedFunctions: ['toDate', 'toStartOfMonth', 'toStartOfDay', 'parseDateTime'],
+    relatedFunctions: ['toDate', 'toStartOfMonth', 'toStartOfWeek', 'toString'],
     relatedPillars: [
       { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse format date as string',
-        copy: 'formatDateTime(ts, \'%Y-%m-%d\') produces ISO date strings. Use \'%b %Y\' for labels like "Mar 2024" in charts.',
+        title: 'Format a date as a string in ClickHouse',
+        copy: 'formatDateTime(ts, \'%F\') gives an ISO date string. Use \'%b %Y\' for chart labels such as "Nov 2026".',
+      },
+      {
+        title: 'ISO week labels in ClickHouse',
+        copy: 'formatDateTime(ts, \'%G-W%V\') gives labels such as "2026-W45" that match ISO week numbering at year boundaries.',
       },
     ],
     faqItems: [
       {
-        question: 'What format directives does formatDateTime support?',
-        answer: 'All standard strftime directives: %Y, %m, %d, %H, %M, %S, %u (weekday 1=Mon), %W (week), %j (day of year), %F (%Y-%m-%d shorthand), and more.',
+        question: 'Is %M minutes or month in ClickHouse formatDateTime?',
+        answer: 'Month. %M prints the full month name, such as "January". Use %i for minutes: formatDateTime(t, \'%H:%i:%S\') returns "09:05:07".',
+      },
+      {
+        question: 'How do I format an ISO week with formatDateTime?',
+        answer: 'Use %G for the ISO week-based year and %V for the ISO week number. formatDateTime(t, \'%G-W%V\') returns "2026-W53" for 2027-01-01, where %Y would wrongly give 2027.',
+      },
+      {
+        question: 'What does %W print in formatDateTime?',
+        answer: 'The weekday name, such as "Friday". It is not a week number. Use %V for the ISO week number and %u for the weekday number, where 1 is Monday.',
+      },
+      {
+        question: 'Which format directives does formatDateTime support?',
+        answer: '%Y year, %m month, %d day, %H hour, %i minute, %S second, %f fractional seconds, %F for %Y-%m-%d, %M month name, %b short month name, %W weekday name, %u weekday number, %V ISO week, %G ISO week-based year and %j day of year, among others.',
       },
     ],
+    tsType: 'string',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/date-time-functions#formatDateTime',
+    updated: '2026-11-08',
   },
 
   // ── AGGREGATE CLUSTER ───────────────────────────────────────────────────────
@@ -754,25 +947,25 @@ const dau = await db
     slug: 'sum',
     name: 'sum',
     cluster: 'aggregate',
-    tagline: 'Sum numeric values — revenue totals, event counts, and metric roll-ups.',
-    metaTitle: 'ClickHouse sum() — sum aggregation in TypeScript',
+    tagline: 'Sum a numeric column. Integer sums widen to Int64 or UInt64, which matters in TypeScript.',
+    metaTitle: 'ClickHouse sum(): result types, NULLs, overflow and TypeScript',
     metaDescription:
-      'ClickHouse sum() sums a numeric column. Learn how to use sum(), sumIf(), and sumArray() in TypeScript with hypequery for revenue, metrics, and financial aggregations.',
-    signature: 'sum(column): Number | sumIf(column, condition): Number',
+      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps silently on UInt64 overflow. What that means for typed TypeScript results.',
+    signature: 'sum(column)',
     description:
-      'Returns the sum of all non-NULL values in a numeric column. sumIf(col, cond) sums only rows matching a condition — equivalent to SUM(CASE WHEN cond THEN col END) but faster.',
+      'Returns the sum of the non-NULL values in a numeric column. Integer inputs widen to Int64 or UInt64, floats to Float64 and decimals to Decimal(38, S).',
     longDescription:
-      'sum() is the core revenue and metric aggregation function in ClickHouse. Combined with GROUP BY date buckets it produces time-series revenue charts. sumIf() performs conditional sums in a single pass — useful for multi-dimension pivot queries. For aggregating arrays of numbers, use arraySum() instead.',
-    exampleSql: `-- Daily revenue
+      'sum() is the core aggregation behind revenue totals and metric roll-ups. Grouped by a date bucket it gives a revenue time series. Its result type is wider than the input, so sum() of an Int32 column is an Int64, and that changes how the value reaches a TypeScript app. For conditional totals use sumIf(), and for array columns use sumArray() or arraySum().',
+    exampleSql: `-- Daily revenue in cents (amount_cents is Int64)
 SELECT
   toStartOfDay(created_at) AS day,
-  sum(amount) AS revenue,
-  sumIf(amount, status = 'refunded') AS refunds
+  sum(amount_cents) AS revenue_cents,
+  sumIf(amount_cents, status = 'refunded') AS refunded_cents
 FROM orders
 GROUP BY day
 ORDER BY day DESC
 LIMIT 30`,
-    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
@@ -782,22 +975,52 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// revenue_cents is a string: Int64 totals arrive as JSON strings to keep precision
 const dailyRevenue = await db
   .table('orders')
-  .select([selectExpr('toStartOfDay(created_at)', 'day')])
-  .sum('amount', 'revenue')
+  .select([rawAs<string, 'day'>('toStartOfDay(created_at)', 'day')])
+  .sum('amount_cents', 'revenue_cents')
   .groupBy('day')
   .orderBy('day', 'DESC')
   .limit(30)
-  .execute();`,
+  .execute();
+
+const total = dailyRevenue.reduce((acc, row) => acc + BigInt(row.revenue_cents), 0n);`,
     hypequeryFilename: 'daily-revenue.ts',
-    returnType: 'Same numeric type as input (Int64/Float64/Decimal)',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "revenue_cents": measure.sum("amount_cents"),
+        # A measure filter compiles to sumIf(amount_cents, status = 'refunded')
+        "refunded_cents": measure.sum("amount_cents", filters=(filter.eq("status", "refunded"),)),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(
+        by="day", order_by=(order.desc("period"),), limit=30,
+    ))
+
+for row in result.data:
+    print(row)  # {'period': '2026-03-09 00:00:00', 'revenue_cents': 9564, 'refunded_cents': 4784}`,
+    pythonFilename: 'daily_revenue.py',
+    pythonNote:
+      'Int64 sums arrive as Python ints, not strings, and the day grain buckets in the client time zone: UTC unless you pass timezone= to create_dataset_client.',
+    returnType: 'Int64 / UInt64 (integers), Float64 (floats), Decimal(38, S) (decimals)',
     notes: [
-      'Overflow handling: UInt64 sums overflow silently. Cast to Int128 or Decimal for large monetary sums.',
-      'sumIf(col, cond) runs in one pass — never use SUM(CASE WHEN …) in ClickHouse.',
-      'For Decimal columns, sum() preserves precision without floating-point errors.',
+      'Integer sums widen: sum() of an Int32 column returns Int64, and of a UInt8 column UInt64.',
+      'Int64 and UInt64 sums wrap around silently on overflow. Cast to Int128, or sum a wide Decimal, when totals can get that large.',
+      'With no rows, sum() returns 0. On a Nullable column where every value is NULL, it returns NULL. sumOrNull() returns NULL for no rows as well.',
+      'sum() rejects Array columns. Use sumArray(col) or sum(arraySum(col)).',
     ],
-    relatedFunctions: ['avg', 'max', 'min', 'quantile', 'sumIf'],
+    relatedFunctions: ['sumIf', 'avg', 'count', 'quantile'],
     relatedPillars: [
       { href: '/clickhouse-saas-analytics', label: 'SaaS Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
@@ -805,20 +1028,152 @@ const dailyRevenue = await db
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse revenue aggregation TypeScript',
-        copy: 'sum(amount) with GROUP BY toStartOfDay gives daily revenue. In hypequery, combine with .groupBy() and .orderBy() for sorted time series.',
+        title: 'Revenue totals from ClickHouse in TypeScript',
+        copy: 'Store money as integer cents or Decimal, sum it grouped by day, and convert the Int64 string with BigInt() in TypeScript.',
       },
       {
-        title: 'sumIf ClickHouse conditional sum',
-        copy: 'sumIf(amount, status = \'paid\') vs sumIf(amount, status = \'refunded\') in a single query — one table scan for both totals.',
+        title: 'Conditional sums in ClickHouse',
+        copy: 'sumIf(amount, status = \'paid\') and sumIf(amount, status = \'refunded\') give both totals in one scan. See the sumIf page for the -If combinator.',
       },
     ],
     faqItems: [
       {
-        question: 'Does ClickHouse sum() handle NULLs?',
-        answer: 'Yes — NULL values are ignored in sum(). sum() returns 0 (not NULL) when all values are NULL.',
+        question: 'Does ClickHouse sum() return NULL or 0?',
+        answer: '0 when there are no rows. NULL when the column is Nullable and every value is NULL; otherwise NULL values are ignored. Use sumOrNull() if you want NULL when there are no rows too.',
+      },
+      {
+        question: 'What type does ClickHouse sum() return?',
+        answer: 'A wider type than the input: Int64 for signed integers, UInt64 for unsigned integers, Float64 for floats and Decimal(38, S) for decimals. sum() of an Int32 column is an Int64.',
+      },
+      {
+        question: 'Why is my ClickHouse sum a string in TypeScript?',
+        answer: 'Int64 and UInt64 values can exceed JavaScript\'s safe integer range, so hypequery asks ClickHouse to send them as JSON strings and types .sum() results as string. Convert with BigInt(value), or Number(value) when you know the total is small.',
+      },
+      {
+        question: 'How do I sum an array column in ClickHouse?',
+        answer: 'sum() fails on Array columns with "Illegal type Array(...) of argument for aggregate function sum". Use sumArray(col) to add every element across rows, or sum(arraySum(col)).',
       },
     ],
+    tsType: 'string (Int64/UInt64) or number (Float64)',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/sum',
+    updated: '2026-11-08',
+  },
+
+  {
+    slug: 'sumIf',
+    name: 'sumIf',
+    cluster: 'aggregate',
+    tagline: 'Conditional aggregation with the -If combinator: sumIf, countIf, avgIf, quantileIf.',
+    metaTitle: 'ClickHouse sumIf and the -If combinator: countIf, avgIf, quantileIf',
+    metaDescription:
+      'sumIf(col, cond) sums only rows where cond is true. How the -If combinator works for countIf, avgIf and quantileIf, and how to fix "Illegal type Array" errors with sumArrayIf.',
+    signature: 'sumIf(column, condition)',
+    description:
+      'Sums only the rows where the condition is true. -If is a combinator, so countIf, avgIf, uniqIf and quantileIf work the same way.',
+    longDescription:
+      'An -If aggregate takes one extra argument, a condition, and ignores rows where it is false. That gives several conditional totals from one scan, such as paid and refunded revenue in the same SELECT. For most functions the condition goes after the column. For parametric functions such as quantile, the level stays in the first brackets: quantileIf(0.95)(response_ms, region = \'eu\'). countIf takes only the condition.',
+    exampleSql: `SELECT
+  toStartOfDay(created_at) AS day,
+  sumIf(amount_cents, status = 'paid') AS paid_cents,
+  sumIf(amount_cents, status = 'refunded') AS refunded_cents,
+  countIf(status = 'refunded') AS refunds,
+  quantileIf(0.95)(checkout_ms, status = 'paid') AS p95_checkout_ms
+FROM orders
+GROUP BY day
+ORDER BY day DESC`,
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+// sumIf over Int64 and countIf (UInt64) arrive as strings
+const daily = await db
+  .table('orders')
+  .select([
+    rawAs<string, 'day'>('toStartOfDay(created_at)', 'day'),
+    rawAs<string, 'paid_cents'>("sumIf(amount_cents, status = 'paid')", 'paid_cents'),
+    rawAs<string, 'refunds'>("countIf(status = 'refunded')", 'refunds'),
+  ])
+  .groupBy('day')
+  .orderBy('day', 'DESC')
+  .execute();`,
+    hypequeryFilename: 'conditional-totals.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+paid = (filter.eq("status", "paid"),)
+refunded = (filter.eq("status", "refunded"),)
+
+# Filtered measures compile to sumIf, countIf and quantileIf in one scan
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "paid_cents": measure.sum("amount_cents", filters=paid),
+        "refunded_cents": measure.sum("amount_cents", filters=refunded),
+        "refunds": measure.count("order_id", filters=refunded),
+        "p95_checkout_ms": measure.percentile("checkout_ms", 0.95, filters=paid),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(by="day", order_by=(order.desc("period"),)))
+
+print(result.data[0])  # {'period': '2026-03-09 00:00:00', 'paid_cents': 4780, 'refunds': 4, ...}`,
+    pythonFilename: 'conditional_totals.py',
+    pythonNote:
+      'Each measure filter becomes the -If combinator in the compiled SQL: sumIf, countIf(order_id, ...) and quantileIf(0.95)(...).',
+    returnType: 'Same as the base function (sumIf follows sum; countIf is UInt64)',
+    notes: [
+      'sumIf on an Array column fails with "Illegal type Array(...) of argument for aggregate function sum". Use sumArrayIf(col, cond) or sumIf(arraySum(col), cond).',
+      'Combinators stack: sumArrayIf applies -Array and then -If.',
+      'When no row matches, sumIf and countIf return 0.',
+      'countIf(cond) takes only the condition; the other -If functions take the column first.',
+    ],
+    relatedFunctions: ['sum', 'count', 'avg', 'quantile'],
+    relatedPillars: [
+      { href: '/clickhouse-saas-analytics', label: 'SaaS Analytics' },
+      { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+    ],
+    searchIntentCards: [
+      {
+        title: 'Several conditional totals in one query',
+        copy: 'Put one sumIf or countIf per status in the same SELECT to get paid, refunded and pending totals from a single scan.',
+      },
+      {
+        title: 'Conditional percentiles in ClickHouse',
+        copy: 'quantileIf(0.95)(latency_ms, region = \'eu\') gives the p95 for one segment. The level goes in the first brackets, the condition after the column.',
+      },
+    ],
+    faqItems: [
+      {
+        question: 'How do I fix "Illegal type Array(Int64) of argument for aggregate function sum" in sumIf?',
+        answer: 'sumIf cannot add up an Array column. Use sumArrayIf(col, cond) to add every element of the matching rows, or sumIf(arraySum(col), cond).',
+      },
+      {
+        question: 'How does the -If combinator work in ClickHouse?',
+        answer: 'Add If to any aggregate function name and pass a condition as an extra argument: sumIf(x, cond), avgIf(x, cond), uniqIf(x, cond), quantileIf(0.9)(x, cond). Rows where the condition is false are ignored.',
+      },
+      {
+        question: 'What does sumIf return when no rows match?',
+        answer: '0. countIf also returns 0 when no rows match.',
+      },
+      {
+        question: 'Is countIf a number or a string in TypeScript?',
+        answer: 'A string. countIf returns UInt64, which hypequery asks ClickHouse to send as a JSON string so large counts keep their precision.',
+      },
+    ],
+    tsType: 'string (Int64/UInt64 sums and countIf)',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/combinators#-if',
+    updated: '2026-11-08',
   },
 
   {
@@ -890,107 +1245,23 @@ const aov = await db
     slug: 'quantile',
     name: 'quantile',
     cluster: 'aggregate',
-    tagline: 'Percentile estimates — p50, p95, p99 for latency and performance metrics.',
-    metaTitle: 'ClickHouse quantile() — percentiles in TypeScript',
+    tagline: 'Approximate percentiles (p50, p95, p99) for latency and performance metrics.',
+    metaTitle: 'ClickHouse quantile(): approximate percentiles vs quantileExact',
     metaDescription:
-      'ClickHouse quantile() calculates approximate percentiles (p50, p95, p99). Use it in TypeScript with hypequery for latency analysis and performance SLA monitoring.',
+      'ClickHouse quantile() estimates percentiles from a sample of up to 8,192 values, so it is approximate. When to use quantileExact, quantileTDigest or quantiles(), with TypeScript examples.',
     signature: 'quantile(level)(column): Float64',
     description:
-      'Computes an approximate quantile at the specified level (0–1) using a reservoir sampling algorithm. quantile(0.95)(latency) gives the p95 latency. quantiles(0.5, 0.95, 0.99)(col) returns all levels in one pass.',
+      'Estimates the quantile at a level between 0 and 1 from a reservoir sample of up to 8,192 values. quantile(0.95)(latency) is an approximate p95.',
     longDescription:
-      'quantile() uses a t-digest algorithm by default in ClickHouse, providing accurate percentile estimates without storing all values. It is the standard way to monitor SLA compliance (p99 < 200ms), analyse response time distributions, and build performance dashboards. quantiles() (plural) computes multiple percentiles in a single pass — always prefer it over multiple quantile() calls.',
-    exampleSql: `-- p50/p95/p99 response times per hour
+      'quantile() keeps a random sample of up to 8,192 values per group and computes the quantile from that sample, so on large groups the result is an estimate, and ClickHouse documents it as non-deterministic. For an exact answer use quantileExact(); for a repeatable estimate use quantileDeterministic(); for lower memory on very large groups use quantileTDigest(). To compute several levels at once, use quantiles(0.5, 0.95, 0.99)(col), which reads the data once.',
+    exampleSql: `-- p50/p95/p99 response times per hour, in one pass
 SELECT
   toStartOfHour(ts) AS hour,
-  quantile(0.50)(response_ms) AS p50,
-  quantile(0.95)(response_ms) AS p95,
-  quantile(0.99)(response_ms) AS p99
+  quantiles(0.50, 0.95, 0.99)(response_ms) AS p50_p95_p99
 FROM api_requests
 GROUP BY hour
 ORDER BY hour DESC
 LIMIT 24`,
-    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './schema';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-
-const latency = await db
-  .table('api_requests')
-  .select([
-    selectExpr('toStartOfHour(ts)', 'hour'),
-    rawAs('quantile(0.50)(response_ms)', 'p50'),
-    rawAs('quantile(0.95)(response_ms)', 'p95'),
-    rawAs('quantile(0.99)(response_ms)', 'p99'),
-  ])
-  .groupBy('hour')
-  .orderBy('hour', 'DESC')
-  .limit(24)
-  .execute();`,
-    hypequeryFilename: 'latency-percentiles.ts',
-    returnType: 'Float64',
-    notes: [
-      'quantiles(0.5, 0.95, 0.99)(col) returns an Array — one pass for all percentiles.',
-      'For exact quantiles use quantileExact() — accurate but uses O(n) memory.',
-      'quantileTDigest() is the default algorithm. quantileDDSketch() is more accurate at extreme tails.',
-    ],
-    relatedFunctions: ['avg', 'quantileExact', 'quantiles', 'median'],
-    relatedPillars: [
-      { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
-      { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
-    ],
-    searchIntentCards: [
-      {
-        title: 'ClickHouse p99 latency query',
-        copy: 'quantile(0.99)(response_ms) in a GROUP BY hour query gives hourly p99 latency. Use quantiles(0.5,0.95,0.99) to get all three in one pass.',
-      },
-      {
-        title: 'ClickHouse percentile TypeScript',
-        copy: 'Pass quantile expressions as raw SQL in hypequery\'s .select() or .groupBy() to get typed results back in your TypeScript application.',
-      },
-    ],
-    faqItems: [
-      {
-        question: 'How accurate is quantile() in ClickHouse?',
-        answer: 'quantile() uses t-digest and is typically accurate to within 1% of the true percentile. For exact values, use quantileExact() at the cost of higher memory usage.',
-      },
-      {
-        question: 'What is the difference between quantile() and quantiles()?',
-        answer: 'quantile(level)(col) returns a single Float64. quantiles(l1, l2, ...)(col) returns an Array of all requested levels in one scan — always use quantiles() when you need more than one percentile.',
-      },
-    ],
-  },
-
-  {
-    slug: 'groupArray',
-    name: 'groupArray',
-    cluster: 'aggregate',
-    tagline: 'Collect values into an array — session stitching, event sequences, and path analysis.',
-    metaTitle: 'ClickHouse groupArray() — collect rows into arrays',
-    metaDescription:
-      'groupArray() aggregates column values into an array per group. Use it in TypeScript with hypequery for session stitching, event sequence analysis, and array analytics.',
-    signature: 'groupArray([max_size])(column): Array',
-    description:
-      'Collects all values of a column within a group into an Array. groupArray(10)(col) limits the array to 10 elements. Essential for building event sequences, path arrays, and collecting ordered lists.',
-    longDescription:
-      'groupArray() is ClickHouse\'s primary way to materialise multiple rows into a single array value per group. Combined with arrayJoin, groupArrayMovingAvg, and array functions, it enables event sequence analysis, funnel reconstruction, and session stitching entirely in SQL. The optional max_size argument caps memory usage when collecting from large groups.',
-    exampleSql: `-- Collect page paths per session
-SELECT
-  session_id,
-  groupArray(page_path) AS path_sequence
-FROM page_views
-GROUP BY session_id
-
--- Top 5 events per user
-SELECT
-  user_id,
-  groupArray(5)(event_name) AS recent_events
-FROM events
-GROUP BY user_id`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -1001,20 +1272,176 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// quantile() returns Float64, which arrives as a JSON number
+const latency = await db
+  .table('api_requests')
+  .select([
+    rawAs<string, 'hour'>('toStartOfHour(ts)', 'hour'),
+    rawAs<number, 'p50'>('quantile(0.50)(response_ms)', 'p50'),
+    rawAs<number, 'p95'>('quantile(0.95)(response_ms)', 'p95'),
+    rawAs<number, 'p99'>('quantile(0.99)(response_ms)', 'p99'),
+  ])
+  .groupBy('hour')
+  .orderBy('hour', 'DESC')
+  .limit(24)
+  .execute();`,
+    hypequeryFilename: 'latency-percentiles.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+# measure.percentile(col, level) compiles to quantile(level)(col)
+api_requests = dataset(
+    "api_requests",
+    source="api_requests",
+    time_key="ts",
+    dimensions={"ts": dimension.timestamp()},
+    measures={
+        "p50": measure.percentile("response_ms", 0.50),
+        "p95": measure.percentile("response_ms", 0.95),
+        "p99": measure.percentile("response_ms", 0.99),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(api_requests, DatasetQuery(
+        by="hour", order_by=(order.desc("period"),), limit=24,
+    ))
+
+for row in result.data:
+    print(row)  # {'period': '2026-03-01 02:00:00', 'p50': 359.5, 'p95': 485.05, 'p99': 496.21}`,
+    pythonFilename: 'latency_percentiles.py',
+    pythonNote:
+      'measure.percentile compiles to one quantile(level)(col) call per level rather than a single quantiles() call, and the hour grain buckets in the client time zone, UTC by default.',
+    returnType: 'Float64',
+    notes: [
+      'quantile() is approximate on groups larger than its 8,192-value sample. Over 2 million rows in our check, quantile(0.99) returned 99,157 where quantileExact(0.99) returned 98,988.',
+      'quantileExact() returns the column\'s own type, not Float64, so over a UInt64 column it returns UInt64, which hypequery receives as a string.',
+      'quantiles(0.5, 0.95, 0.99)(col) returns Array(Float64) from one pass over the data.',
+      'quantileTDigest() returns Float32 and uses less memory on very large groups.',
+      'median(col) is quantile(0.5)(col).',
+    ],
+    relatedFunctions: ['avg', 'sumIf', 'quantileExact', 'quantiles', 'median'],
+    relatedPillars: [
+      { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
+      { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+    ],
+    searchIntentCards: [
+      {
+        title: 'p99 latency in ClickHouse',
+        copy: 'quantile(0.99)(response_ms) grouped by toStartOfHour(ts) gives hourly p99 latency. Use quantileExact() when an SLA report needs the exact value.',
+      },
+      {
+        title: 'Percentiles in TypeScript',
+        copy: 'Select quantile expressions with rawAs<number, ...>() in hypequery. Float64 results arrive as numbers; quantileExact over 64-bit integers arrives as strings.',
+      },
+    ],
+    faqItems: [
+      {
+        question: 'Is ClickHouse quantile() exact?',
+        answer: 'No. quantile() works from a reservoir sample of up to 8,192 values, so it is approximate on larger groups, and ClickHouse documents the result as non-deterministic. Use quantileExact() for an exact value, or quantileDeterministic(level)(col, determinator) for a repeatable estimate.',
+      },
+      {
+        question: 'What is the difference between quantile() and quantileExact()?',
+        answer: 'quantileExact() looks at every value, so it is exact but uses memory in proportion to the group size. It returns the column\'s type instead of Float64, and returns an actual value instead of interpolating: for the numbers 0 to 999 the median is 500 with quantileExact and 499.5 with quantile.',
+      },
+      {
+        question: 'How do I get p50, p95 and p99 in one ClickHouse query?',
+        answer: 'Use quantiles(0.5, 0.95, 0.99)(response_ms). It returns an Array(Float64) with one value per level and reads the data once.',
+      },
+      {
+        question: 'Does ClickHouse have a percentile function?',
+        answer: 'No. ClickHouse has no percentile() function. Use quantile(0.95)(col) for the 95th percentile, or median(col) for the 50th.',
+      },
+    ],
+    tsType: 'number (Float64)',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/quantile',
+    updated: '2026-11-08',
+  },
+
+  {
+    slug: 'groupArray',
+    name: 'groupArray',
+    cluster: 'aggregate',
+    tagline: 'Collect a group\'s values into an array. Row order is not guaranteed, so sort explicitly.',
+    metaTitle: 'ClickHouse groupArray: keep row order, cap size, type the result',
+    metaDescription:
+      'groupArray() does not guarantee row order, and arraySort(groupArray(x)) sorts values, not rows. How to collect values in timestamp order, cap the array size, and type the result in TypeScript.',
+    signature: 'groupArray([max_size])(column): Array',
+    description:
+      'Collects the values of a column within each group into an Array. ClickHouse documents the order of the values as indeterminate, and NULL values are skipped.',
+    longDescription:
+      'groupArray() turns many rows into one array per group, the building block for session paths, event sequences and funnel reconstruction. Because ClickHouse reads data in parallel, the order of the values is not guaranteed. When order matters, collect (timestamp, value) tuples, sort them, and keep the values. groupArray(max_size)(col) caps the array length, and array_agg is an alias.',
+    exampleSql: `-- Page paths per session, in timestamp order
+SELECT
+  session_id,
+  arrayMap(x -> x.2, arraySort(groupArray((ts, page_path)))) AS path_sequence
+FROM page_views
+GROUP BY session_id;
+
+-- At most 5 events per user (whichever 5 are read first)
+SELECT
+  user_id,
+  groupArray(5)(event_name) AS some_events
+FROM events
+GROUP BY user_id;`,
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+// path_sequence: string[] in timestamp order
 const sessions = await db
   .table('page_views')
   .select([
     'session_id',
-    rawAs('groupArray(page_path)', 'path_sequence'),
+    rawAs<string[], 'path_sequence'>(
+      'arrayMap(x -> x.2, arraySort(groupArray((ts, page_path))))',
+      'path_sequence',
+    ),
   ])
   .groupBy('session_id')
   .execute();`,
     hypequeryFilename: 'session-paths.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Page paths per session, in timestamp order
+paths = client.query("""
+    SELECT
+      session_id,
+      arrayMap(x -> x.2, arraySort(groupArray((ts, page_path)))) AS path_sequence
+    FROM page_views
+    GROUP BY session_id
+    ORDER BY session_id
+""")
+for session_id, path_sequence in paths.result_rows:
+    print(session_id, path_sequence)  # 0 ['/z', '/m', '/a', ...], a list[str]
+
+# At most n events per user; n is bound server-side
+capped = client.query(
+    "SELECT user_id, groupArray({n:UInt8})(event_name) AS some_events FROM events GROUP BY user_id ORDER BY user_id",
+    parameters={"n": 5},
+)
+print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
+    pythonFilename: 'session_paths.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'Array(T)',
     notes: [
-      'Ordering within the array is not guaranteed — use arraySort(groupArray(col)) if order matters.',
-      'groupArraySorted(n)(col, order_col) collects the top-n values by a sort key in one pass.',
-      'For large groups, always cap with groupArray(max_size) to avoid OOM errors.',
+      'Row order is not guaranteed. arraySort(groupArray(col)) sorts the values themselves, so page paths come back alphabetically, not in time order.',
+      'To keep timestamp order, sort tuples and keep the values: arrayMap(x -> x.2, arraySort(groupArray((ts, col)))).',
+      'groupArray(N)(col) keeps the first N values it reads, which are not necessarily the first N by time.',
+      'groupArray skips NULL values.',
+      'groupArraySorted(N)(col) takes a single column and returns its N smallest values in ascending order.',
     ],
     relatedFunctions: ['arrayJoin', 'arraySort', 'groupArrayMovingAvg', 'arrayReduce'],
     relatedPillars: [
@@ -1023,20 +1450,35 @@ const sessions = await db
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse collect rows into array',
-        copy: 'groupArray(column) is the GROUP_CONCAT equivalent in ClickHouse — it produces an Array per group. Filter and sort the array with array functions afterward.',
+        title: 'Collect rows into an array in ClickHouse',
+        copy: 'groupArray(column) is the ClickHouse equivalent of array_agg (also available under that name). Use groupArray plus arrayStringConcat for GROUP_CONCAT-style strings.',
       },
       {
-        title: 'ClickHouse session path analysis',
-        copy: 'GROUP BY session_id, then groupArray(page_path) WITHIN GROUP ordered by ts gives per-session page sequences for path and funnel analysis.',
+        title: 'Session path analysis in ClickHouse',
+        copy: 'GROUP BY session_id, collect (ts, page_path) tuples, sort them and keep the paths. The result is a per-session page sequence for path and funnel analysis.',
       },
     ],
     faqItems: [
       {
-        question: 'Is the order of elements in groupArray guaranteed?',
-        answer: 'No. Use arraySort(groupArray(col)) or groupArraySorted() if order matters.',
+        question: 'Does groupArray keep the order of rows?',
+        answer: 'No. ClickHouse documents the order as indeterminate, because rows are read in parallel. To keep timestamp order, collect (timestamp, value) tuples, sort them, then keep the values: arrayMap(x -> x.2, arraySort(groupArray((ts, page_path)))).',
+      },
+      {
+        question: 'Does arraySort(groupArray(col)) put values in time order?',
+        answer: 'No. arraySort sorts the values themselves, so strings come back alphabetically and numbers in ascending order. Sort by the timestamp with the tuple pattern instead.',
+      },
+      {
+        question: 'Can I rely on ORDER BY in a subquery?',
+        answer: 'Only sometimes. The ClickHouse docs say the order can be relied on when the data comes from an ordered subquery whose result is small enough. Sorting tuples works at any size.',
+      },
+      {
+        question: 'What type does groupArray return in TypeScript?',
+        answer: 'An array of the column\'s TypeScript type: string[] for a String column, number[] for an Int32 column. Pass the type when you select the expression: rawAs<string[], \'paths\'>(...).',
       },
     ],
+    tsType: 'T[] (for example string[])',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/grouparray',
+    updated: '2026-11-08',
   },
 
   // ── STRING CLUSTER ──────────────────────────────────────────────────────────
@@ -1044,22 +1486,26 @@ const sessions = await db
     slug: 'toString',
     name: 'toString',
     cluster: 'string',
-    tagline: 'Cast any ClickHouse value to a String — the universal type conversion function.',
-    metaTitle: 'ClickHouse toString() — cast to String in TypeScript',
+    tagline: 'Convert any ClickHouse value to a String, including dates in a chosen time zone.',
+    metaTitle: 'ClickHouse toString: numbers, dates and time zones to String',
     metaDescription:
-      'toString() converts any ClickHouse value (numbers, dates, UUIDs) to a String. Use it in TypeScript with hypequery for display fields, joins, and schema normalisation.',
-    signature: 'toString(value: Any): String',
+      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone), and a second argument picks the time zone.',
+    signature: 'toString(value [, timezone]): String',
     description:
-      'Converts any ClickHouse value to its string representation. Equivalent to CAST(col AS String). Handles all numeric types, dates, UUIDs, and IP addresses.',
+      'Converts a value of any type to its String form. For Date and DateTime it accepts a time zone as a second argument.',
     longDescription:
-      'toString() is the universal type-cast in ClickHouse SQL. It is most commonly used when joining across tables that store IDs as different types (UInt64 vs String), when selecting for display (formatDateTime gives nicer date strings), or when inserting into a String column from a numeric source. For structured JSON output use JSONExtractString or toJSONString.',
-    exampleSql: `-- Join on mismatched ID types
+      'toString is the general cast to String, the same as CAST(x AS String). Common uses are joining an integer id to a String id, building labels, and sending 64-bit integers to a client as text. Dates come out in ClickHouse\'s own format, "2026-11-08 09:05:07", which is not ISO 8601: there is no "T" and no offset. Use formatDateTime for any other date format.',
+    exampleSql: `-- Join on mismatched id types
 SELECT e.event_name, u.email
-FROM events e
-JOIN users u ON toString(e.user_id) = u.external_id
+FROM events AS e
+JOIN users AS u ON toString(e.user_id) = u.external_id;
 
--- Display UInt64 as string
-SELECT toString(order_id) AS order_ref FROM orders`,
+-- Dates as strings, in a chosen time zone
+SELECT
+  toString(created_at) AS server_zone,
+  toString(created_at, 'Asia/Tokyo') AS tokyo
+FROM events
+LIMIT 5;`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -1070,38 +1516,81 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// created_utc: string in "YYYY-MM-DD hh:mm:ss" form, rendered in UTC
 const orders = await db
   .table('orders')
   .select([
-    rawAs('toString(order_id)', 'order_ref'),
-    'user_id',
-    'created_at',
+    'order_id',
+    rawAs<string, 'created_utc'>("toString(created_at, 'UTC')", 'created_utc'),
   ])
-  .execute();`,
+  .limit(100)
+  .execute();
+
+// Parse it as UTC on the client
+const createdAt = new Date(orders[0].created_utc.replace(' ', 'T') + 'Z');`,
     hypequeryFilename: 'order-display.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Dates as strings, in a time zone bound server-side
+result = client.query(
+    """
+    SELECT
+      toString(created_at) AS server_zone,
+      toString(created_at, {tz:String}) AS tokyo
+    FROM events
+    LIMIT 5
+    """,
+    parameters={"tz": "Asia/Tokyo"},
+)
+for server_zone, tokyo in result.result_rows:
+    print(server_zone, tokyo)  # 2026-03-01 00:00:00 2026-03-01 09:00:00, both str`,
+    pythonFilename: 'timezone_strings.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'String',
     notes: [
-      'For dates, toString returns ISO format. Use formatDateTime for custom display strings.',
-      'toStringCutToZero() is like toString but stops at the first null byte — useful for FixedString columns.',
-      'CAST(col AS String) and toString(col) are equivalent.',
+      'DateTime becomes "2026-11-08 09:05:07" and DateTime64(3) becomes "2026-11-08 09:05:07.120": no "T" and no time zone offset. Pass a time zone as the second argument to control which wall-clock time you get.',
+      'Floats are printed in full: toString(0.1 + 0.2) returns "0.30000000000000004". Round first for display: toString(round(0.1 + 0.2, 2)) returns "0.3".',
+      'toString(NULL) returns NULL, not the string "NULL".',
+      'UInt64 values keep every digit: toString(toUInt64(18446744073709551615)) returns "18446744073709551615".',
+      'For other date formats use formatDateTime.',
     ],
-    relatedFunctions: ['toUInt64', 'toInt64', 'toFloat64', 'formatDateTime', 'concat'],
+    relatedFunctions: ['formatDateTime', 'toDate', 'multiIf', 'sum'],
     relatedPillars: [
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-schema', label: 'ClickHouse Schema' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse cast to string TypeScript',
-        copy: 'Use toString(col) to convert numbers, dates, or UUIDs to strings in ClickHouse SQL. hypequery maps ClickHouse types to TypeScript types via the generated schema.',
+        title: 'ClickHouse int to string',
+        copy: 'toString(user_id) or CAST(user_id AS String). Use it to join an integer id with a String id stored in another table.',
+      },
+      {
+        title: 'ClickHouse date to string',
+        copy: 'toString(created_at, \'UTC\') gives "YYYY-MM-DD hh:mm:ss" in UTC. formatDateTime(created_at, \'%F\') gives just the date.',
       },
     ],
     faqItems: [
       {
         question: 'What is the difference between toString() and CAST(x AS String)?',
-        answer: 'They are equivalent — toString(x) is syntactic sugar for CAST(x AS String).',
+        answer: 'For converting a value to String they give the same result. toString also takes a time zone as a second argument for Date and DateTime values.',
+      },
+      {
+        question: 'Does toString return an ISO 8601 date?',
+        answer: 'No. A DateTime becomes "2026-11-08 09:05:07", with a space instead of "T" and no offset. To parse it in JavaScript, render it in a known zone (toString(ts, \'UTC\')) and add the "T" and "Z" yourself, or use formatDateTime.',
+      },
+      {
+        question: 'How do I convert a DateTime to a string in another time zone?',
+        answer: 'Pass the zone as the second argument: toString(created_at, \'Asia/Tokyo\'). The stored value does not change, only how it is printed.',
       },
     ],
+    tsType: 'string',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/type-conversion-functions#toString',
+    updated: '2026-11-08',
   },
 
   {
@@ -1248,15 +1737,15 @@ const classified = await db
     slug: 'multiIf',
     name: 'multiIf',
     cluster: 'conditional',
-    tagline: 'Multi-branch conditional — clean CASE WHEN replacement for status mapping.',
-    metaTitle: 'ClickHouse multiIf() — multi-branch conditionals',
+    tagline: 'ClickHouse\'s CASE WHEN: return the value for the first true condition, with a default.',
+    metaTitle: 'ClickHouse multiIf: CASE WHEN, NULL conditions and mixed types',
     metaDescription:
-      'ClickHouse multiIf() evaluates multiple conditions in order and returns the first matching value. Use it in TypeScript with hypequery for status maps and category logic.',
-    signature: 'multiIf(cond1, val1, cond2, val2, ..., else): T',
+      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false, and mixing String and number branches returns a Variant.',
+    signature: 'multiIf(cond1, then1, cond2, then2, ..., else)',
     description:
-      'Evaluates conditions left to right and returns the value of the first true condition. The final argument is the default (else) value. The ClickHouse replacement for CASE WHEN…THEN…ELSE.',
+      'Evaluates conditions from left to right and returns the value paired with the first true one, or the last argument if none is true. It is the ClickHouse form of CASE WHEN ... THEN ... ELSE.',
     longDescription:
-      'multiIf() is ClickHouse\'s multi-branch conditional. It evaluates each condition in order and returns the associated value for the first true condition. Unlike if(), it is short-circuit — later branches are not evaluated if an earlier one matches. This makes it safe to use with potentially NULL-returning expressions in later branches.',
+      'multiIf is how most CASE WHEN expressions are written in ClickHouse, for grading scores, mapping status codes or bucketing values. CASE WHEN also works and is rewritten to multiIf. Conditions run in order, and with the default setting short_circuit_function_evaluation = \'enable\' later branches are skipped for rows where an earlier condition matched, so an expression that would fail on those rows (such as dividing by zero) is not evaluated there. The result type is the common type of the branches; branches without one produce a Variant type.',
     exampleSql: `SELECT
   multiIf(
     score >= 90, 'A',
@@ -1267,7 +1756,12 @@ const classified = await db
   ) AS grade,
   count() AS students
 FROM exam_results
-GROUP BY grade`,
+GROUP BY grade
+ORDER BY grade;
+
+-- Short-circuit: intDiv is not evaluated for the row where number = 0
+SELECT multiIf(number = 0, 'zero', intDiv(10, number) > 3, 'big', 'small') AS size
+FROM numbers(4);`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -1278,38 +1772,92 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// grade: string; students: string (count() is UInt64)
 const graded = await db
   .table('exam_results')
   .select([
-    rawAs("multiIf(score >= 90, 'A', score >= 80, 'B', score >= 70, 'C', score >= 60, 'D', 'F')", 'grade'),
+    rawAs<string, 'grade'>(
+      "multiIf(score >= 90, 'A', score >= 80, 'B', score >= 70, 'C', score >= 60, 'D', 'F')",
+      'grade',
+    ),
   ])
   .count('student_id', 'students')
   .groupBy('grade')
   .execute();`,
     hypequeryFilename: 'grade-classification.ts',
-    returnType: 'Same type as value branches',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Grade cutoffs are bound server-side as {name:UInt8} parameters
+result = client.query(
+    """
+    SELECT
+      multiIf(
+        score >= {a:UInt8}, 'A',
+        score >= {b:UInt8}, 'B',
+        score >= {c:UInt8}, 'C',
+        score >= {d:UInt8}, 'D',
+        'F'
+      ) AS grade,
+      count() AS students
+    FROM exam_results
+    GROUP BY grade
+    ORDER BY grade
+    """,
+    parameters={"a": 90, "b": 80, "c": 70, "d": 60},
+)
+print(result.result_rows)  # [('A', 30), ('B', 30), ('C', 30), ('D', 30), ('F', 180)]`,
+    pythonFilename: 'grade_classification.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
+    returnType: 'Common type of the branches (Variant if there is none)',
     notes: [
-      'Short-circuit: once a condition is true, later conditions are not evaluated.',
-      'All value branches must return the same (or compatible) type.',
-      'For simple two-branch conditionals, if() is more readable.',
+      'A NULL condition counts as false: multiIf(NULL, \'a\', \'b\') returns \'b\'.',
+      'If any branch can be NULL, the result is Nullable: multiIf(x > 1, \'x\', NULL) returns Nullable(String).',
+      'Mixing a String branch with a number does not fail on ClickHouse 26.6; it returns Variant(String, UInt8). Cast the branches to one type if your code expects a plain string.',
+      'Skipping later branches depends on short_circuit_function_evaluation, which is \'enable\' by default. With it set to \'disable\', every branch is evaluated for every row and can throw.',
+      'For two branches, if(cond, then, else) is shorter.',
     ],
-    relatedFunctions: ['if', 'ifNull', 'coalesce', 'nullIf'],
+    relatedFunctions: ['if', 'coalesce', 'sumIf', 'toString'],
     relatedPillars: [
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+      { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse CASE WHEN TypeScript',
-        copy: 'multiIf(cond1, val1, cond2, val2, ..., default) is the ClickHouse equivalent of CASE WHEN. It is more concise and short-circuits on the first match.',
+        title: 'CASE WHEN in ClickHouse',
+        copy: 'Both CASE WHEN and multiIf work. multiIf(cond1, val1, cond2, val2, default) is shorter and is what ClickHouse runs underneath.',
+      },
+      {
+        title: 'Bucketing values in TypeScript',
+        copy: 'Select a multiIf expression with rawAs<string, \'bucket\'>() in hypequery, then group by the alias. Cast the branches to one type so the result stays a string.',
       },
     ],
     faqItems: [
       {
-        question: 'Does multiIf() short-circuit evaluate?',
-        answer: 'Yes — once a condition is true, later conditions and their values are not evaluated. This makes it safer than nested if() for NULL-sensitive expressions.',
+        question: 'What is the ClickHouse equivalent of CASE WHEN?',
+        answer: 'multiIf(cond1, then1, cond2, then2, ..., else). CASE WHEN ... THEN ... ELSE ... END also works in ClickHouse and behaves the same way.',
+      },
+      {
+        question: 'How does multiIf handle NULL conditions?',
+        answer: 'A NULL condition counts as false, so evaluation moves on to the next condition: multiIf(NULL, \'a\', \'b\') returns \'b\'. If a branch value can be NULL, the result type is Nullable.',
+      },
+      {
+        question: 'Does multiIf short-circuit?',
+        answer: 'Yes, with the default setting short_circuit_function_evaluation = \'enable\'. multiIf(number = 0, \'zero\', intDiv(10, number) > 3, \'big\', \'small\') runs without a division-by-zero error. With the setting disabled, every branch is evaluated for every row.',
+      },
+      {
+        question: 'Can multiIf branches return different types?',
+        answer: 'Only if they have a common type, such as Int and Float, which gives Float64. On ClickHouse 26.6, a String branch and a number branch produce a Variant(String, UInt8) instead of an error, so cast the branches with toString() or a CAST when you need one type.',
       },
     ],
+    tsType: 'string (for String branches)',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/conditional-functions#multiIf',
+    updated: '2026-11-08',
   },
 
   // ── MATH CLUSTER ────────────────────────────────────────────────────────────

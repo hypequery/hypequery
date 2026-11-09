@@ -139,6 +139,7 @@ export default function FastApiReactAnalyticsPage() {
         { href: '/docs/python/cli', title: 'Python CLI', description: '`export client-contract`, `--check`, and `--force`.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },

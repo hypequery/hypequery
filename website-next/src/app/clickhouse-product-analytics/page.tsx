@@ -226,9 +226,9 @@ export default function ClickHouseProductAnalyticsPage() {
           description: 'Wire product analytics queries to React dashboard components with typed hooks.',
         },
         {
-          href: '/blog/turn-your-clickhouse-schema-into-a-type-safe-analytics-layer-in-5-minutes',
-          title: 'Turn your ClickHouse schema into a type-safe analytics layer',
-          description: 'Step-by-step: from schema generation to working analytics hooks.',
+          href: '/blog/clickhouse-typescript-type-problem',
+          title: 'Why ClickHouse Types Break in TypeScript (and How to Fix Them)',
+          description: 'Generate types from your ClickHouse schema and define each analytics query once for backend, HTTP and React.',
         },
       ]}
       relatedPillars={[

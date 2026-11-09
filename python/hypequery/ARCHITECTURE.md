@@ -91,6 +91,7 @@ Adapters only translate a transport's request and response:
 | The WSGI adapter | `wsgi.py`, `utils/wsgi_environ.py` |
 | Serving sync hosts on one loop per process | `utils/serving_loop.py`, `utils/blocking.py`, `utils/thread_body.py` |
 | Writing a response; a fault in the core | `utils/response_head.py`, `utils/fault.py` |
+| Streamed dataset responses: negotiation, NDJSON frames, batches off the client | `utils/stream_format.py`, `utils/stream_frames.py`, `utils/stream_batches.py`, `utils/prefixed_stream.py` |
 | Native Django and Flask adapters | `../contrib/django/views.py`, `../contrib/flask.py`, `../contrib/utils/mounted_path.py` |
 | Django and Flask login as `from_context` strategies | `../contrib/django/auth.py` (`django_user`), `../contrib/flask.py` (`flask_session`) |
 | uvicorn runners | `production.py`, `dev/` |
@@ -102,6 +103,12 @@ framework's request onto `ServeRequest`. Behaviour belongs in the core, so
 every adapter, and `Api.handle` called directly, answers the same bytes; the
 shared fixtures in `specs/serve-http` and the security matrix run against
 `Api.handle` and every adapter (`tests/serve_transports.py`).
+
+A streamed dataset response is the one exception. Only `to_asgi_app` writes a
+response as it is produced, so only it sets `ServeRequest.streaming`; every
+other host, and `Api.handle` called directly, gets the usual JSON page. A
+streamed `ServeResponse` carries a `stream` the adapter writes and closes, and
+its production slot, deadline and `RequestLifetime` stay held until it is closed.
 
 Sync hosts (a WSGI server, Django under WSGI, Flask) never run an event loop
 per request. The first request starts one loop thread per process

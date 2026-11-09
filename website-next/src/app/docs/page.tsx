@@ -8,7 +8,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const title = 'hypequery documentation';
 const description =
-  'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents.';
+  'Embedded analytics on ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents.';
 
 export const metadata: Metadata = {
   title,
@@ -84,6 +84,7 @@ export default function DocsHome() {
 
         <h2>Learn more</h2>
         <Cards>
+          <Card title="What is hypequery" href="/docs/what-is-hypequery" description="A precise definition, the packages, how it compares, and release status." />
           <Card title="Why hypequery" href="/docs/why-hypequery" description="The problem it solves, who it fits, and when to pick something else." />
           <Card title="Core concepts" href="/docs/core-concepts" description="Datasets, serving, and clients, and how they relate." />
         </Cards>

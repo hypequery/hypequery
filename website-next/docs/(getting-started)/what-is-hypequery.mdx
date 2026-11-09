@@ -1,0 +1,73 @@
+---
+title: What is hypequery
+seoTitle: 'What is hypequery? ClickHouse analytics layer'
+description: A precise definition of hypequery, the packages it ships in TypeScript and Python, how it differs from ClickHouse drivers, Cube, Tinybird, and ORMs, and its current release status.
+---
+
+hypequery is an open-source embedded analytics toolkit for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
+
+**Spelling:** hypequery is "hype" plus "query", one word in lower case. It is sometimes searched for as hyperquery.
+
+## What's in it
+
+### TypeScript (npm)
+
+| Package | What it does |
+| --- | --- |
+| `@hypequery/clickhouse` | Generates TypeScript types from your ClickHouse schema and provides the type-safe query builder |
+| `@hypequery/datasets` | Semantic datasets: dimensions, measures, metrics, relationships, time grains, and tenant rules |
+| `@hypequery/serve` | Serves queries and datasets as validated HTTP endpoints with OpenAPI, authentication, tenancy, and rate limits |
+| `@hypequery/react` | Typed TanStack Query hooks for queries, metrics, and datasets |
+| `@hypequery/mcp` | An MCP server that exposes datasets and metrics to AI agents as governed tools, without raw SQL access |
+| `@hypequery/cli` | `hypequery init`, `dev`, and `generate`: scaffolding, schema introspection, and code generation |
+
+`@hypequery/protocol` and `@hypequery/deployment` hold the shared contracts the other packages are built on. Most
+projects get them as dependencies and never import them directly.
+
+### Python (PyPI)
+
+One package, `hypequery`, for Python 3.11 and later. It includes datasets, sync and async execution, Serve for
+FastAPI, Django, Flask, or any ASGI or WSGI server, typed DataFrames (pandas, Polars, Arrow), a `hypequery` CLI, and
+an MCP server (`hypequery mcp`). There is no query builder in Python; you query datasets by name. ClickHouse drivers,
+web frameworks, and DataFrame libraries are optional extras. The [feature status](/docs/python/feature-status) page
+tracks parity with TypeScript.
+
+Both languages implement the same specifications and are checked against the same conformance fixtures, so the same
+React hooks and MCP clients work whether the backend is TypeScript or Python.
+
+## How it compares
+
+- **vs [@clickhouse/client](/compare/hypequery-vs-clickhouse-client) or [clickhouse-connect](/compare/hypequery-vs-clickhouse-connect):** those are the official drivers and run the SQL you write; hypequery uses them underneath and adds generated types, shared measures, request validation, and tenant scoping.
+- **vs [Cube](/compare/hypequery-vs-cube):** Cube is a semantic-layer server you deploy and configure separately; hypequery is a library imported by the application that serves the data.
+- **vs [Tinybird](/compare/hypequery-vs-tinybird):** Tinybird is a managed ClickHouse platform you load data into; hypequery runs against the ClickHouse you already operate.
+- **vs an ORM such as [Prisma](/compare/hypequery-vs-prisma) or [Drizzle](/compare/hypequery-vs-drizzle):** those ORMs do not support ClickHouse and are built for transactional tables; hypequery is built for ClickHouse analytics queries. See [ClickHouse ORM options](/clickhouse-orm).
+
+All comparisons are listed on the [compare page](/compare).
+
+## Status
+
+As of November 2026:
+
+| Package | Version | Release line |
+| --- | --- | --- |
+| `@hypequery/clickhouse` | 2.14.0 | Past 1.0 |
+| `@hypequery/cli` | 1.28.0 | Past 1.0 |
+| `@hypequery/datasets` | 0.29.0 | Pre-1.0 |
+| `@hypequery/serve` | 0.24.4 | Pre-1.0 |
+| `@hypequery/mcp` | 0.11.3 | Pre-1.0 |
+| `@hypequery/react` | 0.8.0 | Pre-1.0 |
+| `hypequery` (Python) | 0.1.0b3 | Beta: APIs may change before 1.0, so pin the version you deploy |
+
+Every package is released under the Apache 2.0 license; the source is on
+[GitHub](https://github.com/hypequery/hypequery), and each package's `CHANGELOG.md` there lists its releases.
+
+[hypequery cloud](/docs/cloud), a planned hosted service for serving datasets as REST and MCP endpoints, is not live
+yet and has no sign-up. Everything on this page runs in your own infrastructure today.
+
+## Get started
+
+- [Quick start: TypeScript](/docs/quick-start): install the packages, generate types, and run a first query or dataset.
+- [Quick start: Python](/docs/python/quick-start): define a dataset and serve it.
+- [Why hypequery](/docs/why-hypequery): the problem it solves and when to pick something else.
+- [Core concepts](/docs/core-concepts): datasets, serving, and clients, and how they relate.
+- [TypeScript capabilities](/docs/capabilities): the shipped builder, dataset, Serve, React, and MCP surface.

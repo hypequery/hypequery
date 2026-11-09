@@ -46,6 +46,13 @@ import { executeWithCache } from './cache/cache-manager.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
 import { InsertBuilder, type InsertQB } from './insert-builder.js';
 import { SUBQUERY_SOURCE_TABLE, type InitialInsertState } from './types/builder-state.js';
+import type {
+  AvgResult,
+  ColumnValueResult,
+  QuantileColumnResult,
+  SampleStatisticResult,
+  SumColumnResult,
+} from './types/aggregate-types.js';
 import { normalizeJoinArguments } from './utils/join-keys.js';
 import { normalizeFilterApplication } from './utils/filter-application.js';
 import { assertSafeIdentifier } from './utils/insert-identifiers.js';
@@ -173,6 +180,8 @@ export type ClickHouseConfig = ClickHouseConnectionOptions | ClickHouseClientCon
 
 export type IntegerJsonEncoding = 'quoted' | 'server-default';
 
+export type ArrowCompression = 'none' | 'server-default';
+
 /** Options owned by HypeQuery's built-in ClickHouse adapter. */
 export interface ClickHouseAdapterOptions {
   /**
@@ -188,6 +197,20 @@ export interface ClickHouseAdapterOptions {
    * authoritative in either mode.
    */
   integerJsonEncoding?: IntegerJsonEncoding;
+  /**
+   * Controls whether Arrow streams request uncompressed record batches.
+   *
+   * - `none` (default) sends `output_format_arrow_compression_method: 'none'`,
+   *   because JavaScript Arrow readers ship without the LZ4 codec ClickHouse
+   *   uses by default.
+   * - `server-default` omits that adapter-owned setting, which is required for
+   *   strict `readonly = 1` connections whose profile does not already set it
+   *   to `'none'`. Batches then use the server's compression method.
+   *
+   * Explicit connection-level and per-call ClickHouse settings remain
+   * authoritative in either mode.
+   */
+  arrowCompression?: ArrowCompression;
 }
 
 /** Configuration accepted by HypeQuery's built-in ClickHouse adapter. */
@@ -672,8 +695,8 @@ export class QueryBuilder<
   sum<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_sum`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'sum', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SumColumnResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, SumColumnResult<State, Column>>(column, alias, 'sum', (col, finalAlias) =>
       this.aggregations.sum(col, finalAlias)
     );
   }
@@ -690,8 +713,8 @@ export class QueryBuilder<
   avg<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_avg`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'avg', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, AvgResult>>> {
+    return this.applyAggregation<Column, Alias, AvgResult>(column, alias, 'avg', (col, finalAlias) =>
       this.aggregations.avg(col, finalAlias)
     );
   }
@@ -699,8 +722,8 @@ export class QueryBuilder<
   min<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_min`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'min', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'min', (col, finalAlias) =>
       this.aggregations.min(col, finalAlias)
     );
   }
@@ -708,8 +731,8 @@ export class QueryBuilder<
   max<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_max`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'max', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'max', (col, finalAlias) =>
       this.aggregations.max(col, finalAlias)
     );
   }
@@ -728,8 +751,8 @@ export class QueryBuilder<
     column: Column,
     argColumn: SelectableColumn<State>,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMax', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'argMax', (col, finalAlias) =>
       this.aggregations.argMax(col, String(argColumn), finalAlias)
     );
   }
@@ -739,8 +762,8 @@ export class QueryBuilder<
     column: Column,
     argColumn: SelectableColumn<State>,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMin', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'argMin', (col, finalAlias) =>
       this.aggregations.argMin(col, String(argColumn), finalAlias)
     );
   }
@@ -750,8 +773,8 @@ export class QueryBuilder<
     column: Column,
     level: number,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'quantile', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, QuantileColumnResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, QuantileColumnResult<State, Column>>(column, alias, 'quantile', (col, finalAlias) =>
       this.aggregations.quantile(col, level, finalAlias)
     );
   }
@@ -760,8 +783,8 @@ export class QueryBuilder<
   stddev<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_stddev`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'stddev', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SampleStatisticResult>>> {
+    return this.applyAggregation<Column, Alias, SampleStatisticResult>(column, alias, 'stddev', (col, finalAlias) =>
       this.aggregations.stddev(col, finalAlias)
     );
   }
@@ -806,22 +829,23 @@ export class QueryBuilder<
   variance<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_variance`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'variance', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SampleStatisticResult>>> {
+    return this.applyAggregation<Column, Alias, SampleStatisticResult>(column, alias, 'variance', (col, finalAlias) =>
       this.aggregations.variance(col, finalAlias)
     );
   }
 
-  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
+  /** `Value` is the TypeScript type of the aggregate in each result row. */
+  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string, Value = string>(
     column: Column,
     alias: Alias | undefined,
     suffix: string,
-    updater: (column: string, alias: Alias) => SelectQueryNode<AppendToOutput<State, Record<Alias, string>>['output'], Schema>
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    updater: (column: string, alias: Alias) => SelectQueryNode<AppendToOutput<State, Record<Alias, Value>>['output'], Schema>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, Value>>> {
     const columnName = String(column);
     const finalAlias = (alias || `${columnName}_${suffix}`) as Alias;
 
-    type NextState = AppendToOutput<State, Record<Alias, string>>;
+    type NextState = AppendToOutput<State, Record<Alias, Value>>;
     const nextState = this.buildSelectState<NextState['output']>({} as NextState['output']) as NextState;
 
     const nextConfig = updater(columnName, finalAlias);
@@ -909,8 +933,11 @@ export class QueryBuilder<
    * ```
    *
    * The bytes can also be passed on unchanged, e.g. as an HTTP response body.
-   * A ClickHouse failure after the first batches errors the stream with
-   * ClickHouse's own error.
+   * A ClickHouse failure after the first batches errors the stream, and so
+   * does a body that ends without Arrow's end-of-stream marker. ClickHouse
+   * 25.11+ marks the failure, so the error is ClickHouse's own; older servers
+   * do not, so the error carries ClickHouse's message only where it can be
+   * recovered from the body.
    */
   async streamArrow(options?: StreamOptions): Promise<ReadableStream<Uint8Array>> {
     return this.executor.streamArrow(options);
@@ -1559,8 +1586,9 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
     },
     /**
      * Streams a raw statement's result as Arrow IPC stream bytes. Leave out a
-     * `FORMAT` clause: it would override the Arrow format the adapter requests.
-     * See {@link QueryBuilder.streamArrow}.
+     * `FORMAT` clause: the adapter appends `FORMAT ArrowStream` itself, after
+     * dropping a trailing `;` or comment; ClickHouse rejects a statement that
+     * already has another `FORMAT` clause. See {@link QueryBuilder.streamArrow}.
      */
     async rawArrowStream(
       sql: string,

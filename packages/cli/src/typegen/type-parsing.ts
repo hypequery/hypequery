@@ -203,6 +203,15 @@ export const clickhouseToTsType = (type: string, onUnsupported?: (type: string) 
     return clickhouseToTsType(wrappedLowCardinalityType, onUnsupported);
   }
 
+  // SimpleAggregateFunction(fn, T) values are plain T values.
+  const wrappedSimpleAggregate = unwrapType(normalizedType, 'SimpleAggregateFunction');
+  if (wrappedSimpleAggregate) {
+    const simpleAggregateArgs = splitTopLevelArgs(wrappedSimpleAggregate);
+    if (simpleAggregateArgs.length === 2) {
+      return clickhouseToTsType(simpleAggregateArgs[1], onUnsupported);
+    }
+  }
+
   const wrappedTupleType = unwrapType(normalizedType, 'Tuple');
   if (wrappedTupleType) {
     const tupleParts = splitTopLevelArgs(wrappedTupleType);

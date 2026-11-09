@@ -7,18 +7,21 @@
  *   {"type":"error","error":{...}}      the query failed after the response began
  *
  * The HTTP status is sent before the first row, so a failure partway is a
- * final `error` frame; a response without an `end` frame is incomplete.
+ * final `error` frame; a response without an `end` frame is incomplete. The
+ * client only sees a sanitized message: `failure()` returns the error itself,
+ * once the stream has ended, for hooks and logs.
  */
 export function datasetNdjsonStream(
   rows: ReadableStream<Record<string, unknown>[]>,
   meta?: unknown,
-): ReadableStream<Uint8Array> {
+): { stream: ReadableStream<Uint8Array>; failure: () => unknown } {
   const encoder = new TextEncoder();
   const frame = (value: unknown) => encoder.encode(`${JSON.stringify(value)}\n`);
   const reader = rows.getReader();
   let rowCount = 0;
+  let failure: unknown;
 
-  return new ReadableStream<Uint8Array>({
+  const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(frame(meta === undefined ? { type: 'start' } : { type: 'start', meta }));
     },
@@ -37,7 +40,8 @@ export function datasetNdjsonStream(
           controller.enqueue(frame({ type: 'rows', data: value }));
           return;
         }
-      } catch {
+      } catch (error) {
+        failure = error ?? new Error('The row stream failed without an error.');
         // Never the thrown message: it can carry SQL or a driver detail.
         controller.enqueue(frame({
           type: 'error',
@@ -50,4 +54,5 @@ export function datasetNdjsonStream(
       return reader.cancel(reason);
     },
   });
+  return { stream, failure: () => failure };
 }

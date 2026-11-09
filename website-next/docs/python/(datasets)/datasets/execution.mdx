@@ -59,6 +59,8 @@ interface carries. No error message repeats the URL.
 | `analytics.validate(target, query, context=...)` | Check a query without executing it |
 | `analytics.to_sql(target, query, context=...)` | Inspect a redacted debug statement |
 | `analytics.execute(target, query, context=...)` | Plan, execute, and return rows |
+| `analytics.stream(target, query, context=...)` | Plan and execute, receiving rows in batches as they arrive |
+| `analytics.stream_arrow(target, query, context=...)` | Plan and execute, receiving Arrow record batches with native types |
 | `analytics.for_tenant(scope)` | Get a client bound to one tenant |
 
 A target is a `Dataset` or the name of a registered dataset. A query is a `DatasetQuery` or a plain mapping,
@@ -119,7 +121,7 @@ page.meta.pagination  # Pagination(limit=50, offset=100, has_more=True)
 
 The client fetches one extra row to compute `has_more` and drops it from `data`. There is no total row count.
 
-Value types differ from the HTTP wire, where every measure is a string:
+Value types differ from the HTTP wire, where every measure is a string, and so is a dimension integer beyond ±(2^53 − 1):
 - integer counts come back as `int`;
 - floating-point results come back as `float`;
 - `Decimal` values come back as `str`, to keep their precision;
@@ -127,3 +129,93 @@ Value types differ from the HTTP wire, where every measure is a string:
 
 For analysis, `result.to_pandas()`, `to_polars()` and `to_arrow()` restore real types from the dataset definition. See
 [pandas, Polars and Arrow](/docs/python/dataframes).
+
+## Stream large results
+
+`execute` holds the whole result in memory. For exports, notebooks and wide breakdowns, `stream` hands you the rows in
+batches as the executor receives them, so memory stays flat however many rows there are.
+
+<CodeBlock>
+```python
+import json
+
+query = DatasetQuery(dimensions=("customer_id", "country"), measures=("revenue", "orders"))
+
+with analytics.stream(orders, query, context=ExecutionContext(tenant=tenant("acme"))) as stream:
+    with open("orders.ndjson", "w") as out:
+        for batch in stream:
+            for row in batch:
+                out.write(json.dumps(row) + "\n")
+```
+</CodeBlock>
+
+Each batch is a tuple of the rows `execute` would return, with the same values, so a stream's rows equal `execute`'s
+`data`. `stream.rows()` iterates them one at a time across batches, and `stream.columns`, `column_types` and
+`query_id` are known before the first batch.
+
+`stream_arrow` hands the result over as `pyarrow.RecordBatch`es instead. Columns keep their ClickHouse types: a
+`Decimal` measure is `decimal128` and a count `uint64`, not the JSON-safe values of a row stream. It needs
+`hypequery[arrow]`:
+
+<CodeBlock>
+```python
+import duckdb
+
+with analytics.stream_arrow(orders, query, context=context) as stream:
+    stream.schema                      # known before the first batch
+    reader = stream.to_reader()        # a pyarrow.RecordBatchReader
+    duckdb.sql("SELECT country, sum(revenue) FROM reader GROUP BY ALL").show()
+```
+</CodeBlock>
+
+`read_all()` collects the batches into one `pyarrow.Table`, and `pl.from_arrow(stream.read_all())` gives a polars
+frame. On the async client, enter the stream with `async with` and iterate with `async for`:
+
+<CodeBlock>
+```python
+async with analytics.stream(orders, query, context=context) as stream:
+    async for batch in stream:
+        ...
+```
+</CodeBlock>
+
+A stream runs exactly the query `execute` would: the same planning, tenant scope, settings, deadline and cancellation,
+without the result cache or pagination. The query is planned when you call `stream`, so an invalid query raises there;
+it starts when you enter the `with` block. Leaving the block early stops it, with `KILL QUERY` where the executor has
+a control connection.
+
+The client's settings bound the whole stream. A result that grows past `max_result_rows`, or a query that runs past
+`max_execution_time`, fails with `too-large` or `deadline-exceeded` partway through rather than ending short. A stream's
+memory stays flat, so the byte limit is its own: `stream_max_result_bytes` when you pass it (at most 1 TiB). Without
+it, a stream keeps a `max_result_bytes` you set in `settings`, and runs under 1 TiB in place of the default.
+
+A dataset with limits caps a stream's rows too. Its query runs with your `limit`, or, when it sets none, with the
+dataset's ceiling as its `LIMIT`: `max_stream_rows` if set, else `max_result_size`. That stream ends at the ceiling
+without an error, so give an export an explicit `limit`, or a `max_stream_rows` above its largest result and a
+`max_result_rows` at least as high. `max_stream_rows` lets streams return more rows than pages; `max_result_size` keeps
+bounding pages and agents:
+
+<CodeBlock>
+```python
+from hypequery.datasets import DatasetLimits
+from hypequery.datasets.planner import query_settings
+
+orders = dataset(
+    "orders",
+    source="orders",
+    dimensions={"country": dimension.string()},
+    measures={"revenue": measure.sum("amount")},
+    limits=DatasetLimits(max_result_size=1_000, max_stream_rows=5_000_000),
+)
+
+# Rows and time bound exports; the defaults (100,000 rows, 30 s) suit interactive queries.
+exports = create_dataset_client(
+    executor=executor,
+    settings=query_settings(max_result_rows=10_000_000, max_execution_time=3600),
+)
+```
+</CodeBlock>
+
+Every built-in executor streams. A stream holds its executor's admission while it is open: an async executor's slot,
+or a chDB connection, which runs one query at a time, so other queries on that executor wait until the stream closes.
+

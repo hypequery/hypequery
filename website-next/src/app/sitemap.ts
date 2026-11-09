@@ -2,16 +2,22 @@ import type { MetadataRoute } from 'next';
 import { getPosts } from '@/lib/blog';
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
-import { clickhouseFunctions, functionPathSegment } from '@/data/clickhouse-functions';
+import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { retiredBlogSlugs } from '@/data/retired-blog-posts';
+import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
-const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
+const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.slug), ...retiredBlogSlugs]);
 
 // Pages marked noindex (/clickhouse-express, -hono, -trpc, -graphql) stay out of the sitemap.
 const staticRoutes = [
+  '/clickhouse',
   '/clickhouse/functions',
+  '/embedded-analytics',
   '/',
   '/blog',
+  '/changelog',
+  ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`),
   '/compare',
   '/clickhouse-js',
   '/clickhouse-nodejs',
@@ -40,9 +46,6 @@ const staticRoutes = [
   '/clickhouse-sqlalchemy',
   '/clickhouse-query-builder',
   '/type-safe-sql-typescript',
-  '/drizzle-clickhouse',
-  '/prisma-clickhouse',
-  '/typeorm-clickhouse',
   '/clickhouse-mcp',
   '/clickhouse-react',
   '/clickhouse-nextjs',
@@ -54,7 +57,6 @@ const staticRoutes = [
   '/contact-us',
   '/cube-js-alternative',
   '/tinybird-alternative',
-  '/moosestack-alternative',
   ...comparePages.map((page) => page.href),
 ];
 
@@ -84,9 +86,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: post.data.date ? new Date(post.data.date) : undefined,
     }));
 
-  const functionEntries: MetadataRoute.Sitemap = clickhouseFunctions.map((fn) => ({
-    url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
-  }));
+  const functionEntries: MetadataRoute.Sitemap = clickhouseFunctions
+    .filter((fn) => indexedFunctionSlugs.has(fn.slug))
+    .map((fn) => ({
+      url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
+      lastModified: fn.updated ? new Date(fn.updated) : undefined,
+    }));
 
   return [...staticEntries, ...functionEntries, ...docsEntries, ...blogEntries];
 }

@@ -75,7 +75,7 @@ export default function ClickHouseQueryBuilderPage() {
       title="The TypeScript-first ClickHouse query builder"
       description="Select columns, filter, group, and compose queries you can keep in a real codebase. hypequery gives you typed schema access and native ClickHouse functions, without pushing everything through raw SQL strings."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
-      secondaryCta={{ href: '/blog/clickhouse-query-builder-typescript', label: 'Compare your options' }}
+      secondaryCta={{ href: '/blog/query-builder-vs-orm-clickhouse', label: 'Query builder vs ORM' }}
       stats={[
         { label: 'Type source', value: 'Generated from schema' },
         { label: 'ClickHouse syntax', value: 'Native support' },
@@ -159,11 +159,6 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       readingLinks={[
         {
-          href: '/blog/clickhouse-query-builder-typescript',
-          title: 'ClickHouse query builders compared',
-          description: 'Every realistic option in 2026 — raw client, Kysely, Cube, and hypequery — with honest tradeoffs.',
-        },
-        {
           href: '/blog/clickhouse-typescript-type-problem',
           title: 'The ClickHouse TypeScript type problem',
           description: 'Why DateTime, UInt64, Nullable, and Decimal all return the wrong types and how to fix it.',
@@ -179,9 +174,9 @@ export default function ClickHouseQueryBuilderPage() {
           description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
         },
         {
-          href: '/drizzle-clickhouse',
-          title: 'Drizzle ORM for ClickHouse',
-          description: 'A dedicated landing page for the Drizzle-on-ClickHouse search intent and the closest alternative.',
+          href: '/compare/hypequery-vs-drizzle',
+          title: 'hypequery vs Drizzle',
+          description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
         },
         {
           href: '/blog/clickhouse-cte-typescript',
@@ -205,6 +200,7 @@ export default function ClickHouseQueryBuilderPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },

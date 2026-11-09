@@ -1,5 +1,6 @@
 import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import type { IntegerJsonEncoding } from '../query-builder.js';
+import { isReadonlySettingError } from './readonly-setting-error.js';
 
 const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
 
@@ -44,26 +45,16 @@ export function createReadonlyIntegerJsonError(
   error: unknown,
   adapterDefaultApplied: boolean,
 ): Error | undefined {
-  if (!adapterDefaultApplied || !isReadonlyQuote64BitError(error)) return undefined;
+  if (!adapterDefaultApplied || !isReadonlySettingError(error, QUOTE_64BIT)) return undefined;
 
   return new Error(
     `ClickHouse rejected HypeQuery's precision-safe setting (${QUOTE_64BIT}=1) ` +
-    `because this connection uses readonly = 1. Set ` +
-    `integerJsonEncoding: 'server-default' in the HypeQuery adapter or query-builder ` +
-    `configuration to omit it. The server may then return Int64 and wider values as ` +
-    `JSON numbers, which lose precision beyond 2^53.`,
+    `because this connection uses readonly = 1, whose profile does not already set it. ` +
+    `To keep Int64 and wider values exact, either add ${QUOTE_64BIT} = 1 to the ` +
+    `user's settings profile (readonly = 1 accepts a setting that matches the profile) ` +
+    `or use readonly = 2. Otherwise set integerJsonEncoding: 'server-default' in the ` +
+    `HypeQuery adapter or query-builder configuration to omit it; the server may then ` +
+    `return Int64 and wider values as JSON numbers, which lose precision beyond 2^53.`,
     { cause: error },
   );
-}
-
-function isReadonlyQuote64BitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const { code, type } = error as { code?: unknown; type?: unknown };
-  const message = (error as { message?: unknown }).message;
-  if (typeof message !== 'string' || !message.includes(QUOTE_64BIT)) return false;
-
-  return code === '164'
-    || code === 164
-    || type === 'READONLY'
-    || /in readonly mode/i.test(message);
 }

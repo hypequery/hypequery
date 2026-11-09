@@ -174,16 +174,12 @@ export default function ClickHouseNodejsPage() {
         },
         {
           href: '/blog/add-clickhouse-analytics-nodejs-backend',
-          title: 'How to Add ClickHouse Analytics to an Existing Node.js Backend',
-          description: 'Add ClickHouse to an existing Node.js app: generate TypeScript types from your live schema, wire a typed query builder into Express or Nest, and ship one endpoint first.',
-        },
-        {
-          href: '/blog/clickhouse-connection-pooling-nodejs',
-          title: 'ClickHouse Connection Management in Node.js',
-          description: 'ClickHouse uses HTTP — there is no traditional connection pool. Learn the right connection management patterns for Node.js and TypeScript with ClickHouse.',
+          title: 'ClickHouse in Node.js: Adding Analytics to a Production Backend',
+          description: 'Add ClickHouse to an Express, Fastify or Nest app: typed queries, one client per process, timeouts and retries, testing, and SAMPLE.',
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-js', label: 'ClickHouse JavaScript' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },

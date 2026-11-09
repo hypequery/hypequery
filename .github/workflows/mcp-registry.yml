@@ -1,0 +1,91 @@
+name: MCP Registry
+
+# Publishes packages/mcp-server/server.json to the official MCP Registry
+# (registry.modelcontextprotocol.io) as io.github.hypequery/hypequery.
+#
+# ci.yml calls this after a stable release publishes @hypequery/mcp. Run it by
+# hand to publish the version in server.json on main; a version the registry
+# already lists is skipped, so a rerun is safe.
+#
+# The registry accepts a version only if the npm package of that version has
+# "mcpName": "io.github.hypequery/hypequery" in its package.json, and only from
+# a workflow in the hypequery GitHub organization (GitHub OIDC login).
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MANIFEST: packages/mcp-server/server.json
+      REGISTRY: https://registry.modelcontextprotocol.io
+      # Built from source through the Go module proxy, which checks the
+      # module's checksum against sum.golang.org.
+      PUBLISHER_MODULE: github.com/modelcontextprotocol/registry/cmd/publisher@v1.8.5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read server name and version
+        id: manifest
+        run: |
+          name=$(jq -er .name "$MANIFEST")
+          version=$(jq -er .version "$MANIFEST")
+          package=$(jq -er '.packages[] | select(.registryType == "npm") | .identifier' "$MANIFEST")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+
+      - name: Skip a version the registry already lists
+        id: existing
+        env:
+          NAME: ${{ steps.manifest.outputs.name }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          encoded=$(jq -rn --arg n "$NAME" '$n | @uri')
+          status=$(curl -sS -o /dev/null -w '%{http_code}' "$REGISTRY/v0.1/servers/$encoded/versions/$VERSION")
+          case "$status" in
+            200) echo "listed=true" >> "$GITHUB_OUTPUT"; echo "$NAME $VERSION is already in the MCP Registry." >> "$GITHUB_STEP_SUMMARY" ;;
+            404) echo "listed=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::MCP Registry lookup returned HTTP $status"; exit 1 ;;
+          esac
+
+      - name: Wait for the npm version to carry mcpName
+        if: steps.existing.outputs.listed == 'false'
+        env:
+          NAME: ${{ steps.manifest.outputs.name }}
+          PACKAGE: ${{ steps.manifest.outputs.package }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          # A version published a moment ago can take a minute to appear.
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            found=$(npm view "$PACKAGE@$VERSION" mcpName 2>/dev/null || true)
+            if [ "$found" = "$NAME" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::$PACKAGE@$VERSION on npm has mcpName '${found}', expected '$NAME'. The registry would reject it."
+          exit 1
+
+      - name: Build mcp-publisher
+        if: steps.existing.outputs.listed == 'false'
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" go install "$PUBLISHER_MODULE"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Validate, log in and publish
+        if: steps.existing.outputs.listed == 'false'
+        env:
+          NAME: ${{ steps.manifest.outputs.name }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          publisher validate "$MANIFEST"
+          publisher login github-oidc
+          publisher publish "$MANIFEST"
+          echo "Published $NAME $VERSION to the MCP Registry." >> "$GITHUB_STEP_SUMMARY"

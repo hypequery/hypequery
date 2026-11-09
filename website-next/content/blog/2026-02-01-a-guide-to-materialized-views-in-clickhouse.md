@@ -1,742 +1,486 @@
 ---
-title: "A Guide to Materialized Views in ClickHouse"
-description: "Production patterns, performance pitfalls, and when to use something else. Learn how ClickHouse materialized views really work, how to choose the right engine, and when alternative patterns like projections make more sense."
+title: "ClickHouse Materialized Views: How They Work, With Examples"
+description: "A ClickHouse materialized view is an insert trigger: it runs its SELECT on each block of inserted rows and writes the result to a target table. How incremental and refreshable views differ, how to create and backfill one, which engine to use, and the mistakes that cause wrong numbers."
+seoTitle: "ClickHouse Materialized Views: How They Work, With Examples"
+seoDescription: "A ClickHouse materialized view runs its SELECT on each insert and writes to a target table. Incremental vs refreshable, TO tables, backfills and engines."
 pubDate: 2026-01-11
+updatedAt: 2026-11-08
 heroImage: ""
+slug: a-guide-to-materialized-views-in-clickhouse
+status: published
+tags:
+  - ClickHouse
+  - Materialized views
 ---
 
+A ClickHouse materialized view is an insert trigger. When rows are inserted into the source table, ClickHouse runs the view's `SELECT` on just those rows and writes the result into a target table; it never re-reads older data, and it doesn't react to updates or deletes. If you need the whole result recomputed on a schedule instead, use a refreshable materialized view (`REFRESH EVERY 1 HOUR`).
 
-ClickHouse materialized views can deliver 100x query speedups or silently lose data, explode storage by 10x, and tank your insert throughput. The difference is understanding what they actually are.
+Every query on this page was run on ClickHouse 26.6.
 
-Most engineers bring a PostgreSQL mental model: materialized views are cached query results you refresh on a schedule. In ClickHouse, this is wrong. Materialized views are **insert triggers**. They fire on every INSERT, process only the newly inserted block, and write results to a target table. This architecture enables real-time pre-aggregation at petabyte scale, but it also creates failure modes that don't exist in traditional databases.
+## Quick answers
 
-This guide covers what production teams learn the hard way: how incremental and refreshable MVs differ, which table engines to use, the specific mistakes that cause data loss and storage explosions, and when materialized views are the wrong tool entirely.
+### What is a materialized view in ClickHouse?
 
----
+A `SELECT` attached to a source table that runs on every inserted block and appends its output to a target table. Reads go to the target table, so they are fast.
 
-## Table of Contents
+### Does a materialized view see UPDATE and DELETE?
 
-1. [The Insert Trigger Mental Model](#the-insert-trigger-mental-model)
-2. [Incremental vs Refreshable: Two Different Tools](#incremental-vs-refreshable-two-different-tools)
-3. [The TO Clause: Production Code vs Prototypes](#the-to-clause-production-code-vs-prototypes)
-4. [Choosing the Right Table Engine](#choosing-the-right-table-engine)
-5. [Production Pitfalls](#production-pitfalls)
-6. [Materialized Views vs Projections](#materialized-views-vs-projections)
-7. [Tiered Aggregation: The Production Pattern](#tiered-aggregation-the-production-pattern)
-8. [Monitoring and Debugging](#monitoring-and-debugging)
-9. [When NOT to Use Materialized Views](#when-not-to-use-materialized-views)
-10. [Conclusion](#conclusion)
+No. The ClickHouse docs say changes to existing source data (update, delete, drop partition) do not change the materialized view. Only inserts trigger it.
 
----
+### Does a new materialized view include the rows already in the table?
 
-## The Insert Trigger Mental Model
+No. It only processes rows inserted after it is created. You backfill the existing rows yourself, covered [below](#backfill-existing-data) and in the [create and backfill guide](/blog/clickhouse-create-materialized-view-to-table-backfill).
 
-When you insert 10,000 rows into a source table, ClickHouse doesn't scan the entire table to update the materialized view. It takes only those 10,000 rows—sitting in a RAM buffer—runs your MV's SELECT statement against them, and writes the results to the target table. The MV never touches disk to read historical data.
+### Incremental or refreshable?
 
+Incremental views keep a target up to date within seconds and suit single-table aggregations. Refreshable views rerun the full query on a schedule and suit joins and dimension changes. See [refreshable materialized views](/blog/clickhouse-refreshable-materialized-views).
+
+### Materialized view or projection?
+
+A projection stores another sort order or a pre-aggregation inside the same table's parts and is picked automatically by the optimizer. A materialized view writes to a separate table and can transform, filter or join. See [projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views).
+
+### View or materialized view?
+
+A normal view stores only the query and runs it at read time; a materialized view stores data. See [view vs materialized view](/blog/clickhouse-view-vs-materialized-view).
+
+## How an incremental materialized view works
+
+An incremental view processes each inserted block on its own. Insert 10,000 rows and the view's `SELECT` runs over those 10,000 rows, then the result is inserted into the target table:
+
+```text
+INSERT INTO events (one block of rows)
+        ↓
+the view's SELECT runs over that block only
+        ↓
+INSERT INTO events_daily (the aggregated rows for that block)
+        ↓
+queries read events_daily
 ```
-INSERT INTO source_table (10,000 rows)
-         ↓
-Materialized view fires (processes only the inserted block)
-         ↓
-SELECT ... FROM source_table (but only those 10,000 rows)
-         ↓
-INSERT INTO target_table (pre-computed results)
-         ↓
-Queries read from target_table
-```
 
-This architecture has three critical implications:
+Two consequences follow from this.
 
-**MVs only react to INSERT.** UPDATE and DELETE operations are invisible. If you delete rows from the source table, the aggregates in your MV target remain unchanged. If you update a row, the MV doesn't know.
+First, each insert produces its own partial result. Two inserts that touch the same day produce two rows for that day in the target until a background merge combines them. In our check, two inserts into a raw table left 13 rows in an hourly target that covered 9 distinct hours. That's why you always aggregate again when you read the target (`GROUP BY` with `-Merge` functions, shown below).
 
-**Processing happens per-block, not per-table.** Each insert batch is processed independently. If you insert 1,000 rows for user_id=123 in one batch and 500 rows for user_id=123 in another, you'll have two partial aggregate rows in the target until a background merge combines them.
+Second, the view's work is part of the insert. A slow `SELECT` in the view makes every insert into the source table slower, and each extra view on the same source adds to it.
 
-**Insert operations become synchronous triggers.** A complex MV query that takes 200ms adds 200ms to every insert that hits the source table. Multiple MVs compound this overhead.
+## Create a materialized view with a TO table
 
-| Aspect | Regular View | Materialized View |
-|--------|--------------|-------------------|
-| Storage | Query definition only | Physical table on disk |
-| When computed | On every SELECT | On every INSERT to source |
-| Performance | Same as base query | Much faster (pre-computed) |
-| Freshness | Always current | Current up to last insert |
-| Reacts to UPDATE/DELETE | Yes | No |
-
----
-
-## Incremental vs Refreshable: Two Different Tools
-
-ClickHouse actually has two types of materialized views that solve different problems. Most documentation focuses on incremental MVs, but refreshable MVs (production-ready since ClickHouse 24.10) are often the better choice for complex transformations.
-
-### Incremental Materialized Views
-
-These are the "insert trigger" MVs described above. They process each inserted block in real-time and write results immediately to the target table.
+Create the target table first, then point the view at it with `TO`. This keeps the target an ordinary table you can query, alter and back up:
 
 ```sql
-CREATE MATERIALIZED VIEW events_daily_mv TO events_daily
-AS SELECT
-    toDate(timestamp) AS day,
-    count() AS events,
-    uniqState(user_id) AS unique_users
-FROM events
-GROUP BY day;
-```
-
-**Best for:**
-- Real-time aggregations from a single source table
-- Simple transformations (filtering, parsing, type conversion)
-- When freshness measured in seconds matters
-
-**Limitations:**
-- JOINs only trigger on the left-most table (more on this later)
-- Complex queries add latency to every insert
-- No way to "catch up" if the MV logic changes
-
-### Refreshable Materialized Views
-
-Refreshable MVs re-execute their entire query on a schedule, replacing the target table contents. They work like PostgreSQL's `REFRESH MATERIALIZED VIEW`, but with scheduling built in.
-
-```sql
-CREATE MATERIALIZED VIEW hourly_report_mv
-REFRESH EVERY 1 HOUR
-TO hourly_report
-AS SELECT
-    toStartOfHour(timestamp) AS hour,
-    source_table.metric,
-    dimension_table.category
-FROM source_table
-JOIN dimension_table ON source_table.dim_id = dimension_table.id
-GROUP BY hour, metric, category;
-```
-
-The `DEPENDS ON` clause enables DAG-like pipelines where one refreshable MV waits for another to complete:
-
-```sql
-CREATE MATERIALIZED VIEW daily_summary_mv
-REFRESH EVERY 1 DAY
-DEPENDS ON hourly_report_mv
-TO daily_summary
-AS SELECT
-    toDate(hour) AS day,
-    sum(metric) AS total
-FROM hourly_report
-GROUP BY day;
-```
-
-**Best for:**
-- Complex JOINs across multiple tables
-- Transformations where staleness (hourly/daily) is acceptable
-- Batch workflows similar to dbt pipelines
-- Cases where dimension tables change and need to be reflected
-
-**Limitations:**
-- Data is stale between refreshes
-- Query must complete faster than refresh interval
-- Full recomputation uses more resources than incremental
-
-### Decision Framework
-
-| Requirement | Use This |
-|-------------|----------|
-| Real-time aggregates, single source table | Incremental MV |
-| Complex JOINs that must reflect dimension changes | Refreshable MV |
-| Sub-second freshness | Incremental MV |
-| dbt-style batch pipelines | Refreshable MV |
-| Hourly/daily rollups where slight staleness is OK | Either (refreshable is simpler) |
-
----
-
-## The TO Clause: Production Code vs Prototypes
-
-You can create materialized views with or without specifying a target table. Without the `TO` clause, ClickHouse creates a hidden `.inner.{mv_name}` table automatically:
-
-```sql
--- Implicit target table (prototype pattern)
-CREATE MATERIALIZED VIEW events_mv
-ENGINE = SummingMergeTree()
-ORDER BY day
-AS SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-GROUP BY day;
-```
-
-This works for quick experiments but creates problems in production. You can't easily inspect the hidden table's schema, can't attach multiple MVs to the same destination, and schema migrations require dropping and recreating both the MV and its data.
-
-**The production pattern uses explicit target tables:**
-
-```sql
--- Step 1: Create the target table with full control
-CREATE TABLE events_daily (
-    day Date,
-    events UInt64,
-    unique_users AggregateFunction(uniq, UInt64)
-) ENGINE = AggregatingMergeTree()
-ORDER BY day;
-
--- Step 2: Create the MV pointing to it
-CREATE MATERIALIZED VIEW events_daily_mv TO events_daily
-AS SELECT
-    toDate(timestamp) AS day,
-    count() AS events,
-    uniqState(user_id) AS unique_users
-FROM events
-GROUP BY day;
-```
-
-**Why this matters:**
-
-- **Schema migrations**: Alter the target table directly, then recreate only the MV definition (not the data)
-- **Multiple writers**: Several MVs can write to the same target table
-- **Visibility**: Query `events_daily` directly; no hidden `.inner.` tables to discover
-- **Engine control**: Full control over partitioning, ORDER BY, TTL, and settings
-- **Backups**: Standard table backup procedures work on the target
-
-Note that `POPULATE` doesn't work with the `TO` syntax—you cannot use both together. This is actually a safety feature that forces you into the safer manual backfill pattern described below.
-
----
-
-## Choosing the Right Table Engine
-
-The target table's engine determines how ClickHouse handles aggregates over time. Choose wrong and your aggregates will be incorrect or your storage will explode.
-
-### SummingMergeTree
-
-Use when you only need SUM and COUNT aggregations with a fixed set of grouping dimensions.
-
-```sql
-CREATE TABLE daily_hits (
-    day Date,
-    page String,
-    hits UInt64,
+CREATE TABLE events
+(
+    timestamp DateTime,
+    app String,
+    user_id UInt64,
     bytes UInt64
-) ENGINE = SummingMergeTree()
-ORDER BY (day, page);
+)
+ENGINE = MergeTree
+ORDER BY timestamp;
 
-CREATE MATERIALIZED VIEW daily_hits_mv TO daily_hits
-AS SELECT
-    toDate(timestamp) AS day,
-    page,
-    count() AS hits,
-    sum(response_bytes) AS bytes
-FROM requests
-GROUP BY day, page;
-```
-
-During background merges, rows with matching `(day, page)` keys are combined by summing `hits` and `bytes`.
-
-**Critical rule: ORDER BY must exactly match your GROUP BY dimensions.** If they don't align, merges won't combine rows correctly:
-
-```sql
--- WRONG: ORDER BY has 'region' but GROUP BY doesn't include it
-CREATE TABLE broken (
-    day Date,
-    hits UInt64
-) ENGINE = SummingMergeTree()
-ORDER BY (day, region);  -- 'region' not in the MV's GROUP BY
-```
-
-### AggregatingMergeTree
-
-Use when you need aggregations beyond simple sums: distinct counts, averages, min/max, percentiles, or multiple aggregate types in one row.
-
-The pattern requires `-State` functions when inserting and `-Merge` functions when querying:
-
-```sql
-CREATE TABLE user_metrics (
+CREATE TABLE events_daily
+(
     day Date,
     app String,
-    sessions AggregateFunction(count, UInt64),
+    events AggregateFunction(count),
     unique_users AggregateFunction(uniq, UInt64),
-    avg_duration AggregateFunction(avg, Float64),
-    p95_latency AggregateFunction(quantile(0.95), Float64)
-) ENGINE = AggregatingMergeTree()
+    total_bytes AggregateFunction(sum, UInt64)
+)
+ENGINE = AggregatingMergeTree
 ORDER BY (app, day);
 
-CREATE MATERIALIZED VIEW user_metrics_mv TO user_metrics
-AS SELECT
+CREATE MATERIALIZED VIEW events_daily_mv TO events_daily AS
+SELECT
     toDate(timestamp) AS day,
     app,
-    countState() AS sessions,
+    countState() AS events,
     uniqState(user_id) AS unique_users,
-    avgState(duration_ms) AS avg_duration,
-    quantileState(0.95)(latency_ms) AS p95_latency
+    sumState(bytes) AS total_bytes
 FROM events
 GROUP BY day, app;
 ```
 
-Querying requires finalizing the aggregate states:
+Read it back by merging the stored states:
 
 ```sql
 SELECT
     day,
     app,
-    countMerge(sessions) AS sessions,
+    countMerge(events) AS events,
     uniqMerge(unique_users) AS unique_users,
-    avgMerge(avg_duration) AS avg_duration,
-    quantileMerge(0.95)(p95_latency) AS p95_latency
-FROM user_metrics
-WHERE day >= today() - 7
+    sumMerge(total_bytes) AS total_bytes
+FROM events_daily
+GROUP BY day, app
+ORDER BY day;
+```
+
+Without `TO`, ClickHouse creates a hidden inner table for the view, which is harder to inspect and can't be shared by several views. On ClickHouse 26.6, `TO` also rules out `POPULATE`; the server rejects the combination (26.8 lifts this, see below):
+
+```text
+When creating a materialized view you can't declare both 'TO [db].[table]' and 'POPULATE'. (SYNTAX_ERROR)
+```
+
+The [create and backfill guide](/blog/clickhouse-create-materialized-view-to-table-backfill) covers `CREATE OR REPLACE`, `ALTER ... MODIFY QUERY`, `DROP` and `SHOW` for materialized views.
+
+## Backfill existing data
+
+A new view only sees rows inserted after it exists, so backfill the old rows with an `INSERT ... SELECT` that uses the same query. To avoid counting rows twice, give the view and the backfill the same cutoff:
+
+```sql
+-- 1. The view only handles rows from the cutoff onwards
+CREATE MATERIALIZED VIEW events_daily_mv TO events_daily AS
+SELECT toDate(timestamp) AS day, app, countState() AS events,
+       uniqState(user_id) AS unique_users, sumState(bytes) AS total_bytes
+FROM events
+WHERE timestamp >= '2026-11-08 00:00:00'
+GROUP BY day, app;
+
+-- 2. Backfill everything before the cutoff
+INSERT INTO events_daily
+SELECT toDate(timestamp) AS day, app, countState() AS events,
+       uniqState(user_id) AS unique_users, sumState(bytes) AS total_bytes
+FROM events
+WHERE timestamp < '2026-11-08 00:00:00'
 GROUP BY day, app;
 ```
 
-**The GROUP BY in the query is essential.** Background merges happen asynchronously, so your table may contain multiple partial aggregate rows for the same key. The GROUP BY ensures they're combined at query time.
+The order matters. Set the cutoff a few minutes in the future, create the view, wait until the cutoff time has passed, and only then run the backfill. Rows inserted before the cutoff are then picked up by the backfill and rows from the cutoff onwards by the view. In our check, with rows arriving before the view, between the view and the cutoff, and after the cutoff, the target matched the source exactly (2,360 rows each). Running the backfill before the cutoff has passed loses the rows inserted in between. This assumes `timestamp` roughly tracks insert time: a row inserted after the backfill with a timestamp before the cutoff is filtered out by the view. For large tables, run the backfill one partition or one month at a time.
+
+What about `POPULATE`? On ClickHouse 26.6 it can't be used with `TO`, and rows inserted while it runs can be missed. The [ClickHouse 26.8 release](https://clickhouse.com/blog/clickhouse-release-26-08) fixed that race with an atomic `POPULATE` (setting `materialized_views_populate_atomically`, on by default) and allowed `POPULATE` together with `TO`; the docs note the guarantee covers inserts arriving through the same server, not other replicas. To see which behaviour your server has:
+
+```sql
+SELECT name, value FROM system.settings
+WHERE name = 'materialized_views_populate_atomically';
+```
+
+No row means your version predates the fix. The `TO` table plus cutoff backfill works on every version, and the [create and backfill guide](/blog/clickhouse-create-materialized-view-to-table-backfill) covers backfilling large tables in slices.
+
+## Incremental vs refreshable materialized views
+
+Use an incremental view when the target must be current within seconds and the logic depends only on the inserted rows. Use a refreshable view when the result depends on other tables that change, or when the query is too heavy to run on every insert.
+
+| | Incremental | Refreshable |
+|---|---|---|
+| Runs | On every insert into the source table | On a schedule (`REFRESH EVERY` / `AFTER`) or `SYSTEM REFRESH VIEW` |
+| Reads | Only the inserted block | The full query, every time |
+| Freshness | Seconds | As stale as the interval |
+| Joins | Fire only on inserts into the left-most table; right-side changes are missed | Fine: each refresh sees current data |
+| Database engine | Any | Atomic or Replicated (except `APPEND`) |
+
+A refreshable view that joins a dimension table:
+
+```sql
+CREATE MATERIALIZED VIEW hourly_report_mv
+REFRESH EVERY 1 HOUR
+TO hourly_report AS
+SELECT
+    toStartOfHour(s.ts) AS hour,
+    d.category AS category,
+    sum(s.metric) AS total
+FROM src AS s
+JOIN dims AS d ON s.dim_id = d.id
+GROUP BY hour, category;
+```
+
+When we changed a category in `dims` and ran `SYSTEM REFRESH VIEW hourly_report_mv`, the report showed the new category. An incremental view with the same join would have kept the old one. The [refreshable views guide](/blog/clickhouse-refreshable-materialized-views) covers `APPEND`, `DEPENDS ON` and `system.view_refreshes`.
+
+## Which engine to use for the target table
+
+The target engine decides how partial rows from different inserts get combined, so the wrong choice gives wrong totals.
+
+### SummingMergeTree
+
+SummingMergeTree adds up numeric columns for rows with the same sorting key. Use it when every metric is a sum or count:
+
+```sql
+CREATE TABLE daily_hits
+(
+    day Date,
+    page String,
+    hits UInt64
+)
+ENGINE = SummingMergeTree
+ORDER BY (day, page);
+```
+
+The sorting key must contain every column you group by. In our check, a `SummingMergeTree` ordered by `day` only, fed by a view grouped by `(day, page)`, merged the hits for `/a` and `/b` into one row labelled `/b` with `hits = 3`. No error, just a wrong number.
+
+### AggregatingMergeTree
+
+AggregatingMergeTree stores aggregate states (`countState`, `uniqState`, `quantileState`, `avgState`) and merges them in the background. Use it for distinct counts, averages, quantiles or a mix. You write with `-State` functions and read with `-Merge` functions and a `GROUP BY`, as in the example above.
 
 ### SimpleAggregateFunction
 
-For aggregations where the intermediate state equals the final value (sum, min, max, any), `SimpleAggregateFunction` uses 8 bytes instead of 24 bytes for the equivalent `AggregateFunction`. On large tables, this adds up.
+SimpleAggregateFunction columns inside an `AggregatingMergeTree` hold plain values for functions like `sum`, `min`, `max` and `any`, which you can read without `-Merge`:
 
 ```sql
-CREATE TABLE metrics (
+CREATE TABLE device_daily
+(
     day Date,
     device_id UInt64,
     max_temp SimpleAggregateFunction(max, Float32),
-    min_temp SimpleAggregateFunction(min, Float32),
-    total_readings SimpleAggregateFunction(sum, UInt64)
-) ENGINE = AggregatingMergeTree()
+    readings SimpleAggregateFunction(sum, UInt64)
+)
+ENGINE = AggregatingMergeTree
 ORDER BY (day, device_id);
 ```
 
-You can query these columns directly without `-Merge` functions, but still need GROUP BY for correctness.
+### Plain MergeTree
 
-### Understanding Merge Timing
+A plain MergeTree target never combines rows. In our check, two inserts into a view grouped by day produced two separate rows for the same day (1 and 2), even after `OPTIMIZE TABLE ... FINAL`. Use it only when the view filters or reshapes rows without aggregating.
 
-ClickHouse doesn't merge parts immediately—merges happen asynchronously when the system determines it's beneficial. This means:
+## Tiered rollups: hourly to daily
+
+At larger volumes, a common pattern feeds an hourly target from the raw table and a daily target from the hourly one. The second view combines existing states with `-MergeState`:
 
 ```sql
--- Without GROUP BY, you might see unmerged duplicate rows
-SELECT * FROM user_metrics WHERE day = today();
--- Could return multiple rows for same (day, app) before merge
+CREATE TABLE events_hourly
+(
+    hour DateTime,
+    app String,
+    events AggregateFunction(count),
+    unique_users AggregateFunction(uniq, UInt64),
+    total_bytes AggregateFunction(sum, UInt64)
+)
+ENGINE = AggregatingMergeTree
+ORDER BY (app, hour);
 
--- Always use GROUP BY and -Merge functions for correct results
-SELECT day, app, countMerge(sessions)
-FROM user_metrics
-WHERE day = today()
+CREATE MATERIALIZED VIEW events_hourly_mv TO events_hourly AS
+SELECT toStartOfHour(timestamp) AS hour, app, countState() AS events,
+       uniqState(user_id) AS unique_users, sumState(bytes) AS total_bytes
+FROM events
+GROUP BY hour, app;
+
+CREATE TABLE events_daily_rollup
+(
+    day Date,
+    app String,
+    events AggregateFunction(count),
+    unique_users AggregateFunction(uniq, UInt64),
+    total_bytes AggregateFunction(sum, UInt64)
+)
+ENGINE = AggregatingMergeTree
+ORDER BY (app, day);
+
+CREATE MATERIALIZED VIEW events_daily_rollup_mv TO events_daily_rollup AS
+SELECT toDate(hour) AS day, app, countMergeState(events) AS events,
+       uniqMergeState(unique_users) AS unique_users, sumMergeState(total_bytes) AS total_bytes
+FROM events_hourly
 GROUP BY day, app;
 ```
 
-The `FINAL` modifier forces merge logic at query time but has CPU overhead. Use it sparingly for exact results; prefer GROUP BY for analytical queries.
+Inserts into `events` cascade through both views. In our check, 700 raw rows over two inserts gave a daily row with 700 events, 11 unique users and 70,000 bytes, the same as aggregating the raw table directly.
 
----
+## Query the target table from TypeScript and Python
 
-## Production Pitfalls
+Application code reads the target table, not the view, and it has to merge partial rows the same way the SQL above does. Every result below came from the `events_daily` example on ClickHouse 26.6 and matched the same aggregation run on the raw `events` table.
 
-These are the mistakes that cause incidents. Every one of them has bitten production systems.
+### TypeScript: the query builder
 
-### POPULATE Will Lose Your Data
+Declare only the columns you read directly. `AggregateFunction` columns are read through `-Merge` functions, so they go in `rawAs` expressions:
 
-The `POPULATE` keyword tells ClickHouse to apply the MV to all existing data when created:
+```ts
+import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 
-```sql
--- DON'T DO THIS ON PRODUCTION TABLES
-CREATE MATERIALIZED VIEW events_mv
-ENGINE = SummingMergeTree()
-ORDER BY day
-POPULATE  -- Dangerous
-AS SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-GROUP BY day;
+type Schema = {
+  events_daily: { day: 'Date'; app: 'String' };
+};
+
+const db = createQueryBuilder<Schema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+export async function dailyUsage(app: string, from: string, to: string) {
+  return db
+    .table('events_daily')
+    .select([
+      'day',
+      rawAs<string, 'events'>('countMerge(events)', 'events'),
+      rawAs<string, 'unique_users'>('uniqMerge(unique_users)', 'unique_users'),
+      rawAs<string, 'total_bytes'>('sumMerge(total_bytes)', 'total_bytes'),
+    ])
+    .where('app', 'eq', app)
+    .where('day', 'gte', from)
+    .where('day', 'lt', to)
+    .groupBy('day')
+    .orderBy('day', 'ASC')
+    .execute();
+}
+
+// dailyUsage('web', '2026-11-02', '2026-11-05') returned:
+// { day: '2026-11-03', events: '117', unique_users: '16', total_bytes: '62758' }, ...
 ```
 
-**Why this fails:**
+The values arrive as strings because `countMerge`, `uniqMerge` and `sumMerge` over `UInt64` return 64-bit integers, which the client quotes in JSON so they don't lose precision.
 
-1. POPULATE runs synchronously and blocks until complete. On a 100GB table, this can take hours.
-2. Any data inserted *during* POPULATE is **silently lost**. The MV is created after population finishes, so concurrent inserts fall into a gap.
-3. Large POPULATEs can OOM your server.
+### TypeScript: a dataset over the view's output
 
-**The safe backfill pattern:**
+If several parts of the product read the same rollup, define it once as a dataset. `measure.merge` applies the matching `-Merge` function, so callers pick measures and dimensions and never write the combinator:
 
-```sql
--- Step 1: Create target table
-CREATE TABLE events_daily (
-    day Date,
-    events UInt64
-) ENGINE = SummingMergeTree()
-ORDER BY day;
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient, dataset, dimension, eq, measure } from '@hypequery/datasets';
 
--- Step 2: Create MV with a filter that excludes existing data
-CREATE MATERIALIZED VIEW events_daily_mv TO events_daily
-AS SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-WHERE timestamp >= '2025-01-15 00:00:00'  -- Just after "now"
-GROUP BY day;
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
--- Step 3: Manually backfill everything before that timestamp
-INSERT INTO events_daily
-SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-WHERE timestamp < '2025-01-15 00:00:00'
-GROUP BY day;
+export const EventsDaily = dataset('eventsDaily', {
+  source: 'events_daily',
+  timeKey: 'day',
+  dimensions: {
+    day: dimension.timestamp(),
+    app: dimension.string(),
+  },
+  measures: {
+    events: measure.merge('count', 'events'),            // countMerge(events)
+    uniqueUsers: measure.merge('uniq', 'unique_users'),  // uniqMerge(unique_users)
+    totalBytes: measure.merge('sum', 'total_bytes'),     // sumMerge(total_bytes)
+  },
+});
 
--- Step 4: Optionally remove the filter by recreating the MV
-DROP VIEW events_daily_mv;
-CREATE MATERIALIZED VIEW events_daily_mv TO events_daily
-AS SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-GROUP BY day;
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const byApp = await analytics.execute(EventsDaily, {
+  dimensions: ['app'],
+  measures: ['events', 'uniqueUsers', 'totalBytes'],
+  filters: [eq('app', 'web')],
+});
+// [{ app: 'web', events: '225', uniqueUsers: '29', totalBytes: '184330' }]
 ```
 
-For multi-terabyte backfills, batch by partition to avoid timeouts and memory pressure.
+Because the states are merged, the distinct count stays correct at any grain: 29 users across all days, not the sum of each day's count. `measure.merge` shipped in `@hypequery/datasets` 0.29.0; the [measures docs](/docs/datasets/measures) list the supported state functions. The same dataset can then back an [HTTP API](/clickhouse-api), a [React hook](/clickhouse-react) or an [MCP tool](/clickhouse-mcp).
 
-### Small Batch Ingestion Creates Part Explosion
+### Python
 
-Each INSERT creates at least one new part in every MV target table. With streaming ingestion sending thousands of tiny batches per minute, you'll hit this error:
+With a `SummingMergeTree` target, a dataset's `measure.sum` adds the partial rows up again at read time. For an `AggregatingMergeTree` target, send the `-Merge` query through clickhouse-connect with a bound parameter:
 
-```
-DB::Exception: Too many parts (300) in all partitions in total
-```
+```python
+import clickhouse_connect
 
-Merge pressure can't keep up with part creation, and ClickHouse refuses further inserts to protect itself.
+from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
 
-**Solutions:**
+# CREATE TABLE app_daily (day Date, app String, events UInt64, bytes UInt64)
+# ENGINE = SummingMergeTree ORDER BY (app, day), filled by a materialized view
+app_daily = dataset(
+    "appDaily",
+    source="app_daily",
+    time_key="day",
+    dimensions={
+        "day": dimension.timestamp(),
+        "app": dimension.string(),
+    },
+    measures={
+        "events": measure.sum("events"),
+        "bytes": measure.sum("bytes"),
+    },
+)
 
-- **Batch your inserts**: Minimum 1,000 rows per insert; optimal is 10,000–100,000
-- **Use async inserts**: `async_insert=1` lets ClickHouse batch on the server side
-- **Buffer tables**: Insert into a Buffer engine table that flushes periodically to the real table
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    analytics = create_dataset_client(executor=executor)
+    result = analytics.execute(
+        app_daily,
+        DatasetQuery(
+            dimensions=("app",),
+            measures=("events", "bytes"),
+            filters=(filter.eq("app", "web"),),
+        ),
+    )
+    print(result.data)  # ({'app': 'web', 'events': 225, 'bytes': 184330},)
 
-### JOINs Only Trigger on the Left-Most Table
-
-When your MV includes a JOIN, only inserts to the left table fire the view:
-
-```sql
-CREATE MATERIALIZED VIEW order_details_mv TO order_details
-AS SELECT
-    o.order_id,
-    o.amount,
-    c.customer_name,  -- Snapshot at insert time
-    c.region          -- Will be stale if customers table changes
-FROM orders o
-LEFT JOIN customers c ON o.customer_id = c.id;
-```
-
-If you update a customer's region, existing MV records keep the old value forever. The MV has no visibility into changes to the right-side table.
-
-**Solution: Use dictionaries instead of JOINs**
-
-Dictionaries provide in-memory key-value lookups that refresh on a schedule:
-
-```sql
-CREATE DICTIONARY customer_dict (
-    id UInt64,
-    customer_name String,
-    region String
-) PRIMARY KEY id
-SOURCE(CLICKHOUSE(TABLE 'customers'))
-LAYOUT(HASHED())
-LIFETIME(MIN 300 MAX 360);  -- Refresh every 5-6 minutes
-
-CREATE MATERIALIZED VIEW order_details_mv TO order_details
-AS SELECT
-    order_id,
-    amount,
-    dictGet('customer_dict', 'customer_name', customer_id) AS customer_name,
-    dictGet('customer_dict', 'region', customer_id) AS region
-FROM orders;
+# The AggregatingMergeTree target from earlier
+client = clickhouse_connect.get_client(host="localhost", port=8123)
+rows = client.query(
+    """
+    SELECT day, countMerge(events) AS events, uniqMerge(unique_users) AS unique_users
+    FROM events_daily
+    WHERE app = {app:String}
+    GROUP BY day
+    ORDER BY day
+    LIMIT 3
+    """,
+    parameters={"app": "web"},
+).result_rows
+# [(date(2026, 11, 1), 12, 12), (date(2026, 11, 2), 12, 12), (date(2026, 11, 3), 117, 16)]
 ```
 
-Now dimension lookups happen at insert time using the latest dictionary values. Dictionary refreshes are independent of the MV.
+This ran on hypequery 0.1.0b3 and clickhouse-connect 1.12.0. `ClickHouseConnection.from_env()` reads `CLICKHOUSE_URL`, or the separate host, user and database variables, but not both. The Python `measure.merge("uniq", "users")`, which works like the TypeScript one, is in the SDK source and not yet in 0.1.0b3 on PyPI. See [ClickHouse with Python](/clickhouse-python) for how the Python clients compare.
 
-For truly complex JOINs where dictionary lookups don't fit, use refreshable MVs that periodically recompute the full result.
+## Common mistakes
 
-### Wrong Engine for Aggregated Targets
+### Too many small inserts
 
-Using plain MergeTree as the target for aggregating MVs is a common mistake:
+Every insert creates a new part in the source table and in every target table. On ClickHouse 26.6, inserts start being delayed at 1,000 active parts in a partition (`parts_to_delay_insert`) and fail at 3,000 (`parts_to_throw_insert`) with a "Too many parts" error. Batch inserts into thousands of rows, or enable asynchronous inserts (`async_insert = 1`) so the server batches small inserts for you.
 
-```sql
--- WRONG: MergeTree doesn't merge aggregates
-CREATE TABLE daily_stats (
-    day Date,
-    events UInt64
-) ENGINE = MergeTree()  -- Should be SummingMergeTree
-ORDER BY day;
+### Expecting joins to stay current
 
-CREATE MATERIALIZED VIEW daily_stats_mv TO daily_stats
-AS SELECT toDate(timestamp) AS day, count() AS events
-FROM events
-GROUP BY day;
-```
+An incremental view with a join fires only on inserts into the left-most table, and it copies whatever the right-hand table held at that moment. In our check, a view joining `orders` to `customers` kept the region `eu` after the customer's region was updated to `apac`. If dimensions change, look them up with a dictionary (`dictGet`) at insert time, or use a refreshable view.
 
-Each insert batch creates a new row. After 100 inserts, you have 100 rows for the same day that never combine. Your "aggregate" table grows linearly with insert count.
+### Grouping by too many columns
 
-**Fix:** Use SummingMergeTree or AggregatingMergeTree for aggregate targets.
-
-### High-Cardinality GROUP BY
-
-If your grouping key is too granular, the "aggregated" table can be larger than the source.
-
-Real example: A 20GB raw events table produced a 190GB MV because the GROUP BY included `(timestamp, user_id, session_id, page, referrer)` — nearly as many unique combinations as raw rows.
-
-**Check your aggregation ratio before creating an MV:**
+If the `GROUP BY` has almost as many distinct combinations as the source has rows, the target will be about as big as the source and every insert pays for it. Check before creating the view:
 
 ```sql
 SELECT
     count() AS total_rows,
-    uniq(tuple(day, app, page)) AS unique_groups,
-    round(unique_groups / total_rows * 100, 2) AS aggregation_ratio_pct
+    uniq(app, toDate(timestamp)) AS groups,
+    round(groups / total_rows * 100, 2) AS groups_pct
 FROM events;
 ```
 
-- **< 10%**: Good compression, MV will be much smaller than source
-- **10-50%**: Moderate benefit, evaluate if worth the overhead
-- **> 70%**: Dangerous—you're likely to increase storage
+### Assuming a failed view leaves things consistent
 
-### Memory Pressure from Complex MVs
+The docs say materialized views are not deterministic when errors happen: blocks already written to the target stay there, later blocks don't. By default an exception in a view fails the `INSERT`, so retries can double-count rows that reached the target before the error. Test schema changes to target tables before running them in production.
 
-JOINs in MVs are particularly dangerous because the right-side table is scanned on every insert. One team reported 50GB+ memory usage from JOIN-based MVs that dropped to 3.5GB after switching to dictionaries.
+## Monitor materialized views
 
-For heavy aggregations (large GROUP BYs, quantiles, distinct counts), configure memory limits:
+`system.query_views_log` records each view run, with its duration, rows written, memory use and any exception. It needs the `query_views_log` section in the server config, and `log_query_views` (1 by default on 26.6):
 
 ```sql
-SET max_bytes_before_external_group_by = 10000000000;  -- Spill to disk at 10GB
-```
-
----
-
-## Materialized Views vs Projections
-
-Projections are an alternative that solves a narrower problem: storing the same data in multiple sort orders within a single table.
-
-```sql
--- Add a projection for queries filtering by user_id
-ALTER TABLE events ADD PROJECTION events_by_user (
-    SELECT * ORDER BY (user_id, timestamp)
-);
-
-ALTER TABLE events MATERIALIZE PROJECTION events_by_user;
-```
-
-The query optimizer automatically chooses the projection when it would be faster. No query changes required.
-
-**When projections win:**
-
-- You need different sort orders for the same table
-- You want transparent optimization (queries don't change)
-- Atomic consistency with the base table matters
-- Simpler operational model (no separate target tables)
-
-**When MVs win:**
-
-- Cross-table transformations or JOINs
-- Complex aggregation states (uniq, quantiles)
-- Multi-stage pipelines
-- Different schema than source (filtering, parsing, type changes)
-- ETL-style workflows
-
-**Rule of thumb:** If you're thinking "same data, different sort order or simple aggregates," try a projection. If you're thinking "transform, aggregate across tables, or pipeline," use an MV.
-
----
-
-## Tiered Aggregation: The Production Pattern
-
-At scale, teams like Cloudflare, PostHog, and GitLab use tiered aggregation: raw data flows into MVs that produce hourly aggregates, which feed into daily aggregates. Each tier stores mergeable intermediate states.
-
-```sql
--- Tier 1: Raw events → Hourly rollup
-CREATE TABLE events_hourly (
-    hour DateTime,
-    app String,
-    events AggregateFunction(count, UInt64),
-    unique_users AggregateFunction(uniq, UInt64),
-    total_bytes AggregateFunction(sum, UInt64)
-) ENGINE = AggregatingMergeTree()
-ORDER BY (app, hour);
-
-CREATE MATERIALIZED VIEW events_hourly_mv TO events_hourly
-AS SELECT
-    toStartOfHour(timestamp) AS hour,
-    app,
-    countState() AS events,
-    uniqState(user_id) AS unique_users,
-    sumState(bytes) AS total_bytes
-FROM events_raw
-GROUP BY hour, app;
-
--- Tier 2: Hourly → Daily rollup
--- Note: uses -MergeState to combine existing states, not -State
-CREATE TABLE events_daily (
-    day Date,
-    app String,
-    events AggregateFunction(count, UInt64),
-    unique_users AggregateFunction(uniq, UInt64),
-    total_bytes AggregateFunction(sum, UInt64)
-) ENGINE = AggregatingMergeTree()
-ORDER BY (app, day);
-
-CREATE MATERIALIZED VIEW events_daily_mv TO events_daily
-AS SELECT
-    toDate(hour) AS day,
-    app,
-    countMergeState(events) AS events,
-    uniqMergeState(unique_users) AS unique_users,
-    sumMergeState(total_bytes) AS total_bytes
-FROM events_hourly
-GROUP BY day, app;
-```
-
-**Why this works:**
-
-- Each tier processes less data than the previous
-- Aggregate states are mergeable across time periods (that's what `-MergeState` does)
-- Queries can hit the appropriate tier based on time range
-- Dashboard queries over the last 30 days read ~720 hourly rows instead of billions of raw events
-
-**Querying across tiers:**
-
-```sql
--- Last 7 days: hit daily table
-SELECT day, app, countMerge(events), uniqMerge(unique_users)
-FROM events_daily
-WHERE day >= today() - 7
-GROUP BY day, app;
-
--- Last 6 hours: hit hourly table
-SELECT hour, app, countMerge(events), uniqMerge(unique_users)
-FROM events_hourly
-WHERE hour >= now() - INTERVAL 6 HOUR
-GROUP BY hour, app;
-```
-
----
-
-## Monitoring and Debugging
-
-### system.query_views_log
-
-This is your primary tool for MV observability. Enable it with `log_query_views=1` in your server config.
-
-```sql
--- Find MV errors and slow performers
 SELECT
     view_name,
     status,
     exception,
-    count() AS executions,
-    round(avg(view_duration_ms), 2) AS avg_duration_ms,
-    max(view_duration_ms) AS max_duration_ms,
-    formatReadableSize(max(peak_memory_usage)) AS max_memory
+    count() AS runs,
+    round(avg(view_duration_ms), 1) AS avg_ms,
+    max(peak_memory_usage) AS max_memory_bytes
 FROM system.query_views_log
 WHERE event_time > now() - INTERVAL 1 HOUR
 GROUP BY view_name, status, exception
-ORDER BY avg_duration_ms DESC;
+ORDER BY avg_ms DESC;
 ```
 
-**Alert on:**
-- Any non-zero `exception_code`
-- `view_duration_ms` exceeding your insert latency budget (e.g., > 500ms)
-- `peak_memory_usage` approaching configured limits
-
-### Detecting Stale MVs
-
-Compare modification times between source and target tables:
+Watch part counts on target tables too:
 
 ```sql
-SELECT
-    database,
-    table,
-    max(modification_time) AS last_modified,
-    dateDiff('minute', max(modification_time), now()) AS minutes_since_update
+SELECT table, partition, count() AS parts, sum(rows) AS rows
 FROM system.parts
-WHERE active
-  AND table IN ('events_raw', 'events_hourly', 'events_daily')
-GROUP BY database, table
-ORDER BY table;
+WHERE active AND table IN ('events', 'events_daily')
+GROUP BY table, partition
+ORDER BY parts DESC;
 ```
 
-If your source table was modified 2 minutes ago but the MV target was modified 30 minutes ago, something's wrong.
+`SHOW CREATE TABLE events_daily_mv` prints the view's current definition.
 
-### Checking Table Sizes and Part Counts
+## When not to use a materialized view
 
-```sql
--- Storage per table
-SELECT
-    table,
-    formatReadableSize(sum(bytes_on_disk)) AS size,
-    sum(rows) AS rows,
-    count() AS parts
-FROM system.parts
-WHERE active
-GROUP BY table
-ORDER BY sum(bytes_on_disk) DESC;
-```
+Skip the view when the raw query is already fast enough for how often it runs. ClickHouse aggregates hundreds of millions of rows quickly, so measure with `system.query_log` first. Skip it when the grouping columns change often, because each change means a new view and a backfill. If you only need the same rows in a different sort order, a [projection](/blog/clickhouse-projections-vs-materialized-views) is simpler. If source rows get corrected after insert, consider `ReplacingMergeTree` with [`FINAL`](/blog/clickhouse-final-replacingmergetree-typescript) or a refreshable view.
 
-Watch the `parts` count—if it's climbing toward 300 for any partition, you have a part explosion problem.
+## Related
 
----
-
-## When NOT to Use Materialized Views
-
-MVs add complexity. Before creating one, verify it's actually needed.
-
-### Query-Time Aggregation May Be Fast Enough
-
-ClickHouse's columnar storage with vectorized execution makes many aggregations subsecond on hundreds of millions of rows. If a query runs under 5 seconds and executes fewer than 100 times per day, the operational overhead of an MV may not be justified.
-
-```sql
--- Profile before adding an MV
-SELECT
-    query,
-    query_duration_ms,
-    read_rows,
-    formatReadableSize(read_bytes) AS data_read
-FROM system.query_log
-WHERE query LIKE '%your_aggregation_pattern%'
-  AND type = 'QueryFinish'
-ORDER BY event_time DESC
-LIMIT 20;
-```
-
-### High-Cardinality Aggregations Don't Help
-
-If your GROUP BY produces nearly as many rows as the source, you've added insert overhead without meaningful query benefit. Check the aggregation ratio first.
-
-### UPDATE/DELETE Workflows
-
-MVs are fundamentally append-only. If your source data needs corrections:
-
-- **Option 1**: Use ReplacingMergeTree for the source and query with FINAL
-- **Option 2**: Use refreshable MVs that periodically rebuild from corrected source data
-- **Option 3**: Handle mutations in your ETL before loading into ClickHouse
-
-### When a Projection Would Suffice
-
-If you just need a different sort order on the same table with no transformation, a projection is simpler:
-
-```sql
--- Instead of an MV that copies data to a differently-sorted table
-ALTER TABLE events ADD PROJECTION events_by_user (
-    SELECT * ORDER BY (user_id, timestamp)
-);
-```
-
-Projections maintain atomic consistency, require no target table management, and the optimizer uses them transparently.
-
-### Insert Latency Is Critical
-
-Each MV adds synchronous processing to every insert. If your application requires single-digit millisecond insert latency and you have complex MVs, you may need to:
-
-- Move aggregation to async processing outside ClickHouse
-- Use Buffer tables to decouple insert latency from MV processing
-- Accept that MVs aren't the right tool for this workload
-
----
-
-## Conclusion
-
-Materialized views in ClickHouse are powerful precisely because they're minimal—they're insert triggers that transform data one block at a time, not magic caches that maintain themselves. This design enables petabyte-scale pre-aggregation but demands understanding of the trade-offs.
-
-**The production-ready patterns:**
-
-- Always use the **TO clause** with explicit target tables
-- **Never use POPULATE** on tables larger than a few million rows
-- Choose **AggregatingMergeTree with state functions** for complex aggregations
-- Use **dictionaries instead of JOINs** for dimension lookups
-- **Batch inserts** to at least 1,000 rows
-- Monitor with **system.query_views_log**
-
-**Before creating an MV, ask:**
-
-- Would a projection suffice?
-- Is query-time aggregation actually fast enough?
-- What's the aggregation ratio—will this shrink or explode storage?
-- Can we absorb the insert overhead?
-- How will we handle schema changes and backfills?
-
-The teams running ClickHouse at scale don't use MVs everywhere. They use them strategically for specific query patterns where pre-aggregation provides order-of-magnitude improvements worth the insert overhead and operational complexity. That selective application, grounded in understanding how MVs actually work, is what separates production-ready implementations from prototype code.
+- [Refreshable materialized views in ClickHouse](/blog/clickhouse-refreshable-materialized-views)
+- [Create a materialized view with a TO table and backfill it](/blog/clickhouse-create-materialized-view-to-table-backfill)
+- [Projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views)
+- [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)
+- [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)
+- [ClickHouse with TypeScript](/clickhouse-typescript) and [ClickHouse with Python](/clickhouse-python)
+- [Semantic layer for ClickHouse](/clickhouse-semantic-layer): define rollup metrics once
+- [Dataset measures, including `measure.merge`](/docs/datasets/measures)
+- ClickHouse docs: [CREATE VIEW](https://clickhouse.com/docs/sql-reference/statements/create/view), [refreshable materialized views](https://clickhouse.com/docs/materialized-view/refreshable-materialized-view), [system.query_views_log](https://clickhouse.com/docs/operations/system-tables/query_views_log)
