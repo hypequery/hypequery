@@ -185,9 +185,9 @@ export default function ClickHouseSaasAnalyticsPage() {
           description: 'Integrating ClickHouse analytics into Next.js App Router handlers and server components.',
         },
         {
-          href: '/blog/saas-analytics-api-clickhouse-typescript',
-          title: 'How to Build a SaaS Analytics API with ClickHouse and TypeScript',
-          description: 'Build a SaaS analytics API on ClickHouse with TypeScript: generated schema types, a typed query builder, metrics defined once, zod-validated REST routes with OpenAPI docs, and React hooks that share the same type contract.',
+          href: '/blog/embedded-analytics-clickhouse-multi-tenant-dashboards',
+          title: 'Embedded Analytics with ClickHouse: Multi-Tenant Dashboards',
+          description: 'Tenant-scoped queries, datasets and metrics served as one typed API with OpenAPI docs and React hooks.',
         },
         {
           href: '/blog/usage-based-billing-clickhouse-typescript',

@@ -1,252 +1,300 @@
 ---
-title: "The ClickHouse TypeScript Type Problem (And How to Actually Fix It)"
-description: "ClickHouse and TypeScript often disagree about what types come back at runtime. Learn the real mappings for DateTime, UInt64, Nullable, Decimal, and more."
-seoTitle: "ClickHouse TypeScript Types: the Runtime Mapping Fix"
-seoDescription: "Using ClickHouse with TypeScript? Learn the real runtime mappings for DateTime, UInt64, Nullable, Decimal, and other types, and how to avoid silent bugs."
+title: "Why ClickHouse Types Break in TypeScript (and How to Fix Them)"
+description: "What ClickHouse actually returns to JavaScript for DateTime, UInt64, Decimal, Nullable and more, why hand-written interfaces hide it, and how generated types, one shared query definition and an incremental migration from raw SQL fix it."
+seoTitle: "ClickHouse TypeScript Types: Why They Break, How to Fix"
+seoDescription: "What ClickHouse returns to JavaScript for DateTime, UInt64, Decimal and Nullable, why hand-written types hide it, and how generated types fix it."
 pubDate: 2026-04-14
+updated: 2026-11-08
 heroImage: ""
 slug: clickhouse-typescript-type-problem
 status: published
 ---
 
-There's a class of bug in TypeScript ClickHouse applications that doesn't show up until production. You've written your query, you've typed the response, everything compiles cleanly, and then a value that should be a number turns out to be a string, a date comparison silently fails, or a `null` check that should have fired doesn't.
+ClickHouse types break in TypeScript because the JSON that ClickHouse sends over HTTP doesn't match what the SQL column types suggest, and a hand-written row interface is an assertion that nothing checks. `DateTime` arrives as a string, not a `Date`. `UInt64` arrives as a string or as a number that silently loses precision, depending on a server setting. `Decimal` arrives as a JSON number. `Nullable(T)` gives `null`, not `undefined`. The fix is to generate types from the live schema, query through a builder that knows those mappings, and define each query once so every consumer shares the same types.
 
-If you want the broader framework around this problem, start with the [ClickHouse TypeScript](/clickhouse-typescript) pillar page. This article is the deep dive into the runtime mapping failure mode.
+Every value below was checked with `FORMAT JSONEachRow` on ClickHouse 26.6. For the wider TypeScript workflow, see the [ClickHouse TypeScript guide](/clickhouse-typescript).
 
-The types were wrong. TypeScript didn't tell you, because you wrote the types yourself and got them subtly incorrect. This is the ClickHouse TypeScript type problem.
+## Quick answers
 
-This post maps every common ClickHouse type to what it actually returns over the wire in JavaScript, not what you might assume, and shows how to make TypeScript enforce the correct mapping at compile time.
+### Why does my ClickHouse UInt64 come back as a string?
 
-## Why ClickHouse types don't map the way you'd expect
+`UInt64` values can exceed `Number.MAX_SAFE_INTEGER`, so clients ask ClickHouse to quote them with `output_format_json_quote_64bit_integers = 1`. hypequery sends that setting on every query. Since ClickHouse 25.8 the server default is `0`, so a raw client that doesn't set it receives plain JSON numbers, and `18446744073709551615` parses as `18446744073709552000`.
 
-ClickHouse is a columnar analytics database with its own type system, designed for performance above all else. When data comes back over the HTTP interface, which both `@clickhouse/client` and hypequery use, it's serialized as JSON. That serialization doesn't always preserve the types you'd expect from the SQL column definition.
+### Why is ClickHouse DateTime a string, not a Date?
 
-Some of this is inherent to JSON. Some of it is specific to how ClickHouse handles edge cases. All of it is silent: the query returns data, TypeScript trusts your annotations, and incorrect assumptions don't surface as errors.
+JSON has no date type. ClickHouse sends `DateTime` as `"2026-11-08 10:00:00"`, in the column's or server's time zone, with no offset. Type it as `string` and parse it deliberately.
 
-Let's go through the types that bite most developers.
+### Is ClickHouse Decimal a string in JavaScript?
 
-## DateTime and DateTime64
+Not by default. On 26.6 `Decimal` is sent as a JSON number, so values with more than about 15 significant digits lose precision when parsed. Set `output_format_json_quote_decimals = 1` if you need exact strings.
 
-**What you might assume:** `Date`
+### How do I generate TypeScript types from a ClickHouse schema?
 
-**What you actually get:** `string`
+Run `npx hypequery generate`. It introspects your tables and writes a schema file the query builder uses to type every query's columns, filters and results. See [the fix](#the-fix-generate-types-from-the-live-schema).
 
-```typescript
-const result = await client.query({
-  query: 'SELECT created_at FROM events LIMIT 1',
-  format: 'JSONEachRow',
-});
+---
 
-const rows = await result.json<{ created_at: Date }>();
+## What ClickHouse actually returns
 
-console.log(typeof rows[0].created_at); // "string"
-console.log(rows[0].created_at); // "2026-04-14 09:23:11"
+| ClickHouse type | JSON on 26.6 (server defaults) | With hypequery | TypeScript type |
+|---|---|---|---|
+| `String`, `FixedString(n)`, `UUID`, `IPv4`, `IPv6` | string | string | `string` |
+| `Enum8`, `Enum16` | string | string | `string` |
+| `Int8` to `Int32`, `UInt8` to `UInt32` | number | number | `number` |
+| `Int64`, `UInt64`, 128- and 256-bit ints | number (precision loss above 2^53) | string | `string` |
+| `Float32`, `Float64` | number, `NaN` becomes `null` | same | `number` |
+| `Decimal(p, s)` | number (precision loss past ~15 digits) | same | `number` |
+| `Date`, `Date32`, `DateTime`, `DateTime64` | string | string | `string` |
+| `Bool` | boolean | boolean | `boolean` |
+| `Nullable(T)` | `null` when empty | same | `T \| null` |
+| `LowCardinality(T)` | as `T` | same | as `T` |
+| `Array(T)` | array | array | `T[]` |
+| `Tuple(a T1, b T2)` (named) | object | object | `{ a: T1; b: T2 }` |
+| `Tuple(T1, T2)` (unnamed) | array | array | `[T1, T2]` |
+| `Map(K, V)` | object | object | `Record<string, V>` |
+| `JSON` | object | object | `unknown` |
+
+The rows that cause most production bugs are the first string rows: 64-bit integers, dates, and anything you assumed was a `Date` or a safe `number`.
+
+### DateTime and DateTime64
+
+`DateTime64(3)` arrives as `"2026-01-01 00:00:00.123"`. The string has no offset, and JavaScript parses that format as local time: in a Paris process, `new Date("2026-01-01 00:00:00")` is `2025-12-31T23:00:00.000Z`. If the column is UTC, parse it as UTC on purpose:
+
+```ts
+const parsed = new Date(row.created_at.replace(' ', 'T') + 'Z');
 ```
 
-ClickHouse returns `DateTime` as a formatted string over the HTTP interface, not a Unix timestamp, not an ISO 8601 string with a `Z`, and not a JavaScript `Date` object. The format is `YYYY-MM-DD HH:MM:SS`.
+Or have ClickHouse render the time zone you want, for example `toString(created_at, 'UTC')`.
 
-If you've typed it as `Date` and try to call `.toISOString()` on it, you'll get a runtime error. If you're doing date arithmetic, you'll silently get `NaN`. TypeScript won't warn you at compile time because you told it the type was `Date`.
+### 64-bit integers, and every count()
 
-`DateTime64` behaves the same way, with more decimal precision in the seconds.
+`count()`, `uniq()` and `sum()` over integer columns return `UInt64`, so these are strings through hypequery. Adding two of them with `+` concatenates. `sum()` over a `Float64` column and `avg()` return `Float64` and arrive as numbers.
 
-**Correct TypeScript type:** `string`
+The query builder types every aggregate result as `string`, which is exact for counts and conservative for float sums. `Number(row.total)` is correct for both, so convert at the display layer. For counts that can exceed 2^53, use `BigInt(row.total)`.
 
-## UInt8, UInt16, UInt32, Int8, Int16, Int32, Float32, Float64
+### Decimal
 
-**What you might assume:** `number`
+`toDecimal128('12345678901234567.89', 2)` arrives as the JSON number `12345678901234567.89`, which `JSON.parse` turns into `12345678901234568`. For money with many digits, set `output_format_json_quote_decimals = 1` per query with `.settings(...)` and treat the value as a string. Note that hypequery's generated types say `number` for `Decimal`, matching the server default.
 
-**What you actually get:** `number`
+### Nullable
 
-These map as expected. Integer and float types within JavaScript's safe integer range come back as numbers.
+Empty values are `null`. A check for `=== undefined` never fires. `Nullable` columns are `T | null` in generated types.
 
-```typescript
-const result = await client.query({
-  query: 'SELECT page_views FROM stats LIMIT 1',
-  format: 'JSONEachRow',
-});
+## Why hand-written types hide all of this
 
-const rows = await result.json<{ page_views: number }>();
-console.log(typeof rows[0].page_views); // "number"
-```
+Most ClickHouse TypeScript code starts like this:
 
-## UInt64, Int64, UInt128, Int128, UInt256, Int256
+```ts
+import { createClient } from '@clickhouse/client';
 
-**What you might assume:** `number`
+const client = createClient({ url: process.env.CLICKHOUSE_URL });
 
-**What you actually get:** `string`
+// Hand-written. Nothing checks this against the table.
+interface OrderRow {
+  id: string;
+  tenant_id: number;
+  total: number;
+  status: string;
+  created_at: string;
+}
 
-```typescript
-const result = await client.query({
-  query: 'SELECT id FROM large_table LIMIT 1',
-  format: 'JSONEachRow',
-});
-
-const rows = await result.json<{ id: number }>();
-
-console.log(typeof rows[0].id); // "string"
-console.log(rows[0].id); // "9223372036854775807"
-```
-
-`UInt64` can hold values far above JavaScript's `Number.MAX_SAFE_INTEGER`. Any `UInt64` value above that threshold cannot be safely represented as a JavaScript number, so ClickHouse serializes these as strings to preserve precision.
-
-If you type them as `number`, your type is wrong, and any arithmetic or comparison you do on them can produce incorrect results without a compile-time warning.
-
-**Correct TypeScript type:** `string`
-
-## Nullable(T)
-
-**What you might assume:** `T | undefined`
-
-**What you actually get:** `T | null`
-
-```typescript
-const result = await client.query({
-  query: 'SELECT email FROM users LIMIT 1',
-  format: 'JSONEachRow',
-});
-
-const rows = await result.json<{ email: string | undefined }>();
-
-console.log(rows[0].email); // null, not undefined
-```
-
-ClickHouse serializes absent `Nullable` values as JSON `null`, not as a missing key. If you've typed the field as `T | undefined` and check `if (value === undefined)`, the check will never fire.
-
-**Correct TypeScript type:** `T | null`
-
-## LowCardinality(T)
-
-**What you might assume:** some special type
-
-**What you actually get:** the inner type `T`
-
-`LowCardinality` is a storage optimization in ClickHouse. It doesn't change the logical type of the column or how values are returned.
-
-**Correct TypeScript type:** whatever `T` maps to
-
-## Array(T)
-
-**What you might assume:** `T[]`
-
-**What you actually get:** `T[]`
-
-Arrays come back as JavaScript arrays. The inner type follows the same rules as above, so `Array(DateTime)` gives you `string[]`, not `Date[]`.
-
-```typescript
-const rows = await result.json<{ tags: string[] }>();
-console.log(Array.isArray(rows[0].tags)); // true
-```
-
-**Correct TypeScript type:** `T[]`
-
-## Tuple(T1, T2, ...)
-
-**What you might assume:** `[T1, T2, ...]`
-
-**What you actually get:** `[T1, T2, ...]`
-
-Tuples come back as JavaScript arrays with fixed length. Types the same way, just apply the correct mapping to each element type.
-
-## JSON / Object('json')
-
-**What you might assume:** a specific interface
-
-**What you actually get:** `unknown`, effectively
-
-```typescript
-const rows = await result.json<{ properties: Record<string, unknown> }>();
-```
-
-ClickHouse doesn't enforce schema within JSON columns. If you're storing JSON as a `String`, you get a string back and have to parse it yourself. If you're using `Object('json')`, you get back a nested object, but the shape isn't statically known without schema inspection.
-
-**Correct TypeScript type:** `string` for JSON-as-string columns, or a specific interface if you control the shape
-
-## The full mapping at a glance
-
-| ClickHouse type | Correct TypeScript type |
-|----------------|------------------------|
-| `String` | `string` |
-| `FixedString(n)` | `string` |
-| `UInt8`, `UInt16`, `UInt32` | `number` |
-| `Int8`, `Int16`, `Int32` | `number` |
-| `Float32`, `Float64` | `number` |
-| `UInt64`, `Int64` | `string` |
-| `UInt128`, `Int128`, `UInt256`, `Int256` | `string` |
-| `DateTime` | `string` |
-| `DateTime64(n)` | `string` |
-| `Date` | `string` |
-| `Date32` | `string` |
-| `Boolean` | `boolean` |
-| `UUID` | `string` |
-| `Nullable(T)` | `T \| null` |
-| `LowCardinality(T)` | same as `T` |
-| `Array(T)` | `T[]` |
-| `Tuple(T1, T2)` | `[T1, T2]` |
-| `Enum8`, `Enum16` | `string` |
-| `IPv4`, `IPv6` | `string` |
-| `Decimal(p, s)` | `string` |
-
-Notice how many types map to `string` that developers commonly annotate as something else. `DateTime` as `Date`, `UInt64` as `number`, and `Decimal` as `number` are the three most common silent bugs.
-
-## The root problem: you're writing these types by hand
-
-Every example above assumes you're writing the TypeScript interface yourself. That's the core of the problem.
-
-```typescript
-interface EventRow {
-  event_name: string;
-  created_at: Date; // wrong
-  user_id: number; // wrong if UInt64
-  session_id: string;
+export async function recentOrders(tenantId: number) {
+  const result = await client.query({
+    query: `
+      SELECT * FROM orders
+      WHERE tenant_id = {tenantId:UInt32}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `,
+    query_params: { tenantId },
+    format: 'JSONEachRow',
+  });
+  return result.json<OrderRow>();
 }
 ```
 
-TypeScript trusts you completely. There's no verification against the actual ClickHouse schema. The types compile cleanly. The bugs hide until runtime.
+`result.json<OrderRow>()` is a type assertion, not validation. Now someone renames a column:
 
-The only reliable fix is to generate the types from the live schema, not write them by hand.
+```sql
+ALTER TABLE orders RENAME COLUMN total TO total_amount;
+```
 
-That is the core workflow behind the [ClickHouse TypeScript](/clickhouse-typescript) pillar page: generated schema types first, reusable query definitions second.
+Queries that name `total` fail loudly with an unknown identifier error. This one uses `SELECT *`, so it keeps succeeding; the rows just come back with `total_amount` instead. The interface still says `total: number`, so this compiles:
 
-## How hypequery solves this
+```ts
+const orders = await recentOrders(42);
+const gross = orders.reduce((sum, o) => sum + o.total, 0);
+// o.total is undefined at runtime, so gross is NaN
+```
 
-hypequery's CLI connects to your ClickHouse instance and generates a TypeScript schema file that applies the correct mappings automatically:
+The dashboard renders `NaN`. No exception, no failed request, no alert. And the interface was already wrong in quieter ways: had it included a `UInt64` column typed as `number`, it would have been a string through any client that quotes 64-bit integers.
+
+## The fix: generate types from the live schema
+
+Make the schema the source of truth:
 
 ```bash
-npx hypequery generate --output analytics/schema.ts
+npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
+npx hypequery generate
 ```
 
-The generated output for the `events` table above would look like this:
+`hypequery generate` reads your connection from `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME` and `CLICKHOUSE_PASSWORD` and writes `analytics/schema.ts`. For each table it writes the ClickHouse type strings, which the builder maps to TypeScript, plus a record type with the TypeScript types:
 
-```typescript
-export interface Schema {
-  events: {
-    event_name: string;
-    created_at: string; // DateTime -> string
-    user_id: string; // UInt64 -> string
-    session_id: string;
+```ts
+export interface IntrospectedSchema {
+  orders: {
+    'id': "String";
+    'tenant_id': "UInt32";
+    'total_amount': "Float64";
+    'status': "LowCardinality(String)";
+    'created_at': "DateTime";
   };
+}
+
+export interface OrdersRecord {
+  'id': string;
+  'tenant_id': number;
+  'total_amount': number;
+  'status': string;
+  'created_at': string;
 }
 ```
 
-Every ClickHouse type is mapped to its correct JavaScript runtime equivalent. When you build queries with the generated schema, the type checker enforces these mappings throughout your application.
+Query through the builder and the result type comes from the schema:
 
-```typescript
-const result = await db
-  .table('events')
-  .select(['event_name', 'created_at', 'user_id'])
-  .where('event_name', 'eq', 'page_view')
-  .execute();
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// result: Array<{ event_name: string; created_at: string; user_id: string }>
+export const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+export function recentOrders(tenantId: number) {
+  return db
+    .table('orders')
+    .select(['id', 'total_amount', 'status', 'created_at'])
+    .where('tenant_id', 'eq', tenantId)
+    .orderBy('created_at', 'DESC')
+    .limit(50)
+    .execute();
+}
+// Promise<{ id: string; total_amount: number; status: string; created_at: string }[]>
 ```
 
-When your schema changes, rerun the generator. The types update. TypeScript tells you everywhere the change has an impact.
+Replay the rename: run `npx hypequery generate`, `total` disappears from the schema, and every `.select(['total'])`, `.sum('total', ...)` and `o.total` becomes a compile error. `tsc` hands you the list of call sites. Wrong tables and columns, `'in'` with a single value instead of an array, and unknown operators such as `'='` (the builder uses `'eq'`) are compile errors too.
+
+## Define each query once
+
+Generated types fix one query. The other source of drift is the same query rewritten for a script, an HTTP endpoint and a React component, each with its own idea of the row shape. Define it once with `@hypequery/serve`:
+
+```ts
+// analytics/api.ts
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { query, serve } = initServe({
+  basePath: '/api/analytics',
+  context: () => ({ db }),
+});
+
+export const revenueByStatus = query({
+  description: 'Revenue by order status since a date',
+  input: z.object({ since: z.string() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('orders')
+      .select(['status'])
+      .sum('total_amount', 'revenue')
+      .where('created_at', 'gte', input.since)
+      .groupBy(['status'])
+      .execute(),
+});
+
+export const api = serve({ queries: { revenueByStatus } });
+```
+
+The same definition now serves three consumers with one inferred type:
+
+- **In-process**, for jobs and server components: `await api.run('revenueByStatus', { input: { since: '2026-10-01' } })`.
+- **Over HTTP**, at `GET /api/analytics/queries/revenueByStatus?since=2026-10-01`, with zod validation and an OpenAPI entry. `npx hypequery dev analytics/api.ts` serves it locally with interactive docs.
+- **In React**, through hooks typed with `InferApiType<typeof api>`, so `data` in a component has the row shape the builder returns. The [React and Next.js dashboard guide](/blog/building-dashboards-clickhouse-hypequery-nextjs) sets this up.
+
+Rename a column and the compiler follows it from the schema through the query and the API into the component.
+
+## Migrating from raw SQL strings, one query at a time
+
+Don't rewrite everything. hypequery is built on `@clickhouse/client`, so both run in the same process against the same server.
+
+### 1. Install alongside
+
+Point `createQueryBuilder` at the same URL and database, commit the generated schema, and ship with no queries migrated. You now have schema types in the repo even for code that still uses strings.
+
+### 2. Migrate the queries that change most
+
+Rank queries by how often they are edited, not how often they run. Product-facing dashboard queries, anything filtered by tenant, and anything the next engineer will extend come first. They are usually filter-aggregate-group-order queries, which the builder covers completely.
+
+### 3. Keep hand-tuned SQL, inside typed queries
+
+A long, tuned funnel query is a liability to rewrite. Three escape hatches keep raw SQL inside otherwise typed queries:
+
+```ts
+import { rawAs } from '@hypequery/clickhouse';
+import { db } from './client';
+
+// A raw expression with a declared result type
+export const withTaxedTotal = await db
+  .table('orders')
+  .select(['id', rawAs<number, 'taxed'>('round(total_amount * 1.2, 2)', 'taxed')])
+  .where('status', 'eq', 'completed')
+  .execute();
+
+// A raw CTE with declared column types, joined into a typed query
+export const withFirstOrder = await db
+  .table('orders')
+  .withCTE(
+    'first_orders',
+    'SELECT tenant_id, min(created_at) AS first_order_at FROM orders GROUP BY tenant_id',
+    { tenant_id: 'UInt32', first_order_at: 'DateTime' },
+  )
+  .innerJoin('first_orders', 'tenant_id', 'first_orders.tenant_id')
+  .select(['id', 'created_at', 'first_orders.first_order_at'])
+  .execute();
+
+// The whole statement as SQL, with bound parameters
+export const funnel = await db.rawQuery<{ step: string; users: string }>(
+  'SELECT step, uniq(user_id) AS users FROM funnel_events WHERE tenant_id = ? GROUP BY step',
+  [42],
+);
+```
+
+The columns and filters around a raw fragment stay checked; only the fragment is on you. For `rawQuery`, you write the row type, so remember the table above. Partial migration is a stable end state.
+
+### 4. Catch schema drift in CI
+
+Regenerate the schema in CI and fail if it changed:
+
+```bash
+npx hypequery generate
+git diff --exit-code analytics/schema.ts
+npx tsc --noEmit
+```
+
+A ClickHouse rename now fails the build in one of two ways: the generated file differs from the committed one, or `tsc` finds call sites that weren't updated. Run it against staging on a schedule too, so schema changes surface before a deploy depends on them.
+
+### What you're trading
+
+A dependency, a generated file to keep current, and a builder API to learn on top of SQL. If your analytics is five stable queries, raw SQL with careful review is fine; [hypequery vs raw SQL](/compare/hypequery-vs-raw-sql) works through the break-even point. The migration pays off when queries are numerous, often edited, or maintained by more people than wrote them.
 
 ## Getting started
 
 ```bash
-npm install @hypequery/clickhouse @clickhouse/client
-npx hypequery generate --output analytics/schema.ts
+npx @hypequery/cli init
 ```
 
-If you want the quickest path from schema to type-safe queries, start with the [Quick Start](https://hypequery.com/docs/quick-start) and then use the [Schemas](https://hypequery.com/docs/schemas) guide to understand how the generated types flow through your app.
+`init` connects to ClickHouse, generates the schema and scaffolds a client and an example query. The [quick start](/docs/quick-start) walks through it, and the [schemas guide](/docs/schemas) covers how generated types flow through queries. For the wider picture, see [ClickHouse TypeScript](/clickhouse-typescript) and [type-safe SQL in TypeScript](/type-safe-sql-typescript).

@@ -265,11 +265,6 @@ claude mcp list`,
           title: 'AI tool generation',
           description: 'Generate tool schemas from the same semantic catalog.',
         },
-        {
-          href: '/blog/clickhouse-mcp-typescript',
-          title: 'ClickHouse MCP: Give Your AI Agent Type-Safe Access to Analytics Data',
-          description: 'Build a ClickHouse MCP server around named analytics queries instead of raw SQL so tenant scope and response shapes stay under control.',
-        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
