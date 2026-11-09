@@ -11,7 +11,9 @@ const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.
 
 // Pages marked noindex (/clickhouse-express, -hono, -trpc, -graphql) stay out of the sitemap.
 const staticRoutes = [
+  '/clickhouse',
   '/clickhouse/functions',
+  '/embedded-analytics',
   '/',
   '/blog',
   '/changelog',

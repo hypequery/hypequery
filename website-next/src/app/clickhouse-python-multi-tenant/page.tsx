@@ -152,6 +152,7 @@ export default function ClickHousePythonMultiTenantPage() {
         { href: '/clickhouse-multi-tenant-analytics', title: 'Multi-tenant analytics in TypeScript', description: 'The same model on the TypeScript side.' },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },

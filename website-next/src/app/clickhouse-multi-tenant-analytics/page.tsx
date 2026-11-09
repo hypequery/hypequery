@@ -167,6 +167,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

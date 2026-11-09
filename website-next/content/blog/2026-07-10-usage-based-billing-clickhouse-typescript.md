@@ -10,6 +10,7 @@ status: published
 tags:
   - ClickHouse
   - TypeScript
+  - Embedded analytics
 ---
 
 Usage-based billing has a requirement most analytics features do not: the number on the invoice and the number on the customer's usage dashboard must be **identical**. If the dashboard shows 41,300 API calls and the invoice charges for 41,882, you get a support ticket first and a churn conversation second.

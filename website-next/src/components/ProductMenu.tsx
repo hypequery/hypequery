@@ -6,6 +6,7 @@ import { HypequeryMascotIcon } from './HypequeryMascotIcon';
 import * as Popover from '@radix-ui/react-popover';
 import { ChevronDown } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
+import { hubList } from '@/data/hubs';
 
 type Offering = {
   name: string;
@@ -96,9 +97,19 @@ export function ProductMenu() {
             {OFFERINGS.map((offering) => <OfferingColumn key={offering.name} offering={offering} />)}
           </div>
           <div className="mx-3 my-1 border-t border-border" />
-          <div className="flex justify-end px-1 pb-1">
+          <div className="flex flex-wrap items-center justify-between gap-1 px-1 pb-1">
+            <div className="flex flex-wrap items-center">
+              <span className="px-3 py-2.5 font-mono text-[11px] text-text-dim">Guides</span>
+              {hubList.map((hub) => (
+                <Popover.Close key={hub.href} asChild>
+                  <Link href={hub.href} className="rounded-md px-3 py-2.5 text-[13px] text-text-muted transition hover:bg-bg-alt hover:text-text focus-visible:bg-bg-alt focus-visible:outline-none">
+                    {hub.label}
+                  </Link>
+                </Popover.Close>
+              ))}
+            </div>
             <Popover.Close asChild>
-              <Link href="/docs" className="shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-bg-alt focus-visible:bg-bg-alt focus-visible:outline-none">View all docs <span aria-hidden="true">→</span></Link>
+              <Link href="/docs" className="ml-auto shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-bg-alt focus-visible:bg-bg-alt focus-visible:outline-none">View all docs <span aria-hidden="true">→</span></Link>
             </Popover.Close>
           </div>
         </Popover.Content>

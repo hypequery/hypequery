@@ -11,6 +11,7 @@ import { absoluteUrl } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
 import Newsletter from '@/components/Newsletter';
 import { DEFAULT_BLOG_AUTHOR, blogAuthorName } from '@/lib/blog-author';
+import { hubForPost } from '@/lib/blog-hub';
 
 export async function generateStaticParams() {
   const posts = await getPosts();
@@ -186,6 +187,7 @@ export default async function BlogPostPage({
     data.updated && publishDate && data.updated.slice(0, 10) > publishDate.slice(0, 10) ? data.updated : undefined;
   const articleUrl = absoluteUrl(`/blog/${post.slug}`).toString();
   const relatedLinks = getRelatedLinks(post.slug);
+  const hub = hubForPost(data.tags);
   const language = /python/i.test(`${post.slug} ${data.title}`) ? 'python' : 'typescript';
   const articleSchema = {
     '@context': 'https://schema.org',
@@ -275,6 +277,12 @@ export default async function BlogPostPage({
               {data.description}
             </p>
           )}
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            Part of:{' '}
+            <Link href={hub.href} className="font-medium text-gray-700 underline underline-offset-2 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">
+              {hub.label}
+            </Link>
+          </p>
           <ArticleIntroCta language={language} />
         </div>
 

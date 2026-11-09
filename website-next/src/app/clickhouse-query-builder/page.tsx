@@ -200,6 +200,7 @@ export default function ClickHouseQueryBuilderPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
