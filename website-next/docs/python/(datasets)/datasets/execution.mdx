@@ -121,7 +121,7 @@ page.meta.pagination  # Pagination(limit=50, offset=100, has_more=True)
 
 The client fetches one extra row to compute `has_more` and drops it from `data`. There is no total row count.
 
-Value types differ from the HTTP wire, where every measure is a string:
+Value types differ from the HTTP wire, where every measure is a string, and so is a dimension integer beyond ±(2^53 − 1):
 - integer counts come back as `int`;
 - floating-point results come back as `float`;
 - `Decimal` values come back as `str`, to keep their precision;
