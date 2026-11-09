@@ -28,9 +28,26 @@ describe('escapeValue', () => {
     expect(escapeValue(false)).toBe('false');
   });
 
-  it('should handle dates', () => {
+  // A quoted ISO string is rejected (TYPE_MISMATCH) against a DateTime
+  // sorting-key column, so a Date renders as an explicit UTC conversion.
+  it('should render whole-second dates as a UTC DateTime', () => {
     const date = new Date('2024-01-01T00:00:00.000Z');
-    expect(escapeValue(date)).toBe("'2024-01-01T00:00:00.000Z'");
+    expect(escapeValue(date)).toBe("toDateTime('2024-01-01 00:00:00', 'UTC')");
+  });
+
+  it('should render sub-second dates as a UTC DateTime64', () => {
+    const date = new Date('2024-01-01T00:00:00.123Z');
+    expect(escapeValue(date)).toBe("toDateTime64('2024-01-01 00:00:00.123', 3, 'UTC')");
+  });
+
+  it('should render dates outside the DateTime range as DateTime64', () => {
+    expect(escapeValue(new Date('1960-05-01T00:00:00.000Z'))).toBe("toDateTime64('1960-05-01 00:00:00.000', 3, 'UTC')");
+    expect(escapeValue(new Date('2200-01-01T00:00:00.000Z'))).toBe("toDateTime64('2200-01-01 00:00:00.000', 3, 'UTC')");
+  });
+
+  it('should substitute dates into placeholders as UTC expressions', () => {
+    expect(substituteParameters('SELECT * FROM t WHERE ts >= ?', [new Date('2026-03-01T00:00:00Z')]))
+      .toBe("SELECT * FROM t WHERE ts >= toDateTime('2026-03-01 00:00:00', 'UTC')");
   });
 
   it('should reject invalid dates', () => {
