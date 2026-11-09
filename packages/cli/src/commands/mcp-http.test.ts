@@ -122,6 +122,8 @@ describe('hypequery mcp --http', () => {
     }, [{ kind: 'dataset', name: 'finance', rules: ['requiredRoles'] }]);
     const input = await serve({}, api, { HYPEQUERY_MCP_KEY: KEY });
     await expect(input.authenticate(request(KEY))).resolves.toMatchObject({ subject: 'static-key' });
+    // The holders of the shared key are told that the entry's own rules do not apply to them.
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('every holder of HYPEQUERY_MCP_KEY can query finance'));
   });
 
   it('refuses an OAuth resource that a JWT strategy would not insist on', async () => {

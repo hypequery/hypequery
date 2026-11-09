@@ -248,6 +248,14 @@ export async function mcpCommand(
       const authenticate = http.staticKey
         ? mcp.createMCPStaticKeyAuthenticator({ key: http.staticKey, ...(options.tenant ? { tenantId: options.tenant } : {}) })
         : requireTenantFor(scoped, mcp, createServeAuthenticator(mcp, source.auth!, http.oauth?.resource));
+      if (http.staticKey && (source.restricted?.length ?? 0) > 0) {
+        // One shared key is one principal, so a rule that tells callers apart cannot apply.
+        const names = source.restricted!.map(entry => `${entry.kind === 'metric' ? 'metric ' : ''}${entry.name}`).join(', ');
+        process.stderr.write(
+          `hypequery MCP: every holder of ${MCP_SERVER_KEY_VARIABLE} can query ${names}, whatever their own `
+          + 'access rules (auth, roles, scopes, middlewares, tenant) say; those are not applied over MCP.\n',
+        );
+      }
       await (dependencies.serveHttp ?? runMcpHttpServer)({
         mcp,
         settings: http,
