@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse MCP Server for Governed AI Analytics',
+  title: 'ClickHouse MCP Server: 5-Minute Quickstart for Claude, Cursor, Codex',
   description:
-    'Give Claude, Cursor, and AI agents governed ClickHouse datasets through MCP without exposing raw SQL or database credentials.',
+    'A governed ClickHouse MCP server: agents query named datasets and metrics, never raw SQL. Run it in five minutes against the public ClickHouse playground.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
@@ -59,6 +59,44 @@ export const api = serve({
 // The tenant comes from how you start the server, never from the model:
 //   npx hypequery mcp --tenant acme`;
 
+const quickstartConfig = `// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient, dataset, dimension, measure, publishDatasets } from '@hypequery/datasets';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL ?? 'https://play.clickhouse.com',
+  username: process.env.CLICKHOUSE_USERNAME ?? 'play',
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE ?? 'default',
+  // The playground user is readonly = 1, which rejects the setting hypequery
+  // normally sends to quote 64-bit integers. Use the server default instead.
+  integerJsonEncoding: 'server-default',
+});
+
+const Flights = dataset('flights', {
+  source: 'ontime',
+  description: 'US domestic flights, one row per flight (public ClickHouse playground).',
+  limits: { maxResultSize: 1000 },
+  dimensions: {
+    year: dimension.number({ column: 'Year', label: 'Year' }),
+    airline: dimension.string({ column: 'Reporting_Airline', label: 'Airline code' }),
+    origin: dimension.string({ column: 'OriginCityName', label: 'Origin city' }),
+  },
+  measures: {
+    flights: measure.count('Year', { label: 'Flights' }),
+    avgDepartureDelay: measure.avg('DepDelay', { label: 'Average departure delay (minutes)' }),
+  },
+});
+
+const avgDepartureDelay = Flights.metric('avgDepartureDelay', { measure: 'avgDepartureDelay' });
+const flightCount = Flights.metric('flights', { measure: 'flights' });
+
+export const datasets = publishDatasets()
+  .publish(Flights, { metrics: { avgDepartureDelay, flightCount } })
+  .build();
+
+export const analytics = createDatasetClient({ queryBuilder: db });`;
+
 export default function ClickHouseMcpPage() {
   return (
     <ClickhousePillarPage
@@ -67,6 +105,49 @@ export default function ClickHouseMcpPage() {
       description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."
       primaryCta={{ href: '/docs/mcp/overview', label: 'Start with MCP' }}
       secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}
+      quickstart={{
+        eyebrow: 'Quickstart',
+        title: 'Run a ClickHouse MCP server in five minutes',
+        description:
+          'No ClickHouse install needed: this uses the public ClickHouse playground and its 200-million-row US flights table. The agent gets two metrics and three dimensions as tools, not a SQL console.',
+        steps: [
+          {
+            title: 'Install the packages',
+            description: 'Any empty folder works. You need Node.js 20 or newer.',
+            code: `mkdir clickhouse-mcp && cd clickhouse-mcp
+npm init -y
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse`,
+            filename: 'terminal',
+            language: 'bash',
+          },
+          {
+            title: 'Define what the agent may query',
+            description:
+              'Save this as mcp-config.mjs. The dataset names the table, the columns an agent can group by, and the metrics it can ask for.',
+            code: quickstartConfig,
+            filename: 'mcp-config.mjs',
+          },
+          {
+            title: 'Connect your agent',
+            description:
+              'Claude Code shown here. Cursor and Codex take the same command; see the setup guides below.',
+            code: `claude mcp add clickhouse -- npx -y @hypequery/mcp --config "$PWD/mcp-config.mjs"
+claude mcp list`,
+            filename: 'terminal',
+            language: 'bash',
+          },
+          {
+            title: 'Ask a question',
+            description:
+              'The agent calls list_datasets, get_dataset_schema and query_dataset. In our run it returned JetBlue (B6) first: 23.5 minutes over 64,860 flights, the same as running the SQL directly. (The playground\'s 2022 data covers January to March.)',
+            code: `Which airline had the highest average departure delay in 2022?`,
+            filename: 'prompt',
+            language: 'text',
+          },
+        ],
+        footnote:
+          'To use your own ClickHouse, set CLICKHOUSE_URL, CLICKHOUSE_USERNAME, CLICKHOUSE_PASSWORD and CLICKHOUSE_DATABASE, remove integerJsonEncoding unless your user is readonly = 1, and point the dataset at your table.',
+      }}
       stats={[
         { label: 'Agent surface', value: 'Datasets and measures' },
         { label: 'Database access', value: 'No raw SQL' },
@@ -149,6 +230,21 @@ export default function ClickHouseMcpPage() {
         },
       ]}
       readingLinks={[
+        {
+          href: '/blog/clickhouse-mcp-claude-code',
+          title: 'ClickHouse MCP in Claude Code',
+          description: 'Set up a governed ClickHouse MCP server in Claude Code, step by step, with verification and troubleshooting.',
+        },
+        {
+          href: '/blog/clickhouse-mcp-cursor',
+          title: 'ClickHouse MCP in Cursor',
+          description: 'Add the server to .cursor/mcp.json for one project or every project.',
+        },
+        {
+          href: '/blog/clickhouse-mcp-codex',
+          title: 'ClickHouse MCP in Codex',
+          description: 'Register the server with codex mcp add or ~/.codex/config.toml.',
+        },
         {
           href: '/docs/mcp/overview',
           title: 'MCP quick start',

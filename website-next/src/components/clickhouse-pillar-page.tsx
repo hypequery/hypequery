@@ -39,6 +39,15 @@ type CodePanel = {
   language?: string;
 };
 
+/** A numbered, copy-paste quickstart rendered right under the hero. */
+type Quickstart = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  steps: Array<{ title: string; description: string; code: string; filename: string; language?: string }>;
+  footnote?: string;
+};
+
 const EXTENSIONS: Record<Language, string> = { typescript: 'ts', python: 'py' };
 
 function panelFilename(panel: CodePanel, eyebrow: string, language: Language) {
@@ -83,6 +92,7 @@ export type ClickhousePillarPageProps = {
   /** Which SDK the setup command shows first. Python pages pass 'python'. */
   language?: Language;
   stats?: Stat[];
+  quickstart?: Quickstart;
   problems: Card[];
   solutionSection: Section;
   implementationSection: Section;
@@ -107,6 +117,7 @@ export function ClickhousePillarPage({
   secondaryCta,
   language = 'typescript',
   stats,
+  quickstart,
   problems,
   solutionSection,
   implementationSection,
@@ -163,6 +174,44 @@ export function ClickhousePillarPage({
             )}
           </div>
         </section>
+
+        {quickstart ? (
+          <section id="quickstart" className="border-b border-border">
+            <div className={`${marketing.container} py-14 sm:py-20`}>
+              <p className={marketing.eyebrow}>{quickstart.eyebrow}</p>
+              <h2 className="mt-3 max-w-[820px] text-3xl font-normal tracking-[-0.03em] text-text sm:text-4xl">
+                <RichText text={quickstart.title} />
+              </h2>
+              <p className="mt-4 max-w-[760px] text-sm leading-6 text-text-muted sm:text-base">
+                <RichText text={quickstart.description} />
+              </p>
+              <ol className="mt-10 grid gap-6 lg:grid-cols-2">
+                {quickstart.steps.map((step, index) => (
+                  <li key={step.title} className={marketing.card}>
+                    <p className="font-mono text-xs text-text-dim">Step {index + 1}</p>
+                    <h3 className={`mt-3 ${marketing.cardTitle}`}>
+                      <RichText text={step.title} />
+                    </h3>
+                    <p className="mt-3 text-sm leading-6 text-text-muted">
+                      <RichText text={step.description} />
+                    </p>
+                    <CodeWindow
+                      code={step.code}
+                      filename={step.filename}
+                      language={step.language ?? language}
+                      className="mt-4"
+                    />
+                  </li>
+                ))}
+              </ol>
+              {quickstart.footnote ? (
+                <p className="mt-6 max-w-[760px] text-sm leading-6 text-text-muted">
+                  <RichText text={quickstart.footnote} />
+                </p>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-6 lg:grid-cols-3">
