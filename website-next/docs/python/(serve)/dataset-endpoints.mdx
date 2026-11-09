@@ -89,8 +89,9 @@ create_dataset_endpoint(dataset=orders, client=client, policy=policy, include_re
 
 - `meta` is included only when the body sets `includeMeta: true` or the request sends `x-include-meta: true`.
 - `meta.cache` appears only when the dataset client has a result cache; without one it is omitted, as in TypeScript.
-- Non-null measure values are strings on the wire, matching TypeScript. Local Python client results keep native
-  values.
+- Non-null measure values are strings on the wire, matching TypeScript. So is a dimension integer beyond
+  ±(2^53 − 1), such as a `UInt64` id, which a JavaScript client would otherwise round. Local Python client results keep
+  native values.
 
 ## Pagination
 

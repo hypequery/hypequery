@@ -13,6 +13,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { describeRelation } from './describe-relation.js';
 import { clickhouseToTsType } from './type-parsing.js';
 
 /**
@@ -51,18 +52,6 @@ interface GeneratedTypeDefinitions {
  */
 function capitalizeFirstLetter(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-async function describeTable(
-  client: TypeGenerationClickHouseClient,
-  tableName: string
-): Promise<Array<Record<string, string>>> {
-  const columnsQuery = await client.query({
-    query: `DESCRIBE TABLE ${tableName}`,
-    format: 'JSONEachRow',
-  });
-
-  return columnsQuery.json();
 }
 
 /**
@@ -109,9 +98,19 @@ async function buildTypeDefinitions(
  */
 export interface IntrospectedSchema {`;
 
+  // Describe each table once; parameterized views need a described call.
+  const described = new Map<string, Awaited<ReturnType<typeof describeRelation>>>();
+  for (const table of tables) {
+    described.set(table.name, await describeRelation(client, table.name));
+  }
+
   // Get columns for each table
   for (const table of tables) {
-    const columns = await describeTable(client, table.name);
+    const { columns, parameters } = described.get(table.name)!;
+    if (parameters) {
+      const signature = parameters.map(({ name, type }) => `${name}: ${type}`).join(', ');
+      typeDefinitions += `\n  /** Parameterized view: select from ${table.name}(${signature}). */`;
+    }
     typeDefinitions += `\n  ${table.name}: {`;
     for (const column of columns) {
       typeDefinitions += `\n    '${column.name}': ${JSON.stringify(column.type)};`;
@@ -124,7 +123,7 @@ export interface IntrospectedSchema {`;
   // Also generate a type-safe record type for each table
   typeDefinitions += `\n// Type-safe record types for each table\n`;
   for (const table of tables) {
-    const columns = await describeTable(client, table.name);
+    const { columns } = described.get(table.name)!;
 
     typeDefinitions += `export interface ${capitalizeFirstLetter(table.name)}Record {`;
     for (const column of columns) {

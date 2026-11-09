@@ -21,7 +21,8 @@ describe('generation telemetry reduction', () => {
     const observed = await generateTypeDefinitions(client, { includeUsageExample: false,
       onColumn: () => stats.column(), onUnsupportedType: type => stats.fallback(type) });
     expect(observed).toBe(plain);
-    expect(queries).toHaveLength(3);
+    // SHOW TABLES, then one DESCRIBE per table.
+    expect(queries).toHaveLength(2);
     expect(stats.snapshot()).toEqual({ column_count_bucket: '2-5', unsupported_type_count_bucket: '2-5', unsupported_type_families: ['AggregateFunction', 'Variant', 'unknown'] });
     expect(JSON.stringify(stats.snapshot())).not.toContain('PRIVATE');
     expect(await generateTypeDefinitions(client, { includeUsageExample: false, onColumn: () => { throw new Error('observer failed'); }, onUnsupportedType: () => { throw new Error('observer failed'); } })).toBe(plain);

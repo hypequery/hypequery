@@ -17,6 +17,18 @@ def _measure_value(value: ResultScalar) -> str | None:
     return serialize_protocol_number(value) if type(value) is float else str(value)
 
 
+#: The largest integer a JSON reader that parses numbers as binary64 (JavaScript) keeps exact.
+_MAX_SAFE_INTEGER = 2**53 - 1
+
+
+def _dimension_value(value: ResultScalar) -> ResultScalar:
+    # A wider integer (an Int64 or UInt64 id) would round in JavaScript, so it
+    # travels as a string, as TypeScript serve sends ClickHouse's 64-bit integers.
+    if type(value) is int and not -_MAX_SAFE_INTEGER <= value <= _MAX_SAFE_INTEGER:
+        return str(value)
+    return value
+
+
 def public_response(
     result: DatasetQueryResult, request_id: str, include_meta: bool, measures: Collection[str]
 ) -> QueryResponse:
@@ -42,9 +54,16 @@ def public_response(
 def public_rows(
     rows: Iterable[Mapping[str, ResultScalar]], measures: Collection[str]
 ) -> list[dict[str, ResultScalar]]:
-    """*rows* as the shared HTTP wire carries them: every non-null measure a string."""
+    """*rows* as the shared HTTP wire carries them.
+
+    Every non-null measure is a string, and so is a dimension integer beyond
+    ±(2**53 - 1), which a JavaScript client would otherwise round.
+    """
 
     return [
-        {name: _measure_value(value) if name in measures else value for name, value in row.items()}
+        {
+            name: _measure_value(value) if name in measures else _dimension_value(value)
+            for name, value in row.items()
+        }
         for row in rows
     ]

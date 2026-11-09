@@ -474,6 +474,12 @@ export interface ServeEndpoint<
   >[];
   auth?: AuthStrategy<TAuth> | null;
   tenant?: TenantConfigOverride<TAuth>;
+  /**
+   * Skips tenant resolution. Set on the built-in endpoints that describe the
+   * API (OpenAPI document, docs page, semantic contract): they read no tenant
+   * data, so a required tenant must not turn them into 403s.
+   */
+  tenantIndependent?: boolean;
   metadata: EndpointMetadata;
   cacheTtlMs?: number | null;
   defaultHeaders?: Record<string, string>;

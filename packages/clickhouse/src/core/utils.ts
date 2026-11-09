@@ -1,3 +1,4 @@
+import { dateToSqlExpression } from './utils/date-literal.js';
 import { splitSqlPlaceholders } from './utils/sql-parens.js';
 
 export function escapeValue(value: unknown): string {
@@ -16,10 +17,7 @@ export function escapeValue(value: unknown): string {
     const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "''");
     return `'${escaped}'`;
   } else if (value instanceof Date) {
-    if (!Number.isFinite(value.getTime())) {
-      throw new Error('Cannot render an invalid Date as a SQL parameter');
-    }
-    return `'${value.toISOString()}'`;
+    return dateToSqlExpression(value);
   } else {
     const serialized = JSON.stringify(value);
     if (serialized === undefined) {

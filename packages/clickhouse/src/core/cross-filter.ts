@@ -70,18 +70,9 @@ export class CrossFilter<
       );
     }
 
-    // Convert Date objects to ISO strings for ClickHouse
-    let value = condition.value;
-    if (Array.isArray(value)) {
-      value = value.map(v => v instanceof Date ? v.toISOString() : v) as typeof value;
-    } else if (value instanceof Date) {
-      value = value.toISOString() as unknown as typeof value;
-    }
-
-    this.rootGroup.conditions.push({
-      ...condition,
-      value
-    });
+    // Dates stay Date objects: the SQL renderer turns them into a UTC
+    // DateTime expression, which ClickHouse accepts for sorting-key columns.
+    this.rootGroup.conditions.push({ ...condition });
     return this;
   }
 

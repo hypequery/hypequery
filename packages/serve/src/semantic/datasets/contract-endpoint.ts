@@ -47,6 +47,7 @@ export function createSemanticContractEndpoint(
   let cached: SemanticContract | null = null;
   return {
     key: '__hypequery_semantic_contract__',
+    tenantIndependent: true,
     method: 'GET',
     inputSchema: undefined,
     outputSchema: z.any(),

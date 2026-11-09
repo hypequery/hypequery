@@ -49,10 +49,12 @@ export function createReadonlyIntegerJsonError(
 
   return new Error(
     `ClickHouse rejected HypeQuery's precision-safe setting (${QUOTE_64BIT}=1) ` +
-    `because this connection uses readonly = 1. Set ` +
-    `integerJsonEncoding: 'server-default' in the HypeQuery adapter or query-builder ` +
-    `configuration to omit it. The server may then return Int64 and wider values as ` +
-    `JSON numbers, which lose precision beyond 2^53.`,
+    `because this connection uses readonly = 1, whose profile does not already set it. ` +
+    `To keep Int64 and wider values exact, either add ${QUOTE_64BIT} = 1 to the ` +
+    `user's settings profile (readonly = 1 accepts a setting that matches the profile) ` +
+    `or use readonly = 2. Otherwise set integerJsonEncoding: 'server-default' in the ` +
+    `HypeQuery adapter or query-builder configuration to omit it; the server may then ` +
+    `return Int64 and wider values as JSON numbers, which lose precision beyond 2^53.`,
     { cause: error },
   );
 }
