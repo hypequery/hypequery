@@ -1,10 +1,10 @@
 ---
-title: "Embedded Analytics with ClickHouse: A Practical Guide to Multi-Tenant Dashboards"
+title: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
 description: "How to build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed tenant-scoped API, dashboard performance, quotas, and tenant offboarding."
-seoTitle: "Multi-Tenant Embedded Analytics with ClickHouse"
-seoDescription: "Build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed API, quotas and offboarding."
+seoTitle: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+seoDescription: "Multi-tenant embedded analytics architecture on ClickHouse: shared tables, row policies plus app-side tenant scoping, a typed API, quotas, fast dashboards."
 pubDate: 2026-04-30
-updated: 2026-11-08
+updated: 2026-11-09
 heroImage: ""
 slug: embedded-analytics-clickhouse-multi-tenant-dashboards
 status: published
@@ -34,7 +34,37 @@ Both. App-side scoping knows who the user is and which workspace or role they ha
 
 ### What does a multi-tenant embedded analytics architecture look like?
 
-One shared ClickHouse table per event type, one read-only database user with a tenant row policy, and one typed API layer that injects the tenant into every query. The [reference architecture](#a-reference-architecture) puts it together.
+One shared ClickHouse table per event type, one read-only database user with a tenant row policy, and one typed API layer that injects the tenant into every query. The [architecture section](#multi-tenant-embedded-analytics-architecture) shows each layer.
+
+## Multi-Tenant Embedded Analytics Architecture
+
+A multi-tenant embedded analytics stack on ClickHouse has four layers, and each one has a single job:
+
+1. **Storage.** One shared table per event type, with `tenant_id` first in the sort key, so a tenant's query reads only that tenant's part of the data. See [the schema that scales](#the-schema-that-scales).
+2. **Database guard.** A read-only role with a row policy that reads the tenant from a per-query setting, plus settings profiles and keyed quotas per plan tier, so a bug or a heavy tenant can't reach other tenants' rows or starve them. See [row-level security done right](#row-level-security-done-right) and [resource isolation](#resource-isolation-and-noisy-neighbors).
+3. **API layer.** The server resolves the tenant from the verified session and injects the tenant filter into every query in one place; datasets reject queries that would bypass the tenant key. See [enforcing tenancy at plan time](#enforcing-tenancy-at-plan-time-with-datasets).
+4. **Dashboard.** React components call typed endpoints. The browser never sends SQL or a tenant id. See [a typed analytics API](#a-typed-analytics-api-for-your-dashboards).
+
+```text
+Next.js App Router
+  └── app/api/analytics/[...path]/route.ts
+        └── createFetchHandler(api.handler)
+              └── serve({ tenant: { extract, column: 'tenant_id' } })
+                    ├── auth: session → { userId, tenantId }
+                    ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
+                    ├── datasets: tenantKey enforced at plan time
+                    └── .settings({ SQL_tenant_id, quota_key })
+
+ClickHouse
+  ├── events: ORDER BY (tenant_id, event_time, event_id)
+  ├── projection: (tenant_id, hour, event_type) → count()
+  ├── row policy: tenant_id = getSetting('SQL_tenant_id')
+  ├── role settings: SQL_tenant_id CHANGEABLE_IN_READONLY
+  ├── settings profile per plan tier
+  └── quota KEYED BY client_key
+```
+
+The rest of this guide builds each layer, in that order.
 
 ---
 
@@ -517,29 +547,6 @@ WHERE type = 'QueryFinish'
   AND event_date >= today() - 30
 GROUP BY tenant_id
 ORDER BY rows_read DESC;
-```
-
----
-
-## A Reference Architecture
-
-```text
-Next.js App Router
-  └── app/api/analytics/[...path]/route.ts
-        └── createFetchHandler(api.handler)
-              └── serve({ tenant: { extract, column: 'tenant_id' } })
-                    ├── auth: session → { userId, tenantId }
-                    ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
-                    ├── datasets: tenantKey enforced at plan time
-                    └── .settings({ SQL_tenant_id, quota_key })
-
-ClickHouse
-  ├── events: ORDER BY (tenant_id, event_time, event_id)
-  ├── projection: (tenant_id, hour, event_type) → count()
-  ├── row policy: tenant_id = getSetting('SQL_tenant_id')
-  ├── role settings: SQL_tenant_id CHANGEABLE_IN_READONLY
-  ├── settings profile per plan tier
-  └── quota KEYED BY client_key
 ```
 
 ---
