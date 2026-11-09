@@ -169,6 +169,77 @@ describe('streamed response observability', () => {
     }
   });
 
+  it('does not let a slow end hook run a finished stream into the idle timeout', async () => {
+    let hookDone = false;
+    const onRequestEnd = vi.fn(async (_event: RequestEndEvent) => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      hookDone = true;
+    });
+    const api = defineServe({
+      basePath: '',
+      hooks: { onRequestEnd },
+      queries: {
+        lines: {
+          query: async () => streamBody(new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('a\nb\n'));
+              controller.close();
+            },
+          }), 'application/x-ndjson'),
+        },
+      },
+    });
+    api.route('/lines', api.queries.lines);
+    const started = await startNodeServer(api.handler, {
+      port: 0, hostname: '127.0.0.1', quiet: true, streamIdleTimeout: 50,
+    });
+    try {
+      const { port } = started.server.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/lines`);
+      // The download completes before the hook does.
+      expect(await response.text()).toBe('a\nb\n');
+      expect(hookDone).toBe(false);
+      expect(onRequestEnd.mock.calls[0]![0].stream?.outcome).toBe('completed');
+      await vi.waitFor(() => expect(hookDone).toBe(true));
+    } finally {
+      await started.stop();
+    }
+  });
+
+  it('logs a stream opened after the request timed out with the 504 the client got', async () => {
+    const onError = vi.fn<(event: RequestErrorEvent) => void>();
+    const api = defineServe({
+      basePath: '',
+      hooks: { onError },
+      queries: {
+        late: {
+          query: async () => {
+            await new Promise(resolve => setTimeout(resolve, 80));
+            return streamBody(new ReadableStream<Uint8Array>(), 'application/x-ndjson');
+          },
+        },
+      },
+    });
+    api.route('/late', api.queries.late);
+    const events: ServeQueryEvent[] = [];
+    api.queryLogger.on(event => events.push(event));
+    const started = await startNodeServer(api.handler, {
+      port: 0, hostname: '127.0.0.1', quiet: true, requestTimeout: 20,
+    });
+    try {
+      const { port } = started.server.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/late`);
+      expect(response.status).toBe(504);
+      await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      expect((onError.mock.calls[0]![0].error as Error).name).toBe('StreamTimeoutError');
+      const logged = events.at(-1)!;
+      expect(logged.status).toBe('error');
+      expect(logged.responseStatus).toBe(504);
+    } finally {
+      await started.stop();
+    }
+  });
+
   it('reports a stream the client abandoned as cancelled', async () => {
     const { api, onRequestEnd, onError, events, request } = setup();
     const response = await api.handler(request('application/x-ndjson'));

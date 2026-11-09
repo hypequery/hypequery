@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isServeStreamBody, type ServeStreamBody } from './utils/stream-body.js';
 import { observeStreamBody } from './utils/observe-stream-body.js';
+import { isStreamTimeoutError } from './utils/stream-timeout.js';
 import { mergeResponseHeaders } from './utils/response-headers.js';
 
 import type {
@@ -602,11 +603,7 @@ export const executeEndpoint = async <
           stream,
         };
         const failed = outcome === 'failed';
-        if (failed) {
-          await safeInvokeHook('onError', hooks.onError, { ...event, error });
-        } else {
-          await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, { ...event, result: body });
-        }
+        // Logged first, synchronously: the stream does not wait for the hooks.
         if (queryLogger?.listenerCount ?? 0 > 0) {
           queryLogger?.emit({
             requestId,
@@ -618,13 +615,19 @@ export const executeEndpoint = async <
             endTime: startedAt + durationMs,
             durationMs,
             input: context.input,
-            // The status the client received, sent before the stream began.
-            responseStatus: 200,
+            // The status the client received: the stream's 200, or the 504 the
+            // adapter sent before a stream that opened too late was cancelled.
+            responseStatus: isStreamTimeoutError(error) && error.kind === 'request' ? 504 : 200,
             ...(failed
               ? { error: error instanceof Error ? error : new Error(String(error)) }
               : { result: body }),
             stream,
           });
+        }
+        if (failed) {
+          await safeInvokeHook('onError', hooks.onError, { ...event, error });
+        } else {
+          await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, { ...event, result: body });
         }
       });
       return { status: 200, headers, body } satisfies ServeResponse;

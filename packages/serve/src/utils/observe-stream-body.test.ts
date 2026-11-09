@@ -65,4 +65,28 @@ describe('observeStreamBody', () => {
     });
     expect((await new Response(observed.stream).arrayBuffer()).byteLength).toBe(1);
   });
+
+  it('does not wait for a slow reporter before ending the stream', async () => {
+    const onSettled = vi.fn(() => new Promise<void>(() => undefined));
+    const observed = observeStreamBody(streamBody(chunks(4), 'application/x-test'), onSettled);
+    expect((await new Response(observed.stream).arrayBuffer()).byteLength).toBe(4);
+    expect(onSettled).toHaveBeenCalledWith({ outcome: 'completed', bytes: 4 });
+  });
+
+  it('reports an absorbed failure as failed when the client cancels after reading the error frame', async () => {
+    let failure: unknown;
+    const absorbed = new Error('query failed');
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(2));
+        failure = absorbed;
+      },
+    });
+    const onSettled = vi.fn<(settlement: StreamSettlement) => void>();
+    const observed = observeStreamBody(streamBody(source, 'application/x-test', { failure: () => failure }), onSettled);
+    const reader = observed.stream.getReader();
+    await reader.read();
+    await reader.cancel();
+    expect(onSettled).toHaveBeenCalledWith({ outcome: 'failed', bytes: 2, error: absorbed });
+  });
 });

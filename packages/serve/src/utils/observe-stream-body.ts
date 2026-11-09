@@ -11,10 +11,13 @@ export interface StreamSettlement {
 
 /**
  * *body* with a stream that calls *onSettled* exactly once, when the stream
- * ends, fails, or is cancelled, before the reader sees that end. A failure
- * the body absorbed in-band (its `failure`) counts as `failed`, as does a
- * cancellation whose reason is a stream timeout. Chunks pass through unchanged
- * and are pulled only when the reader asks, so backpressure is preserved.
+ * ends, fails, or is cancelled. It is called before the reader sees that end
+ * but never waited for: a slow reporter must not hold the response open (and
+ * so run it into a stream timeout). A failure the body absorbed in-band (its
+ * `failure`) counts as `failed`, even when the client cancels after reading
+ * the error frame, as does a cancellation whose reason is a stream timeout.
+ * Chunks pass through unchanged and are pulled only when the reader asks, so
+ * backpressure is preserved.
  */
 export function observeStreamBody(
   body: ServeStreamBody,
@@ -25,14 +28,22 @@ export function observeStreamBody(
   let settled = false;
   let cancelled = false;
 
-  const settle = async (outcome: ServeStreamOutcome, error?: unknown) => {
+  const settle = (outcome: ServeStreamOutcome, error?: unknown) => {
     if (settled) return;
     settled = true;
     try {
-      await onSettled(outcome === 'failed' ? { outcome, bytes, error } : { outcome, bytes });
+      const reported = onSettled(outcome === 'failed' ? { outcome, bytes, error } : { outcome, bytes });
+      // Reporting must never break the response.
+      void Promise.resolve(reported).catch(() => undefined);
     } catch {
       // Reporting must never break the response.
     }
+  };
+  /** Settles on what the body itself recorded, if anything, else on *fallback*. */
+  const settleWithAbsorbed = (fallback: ServeStreamOutcome, fallbackError?: unknown) => {
+    const absorbed = body.failure?.();
+    if (absorbed !== undefined) settle('failed', absorbed);
+    else settle(fallback, fallbackError);
   };
 
   const stream = new ReadableStream<Uint8Array>({
@@ -41,15 +52,14 @@ export function observeStreamBody(
       try {
         chunk = await reader.read();
       } catch (error) {
-        await settle('failed', error);
+        settle('failed', error);
         if (!cancelled) controller.error(error);
         return;
       }
       if (cancelled) return;
       if (chunk.done) {
-        const absorbed = body.failure?.();
-        await settle(absorbed === undefined ? 'completed' : 'failed', absorbed);
-        if (!cancelled) controller.close();
+        settleWithAbsorbed('completed');
+        controller.close();
         return;
       }
       bytes += chunk.value.byteLength;
@@ -57,10 +67,9 @@ export function observeStreamBody(
     },
     async cancel(reason) {
       cancelled = true;
-      await Promise.all([
-        reader.cancel(reason).catch(() => undefined),
-        isStreamTimeoutError(reason) ? settle('failed', reason) : settle('cancelled'),
-      ]);
+      if (isStreamTimeoutError(reason)) settle('failed', reason);
+      else settleWithAbsorbed('cancelled');
+      await reader.cancel(reason).catch(() => undefined);
     },
   }, { highWaterMark: 0 });
 
