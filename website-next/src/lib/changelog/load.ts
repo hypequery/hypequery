@@ -10,8 +10,9 @@ import { parseChangelog, releaseBump, type ParsedRelease, type ReleaseBump } fro
 // Production reads the CHANGELOG.md files from `main` on GitHub, so a release
 // shows up on the site within the revalidation window of the "chore: release"
 // commit landing, whether or not that commit triggers a website deploy. The
-// files in this checkout are the fallback (and the source in `next dev`, so
-// local edits preview immediately). Publish times come from the npm registry.
+// files in this checkout are the build-time fallback (and the source in
+// `next dev`, so local edits preview immediately). Publish times come from the
+// npm registry. A failed runtime refresh throws so the last good result stays.
 //
 // Everything is fetched inside `unstable_cache`, which keeps the multi-MB npm
 // documents out of the 2MB-per-entry fetch cache; only the parsed result is
@@ -45,14 +46,23 @@ function readLocal(pkg: ChangelogPackage): Promise<string> {
   return readFile(path.join(process.cwd(), '..', pkg.changelogPath), 'utf8');
 }
 
+/**
+ * The CHANGELOG.md text for a package: GitHub `main` in production, the local
+ * checkout in `next dev`.
+ *
+ * The local files are only as new as the last deploy, so at runtime they can
+ * be older than the cached result; refreshing from them would drop newer
+ * releases. A runtime GitHub failure therefore throws, and `unstable_cache`
+ * keeps serving the last good result. `next build` has no earlier result, so
+ * there it falls back to the checkout.
+ */
 async function readChangelogSource(pkg: ChangelogPackage): Promise<string> {
   if (process.env.NODE_ENV === 'development') return readLocal(pkg);
   try {
     return await fetchText(`https://raw.githubusercontent.com/${REPOSITORY}/${SOURCE_BRANCH}/${pkg.changelogPath}`);
-  } catch {
-    // Throws if neither source is reachable, so a failed revalidation keeps
-    // serving the previous page instead of an empty changelog.
-    return readLocal(pkg);
+  } catch (error) {
+    if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) return readLocal(pkg);
+    throw error;
   }
 }
 
