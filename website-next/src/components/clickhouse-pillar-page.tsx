@@ -7,6 +7,7 @@ import { DeployWaitlist } from '@/components/home/DeployWaitlist';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand, type Language } from '@/components/home/SetupCommand';
 import { marketing } from '@/components/ui/marketing';
+import { faqPageSchema, type FaqItem } from '@/lib/faq-schema';
 
 type LinkItem = {
   href: string;
@@ -37,6 +38,15 @@ type CodePanel = {
   filename?: string;
   /** Highlighting language. Defaults to the page language; set 'bash' or 'tsx' for other snippets. */
   language?: string;
+};
+
+/** A numbered, copy-paste quickstart rendered right under the hero. */
+type Quickstart = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  steps: Array<{ title: string; description: string; code: string; filename: string; language?: string }>;
+  footnote?: string;
 };
 
 const EXTENSIONS: Record<Language, string> = { typescript: 'ts', python: 'py' };
@@ -83,11 +93,19 @@ export type ClickhousePillarPageProps = {
   /** Which SDK the setup command shows first. Python pages pass 'python'. */
   language?: Language;
   stats?: Stat[];
+  quickstart?: Quickstart;
   problems: Card[];
   solutionSection: Section;
   implementationSection: Section;
   comparisonTable?: ComparisonTable;
+  /** Honest list of situations where the other tool is the better choice. */
+  chooseAlternative?: {
+    title: string;
+    bullets: string[];
+  };
   searchIntentCards: Card[];
+  /** Rendered as an FAQ section with matching FAQPage structured data. */
+  faq?: FaqItem[];
   readingLinks: ReadingLink[];
   relatedPillars: LinkItem[];
   nextStep: {
@@ -107,17 +125,23 @@ export function ClickhousePillarPage({
   secondaryCta,
   language = 'typescript',
   stats,
+  quickstart,
   problems,
   solutionSection,
   implementationSection,
   comparisonTable,
+  chooseAlternative,
   searchIntentCards,
+  faq,
   readingLinks,
   relatedPillars,
   nextStep,
 }: ClickhousePillarPageProps) {
   return (
     <>
+      {faq && faq.length > 0 ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faq)) }} />
+      ) : null}
       <Navigation />
       <main className="min-h-screen bg-bg pt-[62px] text-text">
         <section className="border-b border-border">
@@ -163,6 +187,44 @@ export function ClickhousePillarPage({
             )}
           </div>
         </section>
+
+        {quickstart ? (
+          <section id="quickstart" className="border-b border-border">
+            <div className={`${marketing.container} py-14 sm:py-20`}>
+              <p className={marketing.eyebrow}>{quickstart.eyebrow}</p>
+              <h2 className="mt-3 max-w-[820px] text-3xl font-normal tracking-[-0.03em] text-text sm:text-4xl">
+                <RichText text={quickstart.title} />
+              </h2>
+              <p className="mt-4 max-w-[760px] text-sm leading-6 text-text-muted sm:text-base">
+                <RichText text={quickstart.description} />
+              </p>
+              <ol className="mt-10 grid gap-6 lg:grid-cols-2">
+                {quickstart.steps.map((step, index) => (
+                  <li key={step.title} className={marketing.card}>
+                    <p className="font-mono text-xs text-text-dim">Step {index + 1}</p>
+                    <h3 className={`mt-3 ${marketing.cardTitle}`}>
+                      <RichText text={step.title} />
+                    </h3>
+                    <p className="mt-3 text-sm leading-6 text-text-muted">
+                      <RichText text={step.description} />
+                    </p>
+                    <CodeWindow
+                      code={step.code}
+                      filename={step.filename}
+                      language={step.language ?? language}
+                      className="mt-4"
+                    />
+                  </li>
+                ))}
+              </ol>
+              {quickstart.footnote ? (
+                <p className="mt-6 max-w-[760px] text-sm leading-6 text-text-muted">
+                  <RichText text={quickstart.footnote} />
+                </p>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-6 lg:grid-cols-3">
@@ -312,6 +374,22 @@ export function ClickhousePillarPage({
           </section>
         ) : null}
 
+        {chooseAlternative ? (
+          <section className={`${marketing.container} pb-14 sm:pb-20`}>
+            <div className="rounded-xl border border-border-strong bg-bg-card p-6 shadow-card sm:p-8">
+              <h2 className={marketing.sectionTitle}>{chooseAlternative.title}</h2>
+              <ul className="mt-6 space-y-3">
+                {chooseAlternative.bullets.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm leading-6 text-text-muted">
+                    <span aria-hidden="true" className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                    <span><RichText text={item} /></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
+
         <section className={marketing.band}>
           <div className={`${marketing.container} py-14 sm:py-20`}>
             <p className="font-mono text-xs text-text-dim">
@@ -330,6 +408,21 @@ export function ClickhousePillarPage({
             </div>
           </div>
         </section>
+
+        {faq && faq.length > 0 ? (
+          <section className={`${marketing.container} pt-14 sm:pt-20`}>
+            <p className={marketing.eyebrow}>FAQ</p>
+            <h2 className={`mt-3 ${marketing.sectionTitle}`}>Frequently asked questions</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {faq.map((item) => (
+                <div key={item.question} className={marketing.card}>
+                  <h3 className={marketing.cardTitle}>{item.question}</h3>
+                  <p className="mt-3 text-sm leading-6 text-text-muted">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
           <div className="grid gap-10 lg:grid-cols-[0.65fr_0.35fr]">

@@ -60,3 +60,30 @@ describe('rawQuery helper', () => {
     );
   });
 });
+
+describe('raw stream helpers', () => {
+  it('rawStream delegates to the adapter stream', async () => {
+    const rows = new ReadableStream<{ id: number }[]>();
+    const streamMock = vi.fn().mockResolvedValue(rows);
+    const db = createQueryBuilder<TestSchema>({ adapter: { ...testAdapter, stream: streamMock } });
+
+    await expect(db.rawStream('SELECT id FROM users WHERE id = ?', [1], { queryId: 'q' })).resolves.toBe(rows);
+    expect(streamMock).toHaveBeenCalledWith('SELECT id FROM users WHERE id = ?', [1], { queryId: 'q' });
+  });
+
+  it('rawArrowStream delegates to the adapter Arrow stream', async () => {
+    const bytes = new ReadableStream<Uint8Array>();
+    const streamArrowMock = vi.fn().mockResolvedValue(bytes);
+    const db = createQueryBuilder<TestSchema>({ adapter: { ...testAdapter, streamArrow: streamArrowMock } });
+
+    await expect(db.rawArrowStream('SELECT id FROM users')).resolves.toBe(bytes);
+    expect(streamArrowMock).toHaveBeenCalledWith('SELECT id FROM users', [], undefined);
+  });
+
+  it('names the adapter when it cannot stream', async () => {
+    const db = createQueryBuilder<TestSchema>({ adapter: testAdapter });
+
+    await expect(db.rawStream('SELECT 1')).rejects.toThrow('Streaming is not supported by adapter "test".');
+    await expect(db.rawArrowStream('SELECT 1')).rejects.toThrow('Arrow streaming is not supported by adapter "test".');
+  });
+});

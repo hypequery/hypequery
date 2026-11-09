@@ -120,7 +120,7 @@ whereas that's a query builder's home turf. ORMs treat aggregation as an escape 
 
 **3. Denormalized tables, not relation graphs.** ORMs shine at traversing normalized schemas via foreign keys. ClickHouse best practice pushes the opposite way: wide, denormalized tables so queries scan one table instead of joining five. There's no foreign-key graph for an ORM to model. Joins exist and hypequery supports them (`.leftJoin()`, `.innerJoin()`), but they're a query decision, not a schema-level relationship an ORM should own.
 
-This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and Drizzle's relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/prisma-clickhouse).
+This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and Drizzle's relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/clickhouse-orm).
 
 ## Where hypequery sits — and what it deliberately isn't
 
@@ -182,6 +182,6 @@ The mistake to avoid is dragging the ORM abstraction across the boundary — for
 ## Where to go from here
 
 - [ClickHouse ORM: what exists and what to use instead](/clickhouse-orm) — the full landscape of ORM-ish options for ClickHouse
-- [Does ClickHouse have an ORM?](/blog/does-clickhouse-have-an-orm) — the direct answer to the adjacent question
+- [Does ClickHouse have an ORM?](/clickhouse-orm) — the direct answer to the adjacent question
 - [hypequery vs Kysely](/compare/hypequery-vs-kysely) — if you're weighing general-purpose query builders
 - [Quick start](/docs/quick-start) — generate types from your schema and run a typed query in minutes

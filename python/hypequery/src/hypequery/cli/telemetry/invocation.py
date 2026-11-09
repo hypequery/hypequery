@@ -16,6 +16,7 @@ _TOP_LEVEL = {
     "export": "export:client-contract",
     "mcp": "mcp",
     "skill": "skill",
+    "demo": "demo",
     "help": "help",
     "telemetry": "telemetry",
 }
@@ -46,6 +47,7 @@ _VALUE_FLAGS = {
     "--resource",
     "--authorization-servers",
     "--required-scopes",
+    "--tenant",
 }
 
 
@@ -113,6 +115,7 @@ _HELP_TOPICS = (
     "export:client-contract",
     "mcp",
     "skill",
+    "demo",
     "telemetry",
 )
 

@@ -224,6 +224,7 @@
             "generate:datasets",
             "generate:manifest",
             "generate:client",
+            "export:client-contract",
             "login",
             "logout",
             "deploy",
@@ -285,6 +286,7 @@
             "--project",
             "--environment",
             "--endpoint",
+            "--stdout",
             "--cloud-url",
             "--bundle-output",
             "--release-output",
@@ -886,6 +888,7 @@
             "optional": true
           }
         },
+        "export:client-contract": {},
         "login": {},
         "logout": {},
         "deploy": {},
@@ -912,6 +915,7 @@
               "generate:datasets",
               "generate:manifest",
               "generate:client",
+              "export:client-contract",
               "login",
               "logout",
               "deploy",
@@ -944,6 +948,7 @@
               "generate:datasets",
               "generate:manifest",
               "generate:client",
+              "export:client-contract",
               "login",
               "logout",
               "deploy",
@@ -1468,6 +1473,7 @@
             "generate:datasets",
             "generate:manifest",
             "generate:client",
+            "export:client-contract",
             "login",
             "logout",
             "deploy",
@@ -1605,6 +1611,12 @@
       "--project",
       "--environment",
       "--endpoint"
+    ],
+    "export:client-contract": [
+      "--output",
+      "--stdout",
+      "--check",
+      "--force"
     ],
     "login": [
       "--cloud-url",
@@ -1877,6 +1889,7 @@
               "export:client-contract",
               "mcp",
               "skill",
+              "demo",
               "help",
               "version",
               "unknown"
@@ -1912,6 +1925,7 @@
               "--print-config",
               "--agent",
               "--scope",
+              "--tenant",
               "--no-telemetry",
               "--help",
               "--version",
@@ -1979,6 +1993,28 @@
               "kind": "boolean",
               "description": "How much onboarding is guided?",
               "optional": true
+            },
+            "stage_reached": {
+              "kind": "enum",
+              "description": "Where does onboarding stop?",
+              "values": [
+                "started",
+                "connection_tested",
+                "framework_selected",
+                "confirmed",
+                "completed"
+              ],
+              "optional": true
+            },
+            "connection_result": {
+              "kind": "enum",
+              "description": "Where does connection setup fail?",
+              "values": [
+                "ok",
+                "failed",
+                "skipped"
+              ],
+              "optional": true
             }
           },
           "dev": {},
@@ -1986,6 +2022,7 @@
           "export:client-contract": {},
           "mcp": {},
           "skill": {},
+          "demo": {},
           "help": {
             "help_topic": {
               "kind": "enum",
@@ -1998,6 +2035,7 @@
                 "export:client-contract",
                 "mcp",
                 "skill",
+                "demo",
                 "telemetry"
               ],
               "optional": true
@@ -2015,6 +2053,7 @@
                 "export:client-contract",
                 "mcp",
                 "skill",
+                "demo",
                 "help",
                 "telemetry"
               ],
@@ -2080,6 +2119,11 @@
         "--scope",
         "--force",
         "--check"
+      ],
+      "demo": [
+        "--tenant",
+        "--self-test",
+        "--print-config"
       ],
       "help": [],
       "version": [],

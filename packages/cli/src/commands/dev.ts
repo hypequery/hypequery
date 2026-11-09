@@ -9,6 +9,8 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { getTableCount } from '../utils/detect-database.js';
+import { describeConnectionError } from '../utils/connection-error.js';
+import { resolveDevRoutePaths } from '../utils/dev-route-paths.js';
 import { loadApiModule } from '../utils/load-api.js';
 
 /**
@@ -110,9 +112,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       } catch (error) {
         // Log but don't fail - table count is optional
         dbSpinner.warn('Could not connect to ClickHouse');
-        if (error instanceof Error) {
-          logger.indent(`Reason: ${error.message}`);
-        }
+        logger.indent(`Reason: ${describeConnectionError(error)}`);
       }
 
       // Count queries
@@ -137,12 +137,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const hostname = options.hostname || 'localhost';
       const baseUrl = `http://${hostname}:${port}`;
 
-      const docsPath = api.docs?.path ?? '/docs';
-      const openapiPath = api.openapi?.path ?? '/openapi.json';
+      const routePaths = resolveDevRoutePaths(api);
 
       const boxLines = [
-        `Docs:     ${baseUrl}${api.basePath ?? ''}${docsPath}`,
-        `OpenAPI:  ${baseUrl}${api.basePath ?? ''}${openapiPath}`,
+        `Docs:     ${baseUrl}${routePaths.docs}`,
+        `OpenAPI:  ${baseUrl}${routePaths.openapi}`,
       ];
       logger.box(boxLines);
 

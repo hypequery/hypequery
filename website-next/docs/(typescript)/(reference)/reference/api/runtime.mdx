@@ -8,8 +8,6 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 
-# Serve Runtime Reference
-
 Use `serve(config)` to turn query definitions into an exported runtime surface.
 
 <CodeBlock>
@@ -37,7 +35,7 @@ export const api = serve({
     },
     datasets: {
       type: 'Record<string, DatasetEntry>',
-      description: 'Semantic datasets. Each generates `POST /datasets/:name/query`. Entry is a dataset instance or `{ dataset, auth, requiredRoles, requiredScopes, cache, maxLimit, middlewares, tenant }`.',
+      description: 'Semantic datasets. Each generates `POST /datasets/:name/query`. Entry is a dataset instance or `{ dataset, auth, requiredRoles, requiredScopes, cache, maxLimit, stream, middlewares, tenant }`. `stream: true | { maxRows }` lets the endpoint stream NDJSON or Arrow when a request asks with `Accept`.',
     },
     queryBuilder: {
       type: 'QueryBuilderFactoryLike',
@@ -182,6 +180,8 @@ const server = await api.start({ port: 4000 });
 - `signal`
 - `quiet`
 - `requestTimeout`
+- `streamIdleTimeout`: how long a streamed response may send nothing before it is stopped (defaults to `requestTimeout`; `0` disables)
+- `streamTimeout`: the total time a streamed response may run once it has opened (default `0`, no limit)
 - `bodyLimit`
 - `gracefulShutdownTimeout`
 
@@ -211,6 +211,12 @@ const manifest = api.manifest();
 //   'dataset:orders': { method: 'POST', path: '/api/analytics/datasets/orders/query' }, ... }
 ```
 </CodeBlock>
+
+### `api.clientContract()`
+
+Returns the build view of the API's semantic client contract (RFC 0018) as `{ contract, canonical, contentHash }`: every dataset and measure-backed metric endpoint, with typed fields, full paths and schema hashes. Write `canonical` to a file, or use `hypequery export:client-contract`, and run `hypequery generate:client` on it to type React hooks in a frontend that can't import the API. Paths are `clientContract.mountPath` (set it in `createAPI` when the API is mounted below a prefix), then `basePath`, then the route. Each `datasets` and `metrics` key must be its dataset's or metric's own name, which is the endpoint's contract ID and React hook key; the export refuses one that isn't. Window and shift measures, relationship fields and fixed-grain metrics are not advertised yet.
+
+Requests to a dataset or metric endpoint that send its schema hash in `X-Hypequery-Client-Schema`, as generated clients do, are checked after authentication and before input validation. A stale hash, or any hash for an endpoint the contract cannot describe (such as a grained metric), gets `409 VALIDATION_ERROR` with `details.code: 'CLIENT_SCHEMA_CHANGED'`. A matching one runs under the contract's strict query profile. Requests without the header are served as before, and other routes, such as named queries, ignore the header, as Python serve does.
 
 ## `api.queries`
 

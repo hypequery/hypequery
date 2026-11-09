@@ -135,6 +135,15 @@ class RequestWork:
         with suppress(asyncio.CancelledError, Exception):
             task.result()
 
+    def track(self, task: asyncio.Task[Any]) -> None:
+        """Keep *task*, cleanup a request started on the loop, in this request's work.
+
+        A production slot is released only once it has finished, as for workers.
+        """
+
+        self.tasks.add(task)
+        task.add_done_callback(self._finished)
+
     async def drain(self) -> None:
         while self.tasks:
             pending = tuple(self.tasks)

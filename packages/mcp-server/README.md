@@ -1,6 +1,6 @@
-# @hypequery/mcp
+# @hypequery/mcp: governed ClickHouse MCP server
 
-A governed ClickHouse MCP server for AI agents.
+A ClickHouse MCP server for Claude Code, Cursor, Codex and other AI agents. Agents query the datasets and metrics you define, never raw SQL. Run it in five minutes against the public ClickHouse playground: [hypequery.com/clickhouse-mcp](https://hypequery.com/clickhouse-mcp#quickstart).
 
 `@hypequery/mcp` turns your hypequery datasets and metrics into Model Context Protocol tools for Claude, Cursor, and other MCP clients. Agents can discover and query approved analytics without receiving unrestricted SQL access or database credentials.
 

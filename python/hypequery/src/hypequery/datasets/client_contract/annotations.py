@@ -11,6 +11,7 @@ from ..derived_measures import DerivedMeasure
 from ..dimensions import Dimension
 from ..measures import Measure
 from ..registry import DatasetRegistry
+from ..time_measures import ShiftMeasure, WindowMeasure
 
 
 def annotation_text(value: str | None) -> str | None:
@@ -30,7 +31,7 @@ def annotation_list(values: tuple[str, ...] | None) -> list[str] | None:
 
 
 def field_annotation(
-    definition: Dimension | Measure | DerivedMeasure,
+    definition: Dimension | Measure | DerivedMeasure | WindowMeasure | ShiftMeasure,
 ) -> ClientFieldAnnotation | None:
     """Label, description and vocabulary; contracts drop the vocabulary for older consumers."""
     node: ClientFieldAnnotation = {}
@@ -59,7 +60,7 @@ def field_annotation(
 
 def _definition(
     dataset: Dataset, registry: DatasetRegistry | None, key: str, *, measure: bool
-) -> Dimension | Measure | DerivedMeasure | None:
+) -> Dimension | Measure | DerivedMeasure | WindowMeasure | ShiftMeasure | None:
     owner, field = dataset, key
     if "." in key:
         relation, field = key.split(".", 1)

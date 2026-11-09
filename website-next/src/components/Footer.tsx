@@ -20,6 +20,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
       { label: 'Compare', href: '/compare' },
+      { label: 'Changelog', href: '/changelog' },
     ],
   },
   {
@@ -34,6 +35,20 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse Django', href: '/clickhouse-django' },
       { label: 'ClickHouse Flask', href: '/clickhouse-flask' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
+    ],
+  },
+  {
+    // Hub pages that link on to the function reference, guides and comparisons,
+    // so every page passes crawlers a path to them.
+    title: 'Learn',
+    links: [
+      { label: 'ClickHouse functions', href: '/clickhouse/functions' },
+      { label: 'Materialized views guide', href: '/blog/a-guide-to-materialized-views-in-clickhouse' },
+      { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
+      { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
+      { label: 'Real-time analytics', href: '/clickhouse-real-time-analytics' },
+      { label: 'SaaS analytics', href: '/clickhouse-saas-analytics' },
+      { label: 'Product analytics', href: '/clickhouse-product-analytics' },
     ],
   },
   {

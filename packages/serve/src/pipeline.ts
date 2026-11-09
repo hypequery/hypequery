@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { isServeStreamBody, type ServeStreamBody } from './utils/stream-body.js';
+import { observeStreamBody } from './utils/observe-stream-body.js';
+import { isStreamTimeoutError } from './utils/stream-timeout.js';
+import { mergeResponseHeaders } from './utils/response-headers.js';
 
 import type {
   AuthContext,
@@ -20,8 +24,9 @@ import type {
   TenantConfigOverride,
   MaybePromise,
   ServeSchema,
+  ServeStreamInfo,
 } from './types.js';
-import { warnTenantMisconfiguration } from './tenant.js';
+import { resolveTenantMode, warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
 import { generateRequestId, validateCorrelationId } from './utils.js';
 import { withNoStoreErrorHeaders } from './utils/error-headers.js';
@@ -29,6 +34,8 @@ import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
 import { ServeHttpError } from './errors.js';
+import { checkClientSchema } from './utils/client-schema-precondition.js';
+import { clientResponse } from './semantic/datasets/utils/client-response-meta.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
@@ -504,7 +511,7 @@ export const executeEndpoint = async <
 
       if (tenantId) {
         context.tenantId = tenantId;
-        const mode = activeTenantConfig.mode ?? 'manual';
+        const mode = resolveTenantMode(activeTenantConfig);
         const column = activeTenantConfig.column;
         applySemanticTenantRuntime(context as Record<string, unknown> & { tenantId?: string }, {
           queryKey: endpoint.key,
@@ -518,12 +525,26 @@ export const executeEndpoint = async <
           queryKey: endpoint.key,
           hasTenantConfig: true,
           hasTenantId: false,
-          mode: activeTenantConfig.mode,
+          mode: resolveTenantMode(activeTenantConfig),
         });
       }
     }
 
-    if (inputCameFromQuery(request)) {
+    // Before input validation: a stale client must learn its schema changed,
+    // not that a field it was generated with no longer validates.
+    const clientSchema = checkClientSchema(endpoint.clientEndpoint, request.headers, context.input);
+    if (clientSchema.kind === 'refused') {
+      return createErrorResponse(
+        clientSchema.status,
+        clientSchema.error.type,
+        clientSchema.error.message,
+        clientSchema.error.details,
+        { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' },
+      );
+    }
+    if (clientSchema.kind === 'pinned') {
+      context.input = clientSchema.input;
+    } else if (inputCameFromQuery(request)) {
       context.input = coerceQueryInput(endpoint.inputSchema, context.input);
     }
 
@@ -549,15 +570,67 @@ export const executeEndpoint = async <
       ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
     ];
 
-    const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    const handled = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    const streamed = isServeStreamBody(handled);
+    // A streamed body goes out as produced; the client-contract envelope is for JSON pages.
+    const result = clientSchema.kind === 'pinned' && !streamed
+      ? clientResponse(handled, requestId, clientSchema.input)
+      : handled;
     const headers = withManagedTraceHeaders(endpoint.defaultHeaders, requestId, correlationId);
     // Authenticated and tenant-aware responses must never be shared by an
     // intermediary cache. Endpoint TTLs only opt public, tenant-independent
-    // responses into shared caching.
-    if (requiresAuth || authContext || activeTenantConfig) {
+    // responses into shared caching. A stream is one query's live result.
+    if (streamed || requiresAuth || authContext || activeTenantConfig) {
       headers['cache-control'] = 'no-store';
     } else if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
+    }
+
+    if (isServeStreamBody(result)) {
+      // The status goes out now, but the outcome is known only once the
+      // stream ends: report the end (or the failure) then, with its duration.
+      const openDurationMs = Date.now() - startedAt;
+      const body: ServeStreamBody = observeStreamBody(result, async ({ outcome, bytes, error }) => {
+        const durationMs = Date.now() - startedAt;
+        const stream: ServeStreamInfo = { outcome, bytes, openDurationMs };
+        const event = {
+          requestId,
+          queryKey: endpoint.key,
+          metadata: metadataWithAuth,
+          request,
+          auth: context.auth,
+          durationMs,
+          stream,
+        };
+        const failed = outcome === 'failed';
+        // Logged first, synchronously: the stream does not wait for the hooks.
+        if (queryLogger?.listenerCount ?? 0 > 0) {
+          queryLogger?.emit({
+            requestId,
+            endpointKey: endpoint.key,
+            path: endpoint.metadata.path ?? `/${endpoint.key}`,
+            method: request.method,
+            status: failed ? 'error' : 'completed',
+            startTime: startedAt,
+            endTime: startedAt + durationMs,
+            durationMs,
+            input: context.input,
+            // The status the client received: the stream's 200, or the 504 the
+            // adapter sent before a stream that opened too late was cancelled.
+            responseStatus: isStreamTimeoutError(error) && error.kind === 'request' ? 504 : 200,
+            ...(failed
+              ? { error: error instanceof Error ? error : new Error(String(error)) }
+              : { result: body }),
+            stream,
+          });
+        }
+        if (failed) {
+          await safeInvokeHook('onError', hooks.onError, { ...event, error });
+        } else {
+          await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, { ...event, result: body });
+        }
+      });
+      return { status: 200, headers, body } satisfies ServeResponse;
     }
 
     const durationMs = Date.now() - startedAt;
@@ -715,7 +788,7 @@ export const createServeHandler = <
         undefined,
         { 'x-request-id': requestId, ...traceHeaders },
       );
-      response.headers = { ...response.headers, ...corsHeaders };
+      response.headers = mergeResponseHeaders(response.headers, corsHeaders);
       return response;
     }
 
@@ -734,7 +807,7 @@ export const createServeHandler = <
 
     // Inject CORS headers into every response
     if (Object.keys(corsHeaders).length > 0) {
-      response.headers = { ...response.headers, ...corsHeaders };
+      response.headers = mergeResponseHeaders(response.headers, corsHeaders);
     }
 
     return response;

@@ -14,7 +14,7 @@ tags:
   - Migration
 ---
 
-MooseStack’s maintainers have announced that **MooseStack has reached end of life and is no longer actively maintained**. The repository is archived and read-only. Read the [official EOL statement on GitHub](https://github.com/514-labs/moosestack#readme).
+MooseStack’s maintainers have announced that **MooseStack has reached end of life and is no longer actively maintained**. Read the [official EOL statement on GitHub](https://github.com/514-labs/moosestack#readme).
 
 If you run MooseStack today, the important first move is not swapping one npm package for another. Moose covered several jobs—ClickHouse schema, streaming, workflows, query APIs, and a development harness—while hypequery deliberately focuses on the application-facing analytics layer.
 

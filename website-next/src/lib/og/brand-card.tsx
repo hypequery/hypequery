@@ -77,5 +77,8 @@ export function BrandCard({ title, eyebrow }: { title: string; eyebrow?: string 
 }
 
 export async function renderBrandImage(props: { title: string; eyebrow?: string }) {
-  return new ImageResponse(<BrandCard {...props} />, { ...OG_SIZE, fonts: await loadOgFonts() });
+  const fonts = await loadOgFonts();
+  // An empty `fonts` array replaces next/og's built-in font rather than falling
+  // back to it, so omit the option when the brand fonts could not be fetched.
+  return new ImageResponse(<BrandCard {...props} />, { ...OG_SIZE, ...(fonts.length > 0 && { fonts }) });
 }

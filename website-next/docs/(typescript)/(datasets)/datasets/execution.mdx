@@ -36,6 +36,8 @@ The dataset client exposes these methods:
 | `analytics.toSQL(target, query, context?)` | Inspect generated SQL without executing it |
 | `analytics.compileDataset(dataset, query, context?)` | Preview execution SQL, effective limits, dependencies, and preflight statements |
 | `analytics.execute(target, query, context?)` | Validate, generate SQL, execute, and return rows |
+| `analytics.stream(target, query, context?)` | Execute and receive rows in batches as ClickHouse sends them |
+| `analytics.streamArrow(target, query, context?)` | Execute and receive the result as an Arrow IPC stream |
 
 The `target` is a dataset. Handles from the older [Metrics](/docs/datasets/metrics) API are also accepted. `compileDataset` accepts datasets only and requires the query-builder execution path.
 
@@ -183,3 +185,80 @@ Pagination metadata is present when a query sets `limit`. hypequery over-fetches
 }
 ```
 </CodeBlock>
+
+## Stream large results
+
+`execute` holds the whole result in memory. For exports, notebooks and wide breakdowns, `stream` hands you rows in batches as ClickHouse sends them, so memory stays flat however many rows there are.
+
+<CodeBlock>
+```typescript
+import { createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+
+const { data, meta } = await analytics.stream(Orders, {
+  dimensions: ['country', 'status'],
+  measures: ['revenue', 'orderCount'],
+}, {
+  runtime: { tenant: 'tenant_123' },
+});
+
+// pipeline() waits for the file to keep up, so rows never pile up in memory.
+await pipeline(
+  Readable.from(data),
+  async function* (batches) {
+    for await (const rows of batches) {
+      for (const row of rows) yield `${JSON.stringify(row)}\n`;
+    }
+  },
+  createWriteStream('orders.ndjson'),
+);
+```
+</CodeBlock>
+
+Streams run the same query `execute` would: the same validation, tenant filter and row types. Their row ceiling is the dataset's `limits.maxResultSize`, unless it declares `limits.maxStreamRows`: streams keep memory flat, so an export can be allowed far more rows than a page or an agent. When the ceiling bounds a query that set no `limit`, `meta.resultLimit` says so before the first row arrives. Streams never read or fill the result cache, and they report no pagination.
+
+<CodeBlock>
+```typescript
+const Exports = dataset('orders_export', {
+  source: 'orders',
+  dimensions: { country: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  // Pages and agents get 1,000 rows; streams up to 5 million.
+  limits: { maxResultSize: 1_000, maxStreamRows: 5_000_000 },
+});
+```
+</CodeBlock>
+
+`maxStreamRows` is not yet part of deployment contracts: publishing a dataset that sets it fails rather than silently falling back to `maxResultSize`.
+
+`streamArrow` returns the result as Arrow IPC stream bytes instead of rows. Columns keep their ClickHouse types, so measures are not converted to strings, and wide integers and decimals stay exact. Decode the bytes with any Arrow library, or pass them on unchanged, for example as an HTTP response body:
+
+<CodeBlock>
+```typescript
+import { RecordBatchReader } from 'apache-arrow';
+
+const { data } = await analytics.streamArrow(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
+}, {
+  runtime: { tenant: 'tenant_123' },
+});
+
+for await (const batch of await RecordBatchReader.from(data)) {
+  batch.getChild('revenue');
+}
+```
+</CodeBlock>
+
+Arrow skips JSON parsing, which is most of the client's work on a large result, and is smaller on the wire.
+
+If ClickHouse fails after sending part of a result, the stream errors. How much it can tell you depends on the server version:
+
+- **ClickHouse 25.11 or later** marks the failure in the response, so the stream errors with ClickHouse's own error, and a stream that ends without an error is complete.
+- **Older servers** send no marker. An Arrow stream still errors, because a complete Arrow stream ends with an end-of-stream marker that a failed one lacks; the error carries ClickHouse's message when it can be recovered from the response, and otherwise says the result is incomplete. A row stream from an older server cannot be checked this way, so run exports whose completeness matters against 25.11 or later.
+
+Arrow streams also work for `readonly = 1` users; see [Read-only ClickHouse users](/docs/reference/readonly-users#arrow-streams) for the one setting they send.
+
+Streaming needs `@hypequery/clickhouse` 2.15.0 or later. A query builder without streaming support makes `stream` and `streamArrow` reject with an error that names the missing method.
+

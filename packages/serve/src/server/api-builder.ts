@@ -18,6 +18,8 @@ import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
+import type { PreparedProtocolClientContract } from "@hypequery/protocol";
+import { exportClientContract } from "./client-contract.js";
 
 export const createAPImethods = <
   TQueries extends ServeQueriesMap<TContext, TAuth>,
@@ -37,6 +39,7 @@ export const createAPImethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability,
+  clientContract: () => PreparedProtocolClientContract = () => exportClientContract([], ''),
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   /**
    * Routes registered through `api.route()`, keyed by endpoint identity.
@@ -74,6 +77,8 @@ export const createAPImethods = <
       }
       return manifest;
     },
+
+    clientContract,
 
     route: (path: string, endpoint: ServeEndpoint<any, any, TContext, TAuth>, options: Partial<RouteRegistrationOptions<TContext, TAuth>> = {}) => {
       if (!endpoint) {

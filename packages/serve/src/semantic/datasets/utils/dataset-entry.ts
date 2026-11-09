@@ -23,6 +23,16 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       maxLimit?: number;
       /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
       trustedDiagnostics?: boolean;
+      /**
+       * Lets this endpoint stream its result, for exports and other large reads.
+       * A request asks with `Accept: application/x-ndjson` (row batches as NDJSON
+       * frames) or `Accept: application/vnd.apache.arrow.stream` (an Arrow IPC
+       * stream); without this option those requests get a JSON page. `maxRows`
+       * caps one streamed response and defaults to `maxLimit`; it may not exceed
+       * the dataset's stream ceiling, `limits.maxStreamRows` (else
+       * `limits.maxResultSize`).
+       */
+      stream?: boolean | { maxRows?: number };
     };
 
 type DatasetEntryOptions<TAuth extends AuthContext> = Exclude<DatasetEntry<TAuth>, AnyDatasetInstance>;
@@ -53,6 +63,7 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
   maxLimit?: number;
   /** Enable SQL and internal tenant IDs in opt-in metadata only on trusted endpoints. */
   trustedDiagnostics?: boolean;
+  stream?: boolean | { maxRows?: number };
 } {
   if (isDatasetInstance(entry)) {
     return { dataset: entry };
@@ -63,4 +74,31 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
   }
 
   throw new Error('Invalid dataset entry.');
+}
+
+/**
+ * The row cap of a streaming endpoint, or `undefined` when it does not stream.
+ * A cap above the dataset's stream ceiling is refused here rather than failing
+ * every request's validation.
+ */
+export function resolveStreamMaxRows(
+  name: string,
+  dataset: AnyDatasetInstance,
+  stream: boolean | { maxRows?: number } | undefined,
+  pageCap: number,
+): number | undefined {
+  if (!stream) return undefined;
+  const maxRows = stream === true ? pageCap : stream.maxRows ?? pageCap;
+  if (!Number.isInteger(maxRows) || maxRows < 1) {
+    throw new Error(`Dataset endpoint "${name}": stream.maxRows must be a positive integer.`);
+  }
+  const limits = dataset.limits;
+  const ceiling = limits?.maxStreamRows ?? limits?.maxResultSize;
+  if (ceiling !== undefined && maxRows > ceiling) {
+    const source = limits?.maxStreamRows !== undefined ? 'maxStreamRows' : 'maxResultSize';
+    throw new Error(
+      `Dataset endpoint "${name}": stream.maxRows (${maxRows}) exceeds the dataset's limits.${source} (${ceiling}).`,
+    );
+  }
+  return maxRows;
 }

@@ -5,8 +5,13 @@
  * query backend (ClickHouse, BigQuery, mock data, etc.).
  */
 
+import type { ServeStreamInfo } from './types.js';
+
 /**
  * Event emitted by the serve-layer query logger.
+ *
+ * For a streamed response, the `completed` or `error` event is emitted once the
+ * stream ends, with its full duration, and carries {@link ServeQueryEvent.stream}.
  */
 export interface ServeQueryEvent {
   requestId: string;
@@ -21,6 +26,8 @@ export interface ServeQueryEvent {
   responseStatus?: number;
   error?: Error;
   result?: unknown;
+  /** Set for a streamed response: how it ended and how much it sent. */
+  stream?: ServeStreamInfo;
 }
 
 /**
@@ -91,6 +98,8 @@ export function formatQueryEvent(event: ServeQueryEvent): string | null {
   let line = `  ${status} ${event.method} ${event.path} → ${code} (${duration})`;
   if (event.status === 'error' && event.error) {
     line += ` — ${event.error.message}`;
+  } else if (event.stream?.outcome === 'cancelled') {
+    line += ' — client disconnected';
   }
   return line;
 }
@@ -113,6 +122,9 @@ export function formatQueryEventJSON(event: ServeQueryEvent): string | null {
     durationMs: event.durationMs,
     ...(event.status === 'error' && event.error
       ? { error: event.error.message }
+      : {}),
+    ...(event.stream
+      ? { stream: { outcome: event.stream.outcome, bytes: event.stream.bytes } }
       : {}),
     timestamp: new Date(event.endTime ?? event.startTime).toISOString(),
   });

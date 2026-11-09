@@ -268,6 +268,16 @@ export default function ClickHouseTimeSeriesPage() {
           title: 'ClickHouse Real-Time Analytics',
           description: 'Time-series queries at real-time polling rates with narrow filters and explicit date bucketing.',
         },
+        {
+          href: '/blog/clickhouse-date-functions-typescript',
+          title: 'ClickHouse Date Functions in TypeScript — toStartOfDay, toStartOfQuarter, and More',
+          description: 'Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
+        },
+        {
+          href: '/blog/clickhouse-sampling-typescript',
+          title: 'ClickHouse Sampling for Fast Prototyping in TypeScript',
+          description: 'How the ClickHouse SAMPLE clause works: SAMPLE BY table setup, scaling results, OFFSET slices, and the TypeScript options — approximate aggregates with hypequery or raw SAMPLE queries with @clickhouse/client.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-product-analytics', label: 'ClickHouse Product Analytics' },

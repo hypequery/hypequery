@@ -47,6 +47,18 @@ export function createTenantScope<TDb extends { table: (name: string) => any }>(
 }
 
 /**
+ * Resolves the tenant isolation mode. A `column` only has an effect under
+ * auto-injection, so configuring one without a `mode` opts into it rather
+ * than being silently ignored.
+ */
+export function resolveTenantMode(config: {
+  mode?: 'auto-inject' | 'manual';
+  column?: string;
+}): 'auto-inject' | 'manual' {
+  return config.mode ?? (config.column ? 'auto-inject' : 'manual');
+}
+
+/**
  * Runtime warning when tenant isolation might be misconfigured
  */
 export function warnTenantMisconfiguration(options: {

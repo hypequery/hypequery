@@ -1,0 +1,36 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/hypequery/hypequery",
+  "public_key": "pk_nWGjGhFIPNn4AmjXN8Z8k",
+  "projectTitle": "hypequery",
+  "description": "Type-safe ClickHouse toolkit for TypeScript and Python: query builder, semantic layer (datasets), HTTP serving, React hooks, CLI and MCP server.",
+  "folders": ["website-next/docs", "skills"],
+  "excludeFolders": ["node_modules"],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "changelog.md",
+    "CHANGELOG.mdx",
+    "changelog.mdx",
+    "LICENSE.md",
+    "license.md",
+    "CODE_OF_CONDUCT.md",
+    "code_of_conduct.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "BRANCH_SUMMARY.md",
+    "release-commands.md",
+    "security_best_practices_report.md"
+  ],
+  "rules": [
+    "TypeScript: import the query builder from @hypequery/clickhouse. Generate schema types with `npx hypequery generate` (from @hypequery/cli) before writing queries.",
+    "Datasets: create clients with createDatasetClient({ queryBuilder }) from @hypequery/datasets. createBackend is an advanced, deprecated path.",
+    "Python: the PyPI package is `hypequery` (install extras such as `hypequery[clickhouse]`). Scaffold a project with `hypequery init`.",
+    "Pass the tenant from trusted server-side context (runtime: { tenant }), never from request input. Datasets with a tenantKey reject queries without one.",
+    "Scaffold datasets from the live ClickHouse schema (TypeScript: npx hypequery generate:datasets; Python: hypequery generate datasets), then rename fields to product language, remove meaningless measures and add descriptions.",
+    "ReplacingMergeTree and CollapsingMergeTree sources need row resolution (FINAL) or measures double count.",
+    "Measure values can be returned as strings to keep decimals exact; convert them before doing arithmetic.",
+    "When querying through hypequery MCP tools, do not write SQL: call list_datasets, then get_dataset_schema, then query_dataset or query_metric with the dimensions, measures and filters the schema lists."
+  ]
+}

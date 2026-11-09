@@ -82,13 +82,17 @@ def env_root(argv: Sequence[str]) -> Path:
     """
 
     positionals = [arg for arg in argv if not arg.startswith("-")]
-    if positionals[:1] == ["mcp"]:
-        for index, arg in enumerate(argv):
-            project = None
-            if arg == "--project" and index + 1 < len(argv):
-                project = argv[index + 1]
-            elif arg.startswith("--project="):
-                project = arg.split("=", 1)[1]
-            if project is not None and Path(project).is_dir():
-                return Path(project).resolve()
+    if positionals[:1] != ["mcp"]:
+        return Path.cwd()
+    # argparse keeps the last `--project`, so read the same one.
+    project = None
+    for index, arg in enumerate(argv):
+        if arg == "--":
+            break
+        if arg == "--project" and index + 1 < len(argv):
+            project = argv[index + 1]
+        elif arg.startswith("--project="):
+            project = arg.split("=", 1)[1]
+    if project is not None and Path(project).is_dir():
+        return Path(project).resolve()
     return Path.cwd()

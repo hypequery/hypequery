@@ -10,6 +10,17 @@ stored aggregate states (RFC 0022): estimating and exact `uniq` states, `count`
 and `sum` states, and a derived measure over them. TypeScript generates it
 (`vitest -u` in `packages/datasets`); Python must build the identical contract.
 
+`time-measures-corpus-v1.json` is the RFC 0015 execution corpus for window and
+shift measures on sparse series: source tables and rows, language-neutral
+dataset definitions, queries, and the expected rows (measure values as strings,
+as over HTTP) or refusal message. It covers filled buckets, lookback before the
+range, nullable partitions, the query timezone, calendar clamping at month ends
+and leap days, interval-conversion boundaries, the result limit and the
+1,000-bucket bound. TypeScript is the reference: with ClickHouse running,
+`HYPEQUERY_UPDATE_CORPUS=1` on `src/tests/integration/time-measures-corpus.test.ts`
+rewrites `expected`. Python's `tests/test_time_measures_corpus_live.py` must
+reproduce every case, including column order and messages.
+
 The authoritative feature matrix is
 `packages/datasets/src/execution-capabilities.json`, shipped through
 `DATASET_EXECUTION_CAPABILITIES`. TS tests probe local compilation, actual

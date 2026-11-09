@@ -158,6 +158,18 @@
           "field": "customerId",
           "approximate": true
         },
+        "monthToDateRevenue": {
+          "supportedGrains": [
+            "hour",
+            "day"
+          ],
+          "kind": "window",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "toDate": "month",
+          "aggregation": "sum",
+          "field": "amount"
+        },
         "orderCount": {
           "aggregation": "count",
           "field": "id"
@@ -176,6 +188,57 @@
           "field": "amount",
           "label": "Revenue"
         },
+        "revenueLastWeek": {
+          "supportedGrains": [
+            "minute",
+            "hour",
+            "day",
+            "week"
+          ],
+          "kind": "shift",
+          "measure": "revenue",
+          "interval": {
+            "amount": 7,
+            "unit": "day"
+          },
+          "requiresTimeRange": true,
+          "aggregation": "sum",
+          "field": "amount"
+        },
+        "rollingRevenue": {
+          "supportedGrains": [
+            "hour",
+            "day",
+            "week"
+          ],
+          "kind": "window",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "trailing": {
+            "amount": 7,
+            "unit": "day"
+          },
+          "aggregation": "sum",
+          "field": "amount",
+          "label": "Rolling revenue"
+        },
+        "runningOrders": {
+          "supportedGrains": [
+            "minute",
+            "hour",
+            "day",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ],
+          "kind": "window",
+          "measure": "orderCount",
+          "requiresTimeRange": true,
+          "cumulative": true,
+          "aggregation": "count",
+          "field": "id"
+        },
         "topStatus": {
           "aggregation": "argMax",
           "field": "status",
@@ -184,6 +247,39 @@
         "uniqueCustomers": {
           "aggregation": "countDistinct",
           "field": "customerId"
+        }
+      },
+      "derivedMeasures": {
+        "weekOverWeek": {
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            },
+            {
+              "alias": "revenueLastWeek",
+              "measure": "revenueLastWeek"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "reference",
+              "name": "revenueLastWeek"
+            }
+          },
+          "requiresTimeRange": true,
+          "supportedGrains": [
+            "minute",
+            "hour",
+            "day",
+            "week"
+          ]
         }
       },
       "metrics": {},
@@ -243,5 +339,5 @@
       }
     }
   },
-  "contentHash": "6fc35899f68bfa43999148d5a1cf7475f021fd57026391771cb6c742b4851f57"
+  "contentHash": "3143beb0c104a7858f913de7a04595d778244a20855c9a089d96e1c8e9eb5974"
 }

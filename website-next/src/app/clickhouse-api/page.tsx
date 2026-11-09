@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse API in TypeScript',
+  title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer',
   description:
-    'Build a ClickHouse API in TypeScript from typed query definitions. Generate schema types, expose validated endpoints, and get OpenAPI docs automatically.',
+    'ClickHouse has an HTTP API on ports 8123 and 8443 for raw SQL. For an app-facing REST API with auth, validation and OpenAPI docs, build it from typed queries.',
   alternates: { canonical: absoluteUrl('/clickhouse-api') },
   openGraph: {
     images: ogImage('ClickHouse API in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-api'),
-    title: 'ClickHouse API in TypeScript | hypequery',
+    title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer | hypequery',
     description:
-      'If you need a ClickHouse API, hypequery turns typed query definitions into validated REST endpoints with OpenAPI docs.',
+      'ClickHouse has an HTTP API on ports 8123 and 8443 for raw SQL. For an app-facing REST API with auth, validation and OpenAPI docs, build it from typed queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse API in TypeScript | hypequery',
+    title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer | hypequery',
     description:
-      'Build a ClickHouse API from typed query definitions instead of hand-writing every route. Validation and OpenAPI docs included.',
+      'Raw SQL over ClickHouse\'s HTTP API, or an app-facing REST API with auth, validation and OpenAPI docs built from typed queries.',
   },
 };
 
@@ -136,9 +136,9 @@ export default function ClickHouseApiPage() {
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse API',
+          title: 'What is the ClickHouse API?',
           copy:
-            'A practical ClickHouse API needs validation, auth context, typed responses, and reusable query logic. hypequery handles that by turning query definitions into endpoints.',
+            'ClickHouse\'s own API is its HTTP interface: send SQL to port 8123, or 8443 with TLS, for example `curl \'https://play.clickhouse.com/?user=play\' --data-binary \'SELECT 1\'`. It runs whatever SQL it receives, so it is the transport, not an app-facing API. For that you need validation, auth context and typed responses on top, which hypequery generates from query definitions.',
         },
         {
           title: 'API for ClickHouse in TypeScript',
@@ -158,11 +158,6 @@ export default function ClickHouseApiPage() {
       ]}
       readingLinks={[
         {
-          href: '/clickhouse-rest-api',
-          title: 'ClickHouse REST API',
-          description: 'The fuller REST-focused page with more detail on how typed endpoints and delivery paths work in practice.',
-        },
-        {
           href: '/clickhouse-openapi',
           title: 'ClickHouse OpenAPI generation',
           description: 'See how the OpenAPI spec is generated from your query contracts and how consumers can use it.',
@@ -177,9 +172,13 @@ export default function ClickHouseApiPage() {
           title: 'ClickHouse Next.js',
           description: 'Use the same typed query contracts inside App Router handlers and server-side application code.',
         },
+        {
+          href: '/blog/typed-rest-api-clickhouse',
+          title: 'How to Expose ClickHouse Queries as a Typed REST API',
+          description: 'Build a ClickHouse REST API in TypeScript. Define a query once with zod-validated input, serve it over HTTP with generated OpenAPI docs, attach auth, and call it in-process — step by step with @hypequery/serve.',
+        },
       ]}
       relatedPillars={[
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },

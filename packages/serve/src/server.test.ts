@@ -606,6 +606,43 @@ describe("defineServe", () => {
     });
   });
 
+  it("auto-injects tenant filters when a column is set without a mode", async () => {
+    const filters: Array<{ column: string; value: string }> = [];
+    const mockDb = {
+      table: () => {
+        const chainable: any = {
+          where: (column: string, _operator: string, value: string) => {
+            filters.push({ column, value });
+            return chainable;
+          },
+          select: () => Promise.resolve([{ id: 1 }]),
+        };
+        return chainable;
+      },
+    };
+
+    const api = defineServe({
+      context: () => ({ db: mockDb }),
+      tenant: {
+        extract: (auth) => auth.tenantId,
+        required: true,
+        column: "organization_id",
+      },
+      queries: {
+        users: { query: async ({ ctx }) => ctx.db.table("users").select() },
+      },
+    });
+    api.route("/users", api.queries.users);
+    api.useAuth(async ({ request }) => ({ userId: "user-123", tenantId: request.headers["x-tenant-id"] }));
+
+    const response = await api.handler(
+      createRequest({ path: "/users", headers: { "x-tenant-id": "org-456" } })
+    );
+
+    expect(response.status).toBe(200);
+    expect(filters).toEqual([{ column: "organization_id", value: "org-456" }]);
+  });
+
   it("does not auto-inject when mode is manual", async () => {
     const queryLog: Array<{ table: string; filters: Array<{ column: string; value: string }> }> = [];
 

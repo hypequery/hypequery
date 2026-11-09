@@ -130,6 +130,14 @@ export function buildProtocolDatasetContract(
   }
   assertNoPublishedSegments(dataset);
   assertPublishableTimeGrains(dataset);
+  if (dataset.limits?.maxStreamRows !== undefined) {
+    // The contract's limits cannot carry it, so a deployment would quietly
+    // fall back to maxResultSize: refuse rather than lose the ceiling.
+    throw new Error(
+      `Dataset "${dataset.name}" limits.maxStreamRows is not part of deployment contracts yet; `
+      + 'publish the dataset without it.',
+    );
+  }
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => (
       metric.__type === 'grained_metric_ref' ? metric.metric : metric

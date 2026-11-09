@@ -98,7 +98,7 @@ export default function ClickHouseOpenApiPage() {
       title="Auto-generated OpenAPI docs from ClickHouse query definitions"
       description="Most internal analytics APIs never get documented properly because the spec is a second thing to maintain. hypequery makes the docs fall out of the query definition, so the request shape, response shape, and served endpoint stay in sync."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
-      secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
+      secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API' }}
       stats={[
         { label: 'Spec format', value: 'OpenAPI 3.1' },
         { label: 'Source', value: 'Derived from query types' },
@@ -187,7 +187,7 @@ export default function ClickHouseOpenApiPage() {
           description: 'Python APIs get the same generated OpenAPI documents.',
         },
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'The full guide to serving ClickHouse queries as typed HTTP endpoints with @hypequery/serve.',
         },
@@ -208,7 +208,7 @@ export default function ClickHouseOpenApiPage() {
         },
       ]}
       relatedPillars={[
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
@@ -220,7 +220,7 @@ export default function ClickHouseOpenApiPage() {
         description:
           'Pick a real analytics query, expose it through `serve()`, and look at `/openapi.json`. That gives you a much better signal than polishing a docs layer before the endpoint even exists.',
         primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
-        secondaryCta: { href: '/clickhouse-rest-api', label: 'See the REST API guide' },
+        secondaryCta: { href: '/clickhouse-api', label: 'See the REST API guide' },
       }}
     />
   );

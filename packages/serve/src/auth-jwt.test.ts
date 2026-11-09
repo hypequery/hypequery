@@ -232,4 +232,20 @@ describe("createAnalyticsTokenIssuer", () => {
     expect(auth?.tenantId).toBe("tenant-1");
     expect(auth?.roles).toEqual(["admin"]);
   });
+
+  it("mints scopes that round-trip through createJwtStrategy", async () => {
+    const issueToken = createAnalyticsTokenIssuer({ secret: SECRET, issuer: ISSUER, audience: AUDIENCE });
+    const token = await issueToken({ userId: "user-1", scopes: ["read:data", "write:data"] });
+    const strategy = createJwtStrategy({ secret: SECRET, issuer: ISSUER, audience: AUDIENCE });
+
+    const auth = await strategy({ request: bearerRequest(token) });
+
+    expect(auth?.scopes).toEqual(["read:data", "write:data"]);
+  });
+
+  it("rejects scopes containing whitespace", async () => {
+    const issueToken = createAnalyticsTokenIssuer({ secret: SECRET });
+
+    await expect(issueToken({ userId: "user-1", scopes: ["read data"] })).rejects.toThrow(/whitespace/);
+  });
 });

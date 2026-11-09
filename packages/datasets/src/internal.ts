@@ -10,6 +10,7 @@
 
 // Dataset client internals - used by serve to create metric/dataset endpoints
 export { createDatasetClient, DatasetClientImpl, MetricQueryEngine } from './executor.js';
+export { datasetForStream } from './utils/stream-ceiling.js';
 export type { DatasetClient, CreateDatasetClientOptions, MetricQueryEngineOptions } from './executor.js';
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';

@@ -5,6 +5,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
+import { describeConnectionError } from '../utils/connection-error.js';
 import { ensureChdbInstalled } from '../utils/chdb-client.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
@@ -74,7 +75,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     const generator = getTypeGenerator(dbType);
 
     // Surface a missing chdb install as the connection failure it is —
-    // getTableCount swallows errors, so without this probe the spinner
+    // the chdb table lookup swallows errors, so without this probe the spinner
     // would report a successful connection and 0 tables before type
     // generation fails.
     if (dbType === 'chdb') {
@@ -126,10 +127,11 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
 
     if (error instanceof Error) {
-      logger.error(error.message);
+      const message = describeConnectionError(error);
+      logger.error(message);
 
       // Provide specific guidance based on error type
-      if (error.message.includes('ECONNREFUSED')) {
+      if (message.includes('ECONNREFUSED')) {
         logger.newline();
         logger.info('This usually means:');
         logger.indent('• ClickHouse is not running');
@@ -142,7 +144,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         ));
         logger.newline();
         logger.info('Docs: https://hypequery.com/docs/troubleshooting#connection-errors');
-      } else if (error.message.includes('ETIMEDOUT') || error.message.includes('timeout')) {
+      } else if (message.includes('ETIMEDOUT') || message.includes('timeout')) {
         logger.newline();
         logger.info('Database connection timed out');
         logger.newline();
@@ -155,7 +157,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• Check if database is under heavy load');
         logger.indent('• Verify network connectivity');
         logger.indent('• Check firewall rules');
-      } else if (error.message.toLowerCase().includes('ssl') || error.message.toLowerCase().includes('tls')) {
+      } else if (message.toLowerCase().includes('ssl') || message.toLowerCase().includes('tls')) {
         logger.newline();
         logger.info('SSL/TLS connection error');
         logger.newline();
@@ -167,7 +169,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• Check if your connection string requires SSL');
         logger.indent('• Verify SSL certificate is valid');
         logger.indent('• Check SSL-related environment variables');
-      } else if (error.message.toLowerCase().includes('authentication') || error.message.toLowerCase().includes('auth')) {
+      } else if (message.toLowerCase().includes('authentication') || message.toLowerCase().includes('auth')) {
         logger.newline();
         logger.info('Authentication failed');
         logger.newline();

@@ -25,7 +25,7 @@ describe('resolveCorsConfig', () => {
     expect(resolveCorsConfig(true)).toEqual({
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Hypequery-Client-Schema'],
       exposedHeaders: [],
       credentials: false,
       maxAge: 86400,
@@ -40,7 +40,7 @@ describe('resolveCorsConfig', () => {
     })).toEqual({
       origin: 'https://app.example.com',
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Hypequery-Client-Schema'],
       exposedHeaders: ['x-total-count'],
       credentials: true,
       maxAge: 86400,

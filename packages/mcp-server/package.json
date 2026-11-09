@@ -2,9 +2,12 @@
   "name": "@hypequery/mcp",
   "version": "0.11.3",
   "mcpName": "io.github.hypequery/hypequery",
-  "description": "Governed ClickHouse MCP server for semantic metrics, datasets, Claude, Cursor, and AI agents",
+  "description": "ClickHouse MCP server for Claude Code, Cursor, Codex and AI agents: governed datasets and metrics as tools, never raw SQL.",
   "keywords": [
     "mcp",
+    "mcp-server",
+    "clickhouse-mcp-server",
+    "clickhouse-mcp",
     "model-context-protocol",
     "clickhouse",
     "semantic-layer",
@@ -62,7 +65,7 @@
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "repository": {
     "type": "git",

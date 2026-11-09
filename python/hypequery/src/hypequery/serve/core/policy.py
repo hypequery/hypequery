@@ -16,6 +16,10 @@ class EndpointPolicy:
     required_scopes: frozenset[str] = frozenset()
     tenant: Literal["required", "optional", "forbidden"] = "optional"
     max_limit: int = 1000
+    #: Lets a dataset endpoint stream up to this many rows when a request asks
+    #: with ``Accept: application/x-ndjson`` or ``application/vnd.apache.arrow.stream``
+    #: and its host can write a stream (``to_asgi_app``). ``None`` never streams.
+    stream_max_rows: int | None = None
 
     def __post_init__(self) -> None:
         if type(self.public) is not bool:
@@ -24,6 +28,10 @@ class EndpointPolicy:
             raise ValueError("invalid endpoint tenant policy")
         if type(self.max_limit) is not int or not 1 <= self.max_limit <= 100_000:
             raise ValueError("max_limit must be an integer in [1, 100000]")
+        if self.stream_max_rows is not None and (
+            type(self.stream_max_rows) is not int or not 1 <= self.stream_max_rows <= 10_000_000
+        ):
+            raise ValueError("stream_max_rows must be None or an integer in [1, 10000000]")
         for values in (self.required_roles, self.required_scopes):
             if type(values) is not frozenset or any(type(item) is not str for item in values):
                 raise TypeError("roles and scopes must be frozensets of strings")

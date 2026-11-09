@@ -10,6 +10,7 @@ import type { Command } from 'commander';
 import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
+import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
 
 async function loadEnv() {
   try {
@@ -29,7 +30,11 @@ async function loadEnv() {
 
 async function main() {
   await loadEnv();
-  const args = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  const args = withDefaultCommand(rawArgs, { interactive: isInteractiveTerminal() });
+  if (args.length !== rawArgs.length) {
+    console.log(`No command given, starting \`hypequery ${DEFAULT_COMMAND}\`. Run \`hypequery --help\` to see all commands.`);
+  }
   const requested = args.find(arg => !arg.startsWith('-'));
   const lifecycle = new CommandLifecycle(args, {
     telemetry: args.includes('--no-telemetry') ? false : undefined,
@@ -66,7 +71,7 @@ async function main() {
   process.on('SIGINT', () => observeSignal('SIGINT'));
   process.on('SIGTERM', () => observeSignal('SIGTERM'));
   try {
-    await withCommandTelemetry(lifecycle, () => program.parseAsync(process.argv));
+    await withCommandTelemetry(lifecycle, () => program.parseAsync(args, { from: 'user' }));
     if (lifecycle.command === 'dev') return; // Its shutdown handler finalizes after teardown.
     await finish(new CommandExit(Number(process.exitCode ?? 0), process.exitCode ? 'failure' : 'success', process.exitCode ? 'unknown' : undefined));
   } catch (error) {
