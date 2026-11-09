@@ -26,7 +26,7 @@ Prisma's data model is built around row-level transactional entities: a `User` h
 
 ClickHouse is a columnar, append-first analytical database. There are no enforced foreign keys. Transactions are limited and not the unit of work. Single-row `UPDATE` and `DELETE` are asynchronous mutations you're meant to use sparingly. Table engines like `ReplacingMergeTree` and `AggregatingMergeTree` change what a "row" even means at read time. An ORM's core abstractions — entity identity, relations, unit-of-work updates — don't have anything to attach to.
 
-So a hypothetical Prisma ClickHouse connector wouldn't just need a new wire protocol. It would need a different data model, which is why the issues have sat open since 2022. The same reasoning applies across the ORM ecosystem — we've written up the general case in [Does ClickHouse have an ORM?](/blog/does-clickhouse-have-an-orm)
+So a hypothetical Prisma ClickHouse connector wouldn't just need a new wire protocol. It would need a different data model, which is why the issues have sat open since 2022. The same reasoning applies across the ORM ecosystem — we've written up the general case in [Does ClickHouse have an ORM?](/clickhouse-orm)
 
 ## The MySQL-compat-port workaround (and why it breaks)
 
@@ -45,7 +45,7 @@ DATABASE_URL="mysql://default:password@clickhouse-host:9004/analytics"
 
 **3. You lose all ClickHouse semantics.** Even when a query happens to execute, you can't express the things you moved to ClickHouse for: `FINAL` on a `ReplacingMergeTree`, `LIMIT BY` for top-N-per-group, `PREWHERE`, `argMax`, `uniq`, quantiles, array joins, materialized view targets. Prisma's query API has no vocabulary for any of it, and `prisma migrate` will happily try to run DDL that has no meaning for MergeTree engines.
 
-The workaround demos well and fails in production. Treat port 9004 as what it is — a compatibility shim for MySQL clients like BI tools — not a foundation for an application data layer. There's a fuller breakdown on the [Prisma + ClickHouse page](/prisma-clickhouse).
+The workaround demos well and fails in production. Treat port 9004 as what it is — a compatibility shim for MySQL clients like BI tools — not a foundation for an application data layer. There's a fuller breakdown on the [Prisma + ClickHouse page](/clickhouse-orm).
 
 ## To be clear: Prisma is excellent at its actual job
 
@@ -149,6 +149,6 @@ If you're evaluating hypequery specifically against what Prisma gives you on the
 ## Where to go from here
 
 - [Quick start](/docs/quick-start) — add a typed ClickHouse client next to your Prisma setup in ~5 minutes
-- [Prisma + ClickHouse](/prisma-clickhouse) — the full breakdown of the workarounds and the coexistence pattern
+- [ClickHouse ORM options](/clickhouse-orm) — the full breakdown of the workarounds and the coexistence pattern
 - [hypequery vs Prisma](/compare/hypequery-vs-prisma) — feature-by-feature comparison for the analytics side
 - [ClickHouse ORM guide](/clickhouse-orm) — the wider landscape: why no true ORM exists and what to use instead

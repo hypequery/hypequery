@@ -20,7 +20,6 @@ function sectionOf(url: string): string {
 const PRODUCT_PAGES: Entry[] = [
   { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
   { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
-  { title: 'MooseStack alternative', url: '/moosestack-alternative', description: 'MooseStack has reached end of life. Migrate typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools to hypequery.' },
   { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },
   { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
 ];

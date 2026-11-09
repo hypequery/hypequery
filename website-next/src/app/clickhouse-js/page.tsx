@@ -173,7 +173,7 @@ export default function ClickHouseJSPage() {
           description: 'What you actually gain when you move from raw queries to generated types and a reusable JS analytics layer.',
         },
         {
-          href: '/blog/clickhouse-query-builder-typescript',
+          href: '/clickhouse-query-builder',
           title: 'ClickHouse query builders compared',
           description: 'Every realistic JavaScript and TypeScript option in 2026 — with honest tradeoffs on each.',
         },

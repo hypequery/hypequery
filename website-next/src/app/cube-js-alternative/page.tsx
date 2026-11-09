@@ -218,7 +218,7 @@ export default function CubeJsAlternativePage() {
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/tinybird-alternative', label: 'Tinybird Alternative' },
-        { href: '/moosestack-alternative', label: 'MooseStack Alternative' },
+        { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

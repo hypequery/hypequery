@@ -58,4 +58,4 @@ They are not competitors in this setup. Prisma handles your users, orders, and p
 
 If you are evaluating ClickHouse for an analytics use case and looking for a Prisma-equivalent TypeScript experience, the [quick start](/docs/quick-start) covers schema generation and your first typed query.
 
-For the broader comparison of TypeScript options for ClickHouse, read the [ClickHouse TypeScript](/clickhouse-typescript) pillar page and the [ClickHouse query builders](/blog/clickhouse-query-builder-typescript) comparison.
+For the broader comparison of TypeScript options for ClickHouse, read the [ClickHouse TypeScript](/clickhouse-typescript) pillar page and the [ClickHouse query builders](/clickhouse-query-builder) comparison.
