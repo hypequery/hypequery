@@ -228,14 +228,14 @@ export default function ClickHouseDashboardPage() {
           description: 'Combine server components, API routes, and React hooks in a Next.js dashboard.',
         },
         {
-          href: '/blog/turn-your-clickhouse-schema-into-a-type-safe-analytics-layer-in-5-minutes',
-          title: 'Turn your ClickHouse schema into a type-safe analytics layer',
-          description: 'The complete path from schema generation to working dashboard hooks.',
+          href: '/blog/clickhouse-typescript-type-problem',
+          title: 'Why ClickHouse Types Break in TypeScript (and How to Fix Them)',
+          description: 'What ClickHouse returns to JavaScript for DateTime, UInt64 and Decimal, and how generated schema types keep dashboard queries correct.',
         },
         {
-          href: '/blog/internal-analytics-tool-clickhouse-typescript',
-          title: 'How to Build an Internal Analytics Tool with ClickHouse and TypeScript',
-          description: 'Build an internal analytics tool on ClickHouse with TypeScript: generated types, a typed query builder, and a Next.js page — no BI platform required.',
+          href: '/blog/building-dashboards-clickhouse-hypequery-nextjs',
+          title: 'How to Build a ClickHouse Dashboard with React and Next.js',
+          description: 'Server components for internal pages, a typed API and polling hooks for live panels, and a real-time leaderboard.',
         },
       ]}
       relatedPillars={[

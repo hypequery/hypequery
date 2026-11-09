@@ -172,11 +172,6 @@ export default function ClickHouseApiPage() {
           title: 'ClickHouse Next.js',
           description: 'Use the same typed query contracts inside App Router handlers and server-side application code.',
         },
-        {
-          href: '/blog/typed-rest-api-clickhouse',
-          title: 'How to Expose ClickHouse Queries as a Typed REST API',
-          description: 'Build a ClickHouse REST API in TypeScript. Define a query once with zod-validated input, serve it over HTTP with generated OpenAPI docs, attach auth, and call it in-process — step by step with @hypequery/serve.',
-        },
       ]}
       relatedPillars={[
         { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },

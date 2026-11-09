@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
+import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import Newsletter from '@/components/Newsletter';
 import { blogAuthorName } from '@/lib/blog-author';
 
@@ -40,7 +41,9 @@ export default async function BlogPage({
 }) {
   const { page } = await searchParams;
   const pageNumber = Number(page) || 1;
-  const posts = (await getPosts()).filter((post) => !(post.slug in comparePageBySlug));
+  const posts = (await getPosts()).filter(
+    (post) => !(post.slug in comparePageBySlug) && !retiredBlogSlugs.has(post.slug),
+  );
   const totalPages = Math.ceil(posts.length / 10);
 
   const startIndex = (pageNumber - 1) * 10;
