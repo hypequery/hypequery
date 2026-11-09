@@ -191,7 +191,7 @@ export default async function BlogPostPage({
     headline: data.title,
     description: data.description ?? undefined,
     datePublished: publishDate ?? undefined,
-    dateModified: publishDate ?? undefined,
+    dateModified: data.updated ?? publishDate ?? undefined,
     url: articleUrl,
     mainEntityOfPage: {
       '@type': 'WebPage',

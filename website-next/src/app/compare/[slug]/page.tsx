@@ -6,8 +6,10 @@ import { notFound } from 'next/navigation';
 import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
-import { getCompareArticle } from '@/lib/compare-article';
+import { chooseAlternativeHeading, getCompareArticle } from '@/lib/compare-article';
 import { compareLinksFor } from '@/lib/compare-links';
+import { faqPageSchema } from '@/lib/faq-schema';
+import { formatLongDate } from '@/lib/format-date';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
 
@@ -44,6 +46,7 @@ export async function generateMetadata({
       title,
       description,
       publishedTime: article?.date,
+      modifiedTime: article?.updated ?? article?.date,
       tags: article?.tags,
       images: ogImage(title),
     },
@@ -74,6 +77,7 @@ export default async function ComparePage({
   }
 
   const publishDate = article.date;
+  const updatedDate = article.updated;
   const pageUrl = absoluteUrl(comparePage.href).toString();
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -99,7 +103,7 @@ export default async function ComparePage({
     headline: article.title,
     description: article.description ?? comparePage.verdict,
     datePublished: publishDate ?? undefined,
-    dateModified: publishDate ?? undefined,
+    dateModified: updatedDate ?? publishDate ?? undefined,
     mainEntityOfPage: pageUrl,
     author: {
       '@type': 'Organization',
@@ -111,12 +115,15 @@ export default async function ComparePage({
       url: absoluteUrl('/').toString(),
     },
   };
+  const faqSchema = faqPageSchema(comparePage.faq);
   const links = compareLinksFor(comparePage.slug);
+  const alternativeHeading = chooseAlternativeHeading(comparePage);
 
   return (
     <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
         <section className="border-b border-border">
           <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
             <p className="font-mono text-xs text-accent">Compare</p>
@@ -126,6 +133,11 @@ export default async function ComparePage({
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
               {article.description ?? comparePage.verdict}
             </p>
+            {updatedDate ? (
+              <p className="mt-4 font-mono text-xs text-text-dim">
+                Updated <time dateTime={updatedDate}>{formatLongDate(updatedDate)}</time>
+              </p>
+            ) : null}
 	            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href={links.primary.href}
@@ -164,7 +176,7 @@ export default async function ComparePage({
               </div>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {comparePage.rows.map((row) => (
+              {comparePage.rows.slice(0, 3).map((row) => (
                 <div key={row.label} className="rounded-xl border border-border bg-bg-card shadow-card p-5">
                   <p className="font-mono text-xs text-text-dim">{row.label}</p>
                   <p className="mt-2 text-sm leading-6 text-text">{row.hypequery}</p>
@@ -219,6 +231,20 @@ export default async function ComparePage({
           </div>
         </section>
 
+        <section className={`${marketing.container} pb-14 sm:pb-20`}>
+          <div className="rounded-xl border border-border-strong bg-bg-card p-6 shadow-card sm:p-8">
+            <h2 className={marketing.sectionTitle}>{alternativeHeading}</h2>
+            <ul className="mt-6 space-y-3">
+              {comparePage.chooseAlternativeWhen.map((item) => (
+                <li key={item} className="flex gap-3 text-sm leading-6 text-text-muted">
+                  <span aria-hidden="true" className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         <section className={marketing.band}>
           <div className="mx-auto max-w-4xl px-4 py-16 lg:px-6">
             <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -229,13 +255,14 @@ export default async function ComparePage({
                 Back to comparisons
               </Link>
               {publishDate ? (
-                <time className="text-sm text-text-dim" dateTime={publishDate}>
-                  {new Date(publishDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </time>
+                <p className="text-sm text-text-dim">
+                  Published <time dateTime={publishDate}>{formatLongDate(publishDate)}</time>
+                  {updatedDate ? (
+                    <>
+                      {' · '}Updated <time dateTime={updatedDate}>{formatLongDate(updatedDate)}</time>
+                    </>
+                  ) : null}
+                </p>
               ) : null}
             </div>
 

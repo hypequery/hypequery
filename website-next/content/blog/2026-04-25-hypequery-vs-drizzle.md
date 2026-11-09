@@ -1,19 +1,20 @@
 ---
 title: "hypequery vs Drizzle: There Is No Drizzle for ClickHouse"
 description: "Drizzle ORM does not support ClickHouse. If you are looking for a Drizzle-style TypeScript experience for ClickHouse analytics, this explains what hypequery offers instead."
-seoTitle: "hypequery vs Drizzle ORM for ClickHouse — TypeScript Analytics"
+seoTitle: "hypequery vs Drizzle for ClickHouse (2026)"
 seoDescription: "Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative — schema generation, composable queries, and typed HTTP APIs built specifically for ClickHouse."
 pubDate: 2026-04-25
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-drizzle
 status: published
 ---
 
-Drizzle is one of the most popular TypeScript ORM/query builder choices right now — and for good reason. It is lightweight, fully typed, schema-driven, and integrates well with the modern TypeScript ecosystem. If you are on Postgres, MySQL, or SQLite, it is a serious option.
+Drizzle is one of the most popular TypeScript ORM/query builder choices right now — and for good reason. It is lightweight, fully typed, schema-driven, and integrates well with the modern TypeScript ecosystem. If you are on PostgreSQL, MySQL, SQLite, SingleStore, MSSQL, or CockroachDB, the databases its docs list, it is a serious option.
 
 ClickHouse is not on that list.
 
-Drizzle does not list ClickHouse in its supported databases. If you are building an analytics product on ClickHouse and looking for a Drizzle-equivalent TypeScript experience, you are looking for something else.
+Drizzle does not list ClickHouse in its supported databases (checked 8 November 2026). If you are building an analytics product on ClickHouse and looking for a Drizzle-equivalent TypeScript experience, you are looking for something else.
 
 That something else is hypequery.
 
@@ -27,10 +28,10 @@ For the Postgres ecosystem this works excellently. The schema matches what the d
 
 ClickHouse is a columnar analytics database. Its data model is fundamentally different from Postgres:
 
-- No foreign keys or joins in the relational sense
+- No foreign keys; joins work, but analytics tables are usually denormalised
 - Append-optimised, not transaction-optimised
 - Different SQL dialect — PREWHERE, ARRAY JOIN, materialized views, dictionaries
-- Runtime type behaviour that differs from standard SQL — DateTime returns as a formatted string, UInt64 returns as a string to avoid precision loss, Nullable columns behave differently
+- Runtime type behaviour that differs from standard SQL: DateTime returns as a formatted string, UInt64 can exceed JavaScript's safe integer range (hypequery asks ClickHouse to quote it as a string), and Nullable columns behave differently
 
 An ORM built for Postgres, even a lightweight one like Drizzle, is built around the relational model. ClickHouse does not fit that model — and forcing it produces awkward code, missing features, and type mappings that are wrong at runtime.
 

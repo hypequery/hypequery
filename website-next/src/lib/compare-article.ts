@@ -9,6 +9,8 @@ export type CompareArticleView = {
   seoTitle?: string;
   seoDescription?: string;
   date?: string;
+  /** Last modified date, when the page was revised after publishing. */
+  updated?: string;
   tags?: string[];
   content: string;
 };
@@ -28,9 +30,14 @@ export async function getCompareArticle(slug: string): Promise<CompareArticleVie
     seoTitle: post.data.seoTitle,
     seoDescription: post.data.seoDescription,
     date: post.data.date,
+    updated: post.data.updated,
     tags: post.data.tags,
     content: post.content,
   };
+}
+
+export function chooseAlternativeHeading(page: ComparePageConfig) {
+  return page.chooseAlternativeHeading ?? `When to pick ${page.alternativeName} instead`;
 }
 
 function tableCell(value: string) {
@@ -44,11 +51,16 @@ export function compareMarkdown(page: ComparePageConfig, article: CompareArticle
   const lines = [
     `# ${article.title} (${absoluteUrl(page.href).toString()})`,
     '',
+    ...(article.updated ? [`Updated: ${article.updated.slice(0, 10)}`, ''] : []),
     `**Verdict:** ${page.verdict}`,
     '',
     `| | ${tableCell(primary)} | ${tableCell(alternative)} |`,
     '|---|---|---|',
     ...page.rows.map((row) => `| ${tableCell(row.label)} | ${tableCell(row.hypequery)} | ${tableCell(row.alternative)} |`),
+    '',
+    `## ${chooseAlternativeHeading(page)}`,
+    '',
+    ...page.chooseAlternativeWhen.map((item) => `- ${item}`),
     '',
     article.content.trim(),
   ];

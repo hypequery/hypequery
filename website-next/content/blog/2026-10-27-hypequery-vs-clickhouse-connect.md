@@ -1,9 +1,10 @@
 ---
 title: "hypequery vs clickhouse-connect: Driver or Semantic Layer?"
 description: "clickhouse-connect runs the SQL you write. hypequery runs on top of it and adds shared measures, validation, and tenant isolation. Here is when you need each in Python."
-seoTitle: "hypequery vs clickhouse-connect — ClickHouse in Python"
+seoTitle: "hypequery vs clickhouse-connect in Python (2026)"
 seoDescription: "Compare clickhouse-connect, the official ClickHouse Python driver, with hypequery, a Python semantic layer built on it. When to use the driver, when to add the layer, and how they share a connection."
 pubDate: 2026-10-27
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-clickhouse-connect
 status: published
@@ -69,7 +70,7 @@ Use **hypequery** when:
 
 ## Trade-offs to know
 
-hypequery returns rows as dictionaries, with decimals, dates, and timestamps as strings so nothing loses precision. That's the right default for APIs, but in a notebook you'll convert columns yourself, where `query_df` would hand you typed columns straight away.
+hypequery returns rows as dictionaries, with decimals, dates, and timestamps as strings so nothing loses precision. That's the right default for APIs. For a notebook, `result.to_pandas()`, `to_polars()` and `to_arrow()` convert a dataset result with column types taken from the dataset definition. For arbitrary SQL that isn't a dataset, `query_df` on the driver is still the direct route.
 
 hypequery is read-only. Inserts stay with the driver.
 

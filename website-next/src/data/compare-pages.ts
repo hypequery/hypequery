@@ -21,6 +21,12 @@ export type ComparePageConfig = {
   verdict: string;
   primaryLabel?: string;
   alternativeLabel?: string;
+  /** The other tool's name, used in the "When to pick {alternativeName} instead" heading. */
+  alternativeName: string;
+  /** Overrides the default "When to pick {alternativeName} instead" heading. */
+  chooseAlternativeHeading?: string;
+  /** Three to five honest situations where the other tool is the better choice. */
+  chooseAlternativeWhen: string[];
   rows: Array<{ label: string; hypequery: string; alternative: string }>;
   faq: Array<{ question: string; answer: string }>;
 };
@@ -32,11 +38,19 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs @clickhouse/client',
     verdict:
       '@clickhouse/client is still the right low-level transport layer. hypequery is the better fit when the application also needs generated schema types, reusable query definitions, and a typed API surface on top of ClickHouse.',
+    alternativeLabel: '@clickhouse/client',
+    alternativeName: '@clickhouse/client',
+    chooseAlternativeWhen: [
+      'One-off scripts, migrations and admin commands where a connection and a SQL string are all you need.',
+      'Bulk loads from Node.js streams, where the client’s streaming insert is the most direct route.',
+      'You want the smallest dependency possible: the client has zero external dependencies.',
+      'Your team prefers to write and review SQL directly and does not need generated types, endpoints or React hooks.',
+    ],
     rows: [
       {
         label: 'Best for',
         hypequery: 'Type-safe analytics layers and app backends',
-        alternative: 'Direct ClickHouse access and raw queries',
+        alternative: 'Direct ClickHouse access, raw SQL, admin commands and bulk loads',
       },
       {
         label: 'Type safety',
@@ -44,9 +58,29 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'Manual response annotations',
       },
       {
+        label: 'Query parameters',
+        hypequery: 'Builder values are sent as bound parameters, never interpolated',
+        alternative: 'query_params with {name:Type} placeholders in SQL you write',
+      },
+      {
+        label: 'Inserts and streaming',
+        hypequery: 'Typed insert builder; stream() and Arrow streaming for reads',
+        alternative: 'Streaming for both selects and inserts',
+      },
+      {
         label: 'Reuse',
         hypequery: 'One query definition across local execution, HTTP, and React',
         alternative: 'You build the abstraction yourself',
+      },
+      {
+        label: 'HTTP API',
+        hypequery: '@hypequery/serve adds validation, auth, rate limiting and OpenAPI',
+        alternative: 'None: it connects your server to ClickHouse',
+      },
+      {
+        label: 'Caching',
+        hypequery: 'Optional query result cache with a pluggable provider',
+        alternative: 'None in the client; the ClickHouse query cache works from any client',
       },
     ],
     faq: [
@@ -58,7 +92,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'When should I stay with the official client?',
         answer:
-          'Stay with the official client for one-off scripts, inserts, streaming, or cases where raw SQL control is the main requirement.',
+          'Stay with the official client for one-off scripts, bulk loads from Node.js streams, admin commands, or cases where raw SQL control is the main requirement. hypequery has a typed insert builder for rows written from application code, but it is built mainly for reads.',
       },
     ],
   },
@@ -68,6 +102,14 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Kysely',
     verdict:
       'Kysely is an excellent general TypeScript query builder. hypequery is narrower and more opinionated around ClickHouse runtime type mapping, schema generation, and reusable analytics APIs.',
+    alternativeLabel: 'Kysely',
+    alternativeName: 'Kysely',
+    chooseAlternativeWhen: [
+      'Your main database is Postgres, MySQL, SQLite or SQL Server, and ClickHouse is a small side workload.',
+      'You want one query builder across several databases in the same codebase.',
+      'You only need a query builder, not HTTP endpoints, React hooks or MCP tools on top of it.',
+      'Your team already knows Kysely and is happy to maintain ClickHouse interfaces and a community dialect itself.',
+    ],
     rows: [
       {
         label: 'Best for',
@@ -75,21 +117,41 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'General SQL query building, especially Postgres',
       },
       {
+        label: 'ClickHouse support',
+        hypequery: 'Built for ClickHouse',
+        alternative: 'Through a community dialect (@founderpath/kysely-clickhouse), not a core dialect',
+      },
+      {
         label: 'Schema source',
         hypequery: 'Generated from live ClickHouse schema',
         alternative: 'Usually hand-maintained TypeScript interfaces',
       },
       {
+        label: 'Runtime type mapping',
+        hypequery: 'Generated types match what the adapter returns: UInt64 and DateTime as strings',
+        alternative: 'You encode the mapping in the interfaces you write',
+      },
+      {
+        label: 'ClickHouse clauses',
+        hypequery: 'FINAL, LIMIT BY, ARRAY JOIN and CTEs are builder methods',
+        alternative: 'Generic SQL builder; ClickHouse-only clauses go through the sql template tag',
+      },
+      {
         label: 'Application layer',
-        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks',
+        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks, MCP',
         alternative: 'Query builder only',
+      },
+      {
+        label: 'Multi-tenancy',
+        hypequery: 'Tenant scope injected from the auth context by @hypequery/serve',
+        alternative: 'Your own where clauses in each query',
       },
     ],
     faq: [
       {
         question: 'Can Kysely work with ClickHouse?',
         answer:
-          'Yes, but you still need to handle ClickHouse-specific runtime type mappings and application-level reuse yourself.',
+          'Yes, through a community dialect listed in the Kysely docs (@founderpath/kysely-clickhouse). You still need to handle ClickHouse-specific runtime type mappings and application-level reuse yourself.',
       },
       {
         question: 'When is hypequery a better fit?',
@@ -104,11 +166,24 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Drizzle',
     verdict:
       'Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative for teams who want schema generation from a live ClickHouse database, a composable query builder, and a typed API layer.',
+    alternativeLabel: 'Drizzle',
+    alternativeName: 'Drizzle',
+    chooseAlternativeWhen: [
+      'The data is transactional and lives in PostgreSQL, MySQL, SQLite, SingleStore, MSSQL or CockroachDB.',
+      'You want the schema defined in TypeScript, with migrations generated and run by drizzle-kit.',
+      'You need relations, foreign keys and transactions for application writes, which ClickHouse is not built for.',
+      'You run Postgres next to ClickHouse: use Drizzle for the Postgres side and hypequery only for ClickHouse.',
+    ],
     rows: [
       {
         label: 'ClickHouse support',
-        hypequery: 'Native — built specifically for ClickHouse',
-        alternative: 'Not supported — Postgres, MySQL, SQLite only',
+        hypequery: 'Built specifically for ClickHouse',
+        alternative: 'Not supported. Drizzle lists PostgreSQL, MySQL, SQLite, SingleStore, MSSQL and CockroachDB',
+      },
+      {
+        label: 'Best for',
+        hypequery: 'Analytics queries and APIs on ClickHouse',
+        alternative: 'Transactional application data on the databases it supports',
       },
       {
         label: 'Schema source',
@@ -116,16 +191,26 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'Defined in TypeScript, pushed to database',
       },
       {
+        label: 'Migrations',
+        hypequery: 'Leaves ClickHouse DDL to your migration tool',
+        alternative: 'drizzle-kit generate, migrate and push',
+      },
+      {
+        label: 'Runtime type mapping',
+        hypequery: 'ClickHouse-specific: UInt64 and DateTime as strings, Nullable as T | null',
+        alternative: 'Mappings for its supported databases only',
+      },
+      {
         label: 'Analytics layer',
-        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks',
-        alternative: 'Query builder only — no analytics serving layer',
+        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks, MCP',
+        alternative: 'ORM and query builder; no analytics serving layer',
       },
     ],
     faq: [
       {
         question: 'Does Drizzle support ClickHouse?',
         answer:
-          'Drizzle does not list ClickHouse as a supported database. hypequery is the dedicated TypeScript-first alternative for ClickHouse workloads.',
+          'No. The Drizzle docs list PostgreSQL, MySQL, SQLite, SingleStore, MSSQL and CockroachDB, and ClickHouse is not among them. hypequery is the dedicated TypeScript-first alternative for ClickHouse workloads.',
       },
       {
         question: 'Can I use Drizzle for Postgres and hypequery for ClickHouse?',
@@ -140,11 +225,24 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Prisma',
     verdict:
       'Prisma does not support ClickHouse. hypequery gives TypeScript teams the closest equivalent for ClickHouse analytics: schema generation, typed queries, and an API layer built around the ClickHouse data model.',
+    alternativeLabel: 'Prisma',
+    alternativeName: 'Prisma',
+    chooseAlternativeWhen: [
+      'Your application data lives in PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, CockroachDB or MongoDB.',
+      'You want a schema file, a generated client and migrations in one tool.',
+      'You need relations and transactions for application writes, which ClickHouse is not designed around.',
+      'Run both: Prisma for the transactional database and hypequery for ClickHouse analytics.',
+    ],
     rows: [
       {
         label: 'ClickHouse support',
-        hypequery: 'Native — built specifically for ClickHouse',
-        alternative: 'Not supported — Postgres and MySQL only',
+        hypequery: 'Built specifically for ClickHouse',
+        alternative: 'Not supported. Prisma ORM 7 covers PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, CockroachDB and MongoDB',
+      },
+      {
+        label: 'Best for',
+        hypequery: 'Analytics queries and APIs on ClickHouse',
+        alternative: 'Transactional application data',
       },
       {
         label: 'Schema approach',
@@ -154,14 +252,24 @@ export const comparePages: ComparePageConfig[] = [
       {
         label: 'Query layer',
         hypequery: 'Analytics-optimised query builder with ClickHouse-native syntax',
-        alternative: 'Relational ORM — tables, relations, transactions',
+        alternative: 'Relational ORM: tables, relations, transactions',
+      },
+      {
+        label: 'Migrations',
+        hypequery: 'ClickHouse DDL stays with your own migration tool',
+        alternative: 'Prisma Migrate for its supported databases',
+      },
+      {
+        label: 'Analytics serving',
+        hypequery: 'HTTP endpoints, OpenAPI, React hooks and MCP tools',
+        alternative: 'Not in scope',
       },
     ],
     faq: [
       {
         question: 'Does Prisma support ClickHouse?',
         answer:
-          'No. Prisma is designed for relational transactional databases — Postgres, MySQL, SQLite. ClickHouse has a fundamentally different data model that Prisma does not support.',
+          'No. Prisma is designed for transactional databases: Prisma ORM 7 supports PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, CockroachDB and MongoDB. ClickHouse has a different data model and is not on that list.',
       },
       {
         question: 'Can I use Prisma alongside hypequery?',
@@ -176,6 +284,15 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Cube',
     verdict:
       'Cube is a semantic layer platform for centralized metrics. hypequery is a lighter, code-first analytics layer that lives in your codebase, in TypeScript or Python, for product engineers building ClickHouse-backed features. They solve different problems.',
+    alternativeLabel: 'Cube',
+    alternativeName: 'Cube',
+    chooseAlternativeWhen: [
+      'BI tools such as Tableau, Power BI or Metabase need the same metric definitions as your app, through Cube’s Postgres-compatible SQL API.',
+      'Your metrics span several databases, not only ClickHouse.',
+      'Expensive queries hit by many users need managed pre-aggregations in Cube Store.',
+      'A data team owns metric definitions separately from the product engineers who consume them.',
+      'You want the vendor to host analytics agents and chat on top of the semantic layer, as Cube Cloud does.',
+    ],
     rows: [
       {
         label: 'Best for',
@@ -185,12 +302,37 @@ export const comparePages: ComparePageConfig[] = [
       {
         label: 'Setup',
         hypequery: 'A package install, no separate infrastructure. Optional hosting on hypequery cloud',
-        alternative: 'Separate Cube server, Redis cache, config management',
+        alternative: 'Cube API instances, a refresh worker, and Cube Store router and worker nodes, or Cube Cloud',
       },
       {
         label: 'Workflow',
         hypequery: 'Fully code-first — lives in your codebase, in TypeScript or Python',
-        alternative: 'Config-first YAML/JS schema outside your app codebase',
+        alternative: 'Data model in YAML or JavaScript files, served by the Cube deployment',
+      },
+      {
+        label: 'Databases',
+        hypequery: 'ClickHouse only, by design',
+        alternative: 'Many SQL sources, including ClickHouse, Snowflake, BigQuery and Postgres',
+      },
+      {
+        label: 'BI tools',
+        hypequery: 'Not a goal; typed application APIs instead',
+        alternative: 'Postgres-compatible SQL API for Tableau, Power BI, Metabase and Superset',
+      },
+      {
+        label: 'Caching',
+        hypequery: 'Optional query result cache; ClickHouse materialized views for rollups',
+        alternative: 'Pre-aggregations and caching in Cube Store',
+      },
+      {
+        label: 'Agents and MCP',
+        hypequery: '@hypequery/mcp exposes datasets and metrics as MCP tools',
+        alternative: 'Cube Cloud includes an MCP server and analytics agents, from the Free plan',
+      },
+      {
+        label: 'Pricing',
+        hypequery: 'Free and open source (Apache 2.0)',
+        alternative: 'Cube Core is Apache 2.0; Cube Cloud has a Free plan, then $40 or $80 per developer per month',
       },
     ],
     faq: [
@@ -204,6 +346,11 @@ export const comparePages: ComparePageConfig[] = [
         answer:
           'Yes — some teams use Cube for the data team and BI layer, and hypequery for product-facing analytics features where application integration and engineering velocity matter more.',
       },
+      {
+        question: 'Does Cube still need Redis?',
+        answer:
+          'No. Cube deprecated Redis in v0.32 and removed support in v0.36. Cube Store now handles the cache, the query queue and pre-aggregations, so a production Cube Core deployment runs API instances, a refresh worker, and Cube Store router and worker nodes.',
+      },
     ],
   },
   {
@@ -212,43 +359,66 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Tinybird',
     verdict:
       'Tinybird is a managed ClickHouse platform with a built-in API layer. hypequery is the better fit when your data needs to stay in your own ClickHouse and your team wants the analytics layer as code it owns, in TypeScript or Python.',
+    alternativeLabel: 'Tinybird',
+    alternativeName: 'Tinybird',
+    chooseAlternativeWhen: [
+      'You do not run ClickHouse yet and nobody on the team wants to operate it.',
+      'The deliverable is hosted analytics APIs, and you want ingestion, endpoint hosting and token auth handled by one platform.',
+      'Your team is more SQL-fluent than TypeScript-fluent and would rather publish SQL pipes than write application code.',
+      'A vendor-run region meets your data residency and compliance needs.',
+    ],
     rows: [
       {
         label: 'Infrastructure',
-        hypequery: 'Bring your own ClickHouse',
+        hypequery: 'Bring your own ClickHouse: self-hosted, ClickHouse Cloud or another provider',
         alternative: 'Managed ClickHouse platform',
-      },
-      {
-        label: 'TypeScript types',
-        hypequery: 'Generated from your live schema',
-        alternative: 'Manual — call HTTP endpoints yourself',
-      },
-      {
-        label: 'Code ownership',
-        hypequery: 'Definitions live in your codebase, in TypeScript or Python',
-        alternative: 'SQL Pipes defined in Tinybird UI',
       },
       {
         label: 'Data location',
         hypequery: 'Stays in your own infrastructure',
-        alternative: 'Ingested into Tinybird managed platform',
+        alternative: 'Ingested into Tinybird. Self-managed regions in your own AWS account are in beta, for development only',
+      },
+      {
+        label: 'Code ownership',
+        hypequery: 'Definitions live in your codebase, in TypeScript or Python',
+        alternative: 'Datafiles or TypeScript definitions in your repo, deployed to Tinybird with the CLI',
+      },
+      {
+        label: 'TypeScript types',
+        hypequery: 'Generated from your live schema',
+        alternative: 'Inferred from resources you define with @tinybirdco/sdk, which Tinybird marks experimental',
+      },
+      {
+        label: 'Auth and rate limits',
+        hypequery: '@hypequery/serve: JWT auth, tenant scoping and rateLimit middleware',
+        alternative: 'Tokens, plus JWTs with per-token rate limits and fixed tenant parameters',
+      },
+      {
+        label: 'Agents and MCP',
+        hypequery: '@hypequery/mcp exposes datasets and metrics as MCP tools',
+        alternative: 'Tinybird MCP server with token-scoped access to a workspace',
       },
       {
         label: 'Pricing',
-        hypequery: 'Free and open source',
-        alternative: 'Based on data processed and API calls',
+        hypequery: 'Free and open source; you pay for your own ClickHouse',
+        alternative: 'Free plan, then plans sized in vCPUs plus storage, egress and vCPU overages',
       },
     ],
     faq: [
       {
         question: 'Does hypequery replace Tinybird?',
         answer:
-          'Not directly — they solve the same problem differently. Tinybird is a managed platform that handles ClickHouse infrastructure, auth, and caching for you. hypequery is an open-source library you add to your own project, assuming you already run ClickHouse. If you want zero ops and are comfortable with your data living in a third-party platform, Tinybird is compelling. If you want someone else to run the layer but keep the data in your own ClickHouse, hypequery cloud (in early access) hosts the same definitions. If you want data sovereignty, schema-generated TypeScript types, and code-first control, hypequery is the better fit.',
+          'Not directly — they solve the same problem differently. Tinybird is a managed platform that handles ClickHouse infrastructure, ingestion, endpoint hosting, and auth for you. hypequery is an open-source library you add to your own project, assuming you already run ClickHouse. If you want zero ops and are comfortable with your data living in a third-party platform, Tinybird is compelling. If you want someone else to run the layer but keep the data in your own ClickHouse, hypequery cloud (in early access) hosts the same definitions. If you want data sovereignty, schema-generated TypeScript types, and code-first control, hypequery is the better fit.',
       },
       {
         question: 'When should I choose Tinybird over hypequery?',
         answer:
-          'Choose Tinybird when you have no ops team to manage ClickHouse, need a fast path from raw data to a public API, and data residency or vendor lock-in are not concerns. It is also a good fit when your team is more SQL-fluent than TypeScript-fluent and you want built-in rate limiting and caching without writing any middleware.',
+          'Choose Tinybird when you have no ops team to manage ClickHouse, need a fast path from raw data to a public API, and data residency or vendor lock-in are not concerns. It is also a good fit when your team is more SQL-fluent than TypeScript-fluent and you want token-based auth and per-token rate limits built into the platform.',
+      },
+      {
+        question: 'Does Tinybird have a TypeScript SDK?',
+        answer:
+          'Yes. @tinybirdco/sdk defines data sources and endpoints in TypeScript and infers row, parameter and output types from those definitions. Tinybird marks it experimental. The types come from the definitions you write, while hypequery generates them by introspecting the ClickHouse you already run.',
       },
     ],
   },
@@ -260,6 +430,14 @@ export const comparePages: ComparePageConfig[] = [
       'ClickHouse Cloud is a managed ClickHouse database billed by compute time and compressed storage. Tinybird is a platform on ClickHouse that adds ingestion, hosted SQL API endpoints and tokens, billed by plan size in vCPUs. Pick Tinybird for hosted analytics APIs with little backend work; pick ClickHouse Cloud when your own services and tools need direct read and write access to ClickHouse.',
     primaryLabel: 'ClickHouse Cloud',
     alternativeLabel: 'Tinybird',
+    alternativeName: 'Tinybird',
+    chooseAlternativeHeading: 'When Tinybird is the better pick',
+    chooseAlternativeWhen: [
+      'The deliverable is hosted analytics APIs, and you want ingestion and endpoint hosting handled for you.',
+      'You want to start on a free plan with no time limit: 0.25 vCPU, 1,000 requests per day and 10 GB.',
+      'You prefer a monthly plan sized in vCPUs to compute metered per compute-unit-hour.',
+      'Your frontend or partners call endpoints with scoped tokens, and no service needs direct write access to the database.',
+    ],
     rows: [
       {
         label: 'Product shape',
@@ -326,6 +504,14 @@ export const comparePages: ComparePageConfig[] = [
     title: 'Cube vs Tinybird vs hypequery',
     verdict:
       'Cube, Tinybird, and hypequery all put an API layer between ClickHouse and applications, but they have different shapes: semantic layer platform, managed analytics service, and an open-source analytics layer in your codebase.',
+    alternativeLabel: 'Cube and Tinybird',
+    alternativeName: 'Cube or Tinybird',
+    chooseAlternativeWhen: [
+      'Pick Cube when BI tools and your app must share one set of metric definitions, across more than one database.',
+      'Pick Cube when expensive queries hit by many users need managed pre-aggregations.',
+      'Pick Tinybird when you do not run ClickHouse yet and want ingestion plus hosted API endpoints with no ops.',
+      'Pick Tinybird when the team is SQL-first and wants endpoints with token auth and rate limits from the platform.',
+    ],
     rows: [
       {
         label: 'Shape',
@@ -346,6 +532,26 @@ export const comparePages: ComparePageConfig[] = [
         label: 'Best fit',
         hypequery: 'Product teams with an existing ClickHouse, in TypeScript or Python',
         alternative: 'Cube for shared BI semantics; Tinybird for zero-ops hosted analytics APIs',
+      },
+      {
+        label: 'BI tools',
+        hypequery: 'Not a goal; typed application APIs instead',
+        alternative: 'Cube: Postgres-compatible SQL API. Tinybird: read-only ClickHouse-compatible HTTP interface',
+      },
+      {
+        label: 'Caching and rollups',
+        hypequery: 'Optional query result cache; ClickHouse materialized views',
+        alternative: 'Cube: pre-aggregations in Cube Store. Tinybird: materialized views and copy pipes',
+      },
+      {
+        label: 'Pricing',
+        hypequery: 'Free and open source',
+        alternative: 'Cube Cloud: per developer seat, with a Free plan. Tinybird: plans sized in vCPUs, with a free plan',
+      },
+      {
+        label: 'Agents and MCP',
+        hypequery: '@hypequery/mcp over your datasets and metrics',
+        alternative: 'Both ship MCP servers for their platforms',
       },
     ],
     faq: [
@@ -372,6 +578,14 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs Moose (MooseStack)',
     verdict:
       'MooseStack has reached end of life and is no longer actively maintained. Do not start a new production system on it. hypequery is the active, narrower replacement for its query models, APIs, React hooks, and MCP tools, in TypeScript or Python.',
+    alternativeLabel: 'MooseStack',
+    alternativeName: 'MooseStack',
+    chooseAlternativeHeading: 'When to keep MooseStack for now',
+    chooseAlternativeWhen: [
+      'Your Moose app runs in production and works today: migrate one query model at a time rather than in one cutover.',
+      'You depend on Moose’s streaming and workflow modules and have not chosen replacements yet. hypequery does not cover streaming, workflows or DDL migrations.',
+      'Your ClickHouse schema is declared in Moose code and no migration tool owns the DDL yet.',
+    ],
     rows: [
       {
         label: 'Project status',
@@ -392,6 +606,21 @@ export const comparePages: ComparePageConfig[] = [
         label: 'Scope',
         hypequery: 'Actively maintained TypeScript and Python packages inside your application',
         alternative: 'Unmaintained framework code can inform migration but should not be a new dependency',
+      },
+      {
+        label: 'Languages',
+        hypequery: 'TypeScript; Python SDK in beta',
+        alternative: 'TypeScript and Python',
+      },
+      {
+        label: 'Streaming and workflows',
+        hypequery: 'Not covered: keep dedicated ingestion and workflow tools',
+        alternative: 'Redpanda and Temporal modules, now unmaintained',
+      },
+      {
+        label: 'Agents and MCP',
+        hypequery: 'Governed dataset and metric MCP server, from either SDK',
+        alternative: 'Development harness MCP and query-model tools',
       },
     ],
     faq: [
@@ -423,6 +652,14 @@ export const comparePages: ComparePageConfig[] = [
     title: 'hypequery vs dbt',
     verdict:
       'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time, from TypeScript or Python. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
+    alternativeLabel: 'dbt',
+    alternativeName: 'dbt',
+    chooseAlternativeWhen: [
+      'You need scheduled transformations: raw events cleaned, joined and deduplicated into tables before anyone queries them.',
+      'A data team owns the models and works in SQL with Jinja.',
+      'Several consumers, including BI tools, read the same materialised tables.',
+      'You want incremental models rebuilt on a schedule instead of computed on each request.',
+    ],
     rows: [
       {
         label: 'Job',
@@ -443,6 +680,16 @@ export const comparePages: ComparePageConfig[] = [
         label: 'Output',
         hypequery: 'Typed query results, REST endpoints, React hooks',
         alternative: 'Materialised tables and views in ClickHouse',
+      },
+      {
+        label: 'ClickHouse support',
+        hypequery: 'Built for ClickHouse',
+        alternative: 'dbt-clickhouse adapter: table, view, incremental and ephemeral, with materialized views marked experimental',
+      },
+      {
+        label: 'Multi-tenancy',
+        hypequery: 'Tenant scope injected per request from your auth context',
+        alternative: 'Not in scope; dbt builds shared tables',
       },
     ],
     faq: [
@@ -468,44 +715,68 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-propel',
     title: 'hypequery vs Propel',
     verdict:
-      'Propel is a serverless analytics platform: managed APIs, a semantic layer, and embeddable UI components on top of ClickHouse. hypequery is the code-first version of the same idea — you keep the ClickHouse you run, and the API layer lives in your TypeScript repo instead of a platform.',
+      'Propel was a serverless analytics platform on ClickHouse with GraphQL and SQL APIs, a semantic layer and embeddable React components. As of 8 November 2026 its website, docs and console addresses all point to a domain-parking page, so do not plan new work on it. hypequery covers the typed API layer on a ClickHouse you run; Tinybird is the closest active managed platform.',
+    alternativeLabel: 'Propel',
+    alternativeName: 'a managed platform',
+    chooseAlternativeHeading: 'When a managed platform fits better than hypequery',
+    chooseAlternativeWhen: [
+      'You picked Propel to avoid building any API layer: Tinybird is the closest active option, with hosted endpoints, tokens and JWT rate limits.',
+      'You mainly used Propel’s prebuilt dashboard components: an embeddable BI tool such as Metabase gets charts in front of customers with less code.',
+      'You never ran ClickHouse yourself and do not want to start: a managed ClickHouse service or platform has to come first.',
+      'Non-engineers need to build the dashboards themselves.',
+    ],
     rows: [
       {
-        label: 'Best for',
-        hypequery: 'Teams who want to own the analytics layer as code, in TypeScript or Python',
-        alternative: 'Teams who want managed APIs and drop-in dashboard components',
+        label: 'Status',
+        hypequery: 'Actively maintained, open source',
+        alternative: 'propeldata.com, its docs and its console point to a domain-parking page (checked 8 November 2026)',
       },
       {
         label: 'Model',
         hypequery: 'Open-source library inside your app',
-        alternative: 'Serverless platform with GraphQL and SQL APIs',
+        alternative: 'Was a serverless platform with GraphQL and SQL APIs',
       },
       {
         label: 'TypeScript types',
         hypequery: 'Generated from your live ClickHouse schema',
-        alternative: 'GraphQL codegen against Propel’s API schema',
+        alternative: 'Was GraphQL codegen against Propel’s API schema',
+      },
+      {
+        label: 'UI',
+        hypequery: 'Your own components on typed React hooks',
+        alternative: 'Was a React UI kit; @propeldata/ui-kit was last published to npm in January 2025',
+      },
+      {
+        label: 'Multi-tenancy',
+        hypequery: 'Tenant scope from your auth context, per request',
+        alternative: 'Was platform-level access policies',
+      },
+      {
+        label: 'Data location',
+        hypequery: 'Always your own ClickHouse',
+        alternative: 'Was managed storage, or a connection to your existing ClickHouse',
       },
       {
         label: 'Pricing',
-        hypequery: 'Free — you pay for your own infrastructure',
-        alternative: 'Usage-based platform pricing',
+        hypequery: 'Free and open source; you pay for your own infrastructure',
+        alternative: 'Was usage-based',
       },
     ],
     faq: [
       {
-        question: 'Is Propel the same thing as Tinybird?',
+        question: 'Is Propel still available?',
         answer:
-          'They compete in the same space — managed analytics APIs over ClickHouse — but Propel leans harder into embedded analytics: a semantic layer, multi-tenant access policies, and embeddable React UI components. Tinybird leans into ingestion and SQL Pipes. hypequery differs from both by being a library rather than a platform.',
+          'We could not find it running. On 8 November 2026, propeldata.com redirected to a domain-parking page that lists the domain for sale, and the docs, console and API hostnames resolved to the same parking service. We found no official shutdown announcement, so existing customers should confirm with their Propel contact, but new projects should not depend on it.',
       },
       {
-        question: 'When should I choose Propel over hypequery?',
+        question: 'What replaces Propel’s GraphQL APIs?',
         answer:
-          'Choose Propel when speed to a customer-facing dashboard matters more than owning the stack — its managed APIs and prebuilt UI components get embedded analytics live very quickly, and it can connect to your existing ClickHouse rather than requiring ingestion.',
+          'If Propel was connected to your own ClickHouse, point hypequery at the same database and serve typed REST endpoints with OpenAPI from @hypequery/serve, in TypeScript, or from FastAPI, Django or Flask in Python. If Propel stored the data for you, you need a ClickHouse first: self-hosted, ClickHouse Cloud, or a platform such as Tinybird.',
       },
       {
-        question: 'When is hypequery the better fit?',
+        question: 'What about Propel’s UI components?',
         answer:
-          'When you want analytics queries versioned in your own repo, response types generated from your actual schema, no per-query platform pricing, and no dependency on a third-party serving layer between your app and your ClickHouse.',
+          '@propeldata/ui-kit is still on npm, last published in January 2025, but the components were built to query Propel’s APIs. Rebuild the charts with your own components on @hypequery/react hooks, or embed a BI tool if you would rather not build charts.',
       },
     ],
   },
@@ -515,11 +786,19 @@ export const comparePages: ComparePageConfig[] = [
     "href": "/compare/hypequery-vs-typeorm",
     "title": "hypequery vs TypeORM",
     "verdict": "TypeORM does not support ClickHouse and has no credible workaround — its entity/decorator model is built for transactional row stores, not columnar append-only analytics. hypequery is the ClickHouse-native TypeScript layer; the realistic setup is coexistence, with TypeORM on Postgres/MySQL and hypequery on the ClickHouse side.",
+    "alternativeLabel": "TypeORM",
+    "alternativeName": "TypeORM",
+    "chooseAlternativeWhen": [
+      "Your data is transactional: entities with relations, foreign keys and transactions on Postgres, MySQL or another database TypeORM supports.",
+      "You want decorated entity classes, migrations, and the Active Record or Data Mapper pattern.",
+      "The workload is row-level reads and writes with lifecycle hooks, not aggregations over millions of rows.",
+      "You already run TypeORM in a Nest or Express service: keep it for the OLTP side and add hypequery only for ClickHouse."
+    ],
     "rows": [
       {
         "label": "ClickHouse support",
         "hypequery": "Native — built specifically for ClickHouse",
-        "alternative": "None — Postgres, MySQL, SQLite, and other OLTP engines only"
+        "alternative": "None. Drivers cover MySQL/MariaDB, Postgres, CockroachDB, SQLite, SQL Server, Oracle, SAP HANA, Spanner and MongoDB"
       },
       {
         "label": "Data model",
@@ -540,6 +819,11 @@ export const comparePages: ComparePageConfig[] = [
         "label": "Analytics layer",
         "hypequery": "Query builder, HTTP serving, OpenAPI, React hooks",
         "alternative": "Repository/entity CRUD — no analytics serving layer"
+      },
+      {
+        "label": "Multi-tenancy",
+        "hypequery": "Tenant scope injected per request from your auth context",
+        "alternative": "Not built in; you add tenant conditions to each query"
       }
     ],
     "faq": [
@@ -559,51 +843,99 @@ export const comparePages: ComparePageConfig[] = [
   },
 
   {
-    "slug": "hypequery-vs-metabase",
-    "href": "/compare/hypequery-vs-metabase",
-    "title": "hypequery vs Metabase",
-    "verdict": "Metabase is a BI tool with a ClickHouse connector and iframe/interactive embedding — the fastest way to get a chart in front of people, especially for internal analytics. hypequery is the code-first route for customer-facing product analytics, where you need type-safe queries, per-tenant governance in your own auth stack, and UI built from your own components.",
-    "rows": [
-      {
-        "label": "Category",
-        "hypequery": "Code-first embedded analytics library",
-        "alternative": "BI tool with a ClickHouse connector and embeds"
-      },
-      {
-        "label": "Best for",
-        "hypequery": "Customer-facing product analytics you ship and own",
-        "alternative": "Internal dashboards and fast chart-in-front-of-people"
-      },
-      {
-        "label": "The UI",
-        "hypequery": "Your own React components on typed contracts",
-        "alternative": "Metabase's charts, embedded via iframe or SDK"
-      },
-      {
-        "label": "Multi-tenancy",
-        "hypequery": "Tenant rules in your app's auth context, per request",
-        "alternative": "Sandboxing / row-level permissions (paid tiers)"
-      },
-      {
-        "label": "Type safety",
-        "hypequery": "Types generated from your live ClickHouse schema",
-        "alternative": "Not code — queries authored in the BI UI"
-      }
+    slug: 'hypequery-vs-metabase',
+    href: '/compare/hypequery-vs-metabase',
+    title: 'hypequery vs Metabase',
+    verdict:
+      'Metabase is a BI tool with an official ClickHouse connector and several ways to embed it: guest embeds on every plan, and modular embedding with SSO, the React SDK and full app embedding on Pro and Enterprise. It is the faster route to charts, especially for internal analytics. hypequery is the code-first route for customer-facing analytics, where queries are typed, tenant rules live in your own auth and the UI is your own React components.',
+    alternativeLabel: 'Metabase',
+    alternativeName: 'Metabase',
+    chooseAlternativeWhen: [
+      'Non-engineers need to build and change dashboards themselves, without waiting on a deploy.',
+      'The audience is internal: leadership dashboards, ops exploration and ad-hoc questions.',
+      'You need charts live this week, and Metabase’s look inside your product is acceptable.',
+      'You want alerts and scheduled email or Slack subscriptions without building them.',
+      'Guest embeds with tenant filters locked in a signed token cover your isolation needs, and either the “Powered by Metabase” banner is fine or you are on Pro.',
     ],
-    "faq": [
+    rows: [
       {
-        "question": "Is Metabase or hypequery faster to get a first dashboard?",
-        "answer": "Metabase, clearly. Connect ClickHouse, build a question, publish an embed, and a chart is live in an afternoon with no code. hypequery is faster over the long run only when you need typed queries, per-tenant governance, and UI that matches your product."
+        label: 'Category',
+        hypequery: 'Code-first analytics layer behind your own UI',
+        alternative: 'BI tool with an official ClickHouse connector and embedding',
       },
       {
-        "question": "Can I embed Metabase in a customer-facing SaaS product?",
-        "answer": "Yes, with caveats. Static iframe embeds are free; interactive embedding with SSO and row-level sandboxing is a paid tier. The UI is still Metabase's look and feel, and per-tenant rules live in Metabase rather than your own auth stack."
+        label: 'Best for',
+        hypequery: 'Customer-facing analytics that ships inside your product',
+        alternative: 'Internal dashboards and self-serve exploration by non-engineers',
       },
       {
-        "question": "Do I have to choose one?",
-        "answer": "No. A common split is Metabase for internal BI and ad-hoc exploration, and hypequery for the customer-facing analytics baked into your product. Both point at the same ClickHouse."
-      }
-    ]
+        label: 'Who builds charts',
+        hypequery: 'Engineers, in TypeScript or Python plus React',
+        alternative: 'Anyone, in the Metabase UI',
+      },
+      {
+        label: 'Embedding',
+        hypequery: 'Your own React components on typed hooks',
+        alternative: 'Guest embeds on every plan; modular embedding with SSO, the React SDK and full app embedding on Pro and Enterprise',
+      },
+      {
+        label: 'Branding',
+        hypequery: 'Your design system',
+        alternative: 'Guest embeds show “Powered by Metabase” on Open Source and Starter; Pro and Enterprise remove it',
+      },
+      {
+        label: 'Multi-tenancy',
+        hypequery: 'Tenant scope from your app’s auth, injected per request',
+        alternative: 'Locked filters in signed guest-embed tokens; row and column security on Pro and Enterprise',
+      },
+      {
+        label: 'Type safety',
+        hypequery: 'Types generated from your live ClickHouse schema',
+        alternative: 'Questions are authored in the UI, not checked against code',
+      },
+      {
+        label: 'Agents and MCP',
+        hypequery: '@hypequery/mcp exposes governed datasets and metrics',
+        alternative: 'MCP server on every plan, scoped to the connecting user’s permissions',
+      },
+      {
+        label: 'Pricing',
+        hypequery: 'Free and open source; you pay for your own infrastructure',
+        alternative: 'Open Source free; Starter $100/month; Pro $575/month; Enterprise from $20,000/year',
+      },
+    ],
+    faq: [
+      {
+        question: 'What is Metabase embedding?',
+        answer:
+          'Metabase offers four ways to put its charts in your app. Guest embeds render a dashboard or question as a web component, authorized by a JWT your server signs. Modular embedding places individual components, such as a dashboard, chart or query builder, using web components or the React SDK, with SSO. Full app embedding puts the whole Metabase app in an iframe. Public links share an item with anyone who has the link. Static embedding is deprecated in favor of guest embeds.',
+      },
+      {
+        question: 'Which Metabase plans include embedding?',
+        answer:
+          'Guest embeds work on every plan, including Open Source and Starter, where they show a Powered by Metabase banner. Modular embedding with SSO, the React SDK, full app embedding, and row and column security require Pro or Enterprise. Pro is listed at $575 per month with 10 users included, and Enterprise starts at $20,000 per year (checked 8 November 2026).',
+      },
+      {
+        question: 'Can I embed Metabase in a customer-facing SaaS product?',
+        answer:
+          'Yes. On any plan, guest embeds let your server lock a tenant filter into the signed token, but viewers cannot drill through or use the query builder. For interactive embeds tied to your users, with row and column security from user attributes, you need Pro or Enterprise. Either way the charts are Metabase components and the tenant rules are configured in Metabase.',
+      },
+      {
+        question: 'Is Metabase or hypequery faster to get a first dashboard?',
+        answer:
+          'Metabase. Connect ClickHouse, build a question, embed it, and a chart can be live in an afternoon with no code. hypequery pays off over time when you need typed queries, tenant rules in your own auth, and UI that matches your product.',
+      },
+      {
+        question: 'What is a good Metabase alternative for embedded analytics?',
+        answer:
+          'For developers who want analytics to be part of the product rather than an embedded BI tool, a code-first layer works better: hypequery serves typed, tenant-scoped ClickHouse queries as API endpoints and React hooks, and you draw the charts with your own components. If non-engineers must author the dashboards, stay with a BI tool.',
+      },
+      {
+        question: 'Do I have to choose one?',
+        answer:
+          'No. A common split is Metabase for internal BI and ad-hoc exploration, and hypequery for the customer-facing analytics baked into your product. Both point at the same ClickHouse.',
+      },
+    ],
   },
 
   {
@@ -611,6 +943,15 @@ export const comparePages: ComparePageConfig[] = [
     "href": "/compare/hypequery-vs-clickhouse-http",
     "title": "hypequery vs the ClickHouse HTTP Interface",
     "verdict": "The ClickHouse HTTP interface is excellent for scripts, health checks, and one-off queries, and it's the transport hypequery uses under the hood. hypequery is the better fit once the same queries live in application code and need types, reuse, and safe parameters.",
+    "alternativeLabel": "ClickHouse HTTP interface",
+    "alternativeName": "the HTTP interface",
+    "chooseAlternativeHeading": "When to use the HTTP interface directly",
+    "chooseAlternativeWhen": [
+      "Health checks, CI probes and shell scripts where curl is already available.",
+      "Ad-hoc exploration, or debugging a query outside your application.",
+      "Languages or tools with no ClickHouse client, since any HTTP library works.",
+      "One-off exports, using FORMAT CSV or FORMAT Parquet and writing the response straight to a file."
+    ],
     "rows": [
       {
         "label": "Best for",
@@ -620,7 +961,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         "label": "Parameters",
         "hypequery": "Bound parameters via the query builder",
-        "alternative": "String-concatenated SQL you escape yourself"
+        "alternative": "SQL strings; server-side {name:Type} binding with param_ arguments, wired by hand"
       },
       {
         "label": "Response types",
@@ -636,6 +977,16 @@ export const comparePages: ComparePageConfig[] = [
         "label": "Exposed endpoints",
         "hypequery": "zod validation, auth hooks, OpenAPI via @hypequery/serve",
         "alternative": "You build validation and auth from scratch"
+      },
+      {
+        "label": "Setup",
+        "hypequery": "npm packages and a generate step",
+        "alternative": "Nothing to install; curl against port 8123, or 8443 over TLS"
+      },
+      {
+        "label": "Rate limits and caching",
+        "hypequery": "rateLimit middleware and an optional query result cache",
+        "alternative": "Server-side quotas and the ClickHouse query cache, configured on the server"
       }
     ],
     "faq": [
@@ -659,6 +1010,15 @@ export const comparePages: ComparePageConfig[] = [
     "href": "/compare/hypequery-vs-raw-sql",
     "title": "hypequery vs Raw SQL",
     "verdict": "Raw SQL strings are the right call for one-off scripts and genuinely gnarly analytical SQL — and hypequery agrees, which is why selectExpr and withCTE let you drop to raw SQL any time. The case for the builder is the repeated, application-embedded queries where hand-written strings and interfaces silently drift from your schema.",
+    "alternativeLabel": "Raw SQL",
+    "alternativeName": "raw SQL",
+    "chooseAlternativeHeading": "When to write raw SQL instead",
+    "chooseAlternativeWhen": [
+      "One-off backfills, migrations and admin scripts.",
+      "Analytical SQL with window functions, ASOF joins or several nested CTEs that reads more clearly as SQL.",
+      "Queries that run once and never get reused, filtered or refactored.",
+      "SQL owned and reviewed by analysts who work in SQL, not TypeScript."
+    ],
     "rows": [
       {
         "label": "Best for",
@@ -679,6 +1039,11 @@ export const comparePages: ComparePageConfig[] = [
         "label": "Injection safety",
         "hypequery": "Parameterized by construction; values never interpolated",
         "alternative": "Safe only if you never interpolate — easy to get wrong"
+      },
+      {
+        "label": "Result types",
+        "hypequery": "Generated from the schema, including ClickHouse runtime mappings",
+        "alternative": "Interfaces you write and keep in sync by hand"
       },
       {
         "label": "Escape hatch",
@@ -713,6 +1078,13 @@ export const comparePages: ComparePageConfig[] = [
       'clickhouse-connect is the official Python driver: it runs the SQL you write. hypequery runs on top of it and adds shared measures, request validation, and tenant isolation. Use the driver for raw SQL and inserts, and hypequery for the numbers your product shares.',
     primaryLabel: 'hypequery',
     alternativeLabel: 'clickhouse-connect',
+    alternativeName: 'clickhouse-connect',
+    chooseAlternativeWhen: [
+      'Inserts and ingestion: hypequery’s Python SDK is read-only.',
+      'Schema changes, admin scripts and one-off SQL.',
+      'Data science on arbitrary SQL, where query_df or query_arrow returns a DataFrame or Arrow table directly.',
+      'A single script or notebook where shared measures, validation and tenant isolation add nothing.',
+    ],
     rows: [
       {
         label: 'What it is',
@@ -736,8 +1108,8 @@ export const comparePages: ComparePageConfig[] = [
       },
       {
         label: 'Results',
-        hypequery: 'Rows as dicts; decimals and dates as strings',
-        alternative: 'Native types, NumPy, pandas, and Arrow',
+        hypequery: 'Rows as dicts with decimals and dates as strings; to_pandas(), to_polars() and to_arrow() for analysis',
+        alternative: 'Native types, NumPy, pandas, and Arrow for any SQL',
       },
       {
         label: 'Inserts',

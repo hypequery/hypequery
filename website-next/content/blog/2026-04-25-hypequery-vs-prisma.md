@@ -1,28 +1,29 @@
 ---
 title: "hypequery vs Prisma: Why Prisma Does Not Work for ClickHouse"
 description: "Prisma does not support ClickHouse. If you want a schema-first TypeScript experience for ClickHouse analytics, hypequery is the alternative — built for the ClickHouse data model."
-seoTitle: "hypequery vs Prisma for ClickHouse"
+seoTitle: "hypequery vs Prisma for ClickHouse (2026)"
 seoDescription: "Prisma does not support ClickHouse. hypequery gives you the schema-first, TypeScript-first experience for ClickHouse analytics — without the wrong abstractions."
 pubDate: 2026-04-25
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-prisma
 status: published
 ---
 
-Prisma is the dominant TypeScript ORM for Postgres and MySQL. Its model is clean and well understood: define your schema, run a migration, get a typed client. The developer experience is polished and the ecosystem is large.
+Prisma is one of the most widely used TypeScript ORMs for transactional databases such as Postgres and MySQL. Its model is clean and well understood: define your schema, run a migration, get a typed client. The developer experience is polished and the ecosystem is large.
 
-ClickHouse is not in Prisma's supported database list. Prisma is built around transactional relational workflows, which is a poor fit for a columnar analytics database like ClickHouse.
+ClickHouse is not in Prisma's supported database list, which for Prisma ORM 7 covers PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, CockroachDB and MongoDB (checked 8 November 2026). Prisma is built around transactional relational workflows, which is a poor fit for a columnar analytics database like ClickHouse.
 
 ## Why Prisma and ClickHouse do not fit
 
 Prisma's architecture assumes a transactional relational database. It models:
 
-- Tables with primary keys
+- Tables with unique primary keys
 - Foreign key relationships
 - Transactions and row-level locking
 - Standard SQL mutations (INSERT, UPDATE, DELETE)
 
-ClickHouse is none of these things. It is a columnar store optimised for append and aggregation. It does not have the same transaction model. UPDATE and DELETE exist but are handled very differently. Joins work differently, and the performance model for queries is inverted compared to Postgres — full table scans are fast, row-level access is slow.
+ClickHouse works differently on each of these. Its primary key sets sort order rather than enforcing uniqueness, and it has no foreign keys. It is a columnar store optimised for append and aggregation. It does not have the same transaction model. UPDATE and DELETE exist but are handled very differently. Joins work differently, and the performance model for queries is inverted compared to Postgres — full table scans are fast, row-level access is slow.
 
 Forcing Prisma's mental model onto ClickHouse would produce something that looks familiar but behaves incorrectly at scale.
 
@@ -37,7 +38,7 @@ Both of these are available in hypequery, built for the ClickHouse data model.
 
 ## How hypequery compares
 
-**Schema types** — hypequery generates TypeScript types from your live ClickHouse schema using `@hypequery/cli generate`. Like Prisma's generated client types, these reflect the actual database rather than hand-maintained interfaces. Unlike Prisma, the types account for ClickHouse-specific runtime behaviour — DateTime as string, UInt64 as string, Nullable as T | null.
+**Schema types** — hypequery generates TypeScript types from your live ClickHouse schema using `@hypequery/cli generate`. Like Prisma's generated client types, these reflect the actual database rather than hand-maintained interfaces. Unlike Prisma, the types account for ClickHouse-specific runtime behaviour: DateTime as string, UInt64 as string, Nullable as T | null.
 
 **Query builder** — hypequery's fluent query builder is typed from the generated schema. Table names, column names, and return types all autocomplete and type-check. It is designed around analytical ClickHouse queries rather than transactional relational CRUD, and it leaves room for raw SQL when a ClickHouse-specific clause needs exact control.
 
