@@ -16,7 +16,7 @@ export * from "./adapters/fetch.js";
 export * from "./adapters/vercel.js";
 export { startServer, toNodeHandler, toFetchHandler } from "./adapters/standalone.js";
 export { streamBody, isServeStreamBody } from "./utils/stream-body.js";
-export type { ServeStreamBody } from "./utils/stream-body.js";
+export type { ServeStreamBody, ServeStreamBodyOptions } from "./utils/stream-body.js";
 export { ARROW_STREAM_MEDIA_TYPE, NDJSON_MEDIA_TYPE } from "./semantic/datasets/utils/stream-format.js";
 export type { DevIntegrationApi, ServeDevOptions } from "./dev.js";
 export { createCacheObservability, detectBuilderCache } from "./cache-observability.js";

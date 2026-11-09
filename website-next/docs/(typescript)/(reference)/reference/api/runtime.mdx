@@ -180,6 +180,8 @@ const server = await api.start({ port: 4000 });
 - `signal`
 - `quiet`
 - `requestTimeout`
+- `streamIdleTimeout`: how long a streamed response may send nothing before it is stopped (defaults to `requestTimeout`; `0` disables)
+- `streamTimeout`: the total time a streamed response may run once it has opened (default `0`, no limit)
 - `bodyLimit`
 - `gracefulShutdownTimeout`
 
