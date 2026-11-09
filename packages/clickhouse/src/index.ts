@@ -24,6 +24,7 @@ export type {
   CreateQueryBuilderConfig,
   ExecuteOptions,
   IntegerJsonEncoding,
+  ArrowCompression,
   StreamOptions
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';

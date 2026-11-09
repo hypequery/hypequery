@@ -15,7 +15,7 @@ export function createClickHouseClient(config: ClickHouseAdapterConfig): ClickHo
   }
 
   const clientModule: AutoClientModule = getAutoClientModule();
-  const { integerJsonEncoding: _adapterOption, ...clientConfig } = config;
+  const { integerJsonEncoding: _integerOption, arrowCompression: _arrowOption, ...clientConfig } = config;
   return clientModule.createClient(toNodeClientConfig(clientConfig));
 }
 
