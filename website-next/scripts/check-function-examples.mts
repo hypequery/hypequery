@@ -10,6 +10,13 @@
  *
  * Each binary is run as `<binary> local`, so no server is needed. Exit code is
  * 1 if any example fails on any binary.
+ *
+ * Python examples need a ClickHouse server with the fixture tables loaded and
+ * a Python with hypequery and clickhouse-connect installed:
+ *   npm run --silent check:functions -- --print-fixtures | clickhouse client --multiquery
+ *   CHECK_PYTHON=/path/to/venv/bin/python CLICKHOUSE_URL=http://default@localhost:8123/default npm run check:functions
+ * Each example runs with `python -I` and must exit 0. Its printed rows are
+ * shown so they can be compared with the SQL example's output.
  */
 import { execFileSync } from 'node:child_process';
 import { clickhouseFunctions, indexedFunctionSlugs } from '../src/data/clickhouse-functions';
@@ -29,6 +36,11 @@ INSERT INTO page_views SELECT toString(number % 5), toDateTime('2026-03-01 00:00
 CREATE TABLE exam_results (student_id UInt64, score UInt8) ENGINE = MergeTree ORDER BY student_id;
 INSERT INTO exam_results SELECT number, number % 101 FROM numbers(300);
 `;
+
+if (process.argv.includes('--print-fixtures')) {
+  console.log(FIXTURES.trim());
+  process.exit(0);
+}
 
 type Result = { slug: string; binary: string; version: string; ok: boolean; error?: string };
 
@@ -60,6 +72,27 @@ for (const binary of binaries) {
 
 for (const r of results) {
   console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ClickHouse ${r.version}  ${r.slug}${r.error ? `  ${r.error}` : ''}`);
+}
+
+const python = process.env.CHECK_PYTHON;
+if (python) {
+  console.log('');
+  for (const fn of clickhouseFunctions.filter((f) => indexedFunctionSlugs.has(f.slug) && f.pythonExample)) {
+    try {
+      const output = execFileSync(python, ['-I', '-'], {
+        input: fn.pythonExample,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      results.push({ slug: fn.slug, binary: python, version: 'python', ok: true });
+      console.log(`ok    Python  ${fn.slug}\n${output.trimEnd().replace(/^/gm, '      ')}`);
+    } catch (error) {
+      const stderr = (error as { stderr?: string }).stderr ?? String(error);
+      const lastLine = stderr.trim().split('\n').at(-1);
+      results.push({ slug: fn.slug, binary: python, version: 'python', ok: false, error: lastLine });
+      console.log(`FAIL  Python  ${fn.slug}  ${lastLine}`);
+    }
+  }
 }
 const failed = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - failed}/${results.length} examples ran.`);

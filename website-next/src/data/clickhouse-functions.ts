@@ -13,6 +13,11 @@ export type ClickHouseFunctionDef = {
   exampleSql: string;
   hypequeryExample: string;
   hypequeryFilename: string;
+  /** A Python example, run against the fixture tables in scripts/check-function-examples.mts. */
+  pythonExample?: string;
+  pythonFilename?: string;
+  /** One sentence shown beside the Python example, such as why it calls the driver directly. */
+  pythonNote?: string;
   returnType: string;
   notes: string[];
   relatedFunctions: string[];
@@ -181,6 +186,34 @@ const weekly = await db
   .limit(12)
   .execute();`,
     hypequeryFilename: 'weekly-events.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+events = dataset(
+    "events",
+    source="events",
+    time_key="created_at",
+    dimensions={
+        "created_at": dimension.timestamp(),
+        # Monday-start weeks, as in the SQL example
+        "week": dimension.timestamp(sql="toStartOfWeek(created_at, 1)"),
+    },
+    measures={"events": measure.count("id")},
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    monday = client.execute(events, DatasetQuery(
+        dimensions=("week",), order_by=(order.desc("week"),), limit=12,
+    ))
+    # The built-in week grain is toStartOfWeek(created_at): mode 0, Sunday weeks
+    sunday = client.execute(events, DatasetQuery(by="week", order_by=(order.desc("period"),)))
+
+print(monday.data)  # ({'week': '2026-03-02', 'events': 356}, {'week': '2026-02-23', 'events': 144})
+print(sunday.data)  # ({'period': '2026-03-01', 'events': 500},)`,
+    pythonFilename: 'weekly_events.py',
+    pythonNote:
+      'The built-in week grain (by="week") compiles to toStartOfWeek(created_at) with mode 0, so it starts weeks on Sunday; declare a dimension with mode 1 for Monday weeks.',
     returnType: 'Date',
     notes: [
       'Mode 0, the default, starts weeks on Sunday. Mode 1 starts them on Monday. For Sunday 2026-11-08, toStartOfWeek(d) returns 2026-11-08 and toStartOfWeek(d, 1) returns 2026-11-02.',
@@ -576,6 +609,30 @@ const daily = await db
   .orderBy('day', 'ASC')
   .execute();`,
     hypequeryFilename: 'daily-events.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+events = dataset(
+    "events",
+    source="events",
+    dimensions={"day": dimension.timestamp(sql="toDate(created_at)")},
+    measures={"events": measure.count("id")},
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    # Count events per day
+    daily = client.execute(events, DatasetQuery(dimensions=("day",), order_by=(order.asc("day"),)))
+    # Two full days, whatever the time of day
+    two_days = client.execute(events, DatasetQuery(
+        filters=(filter.between("day", "2026-03-01", "2026-03-02"),),
+    ))
+
+print(daily.data)  # ({'day': '2026-03-01', 'events': 144}, {'day': '2026-03-02', 'events': 144}, ...)
+print(two_days.data)  # ({'events': 288},)`,
+    pythonFilename: 'daily_events.py',
+    pythonNote:
+      'The built-in day grain (by="day") compiles to toStartOfDay and returns a DateTime such as "2026-03-01 00:00:00", so this example declares a toDate dimension to get Date values.',
     returnType: 'Date',
     notes: [
       'Filtering a DateTime column with date strings cuts off the last day: created_at BETWEEN \'2026-03-01\' AND \'2026-03-02\' stops at 2026-03-02 00:00:00. In our check it returned 2,881 rows where toDate(created_at) BETWEEN the same dates returned 5,760.',
@@ -663,6 +720,30 @@ const labels = await db
   .orderBy('month_label', 'ASC')
   .execute();`,
     hypequeryFilename: 'monthly-labels.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# The format strings are bound server-side as {name:String} parameters
+result = client.query(
+    """
+    SELECT
+      formatDateTime(created_at, {month_format:String}) AS month_label,
+      formatDateTime(created_at, {week_format:String}) AS iso_week,
+      count() AS events
+    FROM events
+    GROUP BY month_label, iso_week
+    ORDER BY month_label, iso_week
+    """,
+    parameters={"month_format": "%Y-%m", "week_format": "%G-W%V"},
+)
+for row in result.named_results():
+    print(row)  # {'month_label': '2026-03', 'iso_week': '2026-W09', 'events': 144}`,
+    pythonFilename: 'monthly_labels.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'String',
     notes: [
       '%M prints the full month name ("January"). Minutes are %i. Writing %H:%M:%S for a time is the most common mistake. Checked on ClickHouse 26.6.',
@@ -906,6 +987,32 @@ const dailyRevenue = await db
 
 const total = dailyRevenue.reduce((acc, row) => acc + BigInt(row.revenue_cents), 0n);`,
     hypequeryFilename: 'daily-revenue.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "revenue_cents": measure.sum("amount_cents"),
+        # A measure filter compiles to sumIf(amount_cents, status = 'refunded')
+        "refunded_cents": measure.sum("amount_cents", filters=(filter.eq("status", "refunded"),)),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(
+        by="day", order_by=(order.desc("period"),), limit=30,
+    ))
+
+for row in result.data:
+    print(row)  # {'period': '2026-03-09 00:00:00', 'revenue_cents': 9564, 'refunded_cents': 4784}`,
+    pythonFilename: 'daily_revenue.py',
+    pythonNote:
+      'Int64 sums arrive as Python ints, not strings, and the day grain buckets in the client time zone: UTC unless you pass timezone= to create_dataset_client.',
     returnType: 'Int64 / UInt64 (integers), Float64 (floats), Decimal(38, S) (decimals)',
     notes: [
       'Integer sums widen: sum() of an Int32 column returns Int64, and of a UInt8 column UInt64.',
@@ -996,6 +1103,34 @@ const daily = await db
   .orderBy('day', 'DESC')
   .execute();`,
     hypequeryFilename: 'conditional-totals.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+paid = (filter.eq("status", "paid"),)
+refunded = (filter.eq("status", "refunded"),)
+
+# Filtered measures compile to sumIf, countIf and quantileIf in one scan
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "paid_cents": measure.sum("amount_cents", filters=paid),
+        "refunded_cents": measure.sum("amount_cents", filters=refunded),
+        "refunds": measure.count("order_id", filters=refunded),
+        "p95_checkout_ms": measure.percentile("checkout_ms", 0.95, filters=paid),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(by="day", order_by=(order.desc("period"),)))
+
+print(result.data[0])  # {'period': '2026-03-09 00:00:00', 'paid_cents': 4780, 'refunds': 4, ...}`,
+    pythonFilename: 'conditional_totals.py',
+    pythonNote:
+      'Each measure filter becomes the -If combinator in the compiled SQL: sumIf, countIf(order_id, ...) and quantileIf(0.95)(...).',
     returnType: 'Same as the base function (sumIf follows sum; countIf is UInt64)',
     notes: [
       'sumIf on an Array column fails with "Illegal type Array(...) of argument for aggregate function sum". Use sumArrayIf(col, cond) or sumIf(arraySum(col), cond).',
@@ -1151,6 +1286,33 @@ const latency = await db
   .limit(24)
   .execute();`,
     hypequeryFilename: 'latency-percentiles.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+# measure.percentile(col, level) compiles to quantile(level)(col)
+api_requests = dataset(
+    "api_requests",
+    source="api_requests",
+    time_key="ts",
+    dimensions={"ts": dimension.timestamp()},
+    measures={
+        "p50": measure.percentile("response_ms", 0.50),
+        "p95": measure.percentile("response_ms", 0.95),
+        "p99": measure.percentile("response_ms", 0.99),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(api_requests, DatasetQuery(
+        by="hour", order_by=(order.desc("period"),), limit=24,
+    ))
+
+for row in result.data:
+    print(row)  # {'period': '2026-03-01 02:00:00', 'p50': 359.5, 'p95': 485.05, 'p99': 496.21}`,
+    pythonFilename: 'latency_percentiles.py',
+    pythonNote:
+      'measure.percentile compiles to one quantile(level)(col) call per level rather than a single quantiles() call, and the hour grain buckets in the client time zone, UTC by default.',
     returnType: 'Float64',
     notes: [
       'quantile() is approximate on groups larger than its 8,192-value sample. Over 2 million rows in our check, quantile(0.99) returned 99,157 where quantileExact(0.99) returned 98,988.',
@@ -1246,6 +1408,33 @@ const sessions = await db
   .groupBy('session_id')
   .execute();`,
     hypequeryFilename: 'session-paths.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Page paths per session, in timestamp order
+paths = client.query("""
+    SELECT
+      session_id,
+      arrayMap(x -> x.2, arraySort(groupArray((ts, page_path)))) AS path_sequence
+    FROM page_views
+    GROUP BY session_id
+    ORDER BY session_id
+""")
+for session_id, path_sequence in paths.result_rows:
+    print(session_id, path_sequence)  # 0 ['/z', '/m', '/a', ...], a list[str]
+
+# At most n events per user; n is bound server-side
+capped = client.query(
+    "SELECT user_id, groupArray({n:UInt8})(event_name) AS some_events FROM events GROUP BY user_id",
+    parameters={"n": 5},
+)
+print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
+    pythonFilename: 'session_paths.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'Array(T)',
     notes: [
       'Row order is not guaranteed. arraySort(groupArray(col)) sorts the values themselves, so page paths come back alphabetically, not in time order.',
@@ -1340,6 +1529,28 @@ const orders = await db
 // Parse it as UTC on the client
 const createdAt = new Date(orders[0].created_utc.replace(' ', 'T') + 'Z');`,
     hypequeryFilename: 'order-display.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Dates as strings, in a time zone bound server-side
+result = client.query(
+    """
+    SELECT
+      toString(created_at) AS server_zone,
+      toString(created_at, {tz:String}) AS tokyo
+    FROM events
+    LIMIT 5
+    """,
+    parameters={"tz": "Asia/Tokyo"},
+)
+for server_zone, tokyo in result.result_rows:
+    print(server_zone, tokyo)  # 2026-03-01 00:00:00 2026-03-01 09:00:00, both str`,
+    pythonFilename: 'timezone_strings.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'String',
     notes: [
       'DateTime becomes "2026-11-08 09:05:07" and DateTime64(3) becomes "2026-11-08 09:05:07.120": no "T" and no time zone offset. Pass a time zone as the second argument to control which wall-clock time you get.',
@@ -1574,6 +1785,34 @@ const graded = await db
   .groupBy('grade')
   .execute();`,
     hypequeryFilename: 'grade-classification.ts',
+    pythonExample: `import os
+
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(dsn=os.environ["CLICKHOUSE_URL"])
+
+# Grade cutoffs are bound server-side as {name:UInt8} parameters
+result = client.query(
+    """
+    SELECT
+      multiIf(
+        score >= {a:UInt8}, 'A',
+        score >= {b:UInt8}, 'B',
+        score >= {c:UInt8}, 'C',
+        score >= {d:UInt8}, 'D',
+        'F'
+      ) AS grade,
+      count() AS students
+    FROM exam_results
+    GROUP BY grade
+    ORDER BY grade
+    """,
+    parameters={"a": 90, "b": 80, "c": 70, "d": 60},
+)
+print(result.result_rows)  # [('A', 30), ('B', 30), ('C', 30), ('D', 30), ('F', 180)]`,
+    pythonFilename: 'grade_classification.py',
+    pythonNote:
+      'The Python SDK (hypequery 0.1.0b3) has no query builder, so this example sends the SQL through the clickhouse-connect driver directly, with {name:Type} parameters bound on the server.',
     returnType: 'Common type of the branches (Variant if there is none)',
     notes: [
       'A NULL condition counts as false: multiIf(NULL, \'a\', \'b\') returns \'b\'.',
