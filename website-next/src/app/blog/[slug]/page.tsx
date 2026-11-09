@@ -182,6 +182,9 @@ export default async function BlogPostPage({
 
   const { data, content } = post;
   const publishDate = data.date;
+  // Show an "Updated" date only when the post changed on a later day than it was published.
+  const updatedDate =
+    data.updated && publishDate && data.updated.slice(0, 10) > publishDate.slice(0, 10) ? data.updated : undefined;
   const articleUrl = absoluteUrl(`/blog/${post.slug}`).toString();
   const relatedLinks = getRelatedLinks(post.slug);
   const hub = hubForPost(data.tags);
@@ -193,7 +196,7 @@ export default async function BlogPostPage({
     headline: data.title,
     description: data.description ?? undefined,
     datePublished: publishDate ?? undefined,
-    dateModified: publishDate ?? undefined,
+    dateModified: updatedDate ?? publishDate ?? undefined,
     url: articleUrl,
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -239,6 +242,21 @@ export default async function BlogPostPage({
                 day: 'numeric',
               })}
             </time>
+            {updatedDate ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  Updated{' '}
+                  <time dateTime={updatedDate}>
+                    {new Date(updatedDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </time>
+                </span>
+              </>
+            ) : null}
             <span aria-hidden="true">·</span>
             {data.author ? (
               <span>By {blogAuthorName(data.author)}</span>

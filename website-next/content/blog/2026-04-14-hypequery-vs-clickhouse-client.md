@@ -1,9 +1,10 @@
 ---
 title: "hypequery vs @clickhouse/client: What You Actually Gain"
 description: "The official ClickHouse JavaScript client is solid, but it stops at connections and raw queries. Here's what hypequery adds for TypeScript analytics teams."
-seoTitle: "hypequery vs @clickhouse/client: Typed ClickHouse Queries"
+seoTitle: "hypequery vs @clickhouse/client (2026)"
 seoDescription: "Compare hypequery and @clickhouse/client for ClickHouse TypeScript apps. See what you gain with generated schema types, reusable queries, and typed HTTP APIs."
 pubDate: 2026-04-14
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-clickhouse-client
 status: published
@@ -17,7 +18,7 @@ But if you're building an analytics dashboard or a reporting layer in TypeScript
 
 ## What @clickhouse/client gives you
 
-The official client handles the connection, the protocol, and the query execution. It supports both Node.js and the browser, it's actively maintained by the ClickHouse team, and it's the foundation everything else is built on.
+The official client handles the connection, the protocol, and the query execution. It runs on Node.js, with a separate `@clickhouse/client-web` package for browsers and edge runtimes such as Cloudflare Workers. It streams both selects and inserts, has zero external dependencies, is actively maintained by the ClickHouse team, and it's the foundation everything else is built on.
 
 A typical query looks like this:
 
@@ -25,7 +26,7 @@ A typical query looks like this:
 import { createClient } from '@clickhouse/client';
 
 const client = createClient({
-  host: 'https://your-instance.clickhouse.cloud',
+  url: 'https://your-instance.clickhouse.cloud:8443',
   username: 'default',
   password: process.env.CLICKHOUSE_PASSWORD,
 });
@@ -63,7 +64,7 @@ The CLI introspects your ClickHouse schema and generates TypeScript types:
 npx hypequery generate --output analytics/schema.ts
 ```
 
-This produces a `schema.ts` file with a typed representation of every table, column, and runtime mapping in your database. `DateTime` becomes `string`, because that's what ClickHouse actually returns over the wire. `UInt64` becomes `string` too. `Nullable(String)` becomes `string | null`.
+This produces a `schema.ts` file with a typed representation of every table, column, and runtime mapping in your database. `DateTime` becomes `string`, because that's what ClickHouse actually returns over the wire. `UInt64` becomes `string` too: since ClickHouse 25.8, JSON formats return 64-bit integers as plain numbers by default, which JavaScript rounds above 2^53, so hypequery asks for them quoted. `Nullable(String)` becomes `string | null`.
 
 ### A query builder that knows your schema
 

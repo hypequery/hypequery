@@ -27,6 +27,26 @@ export type ClickHouseFunctionDef = {
   updated?: string;
 };
 
+/**
+ * Function pages that stay in Google's index. These are the pages with search
+ * demand in Search Console (500+ impressions over three months in November
+ * 2026), plus sumIf, which targets sumIf searches that currently land on the
+ * sum page without clicks. The rest stay reachable for readers but are
+ * noindexed and left out of the sitemap: ClickHouse's own docs answer those
+ * queries, so they add pages to crawl without bringing visitors.
+ */
+export const indexedFunctionSlugs: ReadonlySet<string> = new Set([
+  'quantile',
+  'groupArray',
+  'sum',
+  'sumIf',
+  'formatDateTime',
+  'toStartOfWeek',
+  'multiIf',
+  'toString',
+  'toDate',
+]);
+
 export function functionPathSegment(value: string): string {
   return value
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
@@ -518,22 +538,25 @@ const recent = await db
     slug: 'toDate',
     name: 'toDate',
     cluster: 'date',
-    tagline: 'Convert a string or DateTime to a ClickHouse Date value.',
-    metaTitle: 'ClickHouse toDate — parse strings to Date in TypeScript',
+    tagline: 'Convert a DateTime, string or number to a Date, and know which inputs it clamps.',
+    metaTitle: 'ClickHouse toDate: strings, DateTime and the 1970–2149 range',
     metaDescription:
-      'toDate converts strings (\'YYYY-MM-DD\') and DateTimes to ClickHouse Date values. Learn how to use it in TypeScript with hypequery for date comparisons and filtering.',
-    signature: 'toDate(value: String | DateTime | Int): Date',
+      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those. With examples.',
+    signature: 'toDate(value: String | DateTime | DateTime64 | Int [, timezone]): Date',
     description:
-      'Converts a string in YYYY-MM-DD format, a DateTime value, or a Unix timestamp integer to a ClickHouse Date. Used for date literals in WHERE clauses and INSERT statements.',
+      'Converts a DateTime, a date string or a number to a Date. Date covers 1970-01-01 to 2149-06-06; values outside that range are clamped without an error.',
     longDescription:
-      'toDate is the standard way to write date literals in ClickHouse SQL. When filtering by date ranges without a time component, toDate is cleaner than full DateTime literals. It also strips the time portion from a DateTime, which is useful when comparing a DateTime column against a Date value.',
-    exampleSql: `-- Filter by date range using toDate literals
-SELECT count() FROM events
-WHERE toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')
+      'toDate drops the time from a DateTime, parses a date string, or turns a number into a date. Small integers are read as days since 1970-01-01 and large ones as Unix timestamps: toDate(19000) is 2022-01-08 and toDate(1700000000) is 2023-11-14. The Date type stores days from 1970-01-01 to 2149-06-06, and toDate clamps anything outside that range, so a birth date in 1969 becomes 1970-01-01. Use toDate32 (1900 to 2299) for those values.',
+    exampleSql: `-- Count events per day
+SELECT toDate(created_at) AS day, count() AS events
+FROM events
+GROUP BY day
+ORDER BY day;
 
--- Strip time from DateTime
-SELECT user_id, toDate(created_at) AS signup_date FROM users`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
+-- Two full days, whatever the time of day
+SELECT count() FROM events
+WHERE toDate(created_at) BETWEEN '2026-03-01' AND '2026-03-02';`,
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
@@ -543,35 +566,60 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-const q1events = await db
+// day: string ("2026-03-01"); events: string (count() is UInt64)
+const daily = await db
   .table('events')
-  .select(['id', 'user_id', 'created_at'])
-  .where((expr) => expr.raw("toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')"))
+  .select([rawAs<string, 'day'>('toDate(created_at)', 'day')])
+  .count('id', 'events')
+  .where((expr) => expr.raw("toDate(created_at) BETWEEN '2026-03-01' AND '2026-03-02'"))
+  .groupBy('day')
+  .orderBy('day', 'ASC')
   .execute();`,
-    hypequeryFilename: 'q1-events.ts',
+    hypequeryFilename: 'daily-events.ts',
     returnType: 'Date',
     notes: [
-      'Accepted string format is YYYY-MM-DD only. Other formats require parseDateTimeBestEffort.',
-      'toDate(0) returns 1970-01-01 — useful for NULL-safe comparisons.',
-      'For DateTime64 columns, use toDate32 to preserve dates before 1970.',
+      'Filtering a DateTime column with date strings cuts off the last day: created_at BETWEEN \'2026-03-01\' AND \'2026-03-02\' stops at 2026-03-02 00:00:00. In our check it returned 2,881 rows where toDate(created_at) BETWEEN the same dates returned 5,760.',
+      'toDate(created_at) on a sorting-key column still uses the primary key: on 2 million rows, toDate(created_at) = \'2026-03-01\' read the same 16,384 rows as an explicit time range.',
+      'Values outside 1970-01-01 to 2149-06-06 are clamped silently: toDate(\'1969-12-31\') returns 1970-01-01. Use toDate32 for wider ranges.',
+      'Strings in 2024/01/02 and 20240103 form parse on ClickHouse 26.6. US order such as 01/02/2024 fails with CANNOT_PARSE_DATE.',
+      'A time zone argument changes which day a DateTime falls on: toDate(created_at, \'America/New_York\').',
     ],
-    relatedFunctions: ['toDateTime', 'toDate32', 'parseDateTimeBestEffort', 'toStartOfDay'],
+    relatedFunctions: ['toStartOfWeek', 'toStartOfInterval', 'formatDateTime', 'toString'],
     relatedPillars: [
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse date literal in WHERE clause',
-        copy: 'Use toDate(\'2024-01-01\') to write date literals in ClickHouse SQL. Avoid string comparison — ClickHouse won\'t use the index correctly.',
+        title: 'ClickHouse DateTime to Date',
+        copy: 'toDate(created_at) drops the time. Pass a time zone, toDate(created_at, \'Europe/London\'), when the day should follow a user\'s local calendar.',
+      },
+      {
+        title: 'Date ranges in ClickHouse',
+        copy: 'Compare toDate(created_at) with date strings, or compare created_at with a half-open range (>= start AND < next day). BETWEEN with date strings on a DateTime column drops the last day.',
       },
     ],
     faqItems: [
       {
-        question: 'What string format does toDate accept?',
-        answer: '\'YYYY-MM-DD\' only. For other formats use parseDateTimeBestEffort or formatDateTimeInJodaSyntax.',
+        question: 'How do I convert a DateTime to a Date in ClickHouse?',
+        answer: 'toDate(created_at). It uses the column\'s time zone to decide the day unless you pass one: toDate(created_at, \'UTC\').',
+      },
+      {
+        question: 'Why does toDate return 1970-01-01 for my date?',
+        answer: 'The Date type starts at 1970-01-01, and toDate clamps earlier values without an error. Use toDate32, which covers 1900 to 2299.',
+      },
+      {
+        question: 'What string formats does toDate accept?',
+        answer: 'On ClickHouse 26.6, ISO dates (2024-01-01), slashes (2024/01/02) and compact dates (20240103) all parse. US order such as 01/02/2024 fails, so parse those with parseDateTimeBestEffortUS.',
+      },
+      {
+        question: 'Does wrapping a column in toDate stop ClickHouse using the index?',
+        answer: 'No. toDate is monotonic, and in our check WHERE toDate(created_at) = \'2026-03-01\' on a table ordered by created_at read the same 16,384 rows as an explicit time range.',
       },
     ],
+    tsType: 'string ("YYYY-MM-DD")',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/type-conversion-functions#toDate',
+    updated: '2026-11-08',
   },
 
   {
@@ -1249,22 +1297,26 @@ const sessions = await db
     slug: 'toString',
     name: 'toString',
     cluster: 'string',
-    tagline: 'Cast any ClickHouse value to a String — the universal type conversion function.',
-    metaTitle: 'ClickHouse toString() — cast to String in TypeScript',
+    tagline: 'Convert any ClickHouse value to a String, including dates in a chosen time zone.',
+    metaTitle: 'ClickHouse toString: numbers, dates and time zones to String',
     metaDescription:
-      'toString() converts any ClickHouse value (numbers, dates, UUIDs) to a String. Use it in TypeScript with hypequery for display fields, joins, and schema normalisation.',
-    signature: 'toString(value: Any): String',
+      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone), and a second argument picks the time zone.',
+    signature: 'toString(value [, timezone]): String',
     description:
-      'Converts any ClickHouse value to its string representation. Equivalent to CAST(col AS String). Handles all numeric types, dates, UUIDs, and IP addresses.',
+      'Converts a value of any type to its String form. For Date and DateTime it accepts a time zone as a second argument.',
     longDescription:
-      'toString() is the universal type-cast in ClickHouse SQL. It is most commonly used when joining across tables that store IDs as different types (UInt64 vs String), when selecting for display (formatDateTime gives nicer date strings), or when inserting into a String column from a numeric source. For structured JSON output use JSONExtractString or toJSONString.',
-    exampleSql: `-- Join on mismatched ID types
+      'toString is the general cast to String, the same as CAST(x AS String). Common uses are joining an integer id to a String id, building labels, and sending 64-bit integers to a client as text. Dates come out in ClickHouse\'s own format, "2026-11-08 09:05:07", which is not ISO 8601: there is no "T" and no offset. Use formatDateTime for any other date format.',
+    exampleSql: `-- Join on mismatched id types
 SELECT e.event_name, u.email
-FROM events e
-JOIN users u ON toString(e.user_id) = u.external_id
+FROM events AS e
+JOIN users AS u ON toString(e.user_id) = u.external_id;
 
--- Display UInt64 as string
-SELECT toString(order_id) AS order_ref FROM orders`,
+-- Dates as strings, in a chosen time zone
+SELECT
+  toString(created_at) AS server_zone,
+  toString(created_at, 'Asia/Tokyo') AS tokyo
+FROM events
+LIMIT 5;`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -1275,38 +1327,59 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// created_utc: string in "YYYY-MM-DD hh:mm:ss" form, rendered in UTC
 const orders = await db
   .table('orders')
   .select([
-    rawAs('toString(order_id)', 'order_ref'),
-    'user_id',
-    'created_at',
+    'order_id',
+    rawAs<string, 'created_utc'>("toString(created_at, 'UTC')", 'created_utc'),
   ])
-  .execute();`,
+  .limit(100)
+  .execute();
+
+// Parse it as UTC on the client
+const createdAt = new Date(orders[0].created_utc.replace(' ', 'T') + 'Z');`,
     hypequeryFilename: 'order-display.ts',
     returnType: 'String',
     notes: [
-      'For dates, toString returns ISO format. Use formatDateTime for custom display strings.',
-      'toStringCutToZero() is like toString but stops at the first null byte — useful for FixedString columns.',
-      'CAST(col AS String) and toString(col) are equivalent.',
+      'DateTime becomes "2026-11-08 09:05:07" and DateTime64(3) becomes "2026-11-08 09:05:07.120": no "T" and no time zone offset. Pass a time zone as the second argument to control which wall-clock time you get.',
+      'Floats are printed in full: toString(0.1 + 0.2) returns "0.30000000000000004". Round first for display: toString(round(0.1 + 0.2, 2)) returns "0.3".',
+      'toString(NULL) returns NULL, not the string "NULL".',
+      'UInt64 values keep every digit: toString(toUInt64(18446744073709551615)) returns "18446744073709551615".',
+      'For other date formats use formatDateTime.',
     ],
-    relatedFunctions: ['toUInt64', 'toInt64', 'toFloat64', 'formatDateTime', 'concat'],
+    relatedFunctions: ['formatDateTime', 'toDate', 'multiIf', 'sum'],
     relatedPillars: [
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-schema', label: 'ClickHouse Schema' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse cast to string TypeScript',
-        copy: 'Use toString(col) to convert numbers, dates, or UUIDs to strings in ClickHouse SQL. hypequery maps ClickHouse types to TypeScript types via the generated schema.',
+        title: 'ClickHouse int to string',
+        copy: 'toString(user_id) or CAST(user_id AS String). Use it to join an integer id with a String id stored in another table.',
+      },
+      {
+        title: 'ClickHouse date to string',
+        copy: 'toString(created_at, \'UTC\') gives "YYYY-MM-DD hh:mm:ss" in UTC. formatDateTime(created_at, \'%F\') gives just the date.',
       },
     ],
     faqItems: [
       {
         question: 'What is the difference between toString() and CAST(x AS String)?',
-        answer: 'They are equivalent — toString(x) is syntactic sugar for CAST(x AS String).',
+        answer: 'For converting a value to String they give the same result. toString also takes a time zone as a second argument for Date and DateTime values.',
+      },
+      {
+        question: 'Does toString return an ISO 8601 date?',
+        answer: 'No. A DateTime becomes "2026-11-08 09:05:07", with a space instead of "T" and no offset. To parse it in JavaScript, render it in a known zone (toString(ts, \'UTC\')) and add the "T" and "Z" yourself, or use formatDateTime.',
+      },
+      {
+        question: 'How do I convert a DateTime to a string in another time zone?',
+        answer: 'Pass the zone as the second argument: toString(created_at, \'Asia/Tokyo\'). The stored value does not change, only how it is printed.',
       },
     ],
+    tsType: 'string',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/type-conversion-functions#toString',
+    updated: '2026-11-08',
   },
 
   {
@@ -1453,15 +1526,15 @@ const classified = await db
     slug: 'multiIf',
     name: 'multiIf',
     cluster: 'conditional',
-    tagline: 'Multi-branch conditional — clean CASE WHEN replacement for status mapping.',
-    metaTitle: 'ClickHouse multiIf() — multi-branch conditionals',
+    tagline: 'ClickHouse\'s CASE WHEN: return the value for the first true condition, with a default.',
+    metaTitle: 'ClickHouse multiIf: CASE WHEN, NULL conditions and mixed types',
     metaDescription:
-      'ClickHouse multiIf() evaluates multiple conditions in order and returns the first matching value. Use it in TypeScript with hypequery for status maps and category logic.',
-    signature: 'multiIf(cond1, val1, cond2, val2, ..., else): T',
+      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false, and mixing String and number branches returns a Variant.',
+    signature: 'multiIf(cond1, then1, cond2, then2, ..., else)',
     description:
-      'Evaluates conditions left to right and returns the value of the first true condition. The final argument is the default (else) value. The ClickHouse replacement for CASE WHEN…THEN…ELSE.',
+      'Evaluates conditions from left to right and returns the value paired with the first true one, or the last argument if none is true. It is the ClickHouse form of CASE WHEN ... THEN ... ELSE.',
     longDescription:
-      'multiIf() is ClickHouse\'s multi-branch conditional. It evaluates each condition in order and returns the associated value for the first true condition. Unlike if(), it is short-circuit — later branches are not evaluated if an earlier one matches. This makes it safe to use with potentially NULL-returning expressions in later branches.',
+      'multiIf is how most CASE WHEN expressions are written in ClickHouse, for grading scores, mapping status codes or bucketing values. CASE WHEN also works and is rewritten to multiIf. Conditions run in order, and with the default setting short_circuit_function_evaluation = \'enable\' later branches are skipped for rows where an earlier condition matched, so an expression that would fail on those rows (such as dividing by zero) is not evaluated there. The result type is the common type of the branches; branches without one produce a Variant type.',
     exampleSql: `SELECT
   multiIf(
     score >= 90, 'A',
@@ -1472,7 +1545,12 @@ const classified = await db
   ) AS grade,
   count() AS students
 FROM exam_results
-GROUP BY grade`,
+GROUP BY grade
+ORDER BY grade;
+
+-- Short-circuit: intDiv is not evaluated for the row where number = 0
+SELECT multiIf(number = 0, 'zero', intDiv(10, number) > 3, 'big', 'small') AS size
+FROM numbers(4);`,
     hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
@@ -1483,38 +1561,64 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
+// grade: string; students: string (count() is UInt64)
 const graded = await db
   .table('exam_results')
   .select([
-    rawAs("multiIf(score >= 90, 'A', score >= 80, 'B', score >= 70, 'C', score >= 60, 'D', 'F')", 'grade'),
+    rawAs<string, 'grade'>(
+      "multiIf(score >= 90, 'A', score >= 80, 'B', score >= 70, 'C', score >= 60, 'D', 'F')",
+      'grade',
+    ),
   ])
   .count('student_id', 'students')
   .groupBy('grade')
   .execute();`,
     hypequeryFilename: 'grade-classification.ts',
-    returnType: 'Same type as value branches',
+    returnType: 'Common type of the branches (Variant if there is none)',
     notes: [
-      'Short-circuit: once a condition is true, later conditions are not evaluated.',
-      'All value branches must return the same (or compatible) type.',
-      'For simple two-branch conditionals, if() is more readable.',
+      'A NULL condition counts as false: multiIf(NULL, \'a\', \'b\') returns \'b\'.',
+      'If any branch can be NULL, the result is Nullable: multiIf(x > 1, \'x\', NULL) returns Nullable(String).',
+      'Mixing a String branch with a number does not fail on ClickHouse 26.6; it returns Variant(String, UInt8). Cast the branches to one type if your code expects a plain string.',
+      'Skipping later branches depends on short_circuit_function_evaluation, which is \'enable\' by default. With it set to \'disable\', every branch is evaluated for every row and can throw.',
+      'For two branches, if(cond, then, else) is shorter.',
     ],
-    relatedFunctions: ['if', 'ifNull', 'coalesce', 'nullIf'],
+    relatedFunctions: ['if', 'coalesce', 'sumIf', 'toString'],
     relatedPillars: [
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+      { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
     ],
     searchIntentCards: [
       {
-        title: 'ClickHouse CASE WHEN TypeScript',
-        copy: 'multiIf(cond1, val1, cond2, val2, ..., default) is the ClickHouse equivalent of CASE WHEN. It is more concise and short-circuits on the first match.',
+        title: 'CASE WHEN in ClickHouse',
+        copy: 'Both CASE WHEN and multiIf work. multiIf(cond1, val1, cond2, val2, default) is shorter and is what ClickHouse runs underneath.',
+      },
+      {
+        title: 'Bucketing values in TypeScript',
+        copy: 'Select a multiIf expression with rawAs<string, \'bucket\'>() in hypequery, then group by the alias. Cast the branches to one type so the result stays a string.',
       },
     ],
     faqItems: [
       {
-        question: 'Does multiIf() short-circuit evaluate?',
-        answer: 'Yes — once a condition is true, later conditions and their values are not evaluated. This makes it safer than nested if() for NULL-sensitive expressions.',
+        question: 'What is the ClickHouse equivalent of CASE WHEN?',
+        answer: 'multiIf(cond1, then1, cond2, then2, ..., else). CASE WHEN ... THEN ... ELSE ... END also works in ClickHouse and behaves the same way.',
+      },
+      {
+        question: 'How does multiIf handle NULL conditions?',
+        answer: 'A NULL condition counts as false, so evaluation moves on to the next condition: multiIf(NULL, \'a\', \'b\') returns \'b\'. If a branch value can be NULL, the result type is Nullable.',
+      },
+      {
+        question: 'Does multiIf short-circuit?',
+        answer: 'Yes, with the default setting short_circuit_function_evaluation = \'enable\'. multiIf(number = 0, \'zero\', intDiv(10, number) > 3, \'big\', \'small\') runs without a division-by-zero error. With the setting disabled, every branch is evaluated for every row.',
+      },
+      {
+        question: 'Can multiIf branches return different types?',
+        answer: 'Only if they have a common type, such as Int and Float, which gives Float64. On ClickHouse 26.6, a String branch and a number branch produce a Variant(String, UInt8) instead of an error, so cast the branches with toString() or a CAST when you need one type.',
       },
     ],
+    tsType: 'string (for String branches)',
+    docsUrl: 'https://clickhouse.com/docs/sql-reference/functions/conditional-functions#multiIf',
+    updated: '2026-11-08',
   },
 
   // ── MATH CLUSTER ────────────────────────────────────────────────────────────

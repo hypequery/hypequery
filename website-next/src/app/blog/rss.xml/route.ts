@@ -1,10 +1,11 @@
 import { getPosts } from '@/lib/blog';
 import { absoluteUrl } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
+import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { blogAuthorName } from '@/lib/blog-author';
 
-// RSS 2.0 feed of published posts. Compare-page slugs are redirects, so they
-// are excluded exactly as the blog index excludes them.
+// RSS 2.0 feed of published posts. Compare-page and retired-post slugs are
+// redirects, so they are excluded exactly as the blog index excludes them.
 
 function escapeXml(value: string) {
   return value
@@ -21,7 +22,9 @@ function toRfc822(date?: string) {
 }
 
 export async function GET() {
-  const posts = (await getPosts()).filter((post) => !(post.slug in comparePageBySlug));
+  const posts = (await getPosts()).filter(
+    (post) => !(post.slug in comparePageBySlug) && !retiredBlogSlugs.has(post.slug),
+  );
   const channelUrl = absoluteUrl('/blog').toString();
   const feedUrl = absoluteUrl('/blog/rss.xml').toString();
   const lastBuild = toRfc822(posts[0]?.data.date) ?? new Date().toUTCString();
