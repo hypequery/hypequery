@@ -30,7 +30,7 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | The analytics layer for ClickHouse",
+    default: "hypequery | Embedded analytics on ClickHouse",
     template: "%s | hypequery",
   },
   description: "hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.",
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | The analytics layer for ClickHouse',
+    title: 'hypequery | Embedded analytics on ClickHouse',
     description: 'hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | The analytics layer for ClickHouse',
+    title: 'hypequery | Embedded analytics on ClickHouse',
     description: 'hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
   },
   manifest: "/site.webmanifest",

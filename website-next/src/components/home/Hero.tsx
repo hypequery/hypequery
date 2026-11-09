@@ -31,7 +31,7 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
           </span>{' '}
           Ship analytics.
         </h1>
-        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Embedded analytics and agent APIs on a semantic layer you define in code. Run it in your own backend today. hypequery cloud, the hosted option, is in early access.</p>
+        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Embedded analytics and agents on a semantic layer you define in code. Run it in your own backend today. hypequery cloud, the hosted option, is in early access.</p>
         {/* Lead with what works today: the open-source path. Cloud is waitlist-only, so it's the second button. */}
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link href="/docs" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
