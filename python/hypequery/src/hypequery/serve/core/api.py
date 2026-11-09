@@ -278,6 +278,11 @@ class Api:
         async def keep(response: ServeResponse) -> None:
             answered.append(response)
 
+        # The answer is kept, not written, so its admission slot is released
+        # before anyone reads it: a stream would lose the slot and its query.
+        # Only a host that writes inside `serve` may stream.
+        request = replace(request, streaming=False)
+
         await self.serve(request, keep, mounted_at=mounted_at)
         return answered[0]
 
