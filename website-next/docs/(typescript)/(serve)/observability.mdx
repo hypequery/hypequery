@@ -72,6 +72,22 @@ Lifecycle hooks currently support:
 - `onAuthorizationFailure`
 - `onError`
 
+### Streamed responses
+
+For a streamed response (a dataset endpoint answering `Accept: application/x-ndjson` or
+`application/vnd.apache.arrow.stream`, or a handler returning `streamBody()`), the end event fires when the stream
+finishes, not when it opens, so `durationMs` covers the whole export. The event carries `event.stream`:
+`outcome` (`'completed'`, `'failed'` or `'cancelled'`), `bytes` sent, and `openDurationMs`, the time until the
+stream opened.
+
+- A stream that completes, or that the client abandons (`outcome: 'cancelled'`), fires `onRequestEnd`.
+- A stream that fails after its `200` was sent fires `onError` with the original error, even though the client
+  received only a sanitized NDJSON `error` frame or a broken-off Arrow stream. So does a stream the Node adapter
+  stops at `streamIdleTimeout` or `streamTimeout` (a `StreamTimeoutError`).
+
+The query log entry follows the same rule: one `completed` or `error` event once the stream ends, with
+`responseStatus: 200` (the status the client got) and the same `stream` field.
+
 Hooks and query logging fire for auto-generated `metrics` and `datasets` endpoints too, since they share the runtime with queries. In hook events, `event.queryKey` carries the endpoint key: the metric name for metric endpoints, and `dataset:<name>` for dataset endpoints. That makes it easy to attribute timing, auth failures, and errors back to a specific semantic endpoint.
 
 ## Builder-level query logging

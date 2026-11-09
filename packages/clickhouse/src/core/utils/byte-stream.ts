@@ -1,10 +1,22 @@
 import { abortReason } from './abort.js';
 import { openStreamReader, type StreamReader } from './streaming-helpers.js';
-import { EXCEPTION_BLOCK_MAX_BYTES, splitStreamException } from './stream-exception.js';
+import {
+  EXCEPTION_BLOCK_MAX_BYTES,
+  endsWith,
+  findUntaggedStreamException,
+  splitStreamException,
+  type StreamException,
+} from './stream-exception.js';
 
 export interface ByteStreamOptions {
   /** The response's exception tag; when set, a trailing exception block fails the stream. */
   exceptionTag?: string;
+  /**
+   * Bytes every complete body ends with, such as Arrow's end-of-stream marker.
+   * A body that ends without them fails the stream, which catches a mid-stream
+   * failure on servers that send no exception tag (before ClickHouse 25.11).
+   */
+  endMarker?: Uint8Array;
   abortSignal?: AbortSignal;
 }
 
@@ -15,24 +27,43 @@ export interface ByteStreamOptions {
  * held until the body ends, so a mid-stream ClickHouse failure reaches the
  * consumer as ClickHouse's own error rather than as the exception text spliced
  * into the data, which a decoder would misreport or, worse, partly accept.
+ * With an end marker, the same held bytes show whether the body is complete.
  */
 export function createByteStream(
   source: NodeJS.ReadableStream | ReadableStream<Uint8Array>,
   options: ByteStreamOptions = {},
 ): ReadableStream<Uint8Array> {
-  const { exceptionTag, abortSignal } = options;
+  const { exceptionTag, endMarker, abortSignal } = options;
+  const holdsTail = exceptionTag !== undefined || endMarker !== undefined;
   let readerPromise: Promise<StreamReader> | undefined;
   let onAbort: (() => void) | undefined;
   let held: Uint8Array = new Uint8Array(0);
 
   const ensureReader = () => (readerPromise ??= openStreamReader(source));
-  /** Errors the stream with a held exception block's error, after the data before it. */
-  const failHeldException = (controller: ReadableStreamDefaultController<Uint8Array>): boolean => {
-    const failure = exceptionTag ? splitStreamException(held, exceptionTag) : undefined;
-    if (!failure) return false;
+  const fail = (controller: ReadableStreamDefaultController<Uint8Array>, failure: StreamException) => {
     if (failure.data.length) controller.enqueue(failure.data);
     controller.error(failure.error);
-    return true;
+  };
+  /**
+   * ClickHouse's error in a body known to be cut short: the tagged block, or,
+   * from servers before 25.11, the plain exception text they append.
+   */
+  const exceptionInCutBody = (): StreamException | undefined => {
+    if (exceptionTag) return splitStreamException(held, exceptionTag);
+    return endMarker ? findUntaggedStreamException(held) : undefined;
+  };
+  /** Why a body that has ended is not a complete result, if it is not. */
+  const incompleteBody = (): StreamException | undefined => {
+    const tagged = exceptionTag ? splitStreamException(held, exceptionTag) : undefined;
+    if (tagged || !endMarker || endsWith(held, endMarker)) return tagged;
+    const untagged = exceptionTag ? undefined : findUntaggedStreamException(held);
+    return untagged ?? {
+      data: held,
+      error: new Error(
+        'The ClickHouse response ended before the end of the result, so the result is incomplete.' +
+        (exceptionTag ? '' : ' ClickHouse may have failed mid-stream; servers before 25.11 do not report why.'),
+      ),
+    };
   };
   const detachAbort = () => {
     if (onAbort) {
@@ -46,16 +77,16 @@ export function createByteStream(
       if (!abortSignal) return;
       // The clients stop honoring the signal once headers arrive, so aborting
       // must both error the consumer and drop the source.
-      const fail = () => {
+      const abort = () => {
         detachAbort();
         controller.error(abortReason(abortSignal));
         ensureReader().then(reader => reader.close()).catch(() => undefined);
       };
       if (abortSignal.aborted) {
-        fail();
+        abort();
         return;
       }
-      onAbort = fail;
+      onAbort = abort;
       abortSignal.addEventListener('abort', onAbort, { once: true });
     },
     async pull(controller) {
@@ -68,14 +99,18 @@ export function createByteStream(
 
           if (done) {
             detachAbort();
-            if (failHeldException(controller)) return;
+            const failure = incompleteBody();
+            if (failure) {
+              fail(controller, failure);
+              return;
+            }
             if (held.length) controller.enqueue(held);
             controller.close();
             return;
           }
 
           const bytes = toBytes(value);
-          if (!exceptionTag) {
+          if (!holdsTail) {
             if (!bytes.length) continue;
             controller.enqueue(bytes);
             return;
@@ -96,7 +131,11 @@ export function createByteStream(
         await reader.close();
         // ClickHouse resets the connection right after the exception block,
         // so the read fails with a bare socket error once the block is in.
-        if (!abortSignal?.aborted && failHeldException(controller)) return;
+        const exception = abortSignal?.aborted ? undefined : exceptionInCutBody();
+        if (exception) {
+          fail(controller, exception);
+          return;
+        }
         throw error;
       }
     },

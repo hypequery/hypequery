@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Mapping
 
 from ...datasets.client import DatasetQueryResult, ResultScalar
 from ...protocol import serialize_protocol_number
@@ -36,9 +36,15 @@ def public_response(
                 None if result.meta.cache == "off" else CacheMeta(hit=result.meta.cache == "hit")
             ),
         )
-    # Every non-null semantic measure is a string on the shared HTTP wire.
-    data = [
+    return QueryResponse(data=public_rows(result.data, measures), meta=meta)
+
+
+def public_rows(
+    rows: Iterable[Mapping[str, ResultScalar]], measures: Collection[str]
+) -> list[dict[str, ResultScalar]]:
+    """*rows* as the shared HTTP wire carries them: every non-null measure a string."""
+
+    return [
         {name: _measure_value(value) if name in measures else value for name, value in row.items()}
-        for row in result.data
+        for row in rows
     ]
-    return QueryResponse(data=data, meta=meta)

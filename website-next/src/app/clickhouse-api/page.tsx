@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse REST API in TypeScript',
+  title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer',
   description:
-    'Build a ClickHouse API in TypeScript from typed query definitions. Generate schema types, expose validated endpoints, and get OpenAPI docs automatically.',
+    'ClickHouse has an HTTP API on ports 8123 and 8443 for raw SQL. For an app-facing REST API with auth, validation and OpenAPI docs, build it from typed queries.',
   alternates: { canonical: absoluteUrl('/clickhouse-api') },
   openGraph: {
     images: ogImage('ClickHouse API in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-api'),
-    title: 'ClickHouse API in TypeScript | hypequery',
+    title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer | hypequery',
     description:
-      'If you need a ClickHouse API, hypequery turns typed query definitions into validated REST endpoints with OpenAPI docs.',
+      'ClickHouse has an HTTP API on ports 8123 and 8443 for raw SQL. For an app-facing REST API with auth, validation and OpenAPI docs, build it from typed queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse API in TypeScript | hypequery',
+    title: 'ClickHouse API: HTTP Interface vs a Typed REST API Layer | hypequery',
     description:
-      'Build a ClickHouse API from typed query definitions instead of hand-writing every route. Validation and OpenAPI docs included.',
+      'Raw SQL over ClickHouse\'s HTTP API, or an app-facing REST API with auth, validation and OpenAPI docs built from typed queries.',
   },
 };
 
@@ -136,9 +136,9 @@ export default function ClickHouseApiPage() {
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse API',
+          title: 'What is the ClickHouse API?',
           copy:
-            'A practical ClickHouse API needs validation, auth context, typed responses, and reusable query logic. hypequery handles that by turning query definitions into endpoints.',
+            'ClickHouse\'s own API is its HTTP interface: send SQL to port 8123, or 8443 with TLS, for example `curl \'https://play.clickhouse.com/?user=play\' --data-binary \'SELECT 1\'`. It runs whatever SQL it receives, so it is the transport, not an app-facing API. For that you need validation, auth context and typed responses on top, which hypequery generates from query definitions.',
         },
         {
           title: 'API for ClickHouse in TypeScript',

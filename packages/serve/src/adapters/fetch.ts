@@ -7,6 +7,7 @@ import {
   serializeResponseBody,
 } from "./utils.js";
 import { isServeStreamBody } from "../utils/stream-body.js";
+import { withContentType, withDefaultContentType } from "../utils/response-headers.js";
 
 export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
   return async (request: Request) => {
@@ -33,13 +34,13 @@ export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
       // The runtime cancels the stream when the client goes away.
       return new Response(response.body.stream, {
         status: response.status,
-        headers: { ...response.headers, "content-type": response.body.contentType },
+        headers: withContentType(response.headers, response.body.contentType),
       });
     }
-    const responseHeaders = {
-      "content-type": "application/json; charset=utf-8",
-      ...response.headers,
-    };
+    const responseHeaders = withDefaultContentType(
+      response.headers,
+      "application/json; charset=utf-8",
+    );
 
     const body = isNullBodyStatus(response.status)
       ? null

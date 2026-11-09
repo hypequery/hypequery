@@ -120,6 +120,20 @@ const nextConfig: NextConfig = {
         destination: '/docs/query-building/advanced-filtering',
         permanent: true,
       },
+      // One page per search (Search Console, November 2026): each source covered
+      // the same queries as its destination, which is the page Google ranks.
+      { source: '/prisma-clickhouse', destination: '/clickhouse-orm', permanent: true },
+      { source: '/typeorm-clickhouse', destination: '/clickhouse-orm', permanent: true },
+      { source: '/drizzle-clickhouse', destination: '/compare/hypequery-vs-drizzle', permanent: true },
+      { source: '/moosestack-alternative', destination: '/compare/hypequery-vs-moose', permanent: true },
+      { source: '/blog/does-clickhouse-have-an-orm', destination: '/clickhouse-orm', permanent: true },
+      { source: '/blog/clickhouse-query-builder-typescript', destination: '/clickhouse-query-builder', permanent: true },
+      { source: '/blog/clickhouse-react-hooks', destination: '/clickhouse-react', permanent: true },
+      {
+        source: '/blog/clickhouse-materialized-views-typescript',
+        destination: '/blog/a-guide-to-materialized-views-in-clickhouse',
+        permanent: true,
+      },
       {
         source: '/clickhouse-rest-api',
         destination: '/clickhouse-api',
@@ -137,7 +151,13 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/roadmap',
-        destination: '/docs/changelog',
+        destination: '/changelog',
+        permanent: true,
+      },
+      // the hand-written docs changelog was replaced by the generated /changelog
+      {
+        source: '/docs/changelog',
+        destination: '/changelog',
         permanent: true,
       },
       {

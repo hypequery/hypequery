@@ -233,7 +233,7 @@ If every trade needs the quote *at its own timestamp*, `argMax` can't help — y
 
 - **The right table lives in memory.** Same hash-join model as other ClickHouse joins, plus per-key ordering work for the inequality column. Put the sparse state table (quotes, deploys) on the right and pre-filter it — join against yesterday's quotes, not five years of them.
 - **Filter both sides early.** A `WHERE` on the left table's time range plus a bounded right side keeps the join tractable. ASOF over two unfiltered billion-row tables is a memory incident, not a query.
-- **Consider materializing hot paths.** If the same ASOF enrichment runs on every dashboard load, pre-joining at insert time with a [materialized view](/blog/clickhouse-materialized-views-typescript) turns a per-query join into a plain filtered read.
+- **Consider materializing hot paths.** If the same ASOF enrichment runs on every dashboard load, pre-joining at insert time with a [materialized view](/blog/a-guide-to-materialized-views-in-clickhouse) turns a per-query join into a plain filtered read.
 
 ## Where to go from here
 

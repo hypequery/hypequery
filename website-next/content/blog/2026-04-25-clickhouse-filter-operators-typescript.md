@@ -218,4 +218,6 @@ The hypequery version is shorter, the column names are checked against the schem
 
 ---
 
+For conditional expressions inside a select, see [multiIf()](/clickhouse/functions/multi-if), ClickHouse's CASE WHEN, and [toDate()](/clickhouse/functions/to-date) for date-range filters that keep the last day.
+
 Related: [ClickHouse Query Builder](/clickhouse-query-builder) · [ClickHouse TypeScript Guide](/clickhouse-typescript) · [hypequery vs @clickhouse/client](/compare/hypequery-vs-clickhouse-client)

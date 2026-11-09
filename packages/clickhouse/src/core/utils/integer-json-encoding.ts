@@ -1,5 +1,6 @@
 import type { ClickHouseSettings } from '../../types/clickhouse-settings.js';
 import type { IntegerJsonEncoding } from '../query-builder.js';
+import { isReadonlySettingError } from './readonly-setting-error.js';
 
 const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
 
@@ -44,7 +45,7 @@ export function createReadonlyIntegerJsonError(
   error: unknown,
   adapterDefaultApplied: boolean,
 ): Error | undefined {
-  if (!adapterDefaultApplied || !isReadonlyQuote64BitError(error)) return undefined;
+  if (!adapterDefaultApplied || !isReadonlySettingError(error, QUOTE_64BIT)) return undefined;
 
   return new Error(
     `ClickHouse rejected HypeQuery's precision-safe setting (${QUOTE_64BIT}=1) ` +
@@ -54,16 +55,4 @@ export function createReadonlyIntegerJsonError(
     `JSON numbers, which lose precision beyond 2^53.`,
     { cause: error },
   );
-}
-
-function isReadonlyQuote64BitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const { code, type } = error as { code?: unknown; type?: unknown };
-  const message = (error as { message?: unknown }).message;
-  if (typeof message !== 'string' || !message.includes(QUOTE_64BIT)) return false;
-
-  return code === '164'
-    || code === 164
-    || type === 'READONLY'
-    || /in readonly mode/i.test(message);
 }

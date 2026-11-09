@@ -9,6 +9,7 @@ import {
   clickhouseFunctions,
   findFunction,
   functionPathSegment,
+  indexedFunctionSlugs,
 } from '@/data/clickhouse-functions';
 
 type Props = {
@@ -30,6 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: fn.metaTitle,
     description: fn.metaDescription,
     alternates: { canonical },
+    // Pages without search demand stay readable but out of the index.
+    ...(!indexedFunctionSlugs.has(fn.slug) && { robots: { index: false, follow: true } }),
     openGraph: {
       type: 'website',
       url: canonical,

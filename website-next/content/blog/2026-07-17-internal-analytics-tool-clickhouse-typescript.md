@@ -196,7 +196,7 @@ export function RevenueChart({ from, to }: { from: string; to: string }) {
 }
 ```
 
-Because the query type still originates from the builder result in `lib/queries.ts`, you can share that inferred type with the component instead of re-typing the response by hand. Install `@hypequery/react @tanstack/react-query` and put a `QueryClientProvider` at your root — the [ClickHouse React hooks post](/blog/clickhouse-react-hooks) walks through the provider setup and parameterized queries in more detail.
+Because the query type still originates from the builder result in `lib/queries.ts`, you can share that inferred type with the component instead of re-typing the response by hand. Install `@hypequery/react @tanstack/react-query` and put a `QueryClientProvider` at your root — the [ClickHouse React hooks post](/clickhouse-react) walks through the provider setup and parameterized queries in more detail.
 
 Notice what you are still not doing: no zod schemas, no OpenAPI spec, no auth hooks on the query itself. The route handler is a bare passthrough because its only caller is your own page, behind your own SSO. That is the whole argument for skipping `@hypequery/serve` on an internal tool — the governance is genuine work with no internal payoff, right up until it has one.
 
@@ -240,5 +240,5 @@ The migration is additive, not a rewrite: your builder logic is intact, you have
 ## Where to go from here
 
 - [Building dashboards on ClickHouse with hypequery and Next.js](/blog/building-dashboards-clickhouse-hypequery-nextjs) — a deeper dashboard walkthrough, including cross-filtering across panels
-- [ClickHouse React hooks](/blog/clickhouse-react-hooks) — more on the typed hooks layer and parameterized queries
+- [ClickHouse React hooks](/clickhouse-react) — more on the typed hooks layer and parameterized queries
 - [Internal product APIs](/use-cases/internal-product-apis) — for when your internal tool becomes something other teams depend on

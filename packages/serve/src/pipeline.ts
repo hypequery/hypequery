@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { isServeStreamBody } from './utils/stream-body.js';
+import { isServeStreamBody, type ServeStreamBody } from './utils/stream-body.js';
+import { observeStreamBody } from './utils/observe-stream-body.js';
+import { isStreamTimeoutError } from './utils/stream-timeout.js';
+import { mergeResponseHeaders } from './utils/response-headers.js';
 
 import type {
   AuthContext,
@@ -21,6 +24,7 @@ import type {
   TenantConfigOverride,
   MaybePromise,
   ServeSchema,
+  ServeStreamInfo,
 } from './types.js';
 import { resolveTenantMode, warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
@@ -582,6 +586,53 @@ export const executeEndpoint = async <
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
     }
 
+    if (isServeStreamBody(result)) {
+      // The status goes out now, but the outcome is known only once the
+      // stream ends: report the end (or the failure) then, with its duration.
+      const openDurationMs = Date.now() - startedAt;
+      const body: ServeStreamBody = observeStreamBody(result, async ({ outcome, bytes, error }) => {
+        const durationMs = Date.now() - startedAt;
+        const stream: ServeStreamInfo = { outcome, bytes, openDurationMs };
+        const event = {
+          requestId,
+          queryKey: endpoint.key,
+          metadata: metadataWithAuth,
+          request,
+          auth: context.auth,
+          durationMs,
+          stream,
+        };
+        const failed = outcome === 'failed';
+        // Logged first, synchronously: the stream does not wait for the hooks.
+        if (queryLogger?.listenerCount ?? 0 > 0) {
+          queryLogger?.emit({
+            requestId,
+            endpointKey: endpoint.key,
+            path: endpoint.metadata.path ?? `/${endpoint.key}`,
+            method: request.method,
+            status: failed ? 'error' : 'completed',
+            startTime: startedAt,
+            endTime: startedAt + durationMs,
+            durationMs,
+            input: context.input,
+            // The status the client received: the stream's 200, or the 504 the
+            // adapter sent before a stream that opened too late was cancelled.
+            responseStatus: isStreamTimeoutError(error) && error.kind === 'request' ? 504 : 200,
+            ...(failed
+              ? { error: error instanceof Error ? error : new Error(String(error)) }
+              : { result: body }),
+            stream,
+          });
+        }
+        if (failed) {
+          await safeInvokeHook('onError', hooks.onError, { ...event, error });
+        } else {
+          await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, { ...event, result: body });
+        }
+      });
+      return { status: 200, headers, body } satisfies ServeResponse;
+    }
+
     const durationMs = Date.now() - startedAt;
     await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, {
       requestId,
@@ -737,7 +788,7 @@ export const createServeHandler = <
         undefined,
         { 'x-request-id': requestId, ...traceHeaders },
       );
-      response.headers = { ...response.headers, ...corsHeaders };
+      response.headers = mergeResponseHeaders(response.headers, corsHeaders);
       return response;
     }
 
@@ -756,7 +807,7 @@ export const createServeHandler = <
 
     // Inject CORS headers into every response
     if (Object.keys(corsHeaders).length > 0) {
-      response.headers = { ...response.headers, ...corsHeaders };
+      response.headers = mergeResponseHeaders(response.headers, corsHeaders);
     }
 
     return response;
