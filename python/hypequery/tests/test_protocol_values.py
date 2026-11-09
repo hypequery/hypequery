@@ -6,6 +6,7 @@ import random
 import shutil
 import struct
 import subprocess
+import sys
 from collections.abc import Iterator, Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -289,6 +290,7 @@ def test_random_binary64_serialization_matches_ecmascript() -> None:
         value = struct.unpack(">d", bits.to_bytes(8, "big"))[0]
         if math.isfinite(value) and not (value == 0 and math.copysign(1.0, value) < 0):
             pairs.append((f"{bits:016x}", value))
+    pairs.extend((struct.pack(">d", value).hex(), value) for value in _binary64_edge_corpus())
 
     script = """
 const fs = require('fs');
@@ -308,6 +310,46 @@ process.stdout.write(JSON.stringify(hexes.map((hex) =>
     expected = cast(list[str], json.loads(completed.stdout))
     actual = [encode_canonical_value_to_string(item[1]) for item in pairs]
     assert actual == expected
+
+
+def _binary64_edge_corpus() -> list[float]:
+    """Positive finite values where shortest-digit selection is hardest."""
+
+    values = [5e-324, 2.2250738585072014e-308, 2.225073858507201e-308, sys.float_info.max]
+    values.extend(math.ldexp(1.0, power) for power in range(-1074, 1024))
+    for exponent in range(-324, 309):
+        for mantissa in ("1", "2", "5", "9.5"):
+            value = float(f"{mantissa}e{exponent}")
+            if math.isfinite(value) and value > 0:
+                values.append(value)
+    neighbours = [math.nextafter(v, direction) for v in values for direction in (0.0, math.inf)]
+    return [v for v in values + neighbours if math.isfinite(v) and v > 0]
+
+
+def test_fast_shortest_digits_match_the_exact_implementation() -> None:
+    from hypequery.protocol import _jcs
+
+    randomizer = random.Random(0x3E1D)  # noqa: S311 - deterministic test corpus
+    values = _binary64_edge_corpus()
+    values += [randomizer.randint(1, 10**10) / 100 for _ in range(2_000)]
+    while len(values) < 25_000:
+        value = struct.unpack(">d", randomizer.getrandbits(64).to_bytes(8, "big"))[0]
+        if math.isfinite(value) and value != 0:
+            values.append(abs(value))
+    mismatches = [
+        value
+        for value in values
+        if _jcs._repr_decimal(value) != _jcs._exact_shortest_decimal(value)
+    ]
+    assert mismatches == []
+
+
+@given(st.floats(min_value=5e-324, allow_nan=False, allow_infinity=False))
+@settings(max_examples=2_000, deadline=None)
+def test_fast_shortest_digits_match_exact_for_any_float(value: float) -> None:
+    from hypequery.protocol import _jcs
+
+    assert _jcs._repr_decimal(value) == _jcs._exact_shortest_decimal(value)
 
 
 def test_number_serialization_is_public_and_ecmascript_shaped() -> None:
