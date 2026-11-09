@@ -11,6 +11,11 @@ describe('parseViewParameters', () => {
     ]);
   });
 
+  it('ignores placeholder-shaped text in literals and comments', () => {
+    const sql = "CREATE VIEW db.v AS SELECT '{p:NotAType}' AS label, `{q:Bad}` AS c /* {r:Bad} */ FROM t WHERE n > {p:UInt64} -- {s:Bad}\n AND x = $$ {t:Bad} $$";
+    expect(parseViewParameters(sql)).toEqual([{ name: 'p', type: 'UInt64' }]);
+  });
+
   it('returns nothing for a view without parameters', () => {
     expect(parseViewParameters('CREATE VIEW db.v AS SELECT 1')).toEqual([]);
   });

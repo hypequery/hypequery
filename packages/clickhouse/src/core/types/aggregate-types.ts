@@ -38,9 +38,11 @@ export type SumResult<T> =
  * sum is a quoted Int64, or a Float/Decimal one, whose sum is a number.
  */
 export type SumOfValueResult<Value> =
-  [Value] extends [number] ? number | string
-  : [Value] extends [number | null] ? number | string | null
-  : string;
+  unknown extends Value ? string
+  : null extends Value ? SumOfNonNullValue<Exclude<Value, null>> | null
+  : SumOfNonNullValue<Value>;
+
+type SumOfNonNullValue<Value> = [Value] extends [number] ? number | string : string;
 
 /** `sum()` result for a column reference, by ClickHouse type when known. */
 export type SumColumnResult<State extends AnyBuilderState, Column> =
@@ -70,6 +72,22 @@ export type QuantileResult<T> =
   : T extends `SimpleAggregateFunction(${string}, ${infer Inner})` ? QuantileResult<Inner>
   : T extends ClickHouseDateTime ? string | null
   : number | null;
+
+/**
+ * `quantile()` over a column known only by its TypeScript type. A `string`
+ * may be a date (the result keeps the type) or a 64-bit integer (the result
+ * is a `Float64` number), so both are allowed.
+ */
+export type QuantileOfValueResult<Value> =
+  unknown extends Value ? number | string | null
+  : [Exclude<Value, null>] extends [number] ? number | null
+  : number | string | null;
+
+/** `quantile()` result for a column reference, by ClickHouse type when known. */
+export type QuantileColumnResult<State extends AnyBuilderState, Column> =
+  ColumnClickHouseType<State, Column> extends ColumnType
+    ? QuantileResult<ColumnClickHouseType<State, Column>>
+    : QuantileOfValueResult<ColumnSelectionValue<State, Column>>;
 
 /** `stddevSamp()` and `varSamp()` are `Float64`, and `null` for fewer than two rows. */
 export type SampleStatisticResult = number | null;

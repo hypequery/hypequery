@@ -703,3 +703,24 @@ const rollupTotals = rollupDb.table('events_daily')
 type RollupTotalsResult = Awaited<ReturnType<typeof rollupTotals.execute>>;
 type RollupTotalsExpected = { app: string; total_bytes: string; max_peak: number; users: string }[];
 type AssertRollupTotals = Expect<Equal<RollupTotalsResult, RollupTotalsExpected>>;
+
+// Through a subquery only TypeScript types survive, so results stay conservative.
+type DerivedSchema = {
+  facts: { id: 'UInt64'; seen_at: 'DateTime'; maybe_big: 'Nullable(UInt64)'; ratio: 'Float64' };
+};
+const derivedDb = createQueryBuilder<DerivedSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+const derivedInner = derivedDb.table('facts').select(['id', 'seen_at', 'maybe_big', 'ratio']);
+const derivedAggregates = derivedDb.from(derivedInner)
+  .quantile('seen_at', 0.5, 'seen_median')
+  .quantile('ratio', 0.5, 'ratio_median')
+  .sum('maybe_big', 'big_sum');
+type DerivedAggregatesResult = Awaited<ReturnType<typeof derivedAggregates.execute>>;
+type DerivedAggregatesExpected = {
+  seen_median: number | string | null; // a date string, or a Float64 for a 64-bit integer
+  ratio_median: number | null;
+  big_sum: string | null; // NULL when every value is NULL
+}[];
+type AssertDerivedAggregates = Expect<Equal<DerivedAggregatesResult, DerivedAggregatesExpected>>;

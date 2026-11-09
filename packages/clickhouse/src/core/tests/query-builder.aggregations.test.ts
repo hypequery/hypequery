@@ -43,6 +43,14 @@ describe('QueryBuilder - Aggregations', () => {
     );
   });
 
+  it('ignores aggregate names inside comments when inferring GROUP BY', () => {
+    const sql = builder
+      .select([rawAs<string, 'category_key'>('category /* sum(price) */', 'category_key')])
+      .sum('price', 'total')
+      .toSQL();
+    expect(sql).toBe('SELECT category /* sum(price) */ AS category_key, SUM(price) AS total FROM test_table GROUP BY category_key');
+  });
+
   it('still groups by a plain computed expression', () => {
     const sql = builder
       .select([rawAs<string, 'day'>('toDate(created_at)', 'day')])

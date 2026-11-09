@@ -48,9 +48,8 @@ import { InsertBuilder, type InsertQB } from './insert-builder.js';
 import { SUBQUERY_SOURCE_TABLE, type InitialInsertState } from './types/builder-state.js';
 import type {
   AvgResult,
-  ColumnClickHouseType,
   ColumnValueResult,
-  QuantileResult,
+  QuantileColumnResult,
   SampleStatisticResult,
   SumColumnResult,
 } from './types/aggregate-types.js';
@@ -758,8 +757,8 @@ export class QueryBuilder<
     column: Column,
     level: number,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, QuantileResult<ColumnClickHouseType<State, Column>>>>> {
-    return this.applyAggregation<Column, Alias, QuantileResult<ColumnClickHouseType<State, Column>>>(column, alias, 'quantile', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, QuantileColumnResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, QuantileColumnResult<State, Column>>(column, alias, 'quantile', (col, finalAlias) =>
       this.aggregations.quantile(col, level, finalAlias)
     );
   }

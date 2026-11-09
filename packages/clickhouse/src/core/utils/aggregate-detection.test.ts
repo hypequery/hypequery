@@ -28,6 +28,10 @@ describe('isAggregateOrWindowExpression', () => {
     'toStartOfInterval(ts, INTERVAL 1 HOUR)',
     'summary_count',
     'discount(price)',
+    'category /* sum(price) */',
+    'category -- sum(price)',
+    "concat($$sum(x)$$, name)",
+    '`sum(price)`',
   ])('treats %s as a plain expression', expression => {
     expect(isAggregateOrWindowExpression(expression)).toBe(false);
   });

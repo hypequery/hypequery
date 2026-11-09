@@ -20,13 +20,22 @@ export interface DescribedRelation {
   parameters?: ViewParameter[];
 }
 
-const QUERY_PARAMETER = /\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^{}]+?)\s*\}/g;
+// Scanned left to right: a `{name:Type}` placeholder in code, or a region that
+// is not code (string literal, quoted identifier, heredoc, comment) to skip, so
+// placeholder-shaped text inside a literal or comment is never read as a
+// parameter. A type may itself contain a quoted string: DateTime64(3, 'UTC').
+const PARAMETER_OR_NON_CODE = new RegExp([
+  /\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*((?:[^{}'"]|'(?:[^'\\]|\\.)*')+?)\s*\}/.source,
+  /'(?:[^'\\]|\\.|'')*'|"(?:[^"\\]|\\.|"")*"|`(?:[^`\\]|\\.|``)*`/.source,
+  /\$(?<tag>[A-Za-z0-9_]*)\$[\s\S]*?\$\k<tag>\$|--[^\n]*|\/\*[\s\S]*?\*\//.source,
+].join('|'), 'g');
 
 /** The `{name:Type}` parameters in a view's CREATE query, first occurrence of each name. */
 export function parseViewParameters(createQuery: string): ViewParameter[] {
   const seen = new Map<string, string>();
-  for (const match of createQuery.matchAll(QUERY_PARAMETER)) {
-    if (!seen.has(match[1])) seen.set(match[1], match[2]);
+  for (const match of createQuery.matchAll(PARAMETER_OR_NON_CODE)) {
+    const [, name, type] = match;
+    if (name && type && !seen.has(name)) seen.set(name, type);
   }
   return [...seen].map(([name, type]) => ({ name, type }));
 }
