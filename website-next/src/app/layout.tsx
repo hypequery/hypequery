@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     default: "hypequery | Embedded analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.",
+  description: "hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
@@ -41,13 +41,13 @@ export const metadata: Metadata = {
     type: 'website',
     url: absoluteUrl('/'),
     title: 'hypequery | Embedded analytics on ClickHouse',
-    description: 'hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
+    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'hypequery | Embedded analytics on ClickHouse',
-    description: 'hypequery (not hyperquery) is the open-source analytics layer for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
+    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
   },
   manifest: "/site.webmanifest",
   icons: {
