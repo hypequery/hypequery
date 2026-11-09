@@ -104,6 +104,15 @@ result = analytics.execute(
 
 See the [Python docs](https://hypequery.com/docs/python) and [`python/hypequery`](./python/hypequery).
 
+## ClickHouse MCP server
+
+[`@hypequery/mcp`](./packages/mcp-server) is a governed ClickHouse MCP server for Claude Code, Cursor, Codex and other agents. Agents call `list_datasets`, `get_dataset_schema`, `query_metric` and `query_dataset` against the datasets and metrics you define; there is no raw SQL tool. To try it against the public ClickHouse playground in five minutes, install the packages, save the `mcp-config.mjs` from the [quickstart](https://hypequery.com/clickhouse-mcp#quickstart), and add the server to your agent:
+
+```bash
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+claude mcp add clickhouse -- npx -y @hypequery/mcp --config "$PWD/mcp-config.mjs"
+```
+
 ## Built for product analytics
 
 - **ClickHouse-native:** generated types plus `FINAL`, `LIMIT BY`, percentiles, `argMax`, arrays, CTEs, streaming, and window expressions.
