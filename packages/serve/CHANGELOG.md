@@ -1,5 +1,46 @@
 # @hypequery/serve
 
+## 0.25.0
+
+### Minor Changes
+
+- b99de97: Type dimension values in dataset and metric result rows (`DatasetRow`, `DatasetRowFor`, `MetricRow`, `MetricRowFor`, and the results of `createDatasetClient(...).execute()`) as what queries actually return. Numeric dimensions are now `number | string | null`, because the built-in ClickHouse adapter returns `Int64`, `UInt64` and wider integers as JSON strings to keep their precision. Every dimension, and `period`, also includes `null`, because `Nullable` columns return SQL NULL. A new `DimensionResultValue<T>` type describes these values; `@hypequery/serve` re-exports it. `InferDimensionType` is unchanged and still describes a dimension's declared type.
+
+  This is a breaking type change. Code that read a numeric dimension as `number`, or any dimension or `period` without handling `null`, now fails to compile. Convert with `Number(value)` or `BigInt(value)` as needed, and check for `null`.
+
+- 27f2580: Dataset endpoints can stream their results. Opt an entry in with `stream: true` or `stream: { maxRows }` (default `maxLimit`, at most the dataset's `limits.maxStreamRows`, else `limits.maxResultSize`); a request then asks with `Accept: application/x-ndjson` for row batches as NDJSON frames (`start`, `rows`…, then `end` with `rowCount`, or an `error` frame if the query fails after the response began) or `Accept: application/vnd.apache.arrow.stream` for an Arrow IPC stream. Streams keep the endpoint's auth, tenant isolation and validation, are never cached, and stop the query when the client disconnects. Endpoints without `stream`, and requests that don't ask, get the usual JSON page. Custom handlers can stream any body by returning `streamBody(stream, contentType)`; the Node and fetch adapters write it with backpressure. `NDJSON_MEDIA_TYPE` and `ARROW_STREAM_MEDIA_TYPE` are exported.
+- ae3a5fd: TypeScript serve APIs can now export a client contract and enforce its schema pin.
+
+  - `api.clientContract()` returns the build view of every dataset endpoint and measure-backed metric endpoint, with full paths and schema hashes. `hypequery generate:client` turns it into typed React hooks for a frontend in another repository. Set `clientContract: { mountPath }` when the API is mounted below a prefix. Each `datasets` and `metrics` key must be the dataset's or metric's own name. Metrics with a fixed grain (`metric.by(grain)`) aren't advertised.
+  - A request that sends `X-Hypequery-Client-Schema` is checked before input validation. A stale hash gets `409 VALIDATION_ERROR` with `details.code: 'CLIENT_SCHEMA_CHANGED'`. A matching hash runs under the strict client profile, and its response metadata is limited to `requestId`, `timingMs`, `rowCount`, `pagination` and `cache.hit`, as in Python. Requests without the header behave as before.
+  - The default CORS allow-headers now include `X-Hypequery-Client-Schema`.
+
+### Patch Changes
+
+- 8c5e6d2: Fix `extractClientConfig(api)` returning paths without the API's base path and ignoring `api.route(...)` overrides (for example `/queries/hello` instead of `/api/analytics/queries/hello`), which sent React hooks configured from it to URLs that 404. It now returns the same routes as `api.manifest()`. `extractClientConfig` is deprecated in favour of `api.manifest()`, which `@hypequery/react` accepts directly as `manifest`.
+- c320820: With a required tenant, the built-in `/openapi.json`, `/docs` and semantic `/contract` endpoints returned 403 for any request without a tenant, including signed-in users without one. These endpoints only describe the API and read no tenant data, so they now skip tenant resolution. Every query, dataset and discovery endpoint still requires the tenant.
+- 89cb73f: Fix four issues found running serve against a live ClickHouse:
+
+  - `createFetchHandler` (and the Vercel edge handler and Next.js mounts built on it) threw `Invalid response status code 204` on CORS preflight requests. Responses with 204, 205, and 304 now have no body.
+  - `serve({ metrics })` and `serve({ datasets })` threw "`queryBuilder` is required" when the builder came from `context: () => ({ db })`, the form the docs lead with. Semantic endpoints now use each request's `ctx.db`. A request whose context returns no `db` fails instead of using another request's builder.
+  - `tenant: { column }` without `mode` silently skipped tenant filtering, because `mode` defaulted to `'manual'`, which ignores `column`. Setting a `column` now defaults `mode` to `'auto-inject'`. Pass `mode: 'manual'` to keep filtering in your own queries.
+  - `createAnalyticsTokenIssuer` could not mint scopes, so its tokens never satisfied `requiredScopes`. It now accepts `scopes` and writes them as the standard `scope` claim.
+
+- 9c08fb8: Streamed responses are now observable to the end. `onRequestEnd` and the query log's `completed` event fire when a stream finishes (or the client abandons it) rather than when it opens, with the full `durationMs` and a new `stream` field (`outcome`, `bytes`, `openDurationMs`). A failure after the response began — an NDJSON stream that ended with its `error` frame, an Arrow stream that broke off, or a stream the server timed out — now reaches `onError` and an `error` log event with the original error; the client still sees only the sanitized frame. Custom handlers can report an in-band failure with `streamBody(stream, contentType, { failure })`.
+
+  The Node adapter bounds streams with `streamIdleTimeout` (no bytes sent for this long; defaults to `requestTimeout`) and `streamTimeout` (total, default unlimited); a stream that exceeds either is cancelled, stopping its query, and the connection closed. `Accept` q-values now decide between a JSON page and a stream (`application/json;q=1, application/x-ndjson;q=0.1` gets a page). Streaming-capable dataset endpoints send `Vary: Accept`, combined with any CORS `Vary: Origin`. The fetch adapter no longer sends two content types when custom headers set `Content-Type`.
+
+- Updated dependencies [8d02067]
+- Updated dependencies [872713e]
+- Updated dependencies [b99de97]
+- Updated dependencies [3bb485c]
+- Updated dependencies [4c7cc13]
+- Updated dependencies [d8829e6]
+- Updated dependencies [5537990]
+- Updated dependencies [ae3a5fd]
+  - @hypequery/datasets@0.30.0
+  - @hypequery/protocol@0.25.0
+
 ## 0.24.4
 
 ### Patch Changes
