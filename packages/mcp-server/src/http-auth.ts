@@ -103,6 +103,12 @@ export type MCPServeAuthStrategy<TAuth extends MCPServeAuthContext = MCPServeAut
 export interface MCPServeAuthenticatorOptions<TAuth extends MCPServeAuthContext = MCPServeAuthContext> {
   /** One or more serve auth strategies, tried in order like `defineServe({ auth })`. */
   strategies: MCPServeAuthStrategy<TAuth> | readonly MCPServeAuthStrategy<TAuth>[];
+  /**
+   * This server's OAuth resource URL. Every `createJwtStrategy` strategy must accept exactly this
+   * audience, so a token issued for another API cannot open a session; construction throws otherwise.
+   * Strategies that are not `createJwtStrategy` ones cannot be inspected and are not checked.
+   */
+  audience?: string;
   /** Tenant extraction, like `defineServe({ tenant: { extract } })`. Defaults to `auth.tenantId`. */
   tenant?: { extract: (auth: TAuth) => string | null | undefined };
   /** Subject extraction. Defaults to `auth.userId`. */
@@ -121,6 +127,32 @@ function serveRequest(request: Request): MCPServeAuthRequest {
     query[name] = existing === undefined ? value : Array.isArray(existing) ? [...existing, value] : [existing, value];
   });
   return { method: request.method, path: url.pathname, query, headers, raw: request };
+}
+
+/**
+ * The audiences a `createJwtStrategy` strategy accepts. Read through the symbol registry, like
+ * serve's own `readJwtAudience`, because serve is an optional peer that is not imported here.
+ */
+const JWT_AUDIENCE_SYMBOL = Symbol.for('hypequery.jwt-audience.v1');
+
+function jwtAudiences(strategy: unknown): readonly string[] | undefined {
+  if (typeof strategy !== 'function') return undefined;
+  const value = (strategy as unknown as Record<symbol, { version?: unknown; audiences?: unknown } | undefined>)[JWT_AUDIENCE_SYMBOL];
+  return value?.version === 1 && Array.isArray(value.audiences) ? value.audiences as string[] : undefined;
+}
+
+function assertAcceptsOnlyAudience(strategies: readonly unknown[], audience: string): void {
+  for (const strategy of strategies) {
+    const audiences = jwtAudiences(strategy);
+    if (audiences === undefined) continue;
+    if (audiences.length !== 1 || audiences[0] !== audience) {
+      throw new TypeError(
+        `createMCPServeAuthenticator: a JWT strategy must accept only the audience ${JSON.stringify(audience)} `
+        + `(this server's resource URL), so a token issued for another API cannot open a session. It accepts `
+        + `${audiences.length === 0 ? 'any audience' : JSON.stringify(audiences)}.`,
+      );
+    }
+  }
 }
 
 /** A serve `AuthError`'s reason, matched structurally so serve stays an optional peer. */
@@ -147,6 +179,7 @@ export function createMCPServeAuthenticator<TAuth extends MCPServeAuthContext>(
   if (strategies.length === 0 || strategies.some(strategy => typeof strategy !== 'function')) {
     throw new TypeError('createMCPServeAuthenticator: strategies must be one or more auth strategy functions.');
   }
+  if (options.audience !== undefined) assertAcceptsOnlyAudience(strategies, options.audience);
   const extractTenant = options.tenant?.extract ?? ((auth: TAuth) => auth.tenantId);
   const extractSubject = options.subject ?? ((auth: TAuth) => auth.userId);
 

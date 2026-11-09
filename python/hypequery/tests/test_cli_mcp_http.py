@@ -132,7 +132,7 @@ def test_an_oauth_resource_the_api_does_not_accept_is_refused(
         "https://auth.example.com",
     ]
     assert main(argv) == 1
-    assert "must accept audience" in capsys.readouterr().err
+    assert "must accept only audience" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

@@ -14,8 +14,10 @@
 - OAuth resource-server support: `--resource` and `--authorization-servers`
   publish RFC 9728 protected-resource metadata, 401 and 403 answers carry
   RFC 6750 challenges pointing at it, and `--required-scopes` is enforced.
-  The Api's `jwt_strategy` must accept the resource URL as an audience, or
-  the server refuses to start. There is no authorization server.
+  The Api's `jwt_strategy` must accept the resource URL as its only audience,
+  or the server refuses to start: a strategy accepts a token naming any one of
+  its audiences, so another audience (or none) would let a token issued for
+  another API open an MCP session. There is no authorization server.
 - `hypequery.mcp` exposes `create_mcp_asgi_app` (an ASGI app that also runs
   the lifespan protocol), `McpPrincipal`, `ApiAuthenticator`,
   `static_key_authenticator`, `ApiExecutorFactory`, `HttpExecutorFactory`,

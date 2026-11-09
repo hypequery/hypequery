@@ -247,12 +247,7 @@ export async function mcpCommand(
       const mcp = await loadHttpServer(dependencies.loadMcp ?? (() => loadMcpPackage(entrypoint)));
       const authenticate = http.staticKey
         ? mcp.createMCPStaticKeyAuthenticator({ key: http.staticKey, ...(options.tenant ? { tenantId: options.tenant } : {}) })
-        : requireTenantFor(scoped, mcp, mcp.createMCPServeAuthenticator({
-          strategies: source.auth!.strategies as Parameters<typeof mcp.createMCPServeAuthenticator>[0]['strategies'],
-          ...(source.auth!.tenant
-            ? { tenant: source.auth!.tenant as Parameters<typeof mcp.createMCPServeAuthenticator>[0]['tenant'] }
-            : {}),
-        }));
+        : requireTenantFor(scoped, mcp, createServeAuthenticator(mcp, source.auth!, http.oauth?.resource));
       await (dependencies.serveHttp ?? runMcpHttpServer)({
         mcp,
         settings: http,
@@ -306,6 +301,30 @@ function requireTenantFor(
     }
     return principal;
   };
+}
+
+/**
+ * Verify callers with the application's own auth. With OAuth, a JWT strategy that would also accept
+ * tokens issued for another API is refused, so only tokens naming this resource open a session.
+ */
+function createServeAuthenticator(
+  mcp: Pick<McpPackage, 'createMCPServeAuthenticator'>,
+  auth: NonNullable<ServeMcpSource['auth']>,
+  resource: string | undefined,
+): import('@hypequery/mcp').MCPHttpAuthenticator {
+  type Options = Parameters<typeof mcp.createMCPServeAuthenticator>[0];
+  try {
+    return mcp.createMCPServeAuthenticator({
+      strategies: auth.strategies as Options['strategies'],
+      ...(auth.tenant ? { tenant: auth.tenant as Options['tenant'] } : {}),
+      ...(resource ? { audience: resource } : {}),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) fail(error.message.replace(/^createMCPServeAuthenticator: /, ''), [
+      'Set the audience of createJwtStrategy to the --resource URL, and no other.',
+    ]);
+    throw error;
+  }
 }
 
 /** `--client-contract-url --http`: one backend principal, so only the static key may call. */

@@ -124,6 +124,36 @@ describe('hypequery mcp --http', () => {
     await expect(input.authenticate(request(KEY))).resolves.toMatchObject({ subject: 'static-key' });
   });
 
+  it('refuses an OAuth resource that a JWT strategy would not insist on', async () => {
+    const jwtStrategy = (audiences: string[]) => Object.assign(async () => null, {
+      [Symbol.for('hypequery.jwt-audience.v1')]: { version: 1, audiences },
+    });
+    const flags = { http: true, resource: 'https://mcp.example.com/mcp', authorizationServers: 'https://auth.example.com' };
+    const run = async (audiences: string[]) => {
+      const serveHttp = vi.fn(async (_input: RunMcpHttpServerInput) => undefined);
+      const outcome = mcpCommand(await entrypointFile(), flags, {
+        loadApi: async () => apiWithDatasets({ orders: { name: 'orders' } }, { strategies: [jwtStrategy(audiences)] }),
+        loadMcp: async () => mcpPackage, serveHttp, env: {},
+      });
+      return { outcome, serveHttp };
+    };
+
+    const accepted = await run(['https://mcp.example.com/mcp']);
+    await accepted.outcome;
+    expect(accepted.serveHttp).toHaveBeenCalledTimes(1);
+
+    // A token naming only the other API would pass verification and open a session.
+    const shared = await run(['https://mcp.example.com/mcp', 'https://api.example.com']);
+    await expect(shared.outcome).rejects.toThrow('process.exit:1');
+    expect(shared.serveHttp).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('must accept only the audience'));
+    expect(logger.indent).toHaveBeenCalledWith(expect.stringContaining('--resource'));
+
+    const unchecked = await run([]);
+    await expect(unchecked.outcome).rejects.toThrow('process.exit:1');
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('any audience'));
+  });
+
   it('refuses a caller without a tenant when a dataset is tenant-scoped', async () => {
     const api = apiWithDatasets({ orders: { name: 'orders', tenantKey: 'org_id' } }, {
       strategies: [async () => ({ userId: 'u1' })],

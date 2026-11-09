@@ -115,8 +115,10 @@ With `--resource`, the server:
   clients can start the OAuth flow;
 - requires every `--required-scopes` scope.
 
-Tokens are verified by your app's JWT strategy. **Its audience must be the resource URL**, so a token issued for
-another service is refused:
+Tokens are verified by your app's JWT strategy. **Its audience must be the resource URL, and only that**: a JWT
+strategy accepts a token naming any one of its audiences, so one that also accepts another API's audience, or none at
+all, would let a token issued for that API open an MCP session. `hypequery mcp --http` refuses to start in either
+case. Set it like this:
 
 <CodeBlock>
 ```typescript
@@ -140,8 +142,7 @@ jwt_strategy(
 ```
 </CodeBlock>
 
-The Python server refuses to start if the API's `jwt_strategy` does not accept the resource URL as an audience. Tokens
-are never passed on to another service: in Python the credential goes only to the same in-process API that verified it.
+Tokens are never passed on to another service: in Python the credential goes only to the same in-process API that verified it.
 
 ## Bridging a deployed API
 

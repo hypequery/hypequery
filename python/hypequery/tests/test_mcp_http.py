@@ -437,6 +437,61 @@ def test_nothing_is_built_or_kept_for_a_request_that_does_not_open_a_session() -
     anyio.run(run)
 
 
+def test_a_burst_of_openings_cannot_start_more_discoveries_than_there_is_room_for() -> None:
+    gate = anyio.Event()
+    started = 0
+
+    async def slow(_principal: McpPrincipal, source: Callable[[], Mapping[str, str]]) -> Any:
+        nonlocal started
+        started += 1
+        await gate.wait()
+        return RecordingExecutor(f"executor-{started}", source)
+
+    app = create_mcp_asgi_app(slow, TokenAuthenticator(), max_sessions=2)
+
+    async def run() -> None:
+        statuses: list[int] = []
+
+        async def open_one(client: httpx2.AsyncClient) -> None:
+            headers = {**JSON_HEADERS, "authorization": "Bearer a"}
+            response = await client.post("/mcp", headers=headers, content=INITIALIZE)
+            statuses.append(response.status_code)
+
+        async with app.run():
+            transport = httpx2.ASGITransport(app=app)
+            async with (
+                httpx2.AsyncClient(transport=transport, base_url="http://localhost") as c,
+                anyio.create_task_group() as tasks,
+            ):
+                for _ in range(6):
+                    tasks.start_soon(open_one, c)
+                # What fits has started; the rest was refused before the backend was asked.
+                with anyio.fail_after(10):
+                    while started < 2 or statuses.count(503) < 4:
+                        await anyio.sleep(0.01)
+                assert started == 2
+                gate.set()
+        assert sorted(statuses) == [200, 200, 503, 503, 503, 503]
+        assert app._opening == 0
+
+    anyio.run(run)
+
+
+def test_a_failed_discovery_releases_its_slot() -> None:
+    harness = Harness(max_sessions=1)
+
+    async def run() -> None:
+        async with harness.client() as client:
+            harness.fail = True
+            assert (await harness.post(client, INITIALIZE)).status_code == 503
+            harness.fail = False
+            # The failure did not leave the only slot reserved.
+            assert (await harness.post(client, INITIALIZE)).status_code == 200
+        assert harness.app._opening == 0
+
+    anyio.run(run)
+
+
 def test_a_refused_opening_request_leaves_no_executor_behind() -> None:
     harness = Harness(max_sessions=1)
 
@@ -576,14 +631,25 @@ def test_configuration_is_validated() -> None:
         )
 
 
-def test_an_oauth_resource_must_be_an_accepted_audience() -> None:
-    api = create_api(auth=jwt_strategy(secret="s" * 32, audience="https://other.example.test/mcp"))
+def test_an_oauth_resource_must_be_the_only_accepted_audience() -> None:
     resource = ProtectedResource(
         resource="https://mcp.example.test/mcp",
         authorization_servers=("https://auth.example.test",),
     )
-    with pytest.raises(ValueError, match="must accept audience"):
+
+    def check(**audience: Any) -> None:
+        api = create_api(auth=jwt_strategy(secret="s" * 32, **audience))
         check_resource_audience(ApiAuthenticator(api), resource)
+
+    check(audience="https://mcp.example.test/mcp")
+    check(audience=("https://mcp.example.test/mcp", "https://mcp.example.test/mcp"))
+    # A token naming only the other API passes a strategy that accepts either, so it must refuse.
+    with pytest.raises(ValueError, match="must accept only audience"):
+        check(audience="https://other.example.test/mcp")
+    with pytest.raises(ValueError, match=r"https://api\.example\.test"):
+        check(audience=("https://mcp.example.test/mcp", "https://api.example.test"))
+    with pytest.raises(ValueError, match="any audience"):
+        check()
 
 
 def test_context_strategies_cannot_serve_mcp_over_http() -> None:

@@ -86,15 +86,19 @@ def check_resource_audience(
 ) -> None:
     """Refuse an OAuth setup whose tokens could have been issued for another resource.
 
-    With a JWT strategy, the API must check the audience, and the MCP
-    resource URL must be one of the audiences it accepts.
+    A JWT strategy accepts a token naming any one of its audiences. So the API's
+    `jwt_strategy` must accept exactly the MCP resource URL: with another audience
+    beside it, or none at all, a token issued for a different API would pass
+    verification and open an MCP session.
     """
 
     if resource is None or not isinstance(authenticate, ApiAuthenticator):
         return
     audiences = authenticate.audiences
-    if audiences is not None and resource.resource not in audiences:
+    if audiences is not None and set(audiences) != {resource.resource}:
+        accepted = "any audience" if not audiences else repr(sorted(audiences))
         raise ValueError(
-            f"The API's jwt_strategy must accept audience {resource.resource!r}, the MCP "
-            "resource URL, so tokens issued for any other resource are refused."
+            f"The API's jwt_strategy must accept only audience {resource.resource!r}, the MCP "
+            "resource URL, so a token issued for another API cannot open an MCP session. "
+            f"It accepts {accepted}."
         )

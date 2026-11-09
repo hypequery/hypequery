@@ -1,3 +1,4 @@
+import { createJwtStrategy } from '@hypequery/serve';
 import { describe, expect, it } from 'vitest';
 import {
   createMCPServeAuthenticator,
@@ -74,6 +75,24 @@ describe('createMCPServeAuthenticator', () => {
         throw new Error('boom');
       },
     })(request())).rejects.toThrow('boom');
+  });
+
+  it('refuses a JWT strategy that would also accept tokens issued for another API', () => {
+    const jwt = (audience?: string | string[]) => createJwtStrategy({
+      secret: 'mcp-audience-test-secret-0123456789abcdef',
+      ...(audience === undefined ? {} : { audience }),
+    });
+    const resource = 'https://mcp.example.test/mcp';
+    expect(() => createMCPServeAuthenticator({ strategies: jwt(resource), audience: resource })).not.toThrow();
+    // A token naming only the other audience would pass verification and open a session.
+    expect(() => createMCPServeAuthenticator({ strategies: jwt([resource, 'https://api.example.test']), audience: resource }))
+      .toThrow(/accept only the audience.*https:\/\/api\.example\.test/);
+    expect(() => createMCPServeAuthenticator({ strategies: jwt('https://api.example.test'), audience: resource })).toThrow(/accept only/);
+    expect(() => createMCPServeAuthenticator({ strategies: [jwt(resource), jwt()], audience: resource })).toThrow(/any audience/);
+    // Strategies that are not createJwtStrategy ones cannot be inspected, so they are not checked.
+    expect(() => createMCPServeAuthenticator({ strategies: async () => null, audience: resource })).not.toThrow();
+    // Without `audience` nothing changes.
+    expect(() => createMCPServeAuthenticator({ strategies: jwt(['a', 'b']) })).not.toThrow();
   });
 
   it('requires at least one strategy', () => {

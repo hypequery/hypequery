@@ -357,6 +357,8 @@ class McpAsgiApp:
             dict.fromkeys([*ALLOWED_REQUEST_HEADERS, *authenticate.credential_headers])
         )
         self._sessions: dict[str, _Session] = {}
+        #: Opening requests past the capacity check, whose session is not registered yet.
+        self._opening = 0
         self._credentials: ContextVar[Mapping[str, str]] = ContextVar("hypequery_mcp_credentials")
         self._manager = StreamableHTTPSessionManager(
             _server(self._resolve, name=name, version=version),
@@ -565,19 +567,25 @@ class McpAsgiApp:
             # The SDK refuses it; nothing is built for a request that cannot open a session.
             await self._manager.handle_request(scope, replay, send)
             return
-        if len(self._sessions) >= self._max_sessions:
+        # A slot is reserved before the backend is asked, so a burst of openings cannot start
+        # more discoveries than there is room for; it is released on every way out.
+        if len(self._sessions) + self._opening >= self._max_sessions:
             await self._refuse(send, 503)
             return
+        self._opening += 1
         try:
-            with self._bind(credentials):
-                executor = await self._factory(principal, self._credential_source)
-        except Exception:
-            # Executor errors may name backends or credentials; none reach the client.
-            await self._refuse(send, 503)
-            return
-        await self._manager.handle_request(
-            scope, replay, self._register_on_admission(send, principal, executor)
-        )
+            try:
+                with self._bind(credentials):
+                    executor = await self._factory(principal, self._credential_source)
+            except Exception:
+                # Executor errors may name backends or credentials; none reach the client.
+                await self._refuse(send, 503)
+                return
+            await self._manager.handle_request(
+                scope, replay, self._register_on_admission(send, principal, executor)
+            )
+        finally:
+            self._opening -= 1
 
     def _register_on_admission(
         self, send: Send, principal: McpPrincipal, executor: ClientContractExecutor
