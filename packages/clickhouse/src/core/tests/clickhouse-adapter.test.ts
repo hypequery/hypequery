@@ -424,6 +424,9 @@ describe('ClickHouseAdapter abort signals', () => {
 
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toContain("integerJsonEncoding: 'server-default'");
+      // The precision-preserving fixes come first.
+      expect((error as Error).message).toContain(`add ${QUOTE_64BIT} = 1 to the user's settings profile`);
+      expect((error as Error).message).toContain('readonly = 2');
       expect((error as Error).cause).toBe(cause);
       expect(clientQueryMock).toHaveBeenCalledTimes(1);
     });
