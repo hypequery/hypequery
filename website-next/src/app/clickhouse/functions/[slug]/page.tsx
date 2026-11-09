@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import {
   clickhouseFunctions,
@@ -112,13 +113,17 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-border">
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
-              <Link href="/clickhouse/functions" className="transition hover:opacity-70">
-                ClickHouse Functions
-              </Link>
-              <span className="text-text-dim">/</span>
-              <span className="text-accent">{clusterLabel[fn.cluster] ?? fn.cluster}</span>
-            </div>
+            <Breadcrumbs
+              items={[
+                { label: 'ClickHouse', href: '/clickhouse' },
+                { label: 'Functions', href: '/clickhouse/functions' },
+                { label: fn.name },
+              ]}
+              currentPath={`/clickhouse/functions/${functionPathSegment(fn.name)}`}
+            />
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+              {clusterLabel[fn.cluster] ?? fn.cluster}
+            </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text sm:text-5xl">
               <code className="font-mono">{fn.name}</code>
             </h1>

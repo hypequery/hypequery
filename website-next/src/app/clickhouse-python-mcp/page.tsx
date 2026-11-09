@@ -130,6 +130,7 @@ export default function ClickHousePythonMcpPage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
         { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

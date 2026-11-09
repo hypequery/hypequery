@@ -123,6 +123,11 @@ const comparisonLinks = [
 
 const ecosystemLinks = [
   {
+    href: '/clickhouse',
+    title: 'ClickHouse with TypeScript and Python',
+    description: 'The hub for every ClickHouse client, framework, SQL guide and function page on this site.',
+  },
+  {
     href: '/clickhouse-nextjs',
     title: 'ClickHouse Next.js',
     description: 'How to reuse typed analytics queries across App Router handlers and server components.',
@@ -354,7 +359,7 @@ export default function ClickHouseTypeScriptPage() {
               </Link>
             ))}
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-4">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {ecosystemLinks.map((item) => (
               <Link
                 key={item.href}

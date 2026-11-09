@@ -208,6 +208,7 @@ export default function ClickHouseOpenApiPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

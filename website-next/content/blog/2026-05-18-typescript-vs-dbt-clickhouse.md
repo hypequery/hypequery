@@ -7,6 +7,10 @@ pubDate: 2026-05-18
 heroImage: ""
 slug: typescript-vs-dbt-clickhouse
 status: published
+tags:
+  - ClickHouse
+  - TypeScript
+  - Semantic layer
 ---
 
 dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.

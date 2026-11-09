@@ -184,6 +184,7 @@ export default function ClickHouseNodejsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-js', label: 'ClickHouse JavaScript' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },

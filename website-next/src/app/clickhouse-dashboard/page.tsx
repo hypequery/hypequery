@@ -239,6 +239,7 @@ export default function ClickHouseDashboardPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },

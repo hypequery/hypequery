@@ -41,6 +41,9 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
     // so every page passes crawlers a path to them.
     title: 'Learn',
     links: [
+      // The semantic layer hub is already linked from the Product column.
+      { label: 'ClickHouse for developers', href: '/clickhouse' },
+      { label: 'Embedded analytics', href: '/embedded-analytics' },
       { label: 'ClickHouse functions', href: '/clickhouse/functions' },
       { label: 'Materialized views guide', href: '/blog/a-guide-to-materialized-views-in-clickhouse' },
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },

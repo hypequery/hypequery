@@ -7,6 +7,10 @@ pubDate: 2026-04-30
 heroImage: ""
 slug: embedded-analytics-clickhouse-multi-tenant-dashboards
 status: published
+tags:
+  - ClickHouse
+  - TypeScript
+  - Embedded analytics
 ---
 
 Customers expect usage dashboards and reporting inside your product. Not in a separate BI tool, but inside your app, loading fast, showing only their data. ClickHouse is one of the best engines for this, and teams like PostHog, LaunchDarkly, Grafana Cloud, GitLab, Cloudflare, and Inigo have all built customer-facing analytics on it. What they all also discovered is that the hard part is not query performance. It is multi-tenancy, isolation, and keeping the codebase maintainable as you scale to thousands of tenants.
