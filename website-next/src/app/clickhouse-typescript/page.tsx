@@ -105,9 +105,9 @@ const comparisonLinks = [
     description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
   },
   {
-    href: '/blog/clickhouse-testing-typescript',
-    title: 'How to Test ClickHouse Queries in TypeScript',
-    description: 'Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.',
+    href: '/blog/add-clickhouse-analytics-nodejs-backend#testing-clickhouse-queries',
+    title: 'How to test ClickHouse queries in TypeScript',
+    description: 'Type checks in CI, SQL assertions, and integration tests against chDB or a ClickHouse container.',
   },
   {
     href: '/blog/clickhouse-final-replacingmergetree-typescript',

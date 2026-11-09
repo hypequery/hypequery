@@ -134,6 +134,6 @@ If your team is TypeScript-first and the transformation logic is manageable, you
 ---
 
 **Related reading:**
-- [hypequery vs @clickhouse/client: what you actually gain](/blog/hypequery-vs-clickhouse-client)
-- [Building a real-time dashboard with ClickHouse and React](/blog/clickhouse-real-time-dashboard-react)
+- [hypequery vs @clickhouse/client: what you actually gain](/compare/hypequery-vs-clickhouse-client)
+- [Building a real-time dashboard with ClickHouse and React](/blog/building-dashboards-clickhouse-hypequery-nextjs#step-5-typed-react-hooks-with-polling)
 - [Type-safe schema management for ClickHouse](/blog/type-safe-schema-management-clickhouse)

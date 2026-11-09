@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { createMDX } from "fumadocs-mdx/next";
 import { comparePages } from "./src/data/compare-pages";
+import { retiredBlogPosts } from "./src/data/retired-blog-posts";
 
 const withMDX = createMDX();
 
@@ -126,14 +127,12 @@ const nextConfig: NextConfig = {
       { source: '/typeorm-clickhouse', destination: '/clickhouse-orm', permanent: true },
       { source: '/drizzle-clickhouse', destination: '/compare/hypequery-vs-drizzle', permanent: true },
       { source: '/moosestack-alternative', destination: '/compare/hypequery-vs-moose', permanent: true },
-      { source: '/blog/does-clickhouse-have-an-orm', destination: '/clickhouse-orm', permanent: true },
-      { source: '/blog/clickhouse-query-builder-typescript', destination: '/clickhouse-query-builder', permanent: true },
-      { source: '/blog/clickhouse-react-hooks', destination: '/clickhouse-react', permanent: true },
-      {
-        source: '/blog/clickhouse-materialized-views-typescript',
-        destination: '/blog/a-guide-to-materialized-views-in-clickhouse',
+      // Removed blog posts, merged into another page (src/data/retired-blog-posts.ts).
+      ...retiredBlogPosts.map((post) => ({
+        source: `/blog/${post.slug}`,
+        destination: post.destination,
         permanent: true,
-      },
+      })),
       {
         source: '/clickhouse-rest-api',
         destination: '/clickhouse-api',
