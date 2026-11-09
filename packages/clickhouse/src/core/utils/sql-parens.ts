@@ -97,6 +97,26 @@ export function skipNonCode(sql: string, start: number): number | undefined {
   return undefined;
 }
 
+/**
+ * The SQL with every non-code region (literals, quoted identifiers, heredocs,
+ * comments) replaced by a space, so pattern checks only see SQL code.
+ */
+export function maskNonCode(sql: string): string {
+  let code = '';
+  let i = 0;
+  while (i < sql.length) {
+    const skippedTo = skipNonCode(sql, i);
+    if (skippedTo !== undefined) {
+      code += ' ';
+      i = skippedTo;
+      continue;
+    }
+    code += sql[i];
+    i += 1;
+  }
+  return code;
+}
+
 function matchingCloser(ch: string): string | undefined {
   if (ch === '(') return ')';
   if (ch === '[') return ']';
