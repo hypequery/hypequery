@@ -145,7 +145,7 @@ export default function CompareIndexPage() {
               </p>
             </Link>
             <Link
-              href="/moosestack-alternative"
+              href="/compare/hypequery-vs-moose"
               className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
             >
               <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">MooseStack alternative</h3>

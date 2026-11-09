@@ -218,7 +218,7 @@ export default function TinybirdAlternativePage() {
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
-        { href: '/moosestack-alternative', label: 'MooseStack Alternative' },
+        { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

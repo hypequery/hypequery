@@ -40,9 +40,6 @@ const staticRoutes = [
   '/clickhouse-sqlalchemy',
   '/clickhouse-query-builder',
   '/type-safe-sql-typescript',
-  '/drizzle-clickhouse',
-  '/prisma-clickhouse',
-  '/typeorm-clickhouse',
   '/clickhouse-mcp',
   '/clickhouse-react',
   '/clickhouse-nextjs',
@@ -54,7 +51,6 @@ const staticRoutes = [
   '/contact-us',
   '/cube-js-alternative',
   '/tinybird-alternative',
-  '/moosestack-alternative',
   ...comparePages.map((page) => page.href),
 ];
 
