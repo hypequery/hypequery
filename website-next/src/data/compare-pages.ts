@@ -255,58 +255,68 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'clickhouse-cloud-vs-tinybird',
     href: '/compare/clickhouse-cloud-vs-tinybird',
-    title: 'ClickHouse Cloud + hypequery vs Tinybird',
+    title: 'ClickHouse Cloud vs Tinybird',
     verdict:
-      'Choose Tinybird when you want ingestion, data modelling, and hosted API endpoints as one managed product. Choose ClickHouse Cloud with hypequery when you want a managed ClickHouse database while keeping the typed query and API layer in your TypeScript application.',
-    primaryLabel: 'ClickHouse Cloud + hypequery',
+      'ClickHouse Cloud is a managed ClickHouse database billed by compute time and compressed storage. Tinybird is a platform on ClickHouse that adds ingestion, hosted SQL API endpoints and tokens, billed by plan size in vCPUs. Pick Tinybird for hosted analytics APIs with little backend work; pick ClickHouse Cloud when your own services and tools need direct read and write access to ClickHouse.',
+    primaryLabel: 'ClickHouse Cloud',
     alternativeLabel: 'Tinybird',
     rows: [
       {
         label: 'Product shape',
-        hypequery: 'Managed ClickHouse database plus an open-source application layer in TypeScript or Python',
-        alternative: 'Managed analytics backend with data sources, Pipes, endpoints, and tokens',
+        hypequery: 'Managed ClickHouse database run by ClickHouse, Inc.',
+        alternative: 'Platform on ClickHouse with data sources, pipes, API endpoints, tokens and branches',
       },
       {
-        label: 'Query ownership',
-        hypequery: 'Typed query definitions live and deploy with your application',
-        alternative: 'SQL or SDK resources deploy to a Tinybird Workspace',
+        label: 'Billing',
+        hypequery: 'Compute per compute-unit-hour (8 GiB RAM, 2 vCPUs), metered per minute, plus storage per TB-month',
+        alternative: 'Plan sized in vCPUs: fixed monthly fee on Developer, credits with a 12-month commitment on SaaS and Enterprise',
       },
       {
-        label: 'TypeScript contract',
-        hypequery: 'Generated from the live ClickHouse schema and reused by the API layer',
-        alternative: 'TypeScript SDK authors platform resources; clients consume hosted endpoints',
+        label: 'Free option',
+        hypequery: '$300 in credits for 30 days, then pay-as-you-go',
+        alternative: 'Free plan with no time limit: 0.25 vCPU, 1,000 requests per day, 10 GB',
       },
       {
-        label: 'API operations',
-        hypequery: 'You deploy the API and integrate your own auth, caching, and rate limits',
-        alternative: 'Tinybird hosts endpoints and provides scoped tokens and platform controls',
+        label: 'SQL access',
+        hypequery: 'Read and write over HTTPS, the native protocol and the MySQL wire protocol',
+        alternative: 'Hosted endpoints and Query API; the ClickHouse HTTP interface is read-only',
       },
       {
-        label: 'Portability',
-        hypequery: 'ClickHouse schema, SQL, and application code remain independently deployable',
-        alternative: 'Data project is version-controlled, but executes on the Tinybird runtime',
+        label: 'Your own cloud',
+        hypequery: 'BYOC generally available on AWS, GCP and Azure, with a committed contract',
+        alternative: 'Self-managed regions in beta, for development environments only',
       },
       {
-        label: 'Best fit',
-        hypequery: 'TypeScript or Python product teams that want direct ClickHouse control',
-        alternative: 'Teams that want the shortest managed path from ingestion to a hosted data API',
+        label: 'TypeScript',
+        hypequery: '@clickhouse/client over HTTPS; hypequery adds schema-generated types and a query builder',
+        alternative: '@tinybirdco/sdk defines data sources and endpoints; @clickhouse/client works for reads',
       },
     ],
     faq: [
       {
-        question: 'Is ClickHouse Cloud a direct replacement for Tinybird?',
+        question: 'Is Tinybird more expensive than ClickHouse Cloud?',
         answer:
-          'No. ClickHouse Cloud manages the database; Tinybird manages a broader analytics-backend workflow that includes data resources and hosted API endpoints. Adding hypequery supplies the typed query and API layer on top of ClickHouse Cloud, but your team still owns that application deployment.',
+          'It depends on the workload, because they bill on different units. ClickHouse Cloud charges per compute-unit-hour (on AWS us-east-1, from $0.2181 on Basic) plus $25.30 per TB-month of compressed storage, and idle services stop paying for compute. Tinybird charges a plan fee sized in vCPUs (Developer starts at $25/month with 25 GB included) plus overages, and the fee includes endpoint hosting. Prices checked on 8 November 2026; model your own workload in both calculators.',
       },
       {
-        question: 'Does the ClickHouse Cloud option require running ClickHouse yourself?',
+        question: 'Is Tinybird built on ClickHouse?',
         answer:
-          'No. ClickHouse Cloud operates the database service, including scaling, replication, upgrades, and backups. You operate the comparatively thin application or API process that uses hypequery.',
+          'Yes. Tinybird says it runs native ClickHouse under the hood, but you work through Tinybird resources such as data sources, pipes and endpoints. Tinybird is a separate company and states it is not affiliated with ClickHouse, Inc.',
       },
       {
-        question: 'Which option is better for a TypeScript product team?',
+        question: 'Can I connect to Tinybird with a ClickHouse client?',
         answer:
-          'ClickHouse Cloud with hypequery is usually the stronger fit when analytics is part of an existing TypeScript product and schema-derived types, direct database access, and application-level control matter. Tinybird is usually stronger when the team values a bundled, hosted endpoint platform more than owning the serving layer.',
+          'Yes, for reads. Tinybird exposes a ClickHouse-compatible HTTP interface that works with @clickhouse/client and BI tools, authenticated with a Tinybird token. The connection is read-only, so writes go through Tinybird ingestion.',
+      },
+      {
+        question: 'What is the TypeScript client for ClickHouse Cloud?',
+        answer:
+          'The official client is @clickhouse/client for Node.js, or @clickhouse/client-web for browsers and Cloudflare Workers, connecting over HTTPS on port 8443. hypequery builds on it with types generated from your live ClickHouse Cloud schema and a typed query builder.',
+      },
+      {
+        question: 'Which should I pick, Tinybird or ClickHouse Cloud?',
+        answer:
+          'Pick Tinybird when the deliverable is hosted analytics APIs and you want ingestion and endpoint hosting handled for you. Pick ClickHouse Cloud when services, jobs and BI tools need full SQL access to the database, when you need Azure or BYOC, or when analytics logic should live in your own application code.',
       },
     ],
   },
