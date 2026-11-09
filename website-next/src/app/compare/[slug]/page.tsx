@@ -46,7 +46,7 @@ export async function generateMetadata({
       title,
       description,
       publishedTime: article?.date,
-      modifiedTime: article?.updated ?? article?.date,
+      modifiedTime: article?.updated && article.updated.slice(0, 10) > (article.date ?? '').slice(0, 10) ? article.updated : article?.date,
       tags: article?.tags,
       images: ogImage(title),
     },
@@ -77,7 +77,9 @@ export default async function ComparePage({
   }
 
   const publishDate = article.date;
-  const updatedDate = article.updated;
+  // Only a later day than publication counts as an update.
+  const updatedDate =
+    article.updated && (!article.date || article.updated.slice(0, 10) > article.date.slice(0, 10)) ? article.updated : undefined;
   const pageUrl = absoluteUrl(comparePage.href).toString();
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
