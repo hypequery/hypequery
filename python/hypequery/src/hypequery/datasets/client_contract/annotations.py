@@ -33,28 +33,33 @@ def annotation_list(values: tuple[str, ...] | None) -> list[str] | None:
 def field_annotation(
     definition: Dimension | Measure | DerivedMeasure | WindowMeasure | ShiftMeasure,
 ) -> ClientFieldAnnotation | None:
-    """Label, description and vocabulary; contracts drop the vocabulary for older consumers."""
+    """Label, description and vocabulary; contracts drop the vocabulary for older consumers.
+
+    Window and shift measures carry a label and description only: they declare no
+    synonyms, examples, format, unit or currency.
+    """
     node: ClientFieldAnnotation = {}
     label = annotation_text(definition.label)
     description = annotation_text(definition.description)
-    synonyms = annotation_list(definition.synonyms)
-    examples = annotation_list(definition.examples)
-    display_format = annotation_text(definition.format)
-    unit = annotation_text(definition.unit)
     if label is not None:
         node["label"] = label
     if description is not None:
         node["description"] = description
-    if synonyms is not None:
-        node["synonyms"] = synonyms
-    if examples is not None:
-        node["examples"] = examples
-    if display_format is not None:
-        node["format"] = display_format
-    if unit is not None:
-        node["unit"] = unit
-    if definition.currency is not None:
-        node["currency"] = definition.currency
+    if isinstance(definition, Dimension | Measure | DerivedMeasure):
+        synonyms = annotation_list(definition.synonyms)
+        examples = annotation_list(definition.examples)
+        display_format = annotation_text(definition.format)
+        unit = annotation_text(definition.unit)
+        if synonyms is not None:
+            node["synonyms"] = synonyms
+        if examples is not None:
+            node["examples"] = examples
+        if display_format is not None:
+            node["format"] = display_format
+        if unit is not None:
+            node["unit"] = unit
+        if definition.currency is not None:
+            node["currency"] = definition.currency
     return node or None
 
 
