@@ -276,6 +276,43 @@ describe('createMCPHttpHandler', () => {
     expect((await handler.handle(post(initialize))).status).toBe(500);
   });
 
+  it('opens no session when close() runs while the executor is still being created', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const createExecutor = vi.fn(async (principal: MCPPrincipal) => {
+      await gate;
+      return fakeExecutor(principal);
+    });
+    const { handler } = staticHandler({ createExecutor });
+    const pending = handler.handle(post(initialize));
+    await vi.waitFor(() => expect(createExecutor).toHaveBeenCalledTimes(1));
+
+    await handler.close();
+    release();
+    const response = await pending;
+
+    // The backend answered after shutdown: the caller is told, and nothing was left open.
+    expect(response.status).toBe(503);
+    expect(handler.sessionCount).toBe(0);
+    expect(response.headers.get('mcp-session-id')).toBeNull();
+  });
+
+  it('answers a browser preflight without a credential and lets extra request headers through', async () => {
+    const { handler } = staticHandler({
+      allowedOrigins: ['https://app.example.test'],
+      allowedRequestHeaders: ['X-Api-Key'],
+    });
+    const preflight = await handler.handle(new Request('http://mcp.example.test/mcp', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://app.example.test', 'access-control-request-method': 'POST' },
+    }));
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-headers')).toContain('x-api-key');
+    expect(preflight.headers.get('access-control-allow-credentials')).toBeNull();
+  });
+
   it('stops serving once closed', async () => {
     const { handler } = staticHandler();
     await drain(await handler.handle(post(initialize)));

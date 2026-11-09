@@ -15,10 +15,16 @@ import { mcpCommand } from './mcp.js';
 const mcpSourceSymbol = Symbol.for('hypequery.mcp-source.v1');
 const KEY = 'cli-static-key-0123456789';
 
-function apiWithDatasets(datasets: Record<string, unknown>, auth?: unknown) {
+function apiWithDatasets(datasets: Record<string, unknown>, auth?: unknown, restricted?: unknown) {
   const api = {};
   Object.defineProperty(api, mcpSourceSymbol, {
-    value: { version: 1, datasets, resolveAnalytics: () => ({ query: () => [] }), ...(auth ? { auth } : {}) },
+    value: {
+      version: 1,
+      datasets,
+      resolveAnalytics: () => ({ query: () => [] }),
+      ...(auth ? { auth } : {}),
+      ...(restricted ? { restricted } : {}),
+    },
     enumerable: false,
   });
   return api;
@@ -90,6 +96,32 @@ describe('hypequery mcp --http', () => {
     await expect(input.authenticate(request())).resolves.toBeNull();
     const executor = await input.createExecutor({ subject: 'u1', tenantId: 'acme' });
     expect(typeof executor.listTools).toBe('function');
+  });
+
+  it("refuses to verify callers when a dataset's own access rules would be skipped", async () => {
+    const api = apiWithDatasets({ orders: { name: 'orders' }, finance: { name: 'finance' } }, {
+      strategies: [async () => ({ userId: 'u1' })],
+    }, [
+      { kind: 'dataset', name: 'finance', rules: ['requiredRoles', 'requiredScopes'] },
+      { kind: 'metric', name: 'revenue', rules: ['auth'] },
+    ]);
+    const serveHttp = vi.fn(async (_input: RunMcpHttpServerInput) => undefined);
+    await expect(mcpCommand(await entrypointFile(), { http: true }, {
+      loadApi: async () => api, loadMcp: async () => mcpPackage, serveHttp, env: {},
+    })).rejects.toThrow('process.exit:1');
+    expect(serveHttp).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      '--http cannot apply the access rules these entries declare: finance (requiredRoles, requiredScopes), metric revenue (auth)',
+    );
+    expect(logger.indent).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_MCP_KEY'));
+  });
+
+  it('serves those entries behind the one trusted key, which is a deliberate single principal', async () => {
+    const api = apiWithDatasets({ finance: { name: 'finance' } }, {
+      strategies: [async () => ({ userId: 'u1' })],
+    }, [{ kind: 'dataset', name: 'finance', rules: ['requiredRoles'] }]);
+    const input = await serve({}, api, { HYPEQUERY_MCP_KEY: KEY });
+    await expect(input.authenticate(request(KEY))).resolves.toMatchObject({ subject: 'static-key' });
   });
 
   it('refuses a caller without a tenant when a dataset is tenant-scoped', async () => {

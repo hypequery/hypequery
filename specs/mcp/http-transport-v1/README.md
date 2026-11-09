@@ -32,8 +32,10 @@ Every request goes through the same steps, and the first failure answers:
 2. **Route.** `GET /.well-known/oauth-protected-resource` plus the resource's
    path serves the metadata when OAuth is configured. Any path other than the
    MCP path is `404`.
-3. **Origin.** A request with an `Origin` header outside `allowedOrigins` is
-   `403`. A request without one (an ordinary MCP client) is allowed.
+3. **Origin.** A request from a browser page must come from `allowedOrigins`, or the answer is `403`. MCP clients
+   send no `Origin` and are unaffected. A **preflight** (`OPTIONS` from an allowed origin) carries no credential, so it
+   is answered here with `204` and the `Access-Control-Allow-*` headers, before authentication. `OPTIONS` without an
+   `Origin` is `405`.
 4. **Credential.** No Bearer credential is `401` with a challenge naming no
    error. A rejected credential is `401` with `error="invalid_token"`. A
    principal missing a required scope is `403` with
@@ -43,6 +45,10 @@ Every request goes through the same steps, and the first failure answers:
    the subject and tenant that opened it. The same principal with a new token
    continues it, and any other principal gets `404`, the same answer as an
    unknown session, so session ids leak nothing.
+
+Every response to an allowed origin, refusals and metadata included, carries `Access-Control-Allow-Origin` and
+`Access-Control-Expose-Headers: mcp-session-id, www-authenticate`, so a page can read the session id and the OAuth
+challenge. Credentials travel in a header, never a cookie, so `Access-Control-Allow-Credentials` is never sent.
 
 Error challenges never carry `error_description`, so a refusal does not reveal
 why a token failed beyond its class.

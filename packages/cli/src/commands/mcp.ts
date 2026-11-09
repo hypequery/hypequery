@@ -198,6 +198,16 @@ export async function mcpCommand(
         'createJwtStrategy) verifies each caller and assigns its tenant like the REST API.',
       ]);
     }
+    if (tenantFromCredential && (source.restricted?.length ?? 0) > 0) {
+      // Callers are told apart by their credentials, so a rule that decides who may query a
+      // dataset must hold here too. This path applies only the global auth and tenant.
+      const listed = source.restricted!.map(entry => `${entry.kind === 'metric' ? 'metric ' : ''}${entry.name} (${entry.rules.join(', ')})`);
+      fail(`--http cannot apply the access rules these entries declare: ${listed.join(', ')}`, [
+        'Callers are verified by defineServe auth, but each entry\'s own auth, roles, scopes,',
+        'middlewares and tenant override are not applied, so a caller could query data REST would refuse them.',
+        `Remove those options, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
     if (tenantFromCredential && options.tenant) {
       fail('--tenant cannot be combined with defineServe auth over --http; the credential names the tenant.');
     }

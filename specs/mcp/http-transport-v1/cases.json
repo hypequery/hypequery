@@ -381,7 +381,7 @@
     {
       "id": "static-origin-allowed",
       "profile": "static",
-      "description": "An allowed Origin is served.",
+      "description": "An allowed Origin is served, and the page may read the reply and the session id.",
       "steps": [
         {
           "request": {
@@ -410,7 +410,114 @@
           },
           "expect": {
             "status": 200,
-            "session": true
+            "session": true,
+            "headers": {
+              "access-control-allow-origin": "https://app.example.test",
+              "access-control-expose-headers": "mcp-session-id, www-authenticate"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-preflight-allowed",
+      "profile": "static",
+      "description": "A browser preflight from an allowed origin is answered before any credential.",
+      "steps": [
+        {
+          "request": {
+            "method": "OPTIONS",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "origin": "https://app.example.test",
+              "access-control-request-method": "POST",
+              "access-control-request-headers": "authorization, content-type"
+            }
+          },
+          "expect": {
+            "status": 204,
+            "headers": {
+              "access-control-allow-origin": "https://app.example.test",
+              "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+              "access-control-allow-headers": "authorization, content-type, accept, mcp-protocol-version, mcp-session-id, last-event-id",
+              "access-control-max-age": "600"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-preflight-origin-refused",
+      "profile": "static",
+      "description": "A preflight from an origin outside the allow-list is refused.",
+      "steps": [
+        {
+          "request": {
+            "method": "OPTIONS",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "origin": "https://evil.example.test",
+              "access-control-request-method": "POST"
+            }
+          },
+          "expect": {
+            "status": 403
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-preflight-without-origin",
+      "profile": "static",
+      "description": "OPTIONS without Origin is not a preflight.",
+      "steps": [
+        {
+          "request": {
+            "method": "OPTIONS",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test"
+            }
+          },
+          "expect": {
+            "status": 405,
+            "headers": {
+              "allow": "GET, POST, DELETE, OPTIONS"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "static-cors-on-challenge",
+      "profile": "static",
+      "description": "An allowed page can read the 401 challenge.",
+      "steps": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "origin": "https://app.example.test"
+            },
+            "body": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "tools/list"
+            }
+          },
+          "expect": {
+            "status": 401,
+            "headers": {
+              "www-authenticate": "Bearer",
+              "access-control-allow-origin": "https://app.example.test",
+              "access-control-expose-headers": "mcp-session-id, www-authenticate"
+            }
           }
         }
       ]
@@ -523,6 +630,55 @@
               "bearer_methods_supported": [
                 "header"
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-preflight-before-token",
+      "profile": "oauth",
+      "description": "A preflight needs no token even when OAuth is required.",
+      "steps": [
+        {
+          "request": {
+            "method": "OPTIONS",
+            "path": "/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "origin": "https://app.example.test",
+              "access-control-request-method": "POST",
+              "access-control-request-headers": "authorization, content-type"
+            }
+          },
+          "expect": {
+            "status": 204,
+            "headers": {
+              "access-control-allow-origin": "https://app.example.test",
+              "access-control-allow-headers": "authorization, content-type, accept, mcp-protocol-version, mcp-session-id, last-event-id"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "oauth-metadata-cors",
+      "profile": "oauth",
+      "description": "An allowed page can read the public protected-resource metadata.",
+      "steps": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/.well-known/oauth-protected-resource/mcp",
+            "headers": {
+              "host": "mcp.example.test",
+              "origin": "https://app.example.test"
+            }
+          },
+          "expect": {
+            "status": 200,
+            "headers": {
+              "access-control-allow-origin": "https://app.example.test"
             }
           }
         }

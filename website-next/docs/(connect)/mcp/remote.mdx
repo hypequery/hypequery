@@ -57,7 +57,10 @@ Both servers apply the same checks in the same order, pinned by a shared test fi
    `--allowed-hosts` when you bind to another interface.
 2. **Route.** Only `/mcp` (and the OAuth metadata document, when configured) is served.
 3. **Origin.** A request from a browser page must come from `--allowed-origins`, or the answer is `403`. MCP clients
-   send no `Origin` and are unaffected.
+   send no `Origin` and are unaffected. A browser's preflight (`OPTIONS`) needs no credential, so it is answered here
+   with `204` and the `Access-Control-Allow-*` headers; every reply to an allowed page then carries
+   `Access-Control-Allow-Origin` and exposes `mcp-session-id` and `www-authenticate`, so the page can read the session
+   id and the OAuth challenge. Credentials travel in a header, never a cookie.
 4. **Credential.** A missing credential is `401`. A wrong or expired one is `401` with `error="invalid_token"`, and a
    principal without the required scopes is `403` with `error="insufficient_scope"`. Responses never say more than that.
 5. **Session.** An MCP session belongs to the subject and tenant that opened it. A refreshed token for the same caller
@@ -71,9 +74,15 @@ Without `HYPEQUERY_MCP_KEY`, `--http` verifies callers with the auth your API al
 own tenant, exactly as over REST.
 
 - **TypeScript:** the `auth` and `tenant` you pass to `defineServe`. Any strategy works, including `createJwtStrategy`.
-  If a dataset is tenant-scoped, a caller whose credential names no tenant is refused.
+  If a dataset is tenant-scoped, a caller whose credential names no tenant is refused. MCP applies only that global
+  auth and tenant, **not** the options on an individual dataset or metric entry (`auth`, `requiredRoles`,
+  `requiredScopes`, `middlewares`, `tenant`). If any entry sets them, `hypequery mcp --http` refuses to start and names
+  the entries, because a caller could otherwise query data REST would refuse them. Remove those options, or serve one
+  trusted principal with `HYPEQUERY_MCP_KEY`.
 - **Python:** the `Api`'s own authentication and tenant resolver. The caller's credential header is forwarded on every
-  discovery and query, so the API also checks endpoint policy, scopes and rate limits on each call. Header-credential
+  discovery and query, so the API also checks endpoint policy, scopes and rate limits on each call. Each request sends
+  only its own credential, never another client's, even for the same user. A session keeps the executor it started
+  with; if the API's contract changes, its calls fail with `MCP_STALE_CONTRACT` until the client reconnects. Header-credential
   strategies (`bearer_token`, `api_key`, `jwt_strategy`) are supported; `from_context` strategies are not.
 
 <CodeBlock>

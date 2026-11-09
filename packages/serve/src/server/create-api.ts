@@ -34,6 +34,7 @@ import {
   buildSemanticContractSource,
 } from "../semantic/datasets/index.js";
 import { attachServeMcpSource } from "./mcp-source.js";
+import { collectMcpRestrictions } from "../semantic/datasets/utils/mcp-restrictions.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 
 const assertSemanticKeyAvailable = (
@@ -364,8 +365,10 @@ export const createAPI = <
   // same semantic model as this entrypoint rather than a second MCP config.
   if (config.datasets) {
     const mcpDatasets = buildSemanticContractSource(config.datasets, config.metrics);
+    const restricted = collectMcpRestrictions(config.datasets, config.metrics);
     attachServeMcpSource(api, {
       datasets: mcpDatasets,
+      ...(restricted.length > 0 ? { restricted } : {}),
       ...(authStrategies.length > 0
         ? {
           auth: {

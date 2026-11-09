@@ -14,6 +14,10 @@ import type { MCPToolExecutor } from './executor.js';
 import { assertPrincipal, MCPHttpAuthError, type MCPHttpAuthenticator, type MCPPrincipal } from './http-auth.js';
 import { HypequeryMCPProtocolServer } from './protocol-server.js';
 import {
+  ALLOWED_REQUEST_HEADERS,
+  ALLOWED_REQUEST_METHODS,
+  EXPOSED_RESPONSE_HEADERS,
+  PREFLIGHT_MAX_AGE_SECONDS,
   hostAllowed,
   normalizeAllowedHosts,
   normalizeAllowedOrigins,
@@ -52,8 +56,14 @@ export interface MCPHttpHandlerOptions {
   path?: string;
   /** `Host` names (ports ignored) this server answers. @default loopback names only */
   allowedHosts?: readonly string[];
-  /** Browser origins allowed to call. Requests without `Origin` are always allowed. @default none */
+  /**
+   * Browser origins allowed to call. A page on one of them has its preflight answered
+   * (before any credential) and may read replies; requests without `Origin`, as MCP
+   * clients send, are always allowed. @default none
+   */
   allowedOrigins?: readonly string[];
+  /** Request headers a page may send besides the MCP ones, such as an API-key header. */
+  allowedRequestHeaders?: readonly string[];
   /** OAuth resource-server settings: metadata, challenges and required scopes. */
   oauth?: MCPProtectedResourceOptions;
   /** Concurrent sessions; more are refused with 503. @default 100 */
@@ -110,6 +120,7 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
   private readonly sessions = new Map<string, Session>();
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
+  private readonly allowedRequestHeaders: string;
   private readonly resource?: ProtectedResource;
   private readonly path: string;
   private readonly maxSessions: number;
@@ -132,6 +143,10 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
     }
     this.allowedHosts = normalizeAllowedHosts(options.allowedHosts);
     this.allowedOrigins = normalizeAllowedOrigins(options.allowedOrigins);
+    this.allowedRequestHeaders = [...new Set([
+      ...ALLOWED_REQUEST_HEADERS,
+      ...(options.allowedRequestHeaders ?? []).map(header => header.toLowerCase()),
+    ])].join(', ');
     this.resource = options.oauth ? protectedResource(options.oauth) : undefined;
     this.maxSessions = positiveInteger(options.maxSessions, DEFAULT_MAX_SESSIONS, 'maxSessions');
     this.idleTimeoutMs = positiveInteger(options.sessionIdleTimeoutMs, DEFAULT_IDLE_TIMEOUT_MS, 'sessionIdleTimeoutMs');
@@ -145,6 +160,11 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
   }
 
   async handle(request: Request): Promise<Response> {
+    // Every answer to an allowed page, refusals included, is readable by it.
+    return this.withCors(request, await this.route(request));
+  }
+
+  private async route(request: Request): Promise<Response> {
     if (this.closed) return plainResponse(503, 'Service Unavailable');
     const url = new URL(request.url);
 
@@ -160,10 +180,11 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
     }
     if (url.pathname !== this.path) return plainResponse(404, 'Not Found');
 
-    // 3. Browser pages may call only from listed origins.
-    if (!originAllowed(request.headers.get('origin'), this.allowedOrigins)) {
-      return plainResponse(403, 'Forbidden');
-    }
+    // 3. Browser pages may call only from listed origins. A preflight carries no
+    // credential, so it is answered here or it could never succeed.
+    const origin = request.headers.get('origin');
+    if (!originAllowed(origin, this.allowedOrigins)) return plainResponse(403, 'Forbidden');
+    if (request.method === 'OPTIONS') return this.preflight(origin);
 
     // 4. Credentials.
     let principal: MCPPrincipal | null;
@@ -193,6 +214,30 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
       return this.dispatch(session, request);
     }
     return this.open(principal, request);
+  }
+
+  private preflight(origin: string | null): Response {
+    if (origin === null) return plainResponse(405, 'Method Not Allowed', { allow: ALLOWED_REQUEST_METHODS.join(', ') });
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'access-control-allow-methods': ALLOWED_REQUEST_METHODS.join(', '),
+        'access-control-allow-headers': this.allowedRequestHeaders,
+        'access-control-max-age': String(PREFLIGHT_MAX_AGE_SECONDS),
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  /** What a browser needs on any response to an allowed origin; the stream is passed through. */
+  private withCors(request: Request, response: Response): Response {
+    const origin = request.headers.get('origin');
+    if (origin === null || !this.allowedOrigins.has(origin)) return response;
+    const headers = new Headers(response.headers);
+    headers.set('access-control-allow-origin', origin);
+    headers.set('access-control-expose-headers', EXPOSED_RESPONSE_HEADERS.join(', '));
+    headers.append('vary', 'Origin');
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   }
 
   private challenge(error: 'invalid_token' | 'insufficient_scope' | undefined, scopes?: readonly string[]): Response {
@@ -260,6 +305,8 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
         // Executor errors may name backends or credentials; none reach the client.
         return jsonRpcErrorResponse(503, -32603, 'MCP server unavailable');
       }
+      // close() may have run while the backend was answering: nothing may be opened after it.
+      if (this.closed) return jsonRpcErrorResponse(503, -32603, 'MCP server unavailable');
       const server = new HypequeryMCPProtocolServer({
         executor,
         name: this.options.name,
@@ -270,7 +317,7 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
         sessionIdGenerator: () => randomUUID().replaceAll('-', ''),
         maxRequestBodySize: this.maxBodyBytes,
         onsessioninitialized: (id) => {
-          if (session) this.sessions.set(id, session);
+          if (session && !this.closed) this.sessions.set(id, session);
         },
         onsessionclosed: (id) => {
           this.sessions.delete(id);
@@ -283,10 +330,10 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
       await server.connect(transport);
       const response = await transport.handleRequest(request, { parsedBody: body });
       if (transport.sessionId === undefined || !this.sessions.has(transport.sessionId)) {
-        // The initialize request was refused; nothing may linger.
+        // The initialize request was refused, or the handler closed meanwhile; nothing may linger.
         session.active -= 1;
         await server.close().catch(() => undefined);
-        return response;
+        return this.closed ? jsonRpcErrorResponse(503, -32603, 'MCP server unavailable') : response;
       }
       const opened = session;
       return onBodyEnd(response, () => {

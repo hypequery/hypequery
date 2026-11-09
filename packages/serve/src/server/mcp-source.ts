@@ -1,5 +1,6 @@
 import type { DatasetCatalogSource, DatasetClient } from '@hypequery/datasets';
 import type { AuthContext, AuthStrategy } from '../types.js';
+import type { McpRestrictedEntry } from '../semantic/datasets/utils/mcp-restrictions.js';
 
 /**
  * Lets `hypequery mcp` serve an application's datasets from the same
@@ -28,6 +29,12 @@ export interface ServeMcpSource {
    * application configures no auth.
    */
   readonly auth?: ServeMcpAuth;
+  /**
+   * Datasets and metrics whose own entry options (auth, roles, scopes, middlewares,
+   * tenant override) decide who may query them over REST. The MCP transport does not
+   * apply those, so a server that verifies callers must refuse to serve them.
+   */
+  readonly restricted?: readonly McpRestrictedEntry[];
 }
 
 /** The application's auth strategies and tenant extraction, as configured on `defineServe`. */
@@ -46,6 +53,9 @@ export function attachServeMcpSource(
       datasets: Object.freeze({ ...source.datasets }),
       resolveAnalytics: source.resolveAnalytics,
       ...(source.auth ? { auth: Object.freeze({ ...source.auth, strategies: Object.freeze([...source.auth.strategies]) }) } : {}),
+      ...(source.restricted?.length
+        ? { restricted: Object.freeze(source.restricted.map(entry => Object.freeze({ ...entry, rules: Object.freeze([...entry.rules]) }))) }
+        : {}),
     } satisfies ServeMcpSource),
     enumerable: false,
     configurable: false,

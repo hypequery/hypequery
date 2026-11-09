@@ -10,6 +10,23 @@
 /** Loopback names allowed when no explicit host list is configured. */
 export const DEFAULT_ALLOWED_HOSTS: readonly string[] = Object.freeze(['localhost', '127.0.0.1', '[::1]']);
 
+/**
+ * What a browser page on an allowed origin may send and read. Credentials travel in a
+ * header, never a cookie, so `Access-Control-Allow-Credentials` is never sent.
+ */
+export const ALLOWED_REQUEST_METHODS: readonly string[] = Object.freeze(['GET', 'POST', 'DELETE', 'OPTIONS']);
+export const ALLOWED_REQUEST_HEADERS: readonly string[] = Object.freeze([
+  'authorization',
+  'content-type',
+  'accept',
+  'mcp-protocol-version',
+  'mcp-session-id',
+  'last-event-id',
+]);
+/** `www-authenticate` lets the page read the OAuth challenge and discover the metadata. */
+export const EXPOSED_RESPONSE_HEADERS: readonly string[] = Object.freeze(['mcp-session-id', 'www-authenticate']);
+export const PREFLIGHT_MAX_AGE_SECONDS = 600;
+
 /** Lower-cased host names, without ports, for allow-list comparison. */
 export function normalizeAllowedHosts(hosts: readonly string[] | undefined): ReadonlySet<string> {
   const values = hosts ?? DEFAULT_ALLOWED_HOSTS;

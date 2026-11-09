@@ -16,6 +16,12 @@ export interface ServeMcpSource {
     readonly strategies: readonly ((context: { request: unknown }) => Promise<unknown>)[];
     readonly tenant?: { readonly extract: (auth: never) => string | null | undefined };
   };
+  /** Datasets and metrics whose own access rules the MCP transport does not apply. */
+  readonly restricted?: readonly {
+    readonly kind: 'dataset' | 'metric';
+    readonly name: string;
+    readonly rules: readonly string[];
+  }[];
 }
 
 export function readServeMcpSource(value: unknown): ServeMcpSource | undefined {

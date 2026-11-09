@@ -14,6 +14,21 @@ from urllib.parse import urlsplit
 #: Loopback names allowed when no explicit host list is configured.
 DEFAULT_ALLOWED_HOSTS: tuple[str, ...] = ("localhost", "127.0.0.1", "[::1]")
 
+#: What a browser page on an allowed origin may send and read. Credentials travel in a
+#: header, never a cookie, so no ``Access-Control-Allow-Credentials`` is ever sent.
+ALLOWED_REQUEST_METHODS: tuple[str, ...] = ("GET", "POST", "DELETE", "OPTIONS")
+ALLOWED_REQUEST_HEADERS: tuple[str, ...] = (
+    "authorization",
+    "content-type",
+    "accept",
+    "mcp-protocol-version",
+    "mcp-session-id",
+    "last-event-id",
+)
+#: ``www-authenticate`` lets the page read the OAuth challenge and discover the metadata.
+EXPOSED_RESPONSE_HEADERS: tuple[str, ...] = ("mcp-session-id", "www-authenticate")
+PREFLIGHT_MAX_AGE_SECONDS = 600
+
 
 def host_name(value: str) -> str:
     """The host name of a ``Host`` header value, lower-cased and without its port."""
