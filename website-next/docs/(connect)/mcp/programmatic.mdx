@@ -5,11 +5,11 @@ description: Start the hypequery MCP server from a Node process.
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Use `createMCPServer` when you want to start the MCP server from your own Node process instead of using the CLI.
+Use `startStdioMCPServer` when you want to start the MCP server from your own Node process instead of using the CLI.
 
 <CodeBlock>
 ```typescript
-import { createMCPServer } from '@hypequery/mcp';
+import { startStdioMCPServer } from '@hypequery/mcp';
 import { createDatasetClient } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { datasets } from './datasets/index.js';
@@ -23,7 +23,7 @@ const db = createQueryBuilder({
 
 const analytics = createDatasetClient({ queryBuilder: db });
 
-const server = await createMCPServer({
+const server = await startStdioMCPServer({
   datasets,
   analytics,
   name: 'analytics-mcp',
@@ -34,7 +34,26 @@ const server = await createMCPServer({
 ```
 </CodeBlock>
 
-`createMCPServer` returns the server instance after calling `start()`. The stdio transport is intended for MCP clients that launch and manage the process.
+`startStdioMCPServer` returns the server instance once it is connected over stdio. The stdio transport is intended for MCP clients that launch and manage the process.
+
+`createMCPServer(config)` and `server.start()` still work but are deprecated aliases for the same thing.
+
+## Custom transports
+
+The tools are independent of stdio. To serve them over another MCP transport, build an executor and a protocol server and connect your own transport:
+
+<CodeBlock>
+```typescript
+import { createMCPExecutor, createMCPProtocolServer } from '@hypequery/mcp';
+
+const executor = createMCPExecutor({ datasets, analytics, tenantId: trustedTenantId });
+const server = createMCPProtocolServer({ executor, name: 'analytics-mcp', version: '1.0.0' });
+
+await server.connect(transport);
+```
+</CodeBlock>
+
+To bridge a Python HTTP backend instead of local datasets, use `createMCPHttpExecutor({ url, headers })` as the executor; see the package README.
 
 ## Tenant-scoped servers
 
@@ -42,7 +61,7 @@ If registered datasets have `tenantKey`, pass a trusted `tenantId` when creating
 
 <CodeBlock>
 ```typescript
-const server = await createMCPServer({
+const server = await startStdioMCPServer({
   datasets,
   analytics,
   tenantId: 'tenant_123',
@@ -69,12 +88,19 @@ The programmatic API accepts the same core inputs as the CLI config, plus option
 <CodeBlock>
 ```typescript
 type MCPServerConfig = {
-  datasets: Record<string, Record<string, unknown>>;
+  datasets: Record<string, AnyDatasetInstance | Record<string, unknown>>;
   analytics: DatasetClient;
   name?: string;
   version?: string;
   tenantId?: string;
   includeSql?: boolean;
+  // defaultResultSize 100; maxResultSize and maxOffset up to 10,000;
+  // maxDimensions/maxMeasures up to 50, maxFilters up to 100, maxOrderBy up to 50
+  queryLimits?: MCPQueryLimits;
+  // timeoutMs default 30s (max 120s); maxResponseBytes default 1 MiB (max 10 MiB)
+  executionBudget?: MCPExecutionBudget;
+  // maxTools default 64 (max 256); maxManifestBytes default 256 KiB (max 1 MiB)
+  catalogBudget?: MCPCatalogBudget;
 };
 ```
 </CodeBlock>

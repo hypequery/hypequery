@@ -2,7 +2,11 @@
 
 `@hypequery/protocol` is the deterministic TypeScript reference implementation for Hypequery’s portable, language-neutral artifacts. It validates and canonically encodes semantic expressions, query schemas, deployment contracts, bundle manifests, release envelopes, query events, and diagnostics without connecting to a database or executing user code.
 
-The normative source is [`specs/security-protocol`](../../specs/security-protocol/README.md). The package is pre-stable while the draft wire contracts and conformance fixtures are reviewed; the npm version is not an artifact version.
+The normative source is [`specs/security-protocol`](https://github.com/hypequery/hypequery/blob/main/specs/security-protocol/README.md). The package is pre-stable while the draft wire contracts and conformance fixtures are reviewed; the npm version is not an artifact version.
+
+```bash
+npm install @hypequery/protocol
+```
 
 ## What the protocol solves
 
@@ -19,7 +23,7 @@ This package implements those rules in TypeScript. Python and other implementati
 
 - canonical tagged values and RFC 8785 encoding
 - strict simple and qualified logical identifiers
-- signed semantic client descriptors and strict HTTP/MCP client queries
+- hashed semantic client descriptors and strict HTTP/MCP client queries
 - closed semantic expression and query envelopes
 - portable input and output schemas
 - trusted query implementation artifacts
@@ -27,6 +31,11 @@ This package implements those rules in TypeScript. Python and other implementati
 - closed deployment bundle manifests
 - project/environment release envelopes
 - compiled query settings, cancellation, events, and diagnostics
+- field visibility and provider-enforced constraints (RFC 0019)
+- versioned-source row resolution and pre-aggregated merge measures
+- null-check comparisons (`isNull` / `isNotNull`)
+- semantic invocation requests, results, and failures
+- domain-separated cache keys and preimages
 
 The package performs no filesystem or network I/O. It does not load project source, choose credentials, connect to ClickHouse, authenticate users, resolve tenants, or host HTTP routes. Those jobs remain with the CLI, deployment package, and runtime adapters.
 
@@ -48,7 +57,7 @@ Domain-specific identities remain separate. A raw canonical-value digest is not 
 
 ## Portable analytics definitions
 
-Expression validators cover derived formulas, comparisons, filtered aggregates, the full dataset aggregation surface, and metric/dataset query envelopes. Runtime callers provide semantic names and values; they cannot embed SQL or tenant identity in these portable query structures.
+Expression validators cover derived formulas, comparisons, filtered aggregates, the dataset aggregation surface (except merge measures, which have no expression aggregate), and metric/dataset query envelopes. Runtime callers provide semantic names and values; they cannot embed SQL or tenant identity in these portable query structures.
 
 Schema validators cover the declarative Serve/Zod features that can travel between runtimes without importing Zod or executable refinements. Schema application handles defaults and unknown properties on bounded wire values.
 
@@ -73,16 +82,12 @@ Only the root package export is public. Package SemVer and protocol versions are
 
 Self-hosted `@hypequery/serve` can continue to run application source directly. Portable deployment bundles are needed for deployment, compatibility checks, and cross-runtime handoff—not for ordinary local query execution.
 
-## License
-
-Apache-2.0.
-
 ## Semantic client contracts
 
 RFC 0018 describes registered public endpoint capabilities for type generation
 and HTTP-backed MCP. Use `decodeProtocolClientContract(text)` at an untrusted JSON
 text boundary (bounded, rejects duplicate members), or
-`validateProtocolClientContract(value)` for an already decoded signed object.
+`validateProtocolClientContract(value)` for an already decoded, hashed object.
 `prepareProtocolClientContract(unsigned)` computes the domain-separated schema
 and view hashes and refuses preexisting hash fields. An endpoint's optional
 `annotations` (group and field labels/descriptions) are presentation text:
@@ -92,5 +97,11 @@ they are covered by the view hash but not by the endpoint schema hash.
 and normalizes the strict client profile. Its result contains the registered
 endpoint, selected measures, effective clamped limit and HTTP body. It maps MCP
 grain to by and removes routing arguments. All returned data is a frozen snapshot.
+Rejections throw `ProtocolClientContractError` with a JSON Pointer `path` (for
+example `/filters/0/value`; MCP time-grain errors point at `/grain`).
 These APIs do not authenticate, register a route, export application definitions
 or execute queries. An endpoint hash is a compatibility identity, not permission.
+
+## License
+
+Apache-2.0.

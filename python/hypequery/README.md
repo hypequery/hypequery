@@ -2,10 +2,40 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and HTTP serving from any Python framework.
 
-> **Beta (0.1.0b3).** Datasets, execution, Serve, generated React clients and
-> HTTP-backed MCP are tested end to end from the installed package. APIs may still
-> change before 1.0. Please report problems on
+> **Beta.** The latest release on PyPI is 0.1.0b3; this README tracks `main`.
+> `hypequery demo`, `hypequery mcp` (the `mcp` extra), `hypequery skill install`,
+> streamed results, segments, window/shift, merge and approximate measures,
+> resolved-row sources and null-check filters ship in the next release; until
+> then, install from a checkout (`pip install "./python/hypequery[server,clickhouse]"`).
+> Datasets, execution, Serve, generated React clients and MCP (native
+> `hypequery mcp` and `@hypequery/mcp`) are tested end to end from the installed
+> package. APIs may still change before 1.0. Please report problems on
 > [GitHub](https://github.com/hypequery/hypequery/issues).
+
+## Try it in one command
+
+With only [uv](https://docs.astral.sh/uv/) installed, this serves a sample
+semantic layer to an AI agent over MCP, on ClickHouse embedded in the process
+(chDB, Linux and macOS). There's no server, no configuration and no database
+connection; the demo's data ships in the package. The CLI sends anonymous usage
+telemetry after the command; add `--no-telemetry` to skip it:
+
+```bash
+uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
+```
+
+`--self-test` answers the demo's questions in the terminal. Each answer sits
+beside what a query that ignores ClickHouse's table engines gets: every row
+version of a ReplacingMergeTree counted, or daily distinct users summed. To
+let Claude Code query it, run:
+
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]" hypequery demo
+```
+
+For Cursor or another client, `hypequery demo --print-config` prints the
+`mcpServers` entry. The sample database lives in a temporary directory and is
+deleted when the client disconnects.
 
 ## Python → React → MCP example
 
@@ -297,9 +327,13 @@ extra.
 
 `hypequery --help`, `hypequery init --help`, `hypequery dev --help` and
 `hypequery --version` (also `-V`) work without extras.
-`hypequery help [init|dev|mcp]` also shows command help. `python -m hypequery` invokes the same
+`hypequery help [init|dev|generate|export|mcp|demo|skill|telemetry]` also shows command help. `python -m hypequery` invokes the same
 CLI. Exit codes are `0` for success/help, `1` for runtime failures and `2` for
 invalid command usage. No Node tooling is required.
+
+The CLI sends anonymous usage telemetry. Turn it off with
+`hypequery telemetry disable`, `--no-telemetry`, `DO_NOT_TRACK=1` or
+`HYPEQUERY_TELEMETRY_DISABLED=1`; `hypequery telemetry status` shows the setting.
 
 Python keeps `-h` for help; use `--hostname` for the bind address.
 Shared CLI commands and supported options use the TypeScript names.
@@ -407,7 +441,7 @@ serve the HTTP wire format (`orderBy`, `includeMeta`) that `@hypequery/react`
 and generated clients send, mount hypequery's endpoints instead (`create_api`,
 `urls(api)` or `blueprint(api)`).
 
-A tenant-bound client has only `execute`, `validate`, and `to_sql`. Every
+A tenant-bound client has only `execute`, `stream`, `stream_arrow`, `validate`, and `to_sql`. Every
 query runs as the bound tenant. A context naming a different tenant is refused
 with `forbidden` (`HQ_CAPABILITY_TENANT_MISMATCH`). Binding requires exactly
 one tenant: `tenants()` with multiple identifiers and `all_tenants()` are
@@ -478,6 +512,46 @@ both a dimension and a measure is rejected.
 
 Catalog relationship entries list the safe names under `measures`, they are
 orderable, and discovery includes them. This matches `@hypequery/datasets`.
+
+### ClickHouse-native measures and sources
+
+```python
+from hypequery.datasets import dataset, filter, measure, resolved_rows, segment
+
+events = dataset(
+    "events",
+    source="events",  # ReplacingMergeTree(version, is_deleted)
+    time_key="event_time",
+    row_resolution=resolved_rows.replacing(deleted_column="is_deleted"),
+    dimensions={...},
+    measures={
+        "revenue": measure.sum("amount"),
+        "visitors": measure.approx_count_distinct("user_id"),  # uniq
+        "revenue_7d": measure.trailing("revenue", 7, "day"),
+        "revenue_mtd": measure.to_date("revenue", "month"),
+        "revenue_last_year": measure.shift("revenue", 1, "year"),
+    },
+    segments={"paid": segment(filter.eq("status", "paid"))},
+)
+```
+
+- `row_resolution` reads `ReplacingMergeTree` / `CollapsingMergeTree` sources
+  with `FINAL`, so superseded and cancelled rows never count.
+- `measure.merge("uniq", "users_state")` finalizes `AggregatingMergeTree`
+  state columns.
+- `approx_count_distinct` uses `uniq` and is marked `approximate` in catalogs.
+- Window (`trailing`, `to_date`, `cumulative`) and `shift` measures need a
+  `by` grain and one bounded time range. Every bucket is returned, and results
+  match `@hypequery/datasets` on the shared corpus in
+  `specs/datasets/time-measures-corpus-v1.json`.
+- Segments are named row filters callers select with
+  `DatasetQuery(segments=("paid",))`.
+- `filter.is_null(field)` / `filter.is_not_null(field)` render `IS NULL` /
+  `IS NOT NULL`. Callers may use them only on filters whose
+  `FilterDefinition(operators=...)` lists them, and a null check carries no `value`.
+
+Approximate counts, segments, windows and shifts plan and run locally, but
+publishing them needs deployment contract 3, as in TypeScript.
 
 ## DataFrames
 
@@ -1775,7 +1849,7 @@ add_metric_endpoint(
     api,
     "/metrics/order_count",
     dataset=orders,
-    measure="count",
+    measure="orderCount",
     name="order_count",
     client=client,
     policy=policy,
@@ -1814,8 +1888,8 @@ portable metric definitions remain a follow-up. Their optional `name` aliases
 that measure in results and ordering.
 
 POST a strict JSON body with `dimensions`, `measures` (dataset endpoints only),
-`filters`, `having` (dataset endpoints only), `orderBy`, `by`, `limit`, `offset`, and
-`includeMeta`. Filters are
+`filters`, `having` (dataset endpoints only), `segments`, `orderBy`, `by`, `timezone`,
+`limit`, `offset`, and `includeMeta`. Filters are
 `{"field": "country", "operator": "eq", "value": "US"}`; orders are
 `{"field": "order_count", "direction": "desc"}`. Unknown request fields,
 coercion of numbers/booleans, and attempts to supply tenant, SQL, settings,
@@ -1889,7 +1963,7 @@ Terminate TLS at a reverse proxy. List its addresses/networks explicitly in
 `HttpSecurity.trusted_proxies`; the default trusts none, and production rejects
 all-address networks. The runner disables Uvicorn's own forwarded-header handling
 so application policy sees the original peer and controls proxy trust once.
-See [Uvicorn settings](https://www.uvicorn.org/settings/) for transport details.
+See [Uvicorn settings](https://uvicorn.dev/settings/) for transport details.
 
 Production requires an `HttpSecurity`, and rejects debug, reload, development
 docs, and `from_context(..., same_origin=False)` when the API is created. A
@@ -1923,7 +1997,9 @@ at most 10,000 returned rows, further bounded by endpoint/dataset policy.
 The byte ceiling applies both to ClickHouse results and the complete serialized
 HTTP body, including cache hits. Responses are buffered under that ceiling;
 oversized bodies return canonical `413 PAYLOAD_TOO_LARGE` without partial data.
-This profile does not provide streaming exports.
+A streamed response holds its admission slot for the whole stream, runs within
+`timeout_seconds` and stops at `max_result_bytes`: NDJSON ends with a
+`PAYLOAD_TOO_LARGE` frame, and Arrow is broken off before its end-of-stream marker.
 
 CI tests the real runner, startup refusals, capacity recovery, synchronous and
 asynchronous cancellation, cache/response limits and proxy trust. The same shared
@@ -2051,7 +2127,6 @@ view (`"view": "build"`) lists every endpoint, the live one (`"view":
 "authorized"`) only those the caller may use. The generated client's
 `clientContractHash` is the build `contentHash`; compare per-endpoint
 `schemaHash` values, not `contentHash`, to find a stale endpoint.
-Live caller-scoped discovery and frontend/MCP integration follow separately.
 
 ### Caller-scoped client discovery
 

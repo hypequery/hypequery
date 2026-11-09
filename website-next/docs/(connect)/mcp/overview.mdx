@@ -1,5 +1,6 @@
 ---
 title: Overview
+seoTitle: 'MCP server for ClickHouse datasets'
 description: Expose hypequery datasets and metrics to AI agents through the Model Context Protocol.
 ---
 
@@ -12,7 +13,7 @@ Use MCP when you want an agent to work inside a constrained analytics vocabulary
 
 - expose only the datasets you register
 - expose only named metrics you attach to those datasets
-- let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
+- let agents inspect dimensions, measures, labels, descriptions, filters, segments, and the time dimension (tenant keys are never shown)
 - execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) have a native server)
 - avoid handing an LLM a direct SQL console
 
@@ -123,7 +124,9 @@ expose, without calling any query tool. `--print-config` prints the `mcpServers`
 entry for Claude, Cursor or another MCP client.
 
 The Node bridge, `npx hypequery mcp --client-contract-url …` with `@hypequery/mcp`
-installed, serves the same contract with the same tools and remains supported.
+installed, serves the same contract with the same tools and remains supported. It
+reads `HYPEQUERY_API_KEY` but has no `--header` or `--print-config`; those are
+Python CLI options.
 
 The server speaks MCP over stdio, so an MCP client normally launches it. See [Clients](/docs/mcp/clients) for Claude
 Desktop and Cursor configuration.

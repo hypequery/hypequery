@@ -14,6 +14,8 @@ npx hypequery dev --open
 
 `init` checks the database, writes an `analytics/` project, generates types, and installs the packages used by the scaffold.
 
+Running `npx hypequery` with no command in a terminal also starts `init`. Use `npx hypequery --help` to list every command.
+
 For a semantic layer:
 
 ```bash
@@ -39,8 +41,11 @@ npx hypequery init \
 | `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
 | `hypequery generate:client` | TypeScript API types and routes from a Python client contract or the live Cloud release (`--cloud`) |
 | `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
-| `hypequery pull` / `diff` | Live source inspection and comparison |
+| `hypequery mcp` | Your datasets (or a Python HTTP API) as MCP tools over stdio |
+| `hypequery login` / `deploy` | Authorize Cloud and publish a dataset-only release |
+| `hypequery pull` / `diff` | Download / compare the live Cloud deployment's source |
 | `hypequery deployment:status` | Live release and Cloud-provided connection URLs |
+| `hypequery telemetry` | Show or change anonymous usage telemetry |
 
 Non-interactive ClickHouse commands read `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD`.
 
@@ -55,7 +60,7 @@ npx hypequery deploy analytics/cloud.ts --client src/hypequery-client.ts
 ```
 
 The file also exports `clientBaseUrl`. See
-[Connect React to hypequery Cloud](https://hypequery.com/docs/react/cloud).
+[Connect React to hypequery Cloud](https://hypequery.com/docs/cloud/react).
 
 ## Generate a client for Python endpoints
 
@@ -63,7 +68,8 @@ Export a build contract from your Python definition-only factory, then generate
 one TypeScript file with no backend imports:
 
 ```bash
-# In the Python project (the factory returns export_client_contract(...)):
+# In the Python project, with the Python hypequery CLI
+# (the factory returns export_client_contract(...)):
 hypequery export client-contract --factory analytics.contract:build --output client-contract.json
 
 # In the frontend project:
@@ -78,8 +84,8 @@ nullability. Numeric dimensions can be strings on the wire; aggregate values are
 strings or null. Time buckets may be null when the physical time column is null.
 Results use optional fields until a consumer narrows the query's selections.
 
-Generation reads local JSON only (1 MiB maximum); it never evaluates a backend
-module or fetches an endpoint. Signed identities, duplicate JSON members and
+Generation from a file reads local JSON only (1 MiB maximum); it never evaluates
+a backend module or fetches an endpoint. Signed identities, duplicate JSON members and
 strict contract bounds are checked before writing. Use the owner-controlled
 `build` view; principal-specific live discovery is for runtime consumers.
 `--check` detects drift without creating directories or changing files. Existing
@@ -94,27 +100,27 @@ budgets and authorization on every request.
 - Move from one local query to datasets, APIs, React, and MCP without changing tools.
 - Keep generated types and route manifests reproducible in CI.
 
-## Learn more
+## Serve datasets over MCP
 
-- [Quick start](https://hypequery.com/docs/quick-start)
-- [CLI reference](https://hypequery.com/docs/reference/api/cli)
-- [Current capabilities](https://hypequery.com/docs/capabilities)
+`npx hypequery mcp` serves your project's datasets to an MCP client over stdio
+(it loads `analytics/api.ts`, or pass a file or `--path`). Add `--tenant <id>`
+for tenant-scoped datasets and `--self-test` to check the entrypoint without
+speaking MCP. It needs `@hypequery/mcp` installed alongside the CLI:
 
-## License
-
-Apache-2.0.
+```bash
+npm install -D @hypequery/cli @hypequery/mcp
+npx hypequery mcp --self-test
+```
 
 ### Python HTTP datasets over MCP
-
-For a Python API exposing an authorized client-contract endpoint, install a
-compatible `@hypequery/mcp` alongside the CLI in your Node project, then run:
+For a Python API exposing an authorized client-contract endpoint, run:
 
 ```bash
 # Supply the backend principal's Bearer credential through your environment.
 # Omit it only when your backend intentionally authorizes public access.
 export HYPEQUERY_API_KEY='your-backend-credential'
-hypequery mcp --client-contract-url https://api.example.com/v1/client-contract --self-test
-hypequery mcp --client-contract-url https://api.example.com/v1/client-contract
+npx hypequery mcp --client-contract-url https://api.example.com/v1/client-contract --self-test
+npx hypequery mcp --client-contract-url https://api.example.com/v1/client-contract
 ```
 
 The self-test checks authorized discovery and tool schemas without querying
@@ -129,10 +135,25 @@ or after a stale-contract error; it never silently replaces pinned schemas or
 replays a query. HTTPS is required except on loopback, and redirects are refused.
 
 `--client-contract-url` cannot be combined with a local file, `--path`, `--tenant`
-or `--url`. The existing `--self-test --url` checks a hosted MCP endpoint; the
-new flag points at a Python HTTP discovery endpoint. No local analytics module
+or `--url`. The existing `--self-test --url` checks a hosted MCP endpoint;
+`--client-contract-url` points at a Python HTTP discovery endpoint. No local analytics module
 or Python process is loaded by this mode. Node is needed for the MCP bridge;
 the Python API itself does not require Node.
 
-The npm packages must contain the matching client-contract features. Workspace
-qualification does not imply that these changes have already been published.
+Requires `@hypequery/cli` 1.25.0+ and `@hypequery/mcp` 0.10.0+.
+
+## Telemetry
+
+The CLI sends anonymous usage telemetry. Disable it with
+`hypequery telemetry disable`, the `--no-telemetry` flag, or
+`HYPEQUERY_TELEMETRY_DISABLED=1` / `DO_NOT_TRACK=1`.
+
+## Learn more
+
+- [Quick start](https://hypequery.com/docs/quick-start)
+- [CLI reference](https://hypequery.com/docs/reference/api/cli)
+- [Current capabilities](https://hypequery.com/docs/capabilities)
+
+## License
+
+Apache-2.0.

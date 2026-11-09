@@ -7,7 +7,7 @@ Turn TypeScript ClickHouse queries into trusted analytics APIs.
 ## Install
 
 ```bash
-npm install @hypequery/serve zod
+npm install @hypequery/serve @hypequery/clickhouse zod
 ```
 
 ## Define once
@@ -34,6 +34,9 @@ const weeklyRevenue = query({
 });
 
 export const api = serve({ queries: { weeklyRevenue } });
+
+// Optional: an extra, friendlier path. Every query is also served at
+// /api/analytics/queries/weeklyRevenue.
 api.route('/weekly-revenue', api.queries.weeklyRevenue);
 ```
 
@@ -47,12 +50,17 @@ await api.execute('weeklyRevenue', {
 
 The same contract can power a REST endpoint, generated OpenAPI, a typed `@hypequery/react` hook, or a tool description for an AI agent.
 
-Serve also accepts semantic metrics and datasets directly:
+Serve also accepts semantic metrics and datasets directly (an alternative to the
+`serve` call above):
 
 ```ts
+import { revenue } from './metrics.js';
+import { Orders } from './datasets.js';
+
 export const api = serve({
   metrics: { revenue },
   datasets: { orders: Orders },
+  queryBuilder: db,
 });
 ```
 

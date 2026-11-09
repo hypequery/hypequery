@@ -18,7 +18,7 @@ With hypequery MCP, the agent can only use the datasets you register. It receive
 - query execution through the dataset client
 - tenant scoping when the server is configured with a trusted `tenantId`
 
-MCP can also expose relationship metadata through schema introspection, but current dataset execution is still same-dataset.
+Schema introspection also lists queryable relationships: agents can select, filter and order by one-hop related fields such as `customer.tier`. `hasMany` relationships are not traversed.
 
 ## What MCP does not replace
 

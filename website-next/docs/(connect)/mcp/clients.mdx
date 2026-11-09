@@ -1,6 +1,6 @@
 ---
 title: Clients
-description: Connect hypequery MCP to Claude Desktop, Cursor, and other MCP clients.
+description: Connect hypequery MCP to Claude Desktop, Claude Code, Codex, Cursor, and other MCP clients.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -44,6 +44,19 @@ Add `--tenant <id>` to the command if any dataset is tenant-scoped. Cursor accep
 `env` in its MCP configuration.
 
 Restart Claude Desktop after changing the config.
+
+## Claude Code and Codex with `hypequery mcp`
+
+Run this from your project directory; the ClickHouse variables must be set in the shell that launches the client:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery -- npx hypequery mcp
+```
+</CodeBlock>
+
+Codex reads the same `command` and `args` from an `[mcp_servers.hypequery]` table in `~/.codex/config.toml`
+(`command = "sh"`, `args = ["-c", "cd /absolute/path/to/your-project && npx hypequery mcp"]`).
 
 ## A Python API with `hypequery mcp`
 

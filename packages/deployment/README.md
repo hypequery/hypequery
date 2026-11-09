@@ -4,6 +4,10 @@ Provider-neutral building blocks for receiving, verifying, activating, and invok
 
 This package is for deployment providers and self-hosted control planes.
 
+```bash
+npm install @hypequery/deployment
+```
+
 ## What it protects
 
 Every deployment is treated as immutable content. Before storage or execution, the package verifies:
@@ -22,28 +26,32 @@ Symbolic links, undeclared files, path traversal, missing content, and identity 
 - streaming authenticated intake;
 - provider-owned authentication, authorization, and storage interfaces;
 - a durable reference filesystem store;
-- compare-and-swap activation and rollback;
+- compare-and-swap activation (rollback is activating an earlier accepted release);
 - Node and Fetch control-plane adapters;
-- contract-driven semantic invocation with an injected dataset executor;
-- authorization-aware contract projection for discovery.
+- contract-driven semantic invocation with an injected dataset executor, provider-resolved tenants, field visibility, and enforced constraints (RFC 0019);
+- authorization- and visibility-aware contract projection for discovery (`projectAuthorizedDeploymentContract`).
 
 ## Minimal intake
 
 ```ts
 import { createDeploymentIntake } from '@hypequery/deployment';
 
+// authenticateToken, canDeploy and persistVerifiedSubmission are your own functions.
 const intake = createDeploymentIntake({
   authenticator: {
-    authenticate: ({ token }) => authenticateToken(token),
+    // Resolve the principal, or null to reject the upload.
+    authenticate: async ({ token }) => authenticateToken(token),
   },
   authorizer: {
-    authorize: ({ principal, target }) =>
-      canDeploy(principal, target),
+    authorize: async ({ principal, target }) => canDeploy(principal, target),
   },
   store: {
-    accept: (submission) => persistVerifiedSubmission(submission),
+    // Persist the bytes, then resolve 'accepted' or 'already-exists'.
+    accept: async (submission) => persistVerifiedSubmission(submission),
   },
 });
+
+const response = await intake.handle({ headers, body, signal });
 ```
 
 Authentication happens before upload bytes are consumed. The store receives a fully verified temporary bundle and must persist required bytes before returning.
@@ -54,8 +62,8 @@ This package validates the deployment contract and gates semantic calls, but doe
 
 ## Specifications
 
-- [Deployment transport](../../specs/deployment/README.md)
-- [Security protocol](../../specs/security-protocol/README.md)
+- [Deployment transport](https://github.com/hypequery/hypequery/blob/main/specs/deployment/README.md)
+- [Security protocol](https://github.com/hypequery/hypequery/blob/main/specs/security-protocol/README.md)
 
 Requires Node.js 20 or newer and ESM.
 

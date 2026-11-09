@@ -10,6 +10,7 @@ Use it for product dashboards, embedded analytics, customer reporting, and multi
 
 ```bash
 npm install @hypequery/react @tanstack/react-query
+npm install -D @hypequery/cli   # for generate:manifest
 ```
 
 ## Create hooks from your API
@@ -17,7 +18,7 @@ npm install @hypequery/react @tanstack/react-query
 Generate a small route manifest during the build:
 
 ```bash
-npx hypequery generate:manifest analytics/api.ts \
+npx hypequery generate:manifest server/api.ts \
   --output src/generated/hypequery-manifest.json
 ```
 
@@ -27,7 +28,7 @@ browser bundle:
 
 ```ts
 // server/api.ts
-import type { InferApiType } from '@hypequery/serve';
+import { serve, type InferApiType } from '@hypequery/serve';
 
 export const api = serve({ /* queries, metrics, datasets */ });
 export type AnalyticsApi = InferApiType<typeof api>;
@@ -36,7 +37,7 @@ export type AnalyticsApi = InferApiType<typeof api>;
 A Python API or a hypequery cloud release has no TypeScript type to import; use
 `hypequery generate:client` instead (see [Use Python datasets](#use-python-datasets)).
 
-## Configure Once With `HypequeryProvider`
+## Configure once with `HypequeryProvider`
 
 For hosted APIs and generated clients, create hooks without transport
 configuration. A provider supplies one client to the application and includes a
@@ -83,7 +84,7 @@ the deployment, tenant, or authenticated user changes. A deterministic
 `cacheKey` may be supplied when the same security context must retain cache data
 across equivalent client instances.
 
-## Create Dataset And Metric Hooks
+## Create dataset and metric hooks
 
 `createAnalyticsHooks` adds convenience wrappers for semantic endpoint names. Metrics use their endpoint name directly. Dataset endpoints are addressed as `dataset:<name>` in the API type and exposed through `useDataset(name, ...)`.
 
@@ -120,7 +121,8 @@ export const { useDataset, useMetric, useInfiniteDataset } =
 
 Use the endpoint origin as `baseUrl`: generated paths already contain the full
 installed mount prefix. Every request sends its endpoint schema hash. A `409`
-with `CLIENT_SCHEMA_CHANGED` requires explicit regeneration and review; the client
+with `CLIENT_SCHEMA_CHANGED` requires explicit regeneration and review (the hook's `error` is a
+`ClientSchemaChangedError`, a subclass of `HttpError`); the client
 does not fetch a replacement schema or refresh authentication for that response.
 TanStack Query retry/refetch policies remain configurable by your application.
 Use a new client or cache scope when the deployment, user or authorization scope
@@ -156,7 +158,7 @@ Change the server contract and TypeScript points to the components that need upd
 
 - named query hooks and mutations;
 - metric and dataset hooks with selected-field inference;
-- infinite queries with semantic pagination metadata;
+- infinite queries (`useInfiniteDataset`, `useInfiniteMetric`) with semantic pagination metadata;
 - TanStack Query caching, retries, and refresh behavior;
 - static route manifests that keep server code out of browser bundles;
 - per-request auth headers and one-time `401` refresh.

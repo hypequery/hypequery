@@ -9,9 +9,9 @@ The MCP server exposes semantic tools over your dataset registry. Agents do not 
 
 ## `list_datasets`
 
-Lists registered datasets with description, dimension count, measure count, and metric count. Each entry also has `queryable`, which is `false` when the dataset can only be reached through named metrics.
+Lists registered datasets with description, dimension count, measure count, and metric count.
 
-When bridging a Python backend (`--client-contract-url`), each `description` is the fixed text `Authorized client endpoints.`, and the counts cover every endpoint the principal may call for that dataset.
+When bridging a Python backend (`--client-contract-url`), each entry also has `queryable`, which is `false` when the dataset can only be reached through named metrics, and an optional `label`. Each `description` is the backend-authored description of the dataset's endpoints, or `Authorized client endpoints.` when none is set, and the counts cover every endpoint the principal may call for that dataset.
 
 <CodeBlock>
 ```json
@@ -42,9 +42,11 @@ Example response:
 
 ## `get_dataset_schema`
 
-Returns metadata for one dataset, including dimensions, measures, named metrics, filters, tenant key, time key, limits, and relationship metadata when present.
+Returns metadata for one dataset: dimensions, measures (including derived and related measures), named metrics, filters with their allowed operators, segments, the time dimension (`timeDimension`), limits, queryable relationships, and optional freshness, owner, defaults and semantic metadata (examples, synonyms, format, unit). Tenant keys and SQL are never shown.
 
-When bridging a Python backend, the response is `{ name, queryable, endpoints: [...] }` instead. Each endpoint carries its own dimensions, measures, filters (with the operators each one allows), limits and time settings. Tenant keys, time-key columns and relationship metadata stay on the server. Relationship entries include `queryable` and `fields`, so agents can discover which related fields (for example `customer.country`) a query may reference. See [Relationships](/docs/datasets/relationships).
+Each relationship entry lists `name`, `target` and `fields`: the related fields (for example `customer.country`) a query may reference. Only queryable one-hop relationships appear. See [Relationships](/docs/datasets/relationships).
+
+When bridging a Python backend, the response is `{ name, queryable, endpoints: [...] }` instead. Each endpoint carries its own dimensions, measures, filters (with the operators each one allows), limits and time settings. Tenant keys, time-key columns and relationship metadata stay on the server.
 
 <CodeBlock>
 ```json
@@ -107,7 +109,7 @@ Runs an ad hoc dataset query with selected dimensions and measures.
 ```
 </CodeBlock>
 
-The MCP argument is called `measures`, matching dataset queries in `@hypequery/datasets`. Derived or named metrics such as `averageOrderValue` are not measures and can only be queried through `query_metric`.
+The MCP argument is called `measures`, matching dataset queries in `@hypequery/datasets`. Derived measures (`measure.derived`) are measures and can be selected here. Named metrics attached to a dataset are queried through `query_metric`.
 
 At least one dimension or measure must be specified, otherwise the query is rejected.
 
@@ -115,7 +117,8 @@ At least one dimension or measure must be specified, otherwise the query is reje
 
 Besides `dimensions`, `measures`, `filters`, `orderBy`, `grain`, `limit` and `offset`, the query tools accept:
 
-- `having`: conditions on aggregated measure values (`query_dataset`);
+- `having`: `[{ measure, operator, value }]` conditions on aggregated measure values (`query_dataset`), with numeric values and the operators `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn` and `between`; each must name a measure selected in the query;
+- `segments`: named segments the dataset declares (local datasets only);
 - `timezone`: an IANA zone for time buckets and offset-free timestamps;
 - `orderBy` on `period` when `grain` sets a time grain.
 
@@ -123,14 +126,14 @@ Two arguments depend on how the server runs:
 
 | | Local datasets (`hypequery mcp`) | Bridging a backend (`--client-contract-url`) |
 | --- | --- | --- |
-| `includeMeta` | Rejected | Returns `meta` with the request id, row count and pagination |
+| `includeMeta` | Rejected; every response already includes `meta` (`rowCount`, `cache.status`, and `timingMs`/`pagination` when available) | Returns `meta` with the request id, row count and pagination |
 | `query_dataset` without `measures` | No measures: dimensions only | The endpoint's default measures |
 
 ## Pagination
 
 `query_metric` and `query_dataset` both accept `limit` and `offset` for paging through large result sets. `offset` skips the given number of rows before returning results.
 
-- `limit` defaults to 100. `offset` may not exceed 10,000.
+- `limit` defaults to 100 and is at most 10,000 (1,000 when bridging). `offset` may not exceed 10,000.
 - A dataset's own limits, and when bridging, each endpoint's `maxLimit`, can lower both caps.
 - A Python backend clamps a `limit` above its endpoint maximum without failing. Send `includeMeta: true` and read `meta.pagination.limit` to see the limit that applied, and `hasMore` to know whether to page.
 
@@ -147,16 +150,16 @@ A failed tool call returns `isError: true`, a text line such as `Error [MCP_INVA
 | Code | Category | Retry? | Meaning |
 | --- | --- | --- | --- |
 | `MCP_INVALID_ARGUMENTS` | `correctable_input` | fix the call | An argument is unknown, the wrong type, or outside a limit |
-| `MCP_NOT_FOUND` | `correctable_input` | fix the call | The dataset or metric doesn't exist |
+| `MCP_NOT_FOUND` | `correctable_input` | fix the call | `get_dataset_schema` names a dataset that doesn't exist (the query tools report an unknown dataset or metric as `MCP_INVALID_ARGUMENTS`) |
 | `MCP_UNKNOWN_TOOL` | `correctable_input` | fix the call | The tool name is not one the server exposes |
 | `MCP_UNAUTHORIZED` | `unauthorized` | no | The backend refused the credentials |
-| `MCP_STALE_CONTRACT` | `stale_contract` | after a restart | Definitions changed since the bridge loaded them |
+| `MCP_STALE_CONTRACT` | `stale_contract` | after a restart (`retryable` is false) | Definitions changed since the bridge loaded them |
 | `MCP_REQUEST_CANCELLED` | `budget` | no | The client cancelled the call |
 | `MCP_QUERY_TIMEOUT` | `budget` | yes | The query exceeded its time budget |
 | `MCP_RESULT_TOO_LARGE` | `budget` | no | The response exceeded its byte budget; narrow the query |
-| `MCP_CATALOG_TOO_LARGE` | `budget` | no | Too many endpoints to list within the catalog budget |
+| `MCP_CATALOG_TOO_LARGE` | `budget` | no | The tool manifest exceeds its catalog budget (tool count or bytes); raised when listing tools, not by a query |
 | `MCP_RATE_LIMITED` | `budget` | yes, after `retryAfterSeconds` | A hosted server's rate limit or quota refused the call |
-| `MCP_EXECUTION_FAILED` | `internal` | yes | The query or backend failed; details stay in server logs |
+| `MCP_EXECUTION_FAILED` | `internal` | usually | The query or backend failed; details stay in server logs |
 
 A hosted server may add three optional fields:
 
@@ -170,7 +173,11 @@ A host that executes through the semantic data plane builds these with `mcpToolE
 
 ## Prompt
 
-The server also exposes a `dataset_guide` prompt that helps an MCP client explain how to query the registered datasets.
+The server also exposes a `dataset_guide` prompt with an optional `dataset` argument. Without it, the prompt explains how to query every registered dataset; with it, it covers one dataset's dimensions, measures and metrics.
+
+## Annotations
+
+The tools are titled "List datasets", "Inspect dataset schema", "Query named metric" and "Query dataset". All four are annotated read-only, non-destructive, idempotent and closed-world, so clients can auto-approve them.
 
 ## Operators and grains
 
@@ -182,7 +189,7 @@ Filter operators, as limited by each field's type:
 | number | all except `like` |
 | boolean | `eq`, `neq`, `in`, `notIn` |
 
-A dataset's named filter can declare a narrower list, which `get_dataset_schema` reports per filter. `in` and `notIn` take a non-empty list, and `between` takes two values. There is no null operator.
+A dataset's named filter can declare a narrower list, which `get_dataset_schema` reports per filter. `in` and `notIn` take a non-empty list, and `between` takes two values. `isNull` and `isNotNull` take no `value` and are accepted only on filters whose definition lists them.
 
 - `eq`
 - `neq`
@@ -194,6 +201,8 @@ A dataset's named filter can declare a narrower list, which `get_dataset_schema`
 - `notIn`
 - `between`
 - `like`
+- `isNull`
+- `isNotNull`
 
 Supported time grains, narrowed per dataset by its catalog `supportedGrains`:
 

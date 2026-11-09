@@ -41,7 +41,9 @@ The result type is inferred from your real ClickHouse schema and the query itsel
 
 - native `PREWHERE`, `FINAL`, `LIMIT BY`, array joins, totals, settings, and CTEs;
 - typed joins, filters, groups, ordering, pagination, and streaming;
-- sums, distinct counts, percentiles, `argMax`, `argMin`, standard deviation, and variance;
+- sums, distinct counts, quantiles, `argMax`, `argMin`, standard deviation, and variance;
+- typed inserts with `db.insert(table).values(rows).execute()`;
+- built-in query caching and `AbortSignal` cancellation;
 - explicit expression helpers for window functions and specialised ClickHouse SQL;
 - correct runtime types for dates, large integers, nullable values, and arrays.
 

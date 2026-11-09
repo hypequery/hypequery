@@ -1,6 +1,6 @@
-# @hypequery/mcp
+# @hypequery/mcp: governed ClickHouse MCP server
 
-A governed ClickHouse MCP server for AI agents.
+A ClickHouse MCP server for Claude Code, Cursor, Codex and other AI agents. Agents query the datasets and metrics you define, never raw SQL. Run it in five minutes against the public ClickHouse playground: [hypequery.com/clickhouse-mcp](https://hypequery.com/clickhouse-mcp#quickstart).
 
 `@hypequery/mcp` turns your hypequery datasets and metrics into Model Context Protocol tools for Claude, Cursor, and other MCP clients. Agents can discover and query approved analytics without receiving unrestricted SQL access or database credentials.
 
@@ -12,9 +12,37 @@ npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
 
 ## Expose your semantic layer
 
-```ts
-// mcp-config.ts
-import { publishDatasets } from '@hypequery/datasets';
+```js
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  measure,
+  publishDatasets,
+} from '@hypequery/datasets';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    region: dimension.string({ label: 'Region' }),
+    createdAt: dimension.timestamp({ column: 'created_at', label: 'Created At' }),
+  },
+  measures: {
+    revenue: measure.sum('amount', { label: 'Revenue' }),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
 
 export const datasets = publishDatasets()
   .publish(Orders, { metrics: { revenue } })
@@ -23,10 +51,11 @@ export const datasets = publishDatasets()
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
 
-Compile the config, then start the stdio server:
+The CLI imports the file directly, so use plain JavaScript (`.mjs`/`.js`) or compile
+a TypeScript config first. Start the stdio server:
 
 ```bash
-npx hypequery-mcp --config /absolute/path/to/mcp-config.js
+npx hypequery-mcp --config /absolute/path/to/mcp-config.mjs
 ```
 
 Add it to an MCP client:
@@ -39,7 +68,7 @@ Add it to an MCP client:
       "args": [
         "hypequery-mcp",
         "--config",
-        "/absolute/path/to/mcp-config.js"
+        "/absolute/path/to/mcp-config.mjs"
       ]
     }
   }
@@ -110,13 +139,16 @@ rather than silently changed. `executionBudget`, `catalogBudget` and
 `maxContractBytes` allow smaller deployment limits. Streamed/decompressed bytes
 are bounded even without Content-Length, and redirects are refused. Request
 cancellation aborts the HTTP operation; the backend must carry disconnection into
-its executor (the Python serve adapter does so). End-to-end ClickHouse cancellation
-remains part of integrated release qualification.
+its executor (the Python serve adapter does so).
 
 A TypeScript consumer of the MCP SDK needs its Fetch/DOM type names available
 (e.g. `lib: ["ES2022", "DOM"]` alongside Node types); this does not require a browser
-runtime. The repository's installed-artifact smoke checks this without
-`skipLibCheck` and without the optional ClickHouse peer installed.
+runtime, and `skipLibCheck` is not needed.
+
+If your definitions already live in Python and you don't need a Node process, the
+Python package has its own stdio MCP server with the same four tools
+(`pip install "hypequery[mcp]"`, then `hypequery mcp module:api`). It is not in
+the 0.1.0b3 beta on PyPI; it ships in the next Python release.
 
 ## Tools agents receive
 
@@ -167,7 +199,9 @@ the published envelope.
 For tenant-scoped datasets, run the server programmatically with the trusted tenant ID:
 
 ```ts
-await createMCPServer({
+import { startStdioMCPServer } from '@hypequery/mcp';
+
+await startStdioMCPServer({
   datasets,
   analytics,
   name: 'acme-analytics',
@@ -226,8 +260,8 @@ await server.connect(hostTransport);
 `hostTransport` can be an MCP SDK in-memory, stdio, or hosted transport. This
 package does not create an HTTP endpoint; authentication, routing, and network
 lifecycle remain responsibilities of the host. For an explicit local adapter,
-use `startStdioMCPServer(config)`. The existing `createMCPServer(config)` and
-`HypequeryMCPServer.start()` APIs remain available for compatibility.
+use `startStdioMCPServer(config)`. The older `createMCPServer(config)` and
+`HypequeryMCPServer.start()` APIs are deprecated but remain available for compatibility.
 
 ## Learn more
 

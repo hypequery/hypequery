@@ -41,7 +41,7 @@ The generated schema includes enums derived from the dataset catalog. Queryable 
   "parameters": {
     "type": "object",
     "properties": {
-      "dataset": { "type": "string", "enum": ["orders"] },
+      "dataset": { "type": "string", "const": "orders" },
       "dimensions": {
         "type": "array",
         "items": { "type": "string", "enum": ["status", "createdAt"] }
@@ -58,6 +58,8 @@ The generated schema includes enums derived from the dataset catalog. Queryable 
 ```
 </CodeBlock>
 
+This is simplified to one dataset. With several datasets, the schema is an `anyOf` with one variant per dataset (each pinning `dataset` with `const`), so each variant only lists that dataset's fields. The time grain field is `by`, as in Serve (the MCP server calls it `grain`), and datasets with several time axes also accept `timeKey`.
+
 ## Per-Dataset Tools
 
 Per-dataset mode creates one tool per dataset, such as `query_orders`.
@@ -71,6 +73,20 @@ const tools = generateDatasetTools({
   },
   analytics,
   mode: 'per-dataset',
+});
+```
+</CodeBlock>
+
+## Per-Metric Tools
+
+Per-metric mode creates one tool per named metric attached to the registered datasets, such as `query_revenue`.
+
+<CodeBlock>
+```typescript
+const tools = generateDatasetTools({
+  datasets,
+  analytics,
+  mode: 'per-metric',
 });
 ```
 </CodeBlock>

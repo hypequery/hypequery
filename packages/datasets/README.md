@@ -47,6 +47,20 @@ The model is now the contract. Callers can only use the dimensions, measures, fi
 ## Query it anywhere
 
 ```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/datasets';
+import { revenue } from './analytics/datasets.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+// Inside a request handler: the tenant comes from the authenticated session.
 const result = await analytics.execute(
   revenue,
   {
@@ -83,10 +97,14 @@ field or operator lists.
 
 ## Analytics teams actually need
 
-- sums, counts, distinct counts, averages, min, and max;
+- sums, counts, distinct and approximate distinct counts, averages, min, and max;
 - percentiles, median, `argMax`, `argMin`, standard deviation, and variance;
+- `measure.merge` over AggregatingMergeTree states;
 - filtered measures and derived metric formulas;
-- daily through yearly time grains;
+- trailing, to-date, cumulative, and period-shift measures;
+- minute through yearly time grains;
+- segments, declared filters, and `having` on aggregated measures;
+- FINAL reads for ReplacingMergeTree and CollapsingMergeTree sources via `rowResolution`;
 - fail-closed multi-tenant analytics;
 - one-hop typed `belongsTo` and `hasOne` dimensions;
 - validated filtering, sorting, and pagination.
@@ -104,16 +122,6 @@ Metric changes travel through the workflow your team already trusts: TypeScript,
 - [Multi-tenancy](https://hypequery.com/docs/datasets/multi-tenancy)
 - [Relationships](https://hypequery.com/docs/datasets/relationships)
 - [MCP tool generation](https://hypequery.com/docs/datasets/tool-generation)
-
-## Contributing
-
-For repository contributors, see the [implementation guide](./ARCHITECTURE.md)
-for module boundaries and verification requirements, and the
-[testing review](./TESTING_REVIEW.md) for coverage, CI gates, and remaining gaps.
-
-## License
-
-Apache-2.0.
 
 ## Client contracts from a deployment
 
@@ -135,11 +143,22 @@ regenerating clients.
 
 ## Public client descriptor schemas
 
-`buildClientContractQuerySchemas(contract)` validates an RFC 0018 signed client
+`buildClientContractQuerySchemas(contract)` validates an RFC 0018 hashed client
 contract and returns per-endpoint HTTP schemas plus the canonical dataset/metric
 MCP schemas, JSON schemas and manifest hash. It accepts public descriptors without
 constructing Dataset instances or loading project code. Filter values have their
 advertised scalar/range/list types. Runtime validation additionally checks selected
 fields, uniqueness, timezone membership and combined predicate limits; preserve it
 when using the structural JSON schemas. Empty MCP target sets remain uncallable.
-Existing catalog-based schema APIs keep their defaults.
+Existing catalog-based schema APIs keep their defaults. Import it from
+`@hypequery/datasets/schemas`.
+
+## Contributing
+
+For repository contributors, see the [implementation guide](./ARCHITECTURE.md)
+for module boundaries and verification requirements, and the
+[testing review](./TESTING_REVIEW.md) for coverage, CI gates, and remaining gaps.
+
+## License
+
+Apache-2.0.
