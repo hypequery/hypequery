@@ -11,7 +11,9 @@
  * Each binary is run as `<binary> local`, so no server is needed. Every
  * example's output must match the one recorded in function-examples.expected.json,
  * so a changed filter, time grain or measure fails the check, not just an error.
- * Exit code is 1 if any example errors or differs on any binary.
+ * Rows are compared in any order, since a GROUP BY without ORDER BY may return
+ * groups in a different order on another version or server. Exit code is 1 if
+ * any example errors or differs on any binary.
  *
  * After an intended change to an example, record its new output:
  *   npm run check:functions -- --update
@@ -62,20 +64,36 @@ const expected: Expected = (() => {
   }
 })();
 
+// Values that legitimately depend on read order, rewritten before comparing.
+const READ_ORDER_DEPENDENT: Record<string, (line: string) => string> = {
+  // groupArray(5) keeps whichever 5 events are read first: check how many, not
+  // which. Those are the event-name arrays; the page-path arrays are sorted.
+  groupArray: (line) =>
+    /'(view|click|buy)'/.test(line)
+      ? line.replace(/\[[^\]]*\]/g, (array) => `[${array.split(',').length} items]`)
+      : line,
+};
+
+/** Rows in a stable order, with read-order-dependent values rewritten. */
+function normalize(slug: string, output: string): string[] {
+  const rewrite = READ_ORDER_DEPENDENT[slug] ?? ((line: string) => line);
+  return output.split('\n').map(rewrite).sort();
+}
+
 /** Compares an example's output with the recorded one; returns why it differs, if it does. */
-function mismatch(recorded: string | undefined, actual: string): string | undefined {
+function mismatch(slug: string, recorded: string | undefined, actual: string): string | undefined {
   if (recorded === undefined) return 'no recorded output; run with --update';
-  if (recorded === actual) return undefined;
-  const want = recorded.split('\n');
-  const got = actual.split('\n');
+  const want = normalize(slug, recorded);
+  const got = normalize(slug, actual);
+  if (want.join('\n') === got.join('\n')) return undefined;
   const line = want.findIndex((w, i) => w !== got[i]);
   const at = line === -1 ? want.length : line;
-  return `output differs at line ${at + 1}: expected ${JSON.stringify(want[at] ?? '')}, got ${JSON.stringify(got[at] ?? '')}`;
+  return `output differs at sorted row ${at + 1}: expected ${JSON.stringify(want[at] ?? '')}, got ${JSON.stringify(got[at] ?? '')}`;
 }
 
 function run(binary: string, sql: string): string {
-  // One thread makes read order, and so `LIMIT` without `ORDER BY` and
-  // `groupArray(n)`, deterministic on the single-part fixture tables.
+  // One thread makes read order, and so `LIMIT` without `ORDER BY`,
+  // deterministic on the single-part fixture tables.
   return execFileSync(binary, ['local', '--multiquery', '--max_threads', '1', '--query', sql], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -94,7 +112,7 @@ for (const binary of binaries) {
     try {
       const output = run(binary, `${FIXTURES}\n${fn.exampleSql}`).trimEnd();
       if (update && binary === binaries[0]) expected.sql[fn.slug] = output;
-      const error = update ? undefined : mismatch(expected.sql[fn.slug], output);
+      const error = update ? undefined : mismatch(fn.slug, expected.sql[fn.slug], output);
       results.push({ slug: fn.slug, binary, version, ok: !error, error });
     } catch (error) {
       const stderr = (error as { stderr?: string }).stderr ?? String(error);
@@ -119,7 +137,7 @@ if (python) {
       });
       const printed = output.trimEnd();
       if (update) expected.python[fn.slug] = printed;
-      const differs = update ? undefined : mismatch(expected.python[fn.slug], printed);
+      const differs = update ? undefined : mismatch(fn.slug, expected.python[fn.slug], printed);
       results.push({ slug: fn.slug, binary: python, version: 'python', ok: !differs, error: differs });
       console.log(`${differs ? 'FAIL' : 'ok  '}  Python  ${fn.slug}${differs ? `  ${differs}` : ''}`);
     } catch (error) {

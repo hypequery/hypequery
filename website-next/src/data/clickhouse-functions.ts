@@ -1428,7 +1428,7 @@ for session_id, path_sequence in paths.result_rows:
 
 # At most n events per user; n is bound server-side
 capped = client.query(
-    "SELECT user_id, groupArray({n:UInt8})(event_name) AS some_events FROM events GROUP BY user_id",
+    "SELECT user_id, groupArray({n:UInt8})(event_name) AS some_events FROM events GROUP BY user_id ORDER BY user_id",
     parameters={"n": 5},
 )
 print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
