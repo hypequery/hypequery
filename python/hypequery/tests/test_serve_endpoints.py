@@ -251,6 +251,69 @@ def test_related_measures_serialize_without_changing_dimensions_or_local_results
     ]
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_dimension_integers_a_javascript_reader_would_round_travel_as_strings(
+    stream: bool,
+) -> None:
+    model = Dataset(
+        name="orders",
+        source="private_orders",
+        dimensions={"id": dimension.number(), "active": dimension.boolean()},
+        measures={"total": measure.count("id")},
+    )
+    ids: tuple[int, ...] = (2**53 - 1, 2**53, -(2**53 - 1), -(2**53), 2**64 - 1, 7)
+
+    class WideStream:
+        def __init__(self, rows: Rows) -> None:
+            self.columns = rows.columns
+            self._rows = rows
+
+        def __iter__(self) -> Any:
+            yield self._rows
+
+        def close(self) -> None:
+            pass
+
+    class WideExecutor(Executor):
+        def execute(self, compiled: CompiledQuery) -> Rows:
+            self.seen.append(compiled)
+            return Rows(("id", "active", "total"), tuple((i, True, 1) for i in ids))
+
+        def stream(self, compiled: CompiledQuery) -> WideStream:
+            return WideStream(self.execute(compiled))
+
+    client = create_dataset_client(executor=WideExecutor())
+    # Local results keep Python ints; only the wire changes.
+    assert client.execute(model, DatasetQuery(dimensions=("id",))).data[4]["id"] == 2**64 - 1
+
+    router = create_api(auth=authenticate, security=SECURITY)
+    add_dataset_endpoint(
+        router, "/query", dataset=model, client=client, policy=EndpointPolicy(stream_max_rows=100)
+    )
+    headers = {"Authorization": "Bearer reader"}
+    if stream:
+        headers["Accept"] = "application/x-ndjson"
+    with AsgiClient(to_asgi_app(router)) as http:
+        response = http.post(
+            "/query", headers=headers, json={"dimensions": ["id", "active"], "measures": ["total"]}
+        )
+    assert response.status_code == 200, response.text
+    if stream:
+        frames = [json.loads(line) for line in response.text.splitlines()]
+        data = [row for frame in frames if frame["type"] == "rows" for row in frame["data"]]
+    else:
+        data = response.json()["data"]
+    assert [row["id"] for row in data] == [
+        2**53 - 1,
+        str(2**53),
+        -(2**53 - 1),
+        str(-(2**53)),
+        str(2**64 - 1),
+        7,
+    ]
+    assert all(row["active"] is True and row["total"] == "1" for row in data)
+
+
 @pytest.mark.parametrize("path", ["/datasets/orders/query", "/metrics/total"])
 def test_cross_origin_pagination_metadata_header_is_allowed(path: str) -> None:
     client, _ = app(cors=CorsPolicy(origins=("https://app.test",)))
