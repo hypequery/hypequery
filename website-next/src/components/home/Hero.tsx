@@ -24,7 +24,7 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
         <h1 className="mt-5 text-[clamp(2.25rem,4.6vw,4rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Connect{' '}
           <span className="whitespace-nowrap">
             {/* ClickHouse yellow on a black tile, like its app icon, so the brand colour shows in light mode too. */}
-            <span className="mr-[0.14em] inline-flex h-[0.86em] w-[0.86em] items-center justify-center rounded-[0.16em] bg-[#161517] align-[-0.1em]" aria-hidden="true">
+            <span className="mr-[0.14em] inline-flex h-[0.86em] w-[0.86em] items-center justify-center rounded-[0.16em] bg-[#161517] align-[0.065em]" aria-hidden="true">
               <SiClickhouse className="h-[0.6em] w-[0.6em] text-[#faff69]" />
             </span>
             <span className={`${clickhouseWordmark.className} font-bold tracking-[-0.045em]`}>ClickHouse</span>.
