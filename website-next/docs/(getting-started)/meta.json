@@ -3,6 +3,7 @@
   "defaultOpen": true,
   "pages": [
     "[Overview](/docs)",
+    "what-is-hypequery",
     "[Quick start: TypeScript](/docs/quick-start)",
     "[Quick start: Python](/docs/python/quick-start)",
     "why-hypequery",

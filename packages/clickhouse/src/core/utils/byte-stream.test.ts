@@ -26,6 +26,7 @@ function join(chunks: Uint8Array[]) {
 }
 
 const payload = (size: number) => Buffer.alloc(size, 7);
+const END = Buffer.from([0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0]);
 
 describe('createByteStream', () => {
   it('passes bytes through unchanged without an exception tag', async () => {
@@ -94,6 +95,62 @@ describe('createByteStream', () => {
 
     expect(bytes).toEqual(payload(5));
     expect(error?.message).toContain('boom');
+  });
+
+  it('passes a body that ends with the end marker', async () => {
+    const source = Readable.from([payload(EXCEPTION_BLOCK_MAX_BYTES), payload(10), END]);
+    const { bytes, error } = await drain(createByteStream(source, { endMarker: END }));
+
+    expect(error).toBeUndefined();
+    expect(bytes).toEqual(Buffer.concat([payload(EXCEPTION_BLOCK_MAX_BYTES + 10), END]));
+  });
+
+  it('fails a body that ends without the end marker, after its data', async () => {
+    const source = Readable.from([payload(5)]);
+    const { bytes, error } = await drain(createByteStream(source, { endMarker: END }));
+
+    expect(bytes).toEqual(payload(5));
+    expect(error?.message).toMatch(/result is incomplete.*before 25\.11/);
+  });
+
+  it('checks the end marker when a tagged body has no exception block', async () => {
+    const source = Readable.from([payload(5)]);
+    const { error } = await drain(createByteStream(source, { exceptionTag: TAG, endMarker: END }));
+
+    expect(error?.message).toContain('result is incomplete');
+  });
+
+  it("recovers ClickHouse's error from untagged exception text before 25.11", async () => {
+    const source = Readable.from([payload(5), Buffer.from(`${MESSAGE}\n`)]);
+    const { bytes, error } = await drain(createByteStream(source, { endMarker: END }));
+
+    expect(bytes).toEqual(payload(5));
+    expect(error).toMatchObject({ code: '395' });
+  });
+
+  it("prefers untagged exception text over the socket error when the connection resets", async () => {
+    const source = new Readable({ read() { /* driven below */ } });
+    source.push(payload(5));
+    source.push(Buffer.from(MESSAGE));
+    setImmediate(() => source.destroy(Object.assign(new Error('aborted'), { code: 'ECONNRESET' })));
+    const { error } = await drain(createByteStream(source, { endMarker: END }));
+
+    expect(error?.message).toContain('boom');
+  });
+
+  it('passes a complete body whose data contains exception-like text', async () => {
+    const source = Readable.from([Buffer.from(MESSAGE), END]);
+    const { error } = await drain(createByteStream(source, { endMarker: END }));
+
+    expect(error).toBeUndefined();
+  });
+
+  it('ignores exception-like text without an end marker to check against', async () => {
+    const source = Readable.from([Buffer.from(MESSAGE)]);
+    const { bytes, error } = await drain(createByteStream(source));
+
+    expect(error).toBeUndefined();
+    expect(bytes.toString()).toBe(MESSAGE);
   });
 
   it('errors the consumer and destroys the source on abort', async () => {

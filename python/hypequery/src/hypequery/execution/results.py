@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -50,13 +51,27 @@ def _scalar(value: object, query_id: str) -> JsonScalar:
     raise CompiledQueryError("internal", "unsupported result type", query_id=query_id)
 
 
-def decode_result(result: DriverResult, query_id: str) -> QueryRows:
-    columns = tuple(result.column_names)
+def decode_columns(names: Sequence[object], query_id: str) -> tuple[str, ...]:
+    """A result's column names, refused unless they are distinct strings."""
+
+    columns = tuple(names)
     if any(type(name) is not str for name in columns) or len(set(columns)) != len(columns):
         raise CompiledQueryError("internal", "invalid result columns", query_id=query_id)
+    return cast(tuple[str, ...], columns)
+
+
+def decode_rows(
+    columns: tuple[str, ...], raw_rows: Iterable[Sequence[object]], query_id: str
+) -> QueryRows:
+    """Rows of *columns*, each value through the closed codec."""
+
     rows: list[tuple[JsonScalar, ...]] = []
-    for raw in result.result_rows:
+    for raw in raw_rows:
         if len(raw) != len(columns):
             raise CompiledQueryError("internal", "invalid result row", query_id=query_id)
         rows.append(tuple(_scalar(value, query_id) for value in raw))
     return QueryRows(columns, tuple(rows))
+
+
+def decode_result(result: DriverResult, query_id: str) -> QueryRows:
+    return decode_rows(decode_columns(result.column_names, query_id), result.result_rows, query_id)

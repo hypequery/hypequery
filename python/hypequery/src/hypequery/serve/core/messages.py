@@ -9,9 +9,17 @@ through the core's body policy.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass, field
-from typing import Any
+from collections.abc import (
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+)
+from dataclasses import dataclass, field, replace
+from typing import Any, Protocol
 
 from .utils.json_body import render_json
 
@@ -113,6 +121,9 @@ class ServeRequest:
     wait_disconnected: Callable[[], Awaitable[None]] | None = None
     run_on_request_thread: RequestThreadRunner | None = None
     scheme: str = "http"
+    #: Set by a host that writes a streamed `ServeResponse` as it is produced
+    #: (`to_asgi_app`). An endpoint that can stream answers others with a page.
+    streaming: bool = False
 
     def __post_init__(self) -> None:
         if type(self.query) is not QueryParams or type(self.headers) is not Headers:
@@ -121,13 +132,47 @@ class ServeRequest:
             raise TypeError("ServeRequest.scheme must be a string")
 
 
+class ResponseStream(Protocol):
+    """A streamed response body: chunks as they are produced, and a close.
+
+    A host must call ``aclose`` however the write ends, even before the first
+    chunk: closing stops the query behind the stream.
+    """
+
+    def __aiter__(self) -> AsyncIterator[bytes]: ...
+
+    async def aclose(self) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ServeResponse:
-    """A status, lowercase headers, and the encoded body."""
+    """A status, lowercase headers, and the encoded body.
+
+    *stream*, when set, is the body instead: chunks a streaming host writes as
+    they are produced, and closes (``aclose``) if the caller goes away first.
+    Only a request marked ``streaming`` is answered with one.
+    """
 
     status: int
     headers: Mapping[str, str] = field(default_factory=dict)
     body: bytes = b""
+    stream: ResponseStream | None = None
+
+    @classmethod
+    def streamed(
+        cls,
+        stream: ResponseStream,
+        content_type: str,
+        *,
+        status: int = 200,
+        headers: Mapping[str, str] | None = None,
+    ) -> ServeResponse:
+        """A response whose body *stream* produces, never cached."""
+
+        merged = {name.lower(): value for name, value in (headers or {}).items()}
+        merged["content-type"] = content_type
+        merged["cache-control"] = "no-store"
+        return cls(status=status, headers=merged, stream=stream)
 
     @classmethod
     def json(
@@ -152,9 +197,9 @@ class ServeResponse:
 
         merged = dict(self.headers)
         merged.update({name.lower(): value for name, value in headers.items()})
-        return ServeResponse(status=self.status, headers=merged, body=self.body)
+        return replace(self, headers=merged)
 
     def without_headers(self, *names: str) -> ServeResponse:
         drop = {name.lower() for name in names}
         kept = {name: value for name, value in self.headers.items() if name not in drop}
-        return ServeResponse(status=self.status, headers=kept, body=self.body)
+        return replace(self, headers=kept)

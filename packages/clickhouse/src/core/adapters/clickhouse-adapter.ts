@@ -7,6 +7,7 @@ import type {
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type {
+  ArrowCompression,
   ClickHouseAdapterConfig,
   IntegerJsonEncoding,
 } from '../query-builder.js';
@@ -14,6 +15,11 @@ import { substituteParameters } from '../utils.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { createByteStream } from '../utils/byte-stream.js';
 import { EXCEPTION_TAG_HEADER } from '../utils/stream-exception.js';
+import { withFormatClause } from '../utils/format-clause.js';
+import {
+  buildArrowStreamSettings,
+  createReadonlyArrowCompressionError,
+} from '../utils/arrow-compression.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 import { consumeResultWithAbort } from '../utils/abortable-result.js';
 import { throwIfAborted } from '../utils/abort.js';
@@ -39,6 +45,20 @@ type QueryResultSet =
   | Awaited<ReturnType<NodeClickHouseClient['query']>>
   | Awaited<ReturnType<WebClickHouseClient['query']>>;
 
+type ExecResult =
+  | Awaited<ReturnType<NodeClickHouseClient['exec']>>
+  | Awaited<ReturnType<WebClickHouseClient['exec']>>;
+
+/** Arrow's end-of-stream marker: a continuation token and a zero length. */
+const ARROW_END_OF_STREAM = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0]);
+
+interface AdapterSettingsAttempt {
+  settings: ClickHouseSettings;
+  adapterDefaultApplied: boolean;
+}
+
+type ReadonlyGuidance = (error: unknown, adapterDefaultApplied: boolean) => Error | undefined;
+
 export class ClickHouseAdapter implements DatabaseAdapter {
   readonly name = 'clickhouse';
   readonly namespace?: string;
@@ -46,38 +66,35 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   /** Connection-level settings, so they can outrank the adapter's own defaults. */
   private readonly configSettings?: ClickHouseSettings;
   private readonly integerJsonEncoding: IntegerJsonEncoding;
+  private readonly arrowCompression: ArrowCompression;
 
   constructor(config: ClickHouseAdapterConfig) {
     this.namespace = deriveClickHouseNamespace(config);
     this.client = createClickHouseClient(config);
     this.configSettings = config.clickhouse_settings;
     this.integerJsonEncoding = config.integerJsonEncoding ?? 'quoted';
+    this.arrowCompression = config.arrowCompression ?? 'none';
   }
 
   /**
-   * Converts only rejections of the adapter-owned precision setting into an
+   * Converts only rejections of an adapter-owned default setting into an
    * actionable configuration error. Caller-owned settings and unrelated
    * readonly failures retain their original error identity.
    */
   private async withReadonlyGuidance<T>(
-    optionSettings: ClickHouseSettings | undefined,
+    attempt: AdapterSettingsAttempt,
+    guidance: ReadonlyGuidance,
     send: (settings: ClickHouseSettings) => Promise<T>,
   ): Promise<T> {
-    const attempt = buildIntegerJsonSettings(
-      this.integerJsonEncoding,
-      this.configSettings,
-      optionSettings,
-    );
-
     try {
       return await send(attempt.settings);
     } catch (error) {
-      const guidanceError = createReadonlyIntegerJsonError(
-        error,
-        attempt.adapterDefaultApplied,
-      );
-      throw guidanceError ?? error;
+      throw guidance(error, attempt.adapterDefaultApplied) ?? error;
     }
+  }
+
+  private jsonSettings(optionSettings: ClickHouseSettings | undefined): AdapterSettingsAttempt {
+    return buildIntegerJsonSettings(this.integerJsonEncoding, this.configSettings, optionSettings);
   }
 
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
@@ -85,7 +102,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
     const result = await this.withReadonlyGuidance<QueryResultSet>(
-      options?.clickhouseSettings,
+      this.jsonSettings(options?.clickhouseSettings),
+      createReadonlyIntegerJsonError,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
@@ -108,7 +126,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
     const result = await this.withReadonlyGuidance<QueryResultSet>(
-      options?.clickhouseSettings,
+      this.jsonSettings(options?.clickhouseSettings),
+      createReadonlyIntegerJsonError,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
@@ -126,34 +145,43 @@ export class ClickHouseAdapter implements DatabaseAdapter {
    * Streams the result as uncompressed Arrow IPC stream bytes. Batches are
    * uncompressed by default because JavaScript Arrow readers ship without the
    * LZ4 codec ClickHouse would otherwise use; a connection-level
-   * `output_format_arrow_compression_method` outranks that default, and a
-   * per-call one outranks both. Use HTTP response compression to shrink the
-   * transfer instead.
+   * `output_format_arrow_compression_method` outranks that default, a per-call
+   * one outranks both, and `arrowCompression: 'server-default'` omits it. Use
+   * HTTP response compression to shrink the transfer instead.
    *
-   * The format is requested through `default_format`, so the statement is
-   * sent as written: a trailing `;` or comment needs no special handling.
+   * The format is requested with a `FORMAT ArrowStream` clause rather than the
+   * `default_format` setting, which `readonly = 1` users may not change; a
+   * trailing `;` or comment is dropped first.
+   *
+   * A body that ends without Arrow's end-of-stream marker fails the stream, so
+   * a mid-stream failure is caught even on servers before 25.11, which send no
+   * exception tag; ClickHouse's own error is recovered where it can be.
    */
   async streamArrow(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<Uint8Array>> {
     throwIfAborted(options?.abortSignal);
-    const finalSQL = substituteParameters(sql, params);
+    const finalSQL = withFormatClause(substituteParameters(sql, params), 'ArrowStream');
     // A caller-supplied client does not carry the adapter's connection-level
     // settings, so they are merged here, as query() and stream() do.
-    const settings: Record<string, unknown> = {
-      output_format_arrow_compression_method: 'none',
-      ...this.configSettings,
-      ...options?.clickhouseSettings,
-      default_format: 'ArrowStream',
-    };
-    const result = await this.client.exec({
-      query: finalSQL,
-      // The clients' `default_format` type omits ArrowStream, which the server accepts.
-      clickhouse_settings: toClientSettings(settings as unknown as ClickHouseSettings),
-      query_id: options?.queryId,
-      abort_signal: options?.abortSignal,
-    });
+    const attempt = buildArrowStreamSettings(
+      this.arrowCompression,
+      this.configSettings,
+      options?.clickhouseSettings,
+    );
+    const result = await this.withReadonlyGuidance<ExecResult>(
+      attempt,
+      createReadonlyArrowCompressionError,
+      clickhouseSettings =>
+        this.client.exec({
+          query: finalSQL,
+          clickhouse_settings: toClientSettings(clickhouseSettings),
+          query_id: options?.queryId,
+          abort_signal: options?.abortSignal,
+        }),
+    );
     const tag = result.response_headers[EXCEPTION_TAG_HEADER];
     return createByteStream(result.stream as NodeJS.ReadableStream | ReadableStream<Uint8Array>, {
       exceptionTag: typeof tag === 'string' ? tag : undefined,
+      endMarker: ARROW_END_OF_STREAM,
       abortSignal: options?.abortSignal,
     });
   }

@@ -27,7 +27,11 @@ def response_headers(response: ServeResponse) -> list[tuple[str, str]]:
     """The response's headers, with a `content-length` for any body it may carry."""
 
     headers = list(response.headers.items())
-    if not bodiless(response.status) and "content-length" not in response.headers:
+    if (
+        response.stream is None
+        and not bodiless(response.status)
+        and "content-length" not in response.headers
+    ):
         headers.append(("content-length", str(len(response.body))))
     return headers
 

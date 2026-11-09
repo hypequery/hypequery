@@ -1,15 +1,16 @@
 ---
 title: "hypequery vs Kysely: Two Different Bets on Type Safety"
 description: "Kysely is an excellent TypeScript query builder. On ClickHouse, the tradeoffs change. Here's where hypequery fits and what each tool optimizes for."
-seoTitle: "hypequery vs Kysely for ClickHouse: Type-Safe Analytics Tradeoffs"
+seoTitle: "hypequery vs Kysely for ClickHouse (2026)"
 seoDescription: "Compare hypequery and Kysely for ClickHouse projects. Learn where Kysely shines, where ClickHouse type mapping gets tricky, and when hypequery is the better fit."
 pubDate: 2026-04-14
+updatedAt: 2026-11-08
 heroImage: ""
 slug: hypequery-vs-kysely
 status: published
 ---
 
-Kysely is one of the best TypeScript query builders available. If you're on Postgres, MySQL, or SQLite, it's a serious option, possibly the best one. It's composable, well-typed, has an active community, and a growing ecosystem of dialects.
+Kysely is one of the best TypeScript query builders available. If you're on Postgres, MySQL, SQLite, or SQL Server, it's a serious option, possibly the best one. It's composable, well-typed, has an active community, and a growing ecosystem of dialects.
 
 For the broader framing behind this comparison, start with the [ClickHouse TypeScript](/clickhouse-typescript) pillar page. If your real question is how to build a reusable analytics layer, pair it with [ClickHouse analytics](/clickhouse-analytics).
 
@@ -48,11 +49,11 @@ The gap is the interface itself: you write it by hand.
 
 ClickHouse isn't a general-purpose relational database. It's a columnar analytics database with its own type system and its own conventions around how data is actually returned over the wire.
 
-`DateTime` in ClickHouse doesn't come back as a JavaScript `Date`. It comes back as a string. `UInt64` can exceed JavaScript's safe integer range, so it comes back as a string too. `Nullable(T)` maps to `T | null`, but only if you know to write it that way.
+`DateTime` in ClickHouse doesn't come back as a JavaScript `Date`. It comes back as a string. `UInt64` can exceed JavaScript's safe integer range. Since ClickHouse 25.8, JSON formats return 64-bit integers as plain numbers by default, which JavaScript silently rounds above 2^53, unless the client asks for them quoted as strings. `Nullable(T)` maps to `T | null`, but only if you know to write it that way.
 
 If you're hand-writing the Kysely interface for a ClickHouse table, you have to know all of this. Get it wrong and TypeScript will trust you. The type can say `Date` and the runtime can still give you a string.
 
-Kysely does have a community ClickHouse dialect. It handles the connection. It does not solve the runtime type mapping problem for you.
+Kysely does have a community ClickHouse dialect, `@founderpath/kysely-clickhouse`, listed in the Kysely docs. It handles the connection. It does not solve the runtime type mapping problem for you.
 
 That runtime mapping gap is exactly what the [ClickHouse TypeScript](/clickhouse-typescript) pillar and the type-problem article are trying to make explicit.
 
