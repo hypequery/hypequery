@@ -4,6 +4,7 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
 const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
 
@@ -12,6 +13,8 @@ const staticRoutes = [
   '/clickhouse/functions',
   '/',
   '/blog',
+  '/changelog',
+  ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`),
   '/compare',
   '/clickhouse-js',
   '/clickhouse-nodejs',
@@ -40,9 +43,6 @@ const staticRoutes = [
   '/clickhouse-sqlalchemy',
   '/clickhouse-query-builder',
   '/type-safe-sql-typescript',
-  '/drizzle-clickhouse',
-  '/prisma-clickhouse',
-  '/typeorm-clickhouse',
   '/clickhouse-mcp',
   '/clickhouse-react',
   '/clickhouse-nextjs',
@@ -54,7 +54,6 @@ const staticRoutes = [
   '/contact-us',
   '/cube-js-alternative',
   '/tinybird-alternative',
-  '/moosestack-alternative',
   ...comparePages.map((page) => page.href),
 ];
 

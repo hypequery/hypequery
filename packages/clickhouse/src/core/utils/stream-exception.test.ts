@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitStreamException } from './stream-exception.js';
+import { findUntaggedStreamException, splitStreamException } from './stream-exception.js';
 
 const encoder = new TextEncoder();
 const TAG = 'gtryiexlulqmrove';
@@ -46,5 +46,25 @@ describe('splitStreamException', () => {
 
     expect(failure?.data.length).toBe(0);
     expect(failure?.error.message).toMatch(/failed mid-stream/);
+  });
+});
+
+describe('findUntaggedStreamException', () => {
+  it('splits the exception text a server before 25.11 appends from the data', () => {
+    const data = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x80, 0xc3, 0x28]);
+    const failure = findUntaggedStreamException(bytes(data, `${MESSAGE}\n`));
+
+    expect(Array.from(failure!.data)).toEqual(Array.from(data));
+    expect(failure!.error).toMatchObject({ code: '395', type: 'FUNCTION_THROW_IF_VALUE_IS_NON_ZERO' });
+  });
+
+  it('takes the last exception when the text appears more than once', () => {
+    const failure = findUntaggedStreamException(bytes('a', MESSAGE, 'b', MESSAGE));
+
+    expect(new TextDecoder().decode(failure!.data)).toBe(`a${MESSAGE}b`);
+  });
+
+  it('finds nothing in bytes without exception text', () => {
+    expect(findUntaggedStreamException(bytes('rows'))).toBeUndefined();
   });
 });
