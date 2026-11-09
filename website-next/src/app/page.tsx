@@ -1,6 +1,6 @@
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
-import { absoluteUrl } from '@/lib/site';
+import { softwareApplicationSchema } from '@/data/product';
 import { getPostBySlug } from '@/lib/blog-cms';
 import { getNpmDownloadCounts } from '@/lib/npm-downloads';
 import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
@@ -52,26 +52,7 @@ export function RevenueByCountry() {
 
 const softwareSchema = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  '@id': absoluteUrl('/#software').toString(),
-  name: 'hypequery',
-  url: absoluteUrl('/').toString(),
-  applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Cross-platform',
-  description:
-    'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.',
-  softwareVersion: 'latest',
-  codeRepository: 'https://github.com/hypequery/hypequery',
-  programmingLanguage: ['TypeScript', 'Python'],
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
-  },
-  softwareHelp: absoluteUrl('/docs').toString(),
-  downloadUrl: 'https://www.npmjs.com/package/@hypequery/clickhouse',
-  author: { '@id': absoluteUrl('/#organization').toString() },
-  publisher: { '@id': absoluteUrl('/#organization').toString() },
+  ...softwareApplicationSchema,
 };
 
 // The banner links here, so it shows only once the post is published.

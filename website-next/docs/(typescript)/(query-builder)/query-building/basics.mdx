@@ -1,5 +1,6 @@
 ---
 title: Query Basics
+seoTitle: 'ClickHouse query builder basics (TypeScript)'
 description: Learn the hypequery ClickHouse query builder for TypeScript. Build type-safe queries with autocomplete, reusable filters, joins, and strongly typed results.
 
 ---
@@ -185,6 +186,29 @@ while (true) {
 }
 ```
 </CodeBlock>
+
+### streamArrow()
+
+Stream the result as Arrow IPC stream bytes, with ClickHouse's native column types. Decode them with any Arrow library, or pass them on unchanged:
+
+<CodeBlock>
+```typescript
+import { RecordBatchReader } from 'apache-arrow';
+
+const bytes = await db
+  .table('events')
+  .select(['id', 'data'])
+  .streamArrow();
+
+for await (const batch of await RecordBatchReader.from(bytes)) {
+  batch.getChild('id');
+}
+```
+</CodeBlock>
+
+Batches are uncompressed by default, because JavaScript Arrow readers don't include the LZ4 codec ClickHouse would otherwise use; enable HTTP response compression to shrink the transfer. If ClickHouse fails after sending part of the result, the stream errors with ClickHouse's own error.
+
+For raw SQL, `db.rawStream(sql, params)` streams rows and `db.rawArrowStream(sql, params)` streams Arrow. Leave out a `FORMAT` clause: it would override the format the adapter requests.
 
 ### streamForEach()
 

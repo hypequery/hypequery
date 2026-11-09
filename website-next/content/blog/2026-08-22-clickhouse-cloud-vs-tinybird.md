@@ -1,7 +1,7 @@
 ---
 title: "ClickHouse Cloud vs Tinybird: Managed Database + hypequery or Managed Analytics Backend?"
 description: "Compare ClickHouse Cloud plus hypequery with Tinybird for real-time analytics APIs, then build a typed endpoint on ClickHouse Cloud step by step."
-seoTitle: "ClickHouse Cloud vs Tinybird — Architecture and TypeScript Implementation"
+seoTitle: "ClickHouse Cloud vs Tinybird: Architecture Compared"
 seoDescription: "ClickHouse Cloud + hypequery vs Tinybird: compare architecture, API ownership, TypeScript workflow, operations, and implement a typed ClickHouse Cloud endpoint."
 pubDate: 2026-08-22
 heroImage: ""

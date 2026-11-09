@@ -31,6 +31,12 @@ export interface DatabaseAdapter {
   close?(): Promise<void>;
   stream?<T>(sql: string, params?: unknown[], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>>;
   /**
+   * Streams the result as Arrow IPC stream bytes (ClickHouse `ArrowStream`),
+   * for any Arrow reader to decode. Optional: callers reject with a clear error
+   * on adapters without it.
+   */
+  streamArrow?(sql: string, params?: unknown[], options?: QueryExecutionOptions): Promise<ReadableStream<Uint8Array>>;
+  /**
    * Inserts rows that have already been normalized for JSONEachRow-compatible
    * execution. The executor filters explicit empty batches before calling the
    * adapter. When `options.columns` is present, omitted table columns must be

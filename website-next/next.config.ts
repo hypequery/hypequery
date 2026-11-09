@@ -17,6 +17,128 @@ const nextConfig: NextConfig = {
         destination: page.href,
         permanent: true,
       })),
+      // Old addresses Google still crawls and gets a 404 for (Search Console,
+      // November 2026). These come first so they win over the patterns below.
+      // Seed posts used to be served at their dated filename.
+      {
+        source: '/blog/:date(\\d{4}-\\d{2}-\\d{2})-:slug([^/]+)',
+        destination: '/blog/:slug',
+        permanent: true,
+      },
+      {
+        source: '/docs/legacy-serve/authentication',
+        destination: '/docs/authentication',
+        permanent: true,
+      },
+      {
+        source: '/docs/legacy-serve/multi-tenancy',
+        destination: '/docs/multi-tenancy',
+        permanent: true,
+      },
+      {
+        source: '/docs/legacy-serve/migration-builder-to-serve',
+        destination: '/docs/datasets/serve-integration',
+        permanent: true,
+      },
+      {
+        source: '/docs/legacy-serve/:path*',
+        destination: '/docs/reference/api/runtime',
+        permanent: true,
+      },
+      {
+        source: '/docs/migrate-legacy-serve-api',
+        destination: '/docs/datasets/serve-integration',
+        permanent: true,
+      },
+      {
+        source: '/docs/serve',
+        destination: '/docs/reference/api/runtime',
+        permanent: true,
+      },
+      {
+        source: '/docs/serve/overview',
+        destination: '/docs/reference/api/runtime',
+        permanent: true,
+      },
+      {
+        source: '/docs/reference/cli',
+        destination: '/docs/reference/api/cli',
+        permanent: true,
+      },
+      {
+        source: '/docs/reference/query',
+        destination: '/docs/reference/api/query',
+        permanent: true,
+      },
+      {
+        source: '/docs/reference/runtime',
+        destination: '/docs/reference/api/runtime',
+        permanent: true,
+      },
+      {
+        source: '/docs/query-building/generated-schema',
+        destination: '/docs/schemas',
+        permanent: true,
+      },
+      {
+        source: '/docs/recipes/:slug(nextjs|fetch|nodejs|vite)',
+        destination: '/docs/:slug',
+        permanent: true,
+      },
+      {
+        source: '/docs/queries/aggregations',
+        destination: '/docs/query-building/aggregation',
+        permanent: true,
+      },
+      {
+        source: '/docs/queries/:slug',
+        destination: '/docs/query-building/:slug',
+        permanent: true,
+      },
+      {
+        source: '/docs/getting-started/:slug',
+        destination: '/docs/:slug',
+        permanent: true,
+      },
+      {
+        source: '/docs/functions/query-builder/distinct',
+        destination: '/docs/query-building/aggregation',
+        permanent: true,
+      },
+      {
+        source: '/docs/standalone-query-builder',
+        destination: '/docs/query-building/basics',
+        permanent: true,
+      },
+      {
+        source: '/docs/standalone-query-builder/:slug(when-to-use|setup|execution|query-building|standalone-query-builder)',
+        destination: '/docs/query-building/basics',
+        permanent: true,
+      },
+      {
+        source: '/docs/standalone-query-builder/query-building/advanced',
+        destination: '/docs/query-building/advanced-filtering',
+        permanent: true,
+      },
+      // One page per search (Search Console, November 2026): each source covered
+      // the same queries as its destination, which is the page Google ranks.
+      { source: '/prisma-clickhouse', destination: '/clickhouse-orm', permanent: true },
+      { source: '/typeorm-clickhouse', destination: '/clickhouse-orm', permanent: true },
+      { source: '/drizzle-clickhouse', destination: '/compare/hypequery-vs-drizzle', permanent: true },
+      { source: '/moosestack-alternative', destination: '/compare/hypequery-vs-moose', permanent: true },
+      { source: '/blog/does-clickhouse-have-an-orm', destination: '/clickhouse-orm', permanent: true },
+      { source: '/blog/clickhouse-query-builder-typescript', destination: '/clickhouse-query-builder', permanent: true },
+      { source: '/blog/clickhouse-react-hooks', destination: '/clickhouse-react', permanent: true },
+      {
+        source: '/blog/clickhouse-materialized-views-typescript',
+        destination: '/blog/a-guide-to-materialized-views-in-clickhouse',
+        permanent: true,
+      },
+      {
+        source: '/clickhouse-rest-api',
+        destination: '/clickhouse-api',
+        permanent: true,
+      },
       {
         source: '/docs/python-client-workflow',
         destination: '/docs/python/client-endpoints',
@@ -45,7 +167,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/quick-start-builder',
-        destination: '/docs/standalone-query-builder/when-to-use',
+        destination: '/docs/query-building/basics',
         permanent: true,
       },
       {
@@ -75,12 +197,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/reference/serve',
-        destination: '/docs/legacy-serve/reference/serve',
+        destination: '/docs/reference/api/runtime',
         permanent: true,
       },
       {
         source: '/docs/features/caching',
-        destination: '/docs/caching',
+        destination: '/docs/query-building/caching',
         permanent: true,
       },
       {
@@ -89,18 +211,13 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: '/docs/manual-installation',
-        destination: '/docs/quick-start',
-        permanent: true,
-      },
-      {
         source: '/docs/query-definitions',
-        destination: '/docs/legacy-serve/query-definitions',
+        destination: '/docs/reference/api/runtime',
         permanent: true,
       },
       {
         source: '/docs/migration-builder-to-serve',
-        destination: '/docs/legacy-serve/migration-builder-to-serve',
+        destination: '/docs/datasets/serve-integration',
         permanent: true,
       },
       {
@@ -140,7 +257,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/serve/caching',
-        destination: '/docs/caching',
+        destination: '/docs/datasets/caching',
         permanent: true,
       },
       {

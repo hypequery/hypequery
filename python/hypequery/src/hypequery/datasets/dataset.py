@@ -50,6 +50,11 @@ class DatasetLimits(DefinitionModel):
     max_measures: int | None = Field(default=None, ge=0)
     max_filters: int | None = Field(default=None, ge=0)
     max_result_size: int | None = Field(default=None, ge=0)
+    #: Rows one stream (`stream`, `stream_arrow`, a streaming endpoint) may
+    #: return, in place of `max_result_size`. A stream's memory stays flat, so
+    #: an export can be allowed more rows than a page; ``None`` keeps
+    #: `max_result_size`.
+    max_stream_rows: int | None = Field(default=None, ge=1)
 
 
 DefinitionMap: TypeAlias = Mapping[

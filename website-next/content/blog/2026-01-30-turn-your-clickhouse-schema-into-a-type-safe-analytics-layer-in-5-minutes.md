@@ -1,7 +1,7 @@
 ---
 title: "Turn Your ClickHouse Schema Into a Type-Safe Analytics Layer in 5 Minutes"
 description: "Generate schema types from ClickHouse, define one typed query, and use it as the base for backend code, HTTP delivery, and React consumption."
-seoTitle: "ClickHouse Query Builder for TypeScript: Generate Schema Types and Build Typed Queries"
+seoTitle: "ClickHouse Query Builder: Types from Your Schema"
 seoDescription: "Generate ClickHouse schema types, build typed queries, and turn them into a reusable backend API layer in TypeScript."
 pubDate: 2026-01-30
 heroImage: "ClickHouse is fast. Your developer experience with it? Not so much."

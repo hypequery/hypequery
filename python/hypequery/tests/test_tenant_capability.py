@@ -255,7 +255,7 @@ def test_a_bound_client_exposes_only_semantic_queries() -> None:
 
     for scoped in (sync_scoped, async_scoped):
         public = {name for name in dir(scoped) if not name.startswith("_")}
-        assert public == {"execute", "to_sql", "validate"}
+        assert public == {"execute", "stream", "stream_arrow", "to_sql", "validate"}
 
 
 def test_an_async_bound_client_runs_as_its_tenant() -> None:

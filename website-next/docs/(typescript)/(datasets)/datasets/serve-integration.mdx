@@ -148,6 +148,62 @@ export const api = serve({
 ```
 </CodeBlock>
 
+## Stream large results
+
+A dataset endpoint can stream its result for exports and other large reads. Opt the entry in with `stream`; `maxRows`
+caps one streamed response, defaults to `maxLimit`, and may not exceed the dataset's stream ceiling,
+`limits.maxStreamRows` (else `limits.maxResultSize`):
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queryBuilder: db,
+  datasets: {
+    orders: { dataset: Orders, maxLimit: 100, stream: { maxRows: 1_000_000 } },
+  },
+});
+```
+</CodeBlock>
+
+A client asks for a stream with `Accept`. `application/x-ndjson` returns one JSON frame per line: `start` (with
+`meta` when the request sets `includeMeta`), one `rows` frame per batch holding the rows a JSON page would, and a final
+`end` frame with the `rowCount`:
+
+<CodeBlock>
+```typescript
+const response = await fetch('https://api.example.com/datasets/orders/query', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', accept: 'application/x-ndjson' },
+  body: JSON.stringify({ dimensions: ['country'], measures: ['revenue'] }),
+});
+
+let buffered = '';
+let complete = false;
+for await (const text of response.body!.pipeThrough(new TextDecoderStream())) {
+  buffered += text;
+  const lines = buffered.split('\n');
+  buffered = lines.pop() ?? '';
+  for (const line of lines) {
+    const frame = JSON.parse(line);
+    if (frame.type === 'rows') console.log(frame.data.length, 'rows');
+    if (frame.type === 'error') throw new Error(frame.error.message);
+    if (frame.type === 'end') complete = true;
+  }
+}
+// A stream that stops without its `end` frame was cut short.
+if (!complete) throw new Error('The export ended before its last frame.');
+```
+</CodeBlock>
+
+`application/vnd.apache.arrow.stream` returns the result as an Arrow IPC stream with ClickHouse's native column types;
+pass `response.body` to `RecordBatchReader.from` from `apache-arrow`.
+
+Streams use the endpoint's auth, roles, tenant isolation and validation, and are never cached. Failures before the
+first row are ordinary JSON errors with their status. If the query fails after the response began, an NDJSON stream
+ends with an `error` frame instead of `end`, and an Arrow stream breaks off without its end-of-stream marker: a
+response that lacks its final frame or marker is incomplete. An endpoint without `stream`, or a request that doesn't
+ask for one, gets the usual JSON page.
+
 For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).
 
 

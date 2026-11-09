@@ -40,7 +40,7 @@
     "dotenv": "^18.0.9",
     "esbuild": "^0.28.2",
     "open": "^11.0.4",
-    "ora": "^9.4.1",
+    "ora": "^10.0.0",
     "prompts": "^2.4.2"
   },
   "optionalDependencies": {
@@ -63,9 +63,9 @@
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "@types/prompts": "^2.4.9",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "repository": {
     "type": "git",

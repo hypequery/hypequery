@@ -75,7 +75,7 @@ export default function ClickHouseQueryBuilderPage() {
       title="The TypeScript-first ClickHouse query builder"
       description="Select columns, filter, group, and compose queries you can keep in a real codebase. hypequery gives you typed schema access and native ClickHouse functions, without pushing everything through raw SQL strings."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
-      secondaryCta={{ href: '/blog/clickhouse-query-builder-typescript', label: 'Compare your options' }}
+      secondaryCta={{ href: '/blog/query-builder-vs-orm-clickhouse', label: 'Query builder vs ORM' }}
       stats={[
         { label: 'Type source', value: 'Generated from schema' },
         { label: 'ClickHouse syntax', value: 'Native support' },
@@ -159,11 +159,6 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       readingLinks={[
         {
-          href: '/blog/clickhouse-query-builder-typescript',
-          title: 'ClickHouse query builders compared',
-          description: 'Every realistic option in 2026 — raw client, Kysely, Cube, and hypequery — with honest tradeoffs.',
-        },
-        {
           href: '/blog/clickhouse-typescript-type-problem',
           title: 'The ClickHouse TypeScript type problem',
           description: 'Why DateTime, UInt64, Nullable, and Decimal all return the wrong types and how to fix it.',
@@ -179,9 +174,29 @@ export default function ClickHouseQueryBuilderPage() {
           description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
         },
         {
-          href: '/drizzle-clickhouse',
-          title: 'Drizzle ORM for ClickHouse',
-          description: 'A dedicated landing page for the Drizzle-on-ClickHouse search intent and the closest alternative.',
+          href: '/compare/hypequery-vs-drizzle',
+          title: 'hypequery vs Drizzle',
+          description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
+        },
+        {
+          href: '/blog/clickhouse-cte-typescript',
+          title: 'ClickHouse CTEs in TypeScript — WITH Clause Patterns',
+          description: 'ClickHouse CTEs explained for TypeScript developers: inlining semantics, scalar WITH expressions, and type-safe WITH clauses using hypequery\'s native .withCTE() with query builders or raw SQL.',
+        },
+        {
+          href: '/blog/clickhouse-group-by-typescript',
+          title: 'ClickHouse GROUP BY and Aggregations in TypeScript',
+          description: 'Write ClickHouse GROUP BY queries in TypeScript with typed aggregations: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing.',
+        },
+        {
+          href: '/blog/clickhouse-asof-join-typescript',
+          title: 'ClickHouse ASOF JOIN — Nearest-Match Time-Series Joins in TypeScript',
+          description: 'ClickHouse ASOF JOIN joins each row to the nearest matching row by timestamp. Learn the syntax, the one-inequality rule, and how to use it from TypeScript.',
+        },
+        {
+          href: '/blog/clickhouse-array-functions-typescript',
+          title: 'ClickHouse Array Functions in TypeScript — A Practical Guide',
+          description: 'How to use ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has, and hasAny — with type-safe hypequery examples and a full collect-filter-transform pipeline.',
         },
       ]}
       relatedPillars={[

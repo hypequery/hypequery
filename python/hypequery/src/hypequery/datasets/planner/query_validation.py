@@ -44,7 +44,22 @@ def resolve_tenant_scope(dataset: Dataset, context: ExecutionContext) -> TenantS
     return None if scope.cross_tenant else scope
 
 
-def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
+def result_ceiling(dataset: Dataset, *, stream: bool = False) -> int | None:
+    """The most rows one query may return: `max_stream_rows` for a stream when set.
+
+    It bounds an explicit limit and is the limit a query that sets none runs
+    under, so a stream with no limit reaches its own ceiling, not a page's.
+    """
+
+    limits = dataset.limits
+    if limits is None:
+        return None
+    if stream and limits.max_stream_rows is not None:
+        return limits.max_stream_rows
+    return limits.max_result_size
+
+
+def check_query_limits(dataset: Dataset, query: DatasetQuery, *, stream: bool = False) -> None:
     if query.by is not None and dataset.time_grains is not None:
         error = unsupported_time_grain_error(dataset.time_grains, query.by)
         if error is not None:
@@ -74,14 +89,12 @@ def check_query_limits(dataset: Dataset, query: DatasetQuery) -> None:
             "too-large",
             f"Too many filters and having conditions: {conditions} (max {limits.max_filters})",
         )
-    if (
-        limits.max_result_size is not None
-        and query.limit is not None
-        and query.limit > limits.max_result_size
-    ):
+    # A stream's memory stays flat, so `max_stream_rows` may allow it more rows.
+    ceiling = result_ceiling(dataset, stream=stream)
+    if ceiling is not None and query.limit is not None and query.limit > ceiling:
         raise CompiledQueryError(
             "too-large",
-            f"Too many results requested: {query.limit} (max {limits.max_result_size})",
+            f"Too many results requested: {query.limit} (max {ceiling})",
         )
 
 

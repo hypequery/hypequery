@@ -43,7 +43,19 @@ const staticFiles = {
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["global-fixtures.ts", "snippets/**/*.ts"]
+  "include": ["global-fixtures.ts", "apache-arrow.d.ts", "snippets/**/*.ts"]
+}
+`,
+  // Guides decode streamArrow() output with apache-arrow, which is not a
+  // dependency here; this stub declares only the surface they use.
+  'apache-arrow.d.ts': `declare module 'apache-arrow' {
+  interface RecordBatch {
+    readonly numRows: number;
+    getChild(name: string): unknown;
+  }
+  export const RecordBatchReader: {
+    from(source: ReadableStream<Uint8Array>): Promise<AsyncIterable<RecordBatch>>;
+  };
 }
 `,
   'global-fixtures.ts': `import * as hq from '@hypequery/datasets';

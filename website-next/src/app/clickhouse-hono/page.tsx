@@ -147,7 +147,7 @@ export default function ClickHouseHonoPage() {
       title="Build ClickHouse analytics APIs with Hono and hypequery"
       description="Hono is a fast, lightweight web framework that runs on Node.js, Cloudflare Workers, Deno, and Bun. hypequery gives Hono routes a typed ClickHouse data layer. The combination means you can build analytics APIs where the response shape is inferred all the way from the ClickHouse column definition to the browser client."
       primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
-      secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API guide' }}
+      secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API guide' }}
       stats={[
         { label: 'Framework', value: 'Hono' },
         { label: 'Runtime', value: 'Node.js, Edge, Bun, Deno' },
@@ -231,7 +231,7 @@ export default function ClickHouseHonoPage() {
       ]}
       readingLinks={[
         {
-          href: '/clickhouse-rest-api',
+          href: '/clickhouse-api',
           title: 'ClickHouse REST API',
           description: 'The general REST API guide — covers @hypequery/serve as a standalone HTTP server.',
         },
@@ -252,7 +252,7 @@ export default function ClickHouseHonoPage() {
         },
       ]}
       relatedPillars={[
-        { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-nodejs', label: 'ClickHouse Node.js' },
@@ -263,7 +263,7 @@ export default function ClickHouseHonoPage() {
         description:
           'Generate schema bindings with npx @hypequery/cli generate, then call the hypequery query builder inside your Hono route handlers. The response types flow through to the hc() RPC client automatically.',
         primaryCta: { href: '/docs/quick-start', label: 'Open the quick start' },
-        secondaryCta: { href: '/clickhouse-rest-api', label: 'See the REST API guide' },
+        secondaryCta: { href: '/clickhouse-api', label: 'See the REST API guide' },
       }}
     />
   );

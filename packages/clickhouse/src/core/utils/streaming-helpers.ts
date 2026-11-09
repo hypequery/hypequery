@@ -3,7 +3,7 @@ import { abortReason } from './abort.js';
 
 type StreamReaderResult = { done: boolean; value?: any };
 
-interface StreamReader {
+export interface StreamReader {
   readNext(): Promise<StreamReaderResult>;
   close(): Promise<void>;
 }
@@ -31,11 +31,21 @@ function createBufferFlusher<T>() {
     return rows;
   };
 
+  // Decodes across chunk boundaries, so a character split between two chunks survives.
+  const decoder = new TextDecoder('utf-8');
   const append = (value: string | Buffer) => {
-    buffer += typeof value === 'string' ? value : value.toString('utf8');
+    buffer += typeof value === 'string' ? value : decoder.decode(value, { stream: true });
   };
 
-  return { flush, append };
+  /** The last row, when the body does not end in a newline. */
+  const end = (): T[] => {
+    buffer += decoder.decode();
+    const last = buffer.trim();
+    buffer = '';
+    return last.length ? [JSON.parse(last) as T] : [];
+  };
+
+  return { flush, append, end };
 }
 
 async function normalizeChunk<T>(chunk: any, flush: () => T[], append: (value: string | Buffer) => void): Promise<T[]> {
@@ -151,23 +161,26 @@ async function createWebStreamReader<T>(webStream: ReadableStream<T>): Promise<S
   return { readNext, close };
 }
 
+/** Reads a Node or web stream chunk by chunk; `close()` always releases the source. */
+export function openStreamReader(
+  stream: NodeJS.ReadableStream | ReadableStream<unknown>,
+): Promise<StreamReader> {
+  return typeof (stream as ReadableStream<unknown> | undefined)?.getReader === 'function'
+    ? createWebStreamReader(stream as ReadableStream<unknown>)
+    : createChunkReader(stream as NodeJS.ReadableStream);
+}
+
 export function createJsonEachRowStream<T>(
   stream: NodeJS.ReadableStream | ReadableStream<T[]>,
   abortSignal?: AbortSignal
 ): ReadableStream<T[]> {
-  const { flush, append } = createBufferFlusher<T>();
+  const { flush, append, end } = createBufferFlusher<T>();
 
   let readerPromise: Promise<StreamReader>;
   let onAbort: (() => void) | undefined;
 
   const ensureReader = () => {
-    if (!readerPromise) {
-      if (typeof (stream as ReadableStream<T[]> | undefined)?.getReader === 'function') {
-        readerPromise = createWebStreamReader(stream as ReadableStream<T[]>);
-      } else {
-        readerPromise = createChunkReader(stream as NodeJS.ReadableStream);
-      }
-    }
+    readerPromise ??= openStreamReader(stream);
     return readerPromise;
   };
 
@@ -200,21 +213,26 @@ export function createJsonEachRowStream<T>(
     async pull(controller) {
       try {
         const reader = await ensureReader();
-        const { done, value } = await reader.readNext();
+        // A pull that enqueues nothing is not called again, so a chunk ending
+        // mid-row must not end the pull: read until a row completes.
+        for (;;) {
+          const { done, value } = await reader.readNext();
 
-        if (done) {
-          detachAbort();
-          const remaining = flush();
-          if (remaining.length) {
-            controller.enqueue(remaining);
+          if (done) {
+            detachAbort();
+            const remaining = [...flush(), ...end()];
+            if (remaining.length) {
+              controller.enqueue(remaining);
+            }
+            controller.close();
+            return;
           }
-          controller.close();
-          return;
-        }
 
-        const rows = await normalizeChunk<T>(value, flush, append);
-        if (rows.length) {
-          controller.enqueue(rows);
+          const rows = await normalizeChunk<T>(value, flush, append);
+          if (rows.length) {
+            controller.enqueue(rows);
+            return;
+          }
         }
       } catch (error) {
         detachAbort();

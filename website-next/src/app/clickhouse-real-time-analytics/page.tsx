@@ -254,6 +254,11 @@ export default function ClickHouseRealTimeAnalyticsPage() {
           title: 'Why real-time data needs typed APIs',
           description: 'The case for a typed analytics layer over raw real-time ClickHouse access.',
         },
+        {
+          href: '/blog/real-time-leaderboard-clickhouse-typescript',
+          title: 'How to Build a Real-Time Leaderboard with ClickHouse and TypeScript',
+          description: 'How to build a real-time leaderboard in ClickHouse with TypeScript: top-N queries, rank columns, per-segment leaderboards with LIMIT BY, and a polling React hook.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },

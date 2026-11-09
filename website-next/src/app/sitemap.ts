@@ -8,6 +8,7 @@ import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
 const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
 
+// Pages marked noindex (/clickhouse-express, -hono, -trpc, -graphql) stay out of the sitemap.
 const staticRoutes = [
   '/clickhouse/functions',
   '/',
@@ -17,10 +18,6 @@ const staticRoutes = [
   '/compare',
   '/clickhouse-js',
   '/clickhouse-nodejs',
-  '/clickhouse-express',
-  '/clickhouse-hono',
-  '/clickhouse-trpc',
-  '/clickhouse-graphql',
   '/clickhouse-dashboard',
   '/clickhouse-product-analytics',
   '/clickhouse-real-time-analytics',
@@ -29,7 +26,6 @@ const staticRoutes = [
   '/clickhouse-time-series',
   '/clickhouse-semantic-layer',
   '/clickhouse-orm',
-  '/clickhouse-rest-api',
   '/clickhouse-openapi',
   '/clickhouse-saas-analytics',
   '/clickhouse-schema',
@@ -47,9 +43,6 @@ const staticRoutes = [
   '/clickhouse-sqlalchemy',
   '/clickhouse-query-builder',
   '/type-safe-sql-typescript',
-  '/drizzle-clickhouse',
-  '/prisma-clickhouse',
-  '/typeorm-clickhouse',
   '/clickhouse-mcp',
   '/clickhouse-react',
   '/clickhouse-nextjs',
@@ -61,7 +54,6 @@ const staticRoutes = [
   '/contact-us',
   '/cube-js-alternative',
   '/tinybird-alternative',
-  '/moosestack-alternative',
   ...comparePages.map((page) => page.href),
 ];
 
