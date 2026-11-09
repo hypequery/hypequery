@@ -40,10 +40,16 @@ export function observeStreamBody(
     }
   };
   /** Settles on what the body itself recorded, if anything, else on *fallback*. */
-  const settleWithAbsorbed = (fallback: ServeStreamOutcome, fallbackError?: unknown) => {
-    const absorbed = body.failure?.();
+  const settleWithAbsorbed = (fallback: ServeStreamOutcome) => {
+    let absorbed: unknown;
+    try {
+      absorbed = body.failure?.();
+    } catch (error) {
+      // A failure callback that throws reports that as the failure.
+      absorbed = error ?? new Error('The stream body failure callback threw.');
+    }
     if (absorbed !== undefined) settle('failed', absorbed);
-    else settle(fallback, fallbackError);
+    else settle(fallback);
   };
 
   const stream = new ReadableStream<Uint8Array>({
@@ -67,9 +73,13 @@ export function observeStreamBody(
     },
     async cancel(reason) {
       cancelled = true;
-      if (isStreamTimeoutError(reason)) settle('failed', reason);
-      else settleWithAbsorbed('cancelled');
-      await reader.cancel(reason).catch(() => undefined);
+      try {
+        if (isStreamTimeoutError(reason)) settle('failed', reason);
+        else settleWithAbsorbed('cancelled');
+      } finally {
+        // Reporting can never skip stopping the source (and the query behind it).
+        await reader.cancel(reason).catch(() => undefined);
+      }
     },
   }, { highWaterMark: 0 });
 

@@ -89,4 +89,26 @@ describe('observeStreamBody', () => {
     await reader.cancel();
     expect(onSettled).toHaveBeenCalledWith({ outcome: 'failed', bytes: 2, error: absorbed });
   });
+
+  it('still cancels the source, and reports a failure, when the failure callback throws', async () => {
+    const thrown = new Error('failure callback broke');
+    for (const end of ['cancel', 'read'] as const) {
+      let sourceCancelled = false;
+      const source = end === 'cancel'
+        ? new ReadableStream<Uint8Array>({ cancel() { sourceCancelled = true; } })
+        : chunks(1);
+      const onSettled = vi.fn<(settlement: StreamSettlement) => void>();
+      const observed = observeStreamBody(
+        streamBody(source, 'application/x-test', { failure: () => { throw thrown; } }),
+        onSettled,
+      );
+      if (end === 'cancel') {
+        await observed.stream.cancel();
+        expect(sourceCancelled).toBe(true);
+      } else {
+        expect((await new Response(observed.stream).arrayBuffer()).byteLength).toBe(1);
+      }
+      expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'failed', error: thrown }));
+    }
+  });
 });
