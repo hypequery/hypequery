@@ -274,4 +274,5 @@ Because the builder's result types reflect this, `Number(row.order_count)` versu
 - [ClickHouse filter operators in TypeScript](/blog/clickhouse-filter-operators-typescript) — the `.where()` side of every query on this page
 - [ClickHouse joins in TypeScript](/blog/clickhouse-joins-typescript) — grouping across joined tables
 - [ClickHouse for time series](/clickhouse-time-series) — where GROUP BY time bucketing becomes the whole workload
+- Aggregate function references: [sum()](/clickhouse/functions/sum) and its result types, [sumIf()](/clickhouse/functions/sum-if) for conditional totals, [quantile()](/clickhouse/functions/quantile) for percentiles, and [groupArray()](/clickhouse/functions/group-array) for collecting values per group
 - [Quick start](/docs/quick-start) — generate types from your schema and run your first grouped query
