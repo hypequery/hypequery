@@ -18,6 +18,8 @@ export const softwareApplicationSchema = {
   '@type': 'SoftwareApplication',
   '@id': absoluteUrl('/#software').toString(),
   name: 'hypequery',
+  // A common misspelling; searches for it should still find the product.
+  alternateName: 'hyperquery',
   url: absoluteUrl('/').toString(),
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Cross-platform',
