@@ -1,0 +1,10 @@
+{
+  "name": "@hypequery-examples/mcp-agent-analytics-python",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CI wrapper for the Python example; the app itself is pyproject.toml + uv",
+  "scripts": {
+    "dev": "uv sync && uv run agent.py",
+    "test": "uv sync && uv run pytest -q"
+  }
+}

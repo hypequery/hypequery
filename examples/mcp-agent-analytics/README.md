@@ -37,13 +37,26 @@ pnpm install && pnpm build
 pnpm agent          # the scripted walkthrough above
 ```
 
-Then point a real agent at it. Claude Code:
+Then connect a real agent. Every config below launches the same stdio server with `TENANT_ID` fixed by the config, so the agent never chooses the tenant. Paths assume `pnpm build` has run.
+
+### Claude Code
+
+This folder ships a project-scoped [`.mcp.json`](./.mcp.json): run `claude` here and approve `hypequery-seed-analytics` when asked. Or add it yourself:
 
 ```bash
 claude mcp add hypequery-seed-analytics -e TENANT_ID=153 -e CLICKHOUSE_PASSWORD=hypequery -- node "$PWD/dist/src/server.js"
+claude mcp list   # hypequery-seed-analytics: ... - Connected
 ```
 
-Cursor, Claude Desktop and most other clients read an `mcp.json`:
+Walkthrough: [ClickHouse MCP in Claude Code](https://hypequery.com/blog/clickhouse-mcp-claude-code).
+
+### Cursor
+
+Open this folder in Cursor; [`.cursor/mcp.json`](./.cursor/mcp.json) registers the server with `${workspaceFolder}/dist/src/server.js`. Enable it under Settings, MCP. Walkthrough: [ClickHouse MCP in Cursor](https://hypequery.com/blog/clickhouse-mcp-cursor).
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (Windows: `%APPDATA%\Claude\claude_desktop_config.json`) and restart. Desktop needs absolute paths:
 
 ```json
 {
@@ -57,7 +70,38 @@ Cursor, Claude Desktop and most other clients read an `mcp.json`:
 }
 ```
 
-Ask it "what was our error rate by event type last month?" and watch it call `get_dataset_schema` then `query_dataset`.
+### Codex
+
+```bash
+codex mcp add hypequery-seed-analytics --env TENANT_ID=153 --env CLICKHOUSE_PASSWORD=hypequery -- node "$PWD/dist/src/server.js"
+```
+
+That writes an `[mcp_servers.hypequery-seed-analytics]` table to `~/.codex/config.toml`. Walkthrough: [ClickHouse MCP in Codex](https://hypequery.com/blog/clickhouse-mcp-codex).
+
+### Docker
+
+The [`Dockerfile`](./Dockerfile) builds the server into an image; the MCP client runs it with `docker run -i`, so stdio still carries the protocol:
+
+```bash
+docker build -t hypequery-mcp-agent-analytics .
+```
+
+```json
+{
+  "mcpServers": {
+    "hypequery-seed-analytics": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--add-host=host.docker.internal:host-gateway",
+               "-e", "TENANT_ID=153", "-e", "CLICKHOUSE_URL=http://host.docker.internal:8123",
+               "-e", "CLICKHOUSE_PASSWORD=hypequery", "hypequery-mcp-agent-analytics"]
+    }
+  }
+}
+```
+
+`host.docker.internal` reaches a ClickHouse on your machine; point `CLICKHOUSE_URL` at your own server otherwise.
+
+Ask any of them "what was our error rate by event type last month?" and watch it call `get_dataset_schema` then `query_dataset`. How this differs from SQL-running ClickHouse MCP servers: [ClickHouse MCP servers compared](https://hypequery.com/blog/clickhouse-mcp-servers-compared).
 
 ## What it shows
 
@@ -65,7 +109,7 @@ Ask it "what was our error rate by event type last month?" and watch it call `ge
 - **Only what you publish** (`src/server.ts`): `publishDatasets().publish(Events).publish(Subscriptions)` is the allowlist. The seed's `tenants` table exists, but the agent cannot see it.
 - **Tenant from the launch, not the prompt** (`analytics/datasets.ts`, `src/server.ts`): both datasets have `tenantKey`, so the server refuses to start without `TENANT_ID`, injects the tenant predicate on every query, and rejects a prompt-injected `tenantId` filter.
 - **Descriptions are the agent's documentation** (`analytics/datasets.ts`): `label` and `description` on dimensions and measures are what `get_dataset_schema` returns, so the agent picks `errorRate` instead of guessing a formula.
-- **A deterministic agent for CI** (`src/agent.ts`, `test/smoke.test.ts`): the MCP SDK client spawns the server over stdio, replays the transcript, and the smoke test checks per-tenant totals against raw SQL and that no SQL leaks.
+- **A deterministic agent for CI** (`src/agent.ts`, `test/smoke.test.ts`): the MCP SDK client spawns the server over stdio, replays the transcript, and the smoke test checks per-tenant totals against raw SQL and that no SQL leaks. `test/client-configs.test.ts` launches the server from the checked-in `.mcp.json` and `.cursor/mcp.json` exactly as written.
 
 ## Key file
 
@@ -108,7 +152,7 @@ query_dataset { dataset, dimensions, measures } ────▶  publishDatasets
 - **Metrics.** Define `Events.metric('errorRate', { ... })` style metrics and `query_metric` serves them by name, so the agent asks for "error rate" rather than composing it.
 - **Budgets.** `createMCPServer` takes `queryLimits` and `executionBudget` to cap rows, time and response size per tool call.
 - **Debugging.** `HYPEQUERY_MCP_INCLUDE_SQL=1` puts the generated SQL in tool results so you can see what the agent's request compiled to. Leave it off for real agents.
-- **Python.** The same shape exists in the Python package: see the FastAPI example for the datasets and `hypequery.mcp` for the server.
+- **Python.** The same server in Python, launched with `uv run`: see the mcp-agent-analytics-python example.
 
 ## Related recipes
 
@@ -117,6 +161,7 @@ query_dataset { dataset, dimensions, measures } ────▶  publishDatasets
 ## Related examples
 
 - [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): the same datasets served over HTTP with signed tokens instead of MCP.
+- [mcp-agent-analytics-python](../mcp-agent-analytics-python): the same governed MCP server in Python.
 - [fastapi-analytics-api](../fastapi-analytics-api): the Python version of the semantic layer.
 
-Tested on ClickHouse 25.8 with `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32.
+Tested on ClickHouse 25.8 with `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32; the Docker image on `node:22-slim` with `@hypequery/mcp` 0.12 from npm; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).
