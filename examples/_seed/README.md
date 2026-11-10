@@ -47,9 +47,9 @@ All timestamps are UTC. Events span `2025-11-01` to `2026-10-31` inclusive.
 | Table | Rows | Purpose |
 | --- | --- | --- |
 | `tenants` | 200 | Plan (`free`, `starter`, `growth`, `enterprise`), region, industry, `created_at`. Tenant creation dates reach back to late 2024 so cohorts predate the event range. |
-| `users` | 5,264 | Belong to a tenant; `signed_up_at` drives retention cohorts. Roles `admin`, `member`, `viewer`. |
+| `users` | 6,368 | Belong to a tenant; `signed_up_at` drives retention cohorts. Roles `admin`, `member`, `viewer`. |
 | `events` | 1,000,000 | `event_type`, `path`, `status_code`, long-tailed `latency_ms`, `device`, `occurred_at`. Partitioned by month. Activity is skewed towards enterprise tenants, peaks in business hours, dips at weekends and grows through the year. |
-| `subscriptions` | 127 | One row per subscription period with `plan`, `status` (`active`, `trialing`, `past_due`, `canceled`), `billing_interval`, `amount` (`Decimal(12, 2)`), `currency`, `started_at`, `ended_at`. Upgrades close one row and open another, so MRR is a point-in-time query. Free tenants have no row unless they once paid and churned. |
+| `subscriptions` | 141 | One row per subscription period with `plan`, `status` (`active`, `trialing`, `past_due`, `canceled`), `billing_interval`, `amount` (`Decimal(12, 2)`), `currency`, `started_at`, `ended_at`. Upgrades close one row and open another, so MRR is a point-in-time query. Free tenants have no row unless they once paid and churned. |
 
 Which wave 1 item uses what:
 
