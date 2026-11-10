@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hypequery"
-version = "0.1.0b3"
+version = "0.1.0b4"
 description = "Type-safe ClickHouse semantic layer and serving for Python."
 # PyPI shows README.pypi.md: a short pitch with one sample. README.md is the
 # full guide, and scripts/getting_started.py runs its code blocks in CI.
