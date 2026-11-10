@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discover.mjs';
-import { rewriteWorkspaceRanges, stripUvSources } from './use-published.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,26 +42,4 @@ test('discover CLI prints compact JSON for GITHUB_OUTPUT', () => {
   assert.equal(out, '[{"dir":"examples/a","kind":"example","slug":"a","hasManifest":true,"package":null}]\n');
   const empty = execFileSync(process.execPath, [path.join(here, 'discover.mjs'), '--root', tmpRepo()], { encoding: 'utf8' });
   assert.equal(empty, '[]\n');
-});
-
-test('rewriteWorkspaceRanges swaps only workspace ranges', () => {
-  const pkg = {
-    dependencies: { '@hypequery/clickhouse': 'workspace:*', react: '^19.0.0' },
-    devDependencies: { '@hypequery/examples-schema': 'workspace:^', vitest: '^5.0.0' },
-  };
-  const changed = rewriteWorkspaceRanges(pkg, 'canary');
-  assert.deepEqual(pkg.dependencies, { '@hypequery/clickhouse': 'canary', react: '^19.0.0' });
-  assert.deepEqual(pkg.devDependencies, { '@hypequery/examples-schema': 'canary', vitest: '^5.0.0' });
-  assert.equal(changed.length, 2);
-  assert.deepEqual(rewriteWorkspaceRanges({ dependencies: { a: '1.0.0' } }), []);
-});
-
-test('stripUvSources removes only the [tool.uv.sources] table', () => {
-  const toml = '[project]\nname = "x"\n\n[tool.uv.sources]\nhypequery = { path = "../../python/hypequery", editable = true }\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n';
-  const out = stripUvSources(toml);
-  assert.equal(out.changed, true);
-  assert.ok(!out.text.includes('[tool.uv.sources]'));
-  assert.ok(out.text.includes('[tool.pytest.ini_options]'));
-  assert.ok(out.text.includes('[project]'));
-  assert.deepEqual(stripUvSources('[project]\nname = "x"\n'), { text: '[project]\nname = "x"\n', changed: false });
 });

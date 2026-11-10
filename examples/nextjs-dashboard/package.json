@@ -7,10 +7,10 @@
   "scripts": {
     "manifest": "hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json",
     "dev": "next dev",
-    "prebuild": "pnpm manifest",
+    "prebuild": "npm run manifest",
     "build": "next build",
     "start": "next start",
-    "test": "pnpm build && vitest run"
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@hypequery/clickhouse": "workspace:*",

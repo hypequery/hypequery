@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "dev": "pnpm build && node dist/src/index.js",
+    "dev": "npm run build && node dist/src/index.js",
     "start": "node dist/src/index.js",
-    "test": "pnpm build && vitest run"
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.5",

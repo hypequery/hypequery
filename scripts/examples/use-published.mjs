@@ -7,64 +7,35 @@
  * Examples depend on `@hypequery/*` with `workspace:*` so a PR tests the code
  * it changes. The nightly run rewrites those ranges to a dist-tag (default
  * `latest`) and installs with `--ignore-workspace`, which is what a user gets
- * from `npx @hypequery/cli create <slug>`. Prints the rewritten dependencies.
+ * from `npx @hypequery/cli create <slug>`. It reuses the CLI's own scaffold
+ * rewrites, so the nightly run and `create` cannot drift apart; build the CLI
+ * first (`pnpm --filter @hypequery/cli... build`).
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const DEP_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const scaffoldPath = path.join(root, 'packages/cli/dist/utils/examples/scaffold.js');
 
-export function rewriteWorkspaceRanges(pkg, tag = 'latest') {
-  const changed = [];
-  for (const field of DEP_FIELDS) {
-    const deps = pkg[field];
-    if (!deps) continue;
-    for (const [name, range] of Object.entries(deps)) {
-      if (typeof range === 'string' && range.startsWith('workspace:')) {
-        deps[name] = tag;
-        changed.push({ field, name, from: range, to: tag });
-      }
-    }
-  }
-  return changed;
+const args = process.argv.slice(2);
+const tagIndex = args.indexOf('--tag');
+const tag = tagIndex === -1 ? 'latest' : args[tagIndex + 1];
+const dir = args.find((arg, i) => !arg.startsWith('--') && (tagIndex === -1 || i !== tagIndex + 1));
+if (!dir) {
+  console.error('usage: use-published.mjs <example-dir> [--tag <dist-tag>]');
+  process.exit(2);
+}
+if (!fs.existsSync(scaffoldPath)) {
+  console.error('Build the CLI first: pnpm --filter @hypequery/cli... build');
+  process.exit(1);
 }
 
-/**
- * Python examples pin the workspace copy of `hypequery` through
- * `[tool.uv.sources]`. Removing that table makes uv resolve the published
- * PyPI release instead. Returns true when something was removed.
- */
-export function stripUvSources(pyproject) {
-  const pattern = /\n\[tool\.uv\.sources\]\n(?:[^\n]*\n)*?(?=\n\[|$)/;
-  if (!pattern.test(pyproject)) return { text: pyproject, changed: false };
-  return { text: pyproject.replace(pattern, '\n'), changed: true };
-}
-
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
-  const args = process.argv.slice(2);
-  const tagIndex = args.indexOf('--tag');
-  const tag = tagIndex === -1 ? 'latest' : args[tagIndex + 1];
-  const dir = args.find((arg, i) => !arg.startsWith('--') && (tagIndex === -1 || i !== tagIndex + 1));
-  if (!dir) {
-    console.error('usage: use-published.mjs <example-dir> [--tag <dist-tag>]');
-    process.exit(2);
-  }
-  const file = path.join(path.resolve(dir), 'package.json');
-  const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const changed = rewriteWorkspaceRanges(pkg, tag);
-  fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
-  for (const c of changed) console.log(`${c.field}.${c.name}: ${c.from} -> ${c.to}`);
-  const pyproject = path.join(path.resolve(dir), 'pyproject.toml');
-  let pyChanged = false;
-  if (fs.existsSync(pyproject)) {
-    const result = stripUvSources(fs.readFileSync(pyproject, 'utf8'));
-    if (result.changed) {
-      fs.writeFileSync(pyproject, result.text);
-      pyChanged = true;
-      console.log('pyproject.toml: removed [tool.uv.sources], hypequery resolves from PyPI');
-    }
-  }
-  if (changed.length === 0 && !pyChanged) console.log(`${dir}: no workspace ranges to rewrite`);
-}
+const { rewritePackageJson, rewritePyproject } = await import(pathToFileURL(scaffoldPath).href);
+const target = path.resolve(dir);
+// No recorded pins: every workspace range becomes the dist-tag.
+const changed = await rewritePackageJson(target, {}, tag);
+for (const c of changed) console.log(`${c.field}.${c.name}: ${c.from} -> ${c.to}`);
+const pyChanged = await rewritePyproject(target);
+if (pyChanged) console.log('pyproject.toml: removed [tool.uv.sources], hypequery resolves from PyPI');
+if (changed.length === 0 && !pyChanged) console.log(`${dir}: no workspace ranges to rewrite`);

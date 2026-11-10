@@ -69,11 +69,27 @@ function templateFooter(slug, sha) {
   ].join('\n');
 }
 
+/**
+ * The committed tree at `sha`, not the working copy: a mirror must never pick
+ * up `.venv/`, local databases or uncommitted edits, and its footer names `sha`.
+ */
+function checkoutCommitted(sha, dirs) {
+  const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'template-src-'));
+  const tar = execFileSync('git', ['archive', '--format=tar', sha, '--', ...dirs], { cwd: root, maxBuffer: 512 * 1024 * 1024 });
+  execFileSync('tar', ['-x', '-C', tree], { input: tar });
+  return tree;
+}
+
 export async function exportExample(entry, { out, pins, tag, sha, scaffold }) {
   const target = path.join(out, entry.manifest.slug);
   fs.rmSync(target, { recursive: true, force: true });
-  await scaffold.copyExampleTree(path.join(root, entry.dir), target);
-  await scaffold.copyExampleTree(path.join(root, 'examples/_seed'), path.join(target, 'seed'));
+  const tree = checkoutCommitted(sha, [entry.dir, 'examples/_seed']);
+  try {
+    await scaffold.copyExampleTree(path.join(tree, entry.dir), target);
+    await scaffold.copyExampleTree(path.join(tree, 'examples/_seed'), path.join(target, 'seed'));
+  } finally {
+    fs.rmSync(tree, { recursive: true, force: true });
+  }
   await scaffold.rewritePackageJson(target, pins, tag);
   await scaffold.rewritePackageJson(path.join(target, 'seed'), pins, tag);
   await scaffold.rewritePyproject(target);

@@ -102,7 +102,9 @@ export async function createCommand(slug: string, options: CreateOptions = {}, d
   }
 
   const tag = options.tag ?? 'latest';
-  const { pins, unpublished } = await resolvePins(Object.keys(index.packageVersions), index.packageVersions, dependencies.npmFetch);
+  // packageVersions also records the PyPI `hypequery`; only npm packages are pinned here.
+  const npmPackages = Object.keys(index.packageVersions).filter((name) => name.startsWith('@hypequery/'));
+  const { pins, unpublished } = await resolvePins(npmPackages, index.packageVersions, dependencies.npmFetch);
   const changes = await rewritePackageJson(targetDir, pins, tag);
   if (includeSeed && existsSync(path.join(targetDir, 'seed', 'package.json'))) {
     await rewritePackageJson(path.join(targetDir, 'seed'), pins, tag);

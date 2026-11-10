@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "dev": "pnpm build && node dist/src/index.js",
+    "dev": "npm run build && node dist/src/index.js",
     "start": "node dist/src/index.js",
-    "db:seed": "pnpm build && node dist/db/seed-cli.js",
-    "bench": "pnpm build && node dist/scripts/bench.js",
-    "test": "pnpm build && vitest run"
+    "db:seed": "npm run build && node dist/db/seed-cli.js",
+    "bench": "npm run build && node dist/scripts/bench.js",
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",

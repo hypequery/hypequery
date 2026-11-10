@@ -55,7 +55,7 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
       </section>
       <section className={`${marketing.container} py-14 sm:py-20`}>
         <Suspense fallback={<p className="font-mono text-xs text-text-dim">Loading…</p>}>
-          <ExamplesGallery entries={entries} emptyCopy={emptyCopy} />
+          <ExamplesGallery entries={entries.map(({ manifest }) => ({ manifest }))} emptyCopy={emptyCopy} />
         </Suspense>
       </section>
     </PageWrapper>

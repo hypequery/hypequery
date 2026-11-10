@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ExampleCard from '@/components/examples/ExampleCard';
-import { collectFacets, filterEntries, label, type RegistryEntry } from '@/lib/examples';
+import { collectFacets, filterEntries, label, type RegistryEntry } from '@/lib/examples-core';
 
 /**
  * Facets live in the query string (`?stack=nextjs&useCase=dashboards`) so a
  * filtered view is shareable, while the page's canonical stays on the bare
  * hub URL. Filtering is client-side over the static registry.
  */
-export default function ExamplesGallery({ entries, emptyCopy }: { entries: RegistryEntry[]; emptyCopy: string }) {
+export default function ExamplesGallery({ entries, emptyCopy }: { entries: Pick<RegistryEntry, 'manifest'>[]; emptyCopy: string }) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "dev": "pnpm build && node dist/src/index.js",
+    "dev": "npm run build && node dist/src/index.js",
     "start": "node dist/src/index.js",
-    "invoices": "pnpm build && node dist/src/run-invoices.js",
-    "test": "pnpm build && vitest run"
+    "invoices": "npm run build && node dist/src/run-invoices.js",
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.5",

@@ -21,7 +21,8 @@ afterEach(async () => {
 const index: ExamplesIndex = {
   version: 1,
   source: { repository: 'hypequery/hypequery', ref: 'main' },
-  packageVersions: { '@hypequery/clickhouse': '2.14.0', '@hypequery/datasets': '0.99.0' },
+  // `hypequery` is the PyPI package; it must never be looked up on npm.
+  packageVersions: { '@hypequery/clickhouse': '2.14.0', '@hypequery/datasets': '0.99.0', hypequery: '0.1.0b3' },
   entries: [
     { slug: 'demo', kind: 'example', title: 'Demo example', outcome: 'o', dir: 'examples/demo', url: 'https://hypequery.com/examples/demo', markdown: 'm', source: 's', packages: ['@hypequery/clickhouse'], keywords: ['k'], run: { install: 'pnpm install', dev: 'pnpm dev', test: 'pnpm test' } },
     { slug: 'how-to', kind: 'guide', title: 'A guide', outcome: 'o', dir: 'guides/how-to', url: 'https://hypequery.com/guides/how-to', markdown: 'https://hypequery.com/guides/how-to.md', source: 's', packages: [], keywords: ['k'] },
@@ -86,6 +87,27 @@ describe('hypequery create', () => {
     expect(block).toContain('cd demo');
     expect(block).toContain('npm run dev');
     expect(block).not.toContain('\n  npm install\n');
+  });
+
+  it('checks only @hypequery/* packages on npm', async () => {
+    const cwd = await directory();
+    const source = await fakeSource();
+    const looked: string[] = [];
+    const trackingFetch = (async (url: string | URL | Request) => {
+      looked.push(String(url));
+      return npmFetch(url);
+    }) as unknown as typeof fetch;
+    await createCommand('demo', { yes: true, install: false }, {
+      cwd,
+      fetchImpl: indexFetch,
+      source: 'https://example.test/examples.json',
+      npmFetch: trackingFetch,
+      packageManager: 'pnpm',
+      fetchSource: async () => ({ root: source, cleanup: async () => {} }),
+      write: () => {},
+    });
+    expect(looked.length).toBe(2);
+    expect(looked.every((url) => url.includes('/@hypequery/'))).toBe(true);
   });
 
   it('honours --dir, --no-seed and --no-install and still prints Next with the install step', async () => {

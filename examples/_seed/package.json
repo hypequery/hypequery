@@ -7,10 +7,10 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "lint": "eslint \"src/**/*.ts\"",
-    "seed": "pnpm build && node dist/bin/seed.js",
-    "seed:check": "pnpm build && node dist/bin/seed.js --check",
-    "seed:write-checksums": "pnpm build && node dist/bin/seed.js --write-checksums",
-    "run-sql": "pnpm build && node dist/bin/run-sql.js",
+    "seed": "npm run build && node dist/bin/seed.js",
+    "seed:check": "npm run build && node dist/bin/seed.js --check",
+    "seed:write-checksums": "npm run build && node dist/bin/seed.js --write-checksums",
+    "run-sql": "npm run build && node dist/bin/run-sql.js",
     "test": "vitest run",
     "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
   },

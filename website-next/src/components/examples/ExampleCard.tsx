@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { entryHref, kindLabel, label, type RegistryEntry } from '@/lib/examples';
+import { entryHref, kindLabel, label, type RegistryEntry } from '@/lib/examples-core';
 
-export default function ExampleCard({ entry, compact = false }: { entry: RegistryEntry; compact?: boolean }) {
+/** Cards render from the manifest alone, so client lists never need README or source bodies. */
+export default function ExampleCard({ entry, compact = false }: { entry: Pick<RegistryEntry, 'manifest'>; compact?: boolean }) {
   const { manifest } = entry;
   return (
     <Link

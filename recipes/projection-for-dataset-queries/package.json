@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "setup": "pnpm build && node dist/setup.js",
-    "teardown": "pnpm build && node dist/setup.js --teardown",
-    "dev": "pnpm run setup && node dist/recipe.js",
-    "capture": "pnpm run setup && node dist/recipe.js --write",
-    "test": "pnpm build && vitest run"
+    "setup": "npm run build && node dist/setup.js",
+    "teardown": "npm run build && node dist/setup.js --teardown",
+    "dev": "npm run setup && node dist/recipe.js",
+    "capture": "npm run setup && node dist/recipe.js --write",
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@clickhouse/client": "^1.24.1",

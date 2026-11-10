@@ -145,6 +145,10 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       # Latest mode: what a user gets from `npx @hypequery/cli create <slug>` today.
+      # use-published.mjs reuses the CLI's scaffold rewrites, so build the CLI.
+      - name: Build the CLI's scaffold helpers
+        if: env.HYPEQUERY_SOURCE == 'latest'
+        run: pnpm install --frozen-lockfile --filter '@hypequery/cli...' && pnpm turbo run build --filter='@hypequery/cli'
       - name: Point the example at published packages
         if: env.HYPEQUERY_SOURCE == 'latest'
         run: node scripts/examples/use-published.mjs ${{ matrix.dir }} --tag latest

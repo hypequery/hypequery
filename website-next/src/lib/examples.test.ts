@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  REPO_TREE_URL,
   collectFacets,
   entriesForFunction,
   entriesForLeadPage,
@@ -48,6 +49,16 @@ test('readmeBody drops the H1 and the repeated outcome, and rewrites relative li
   assert.ok(!body.startsWith(dashboard.manifest.outcome));
   assert.ok(body.includes('](/examples/materialized-view-rollups)'), 'relative sibling link becomes a site path');
   assert.ok(body.includes(`](${dashboard.screenshot})`), 'screenshot path points at public/');
+  assert.ok(body.includes('docker compose -f seed/docker-compose.yml'), 'install steps use the scaffold seed path');
+  assert.ok(!body.includes('../examples/_seed'));
+  assert.ok(body.includes('&& (cd seed && pnpm install && pnpm seed)'));
+});
+
+test('readmeBody points in-folder file links at GitHub', () => {
+  const mcp = getEntry('example', 'mcp-agent-analytics')!;
+  const body = readmeBody(mcp);
+  assert.ok(body.includes(`](${REPO_TREE_URL}/examples/mcp-agent-analytics/.mcp.json)`));
+  assert.ok(!/\]\(\.\//.test(body), 'no page-relative ./ links remain');
 });
 
 test('guides load with expanded SQL and a Markdown twin that states the tested version', () => {

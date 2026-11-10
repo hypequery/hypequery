@@ -43,8 +43,12 @@ from `hypequery create <slug> -y` against the seed; the smoke test asserts the
 `leadPages` and `functionPages` are set so the example is injected into the
 existing pages that already rank.
 
-An example whose CI job fails is unlisted on the site until it is fixed. It is
-never shipped broken.
+A failing smoke test fails the required `Examples OK` check, so a PR cannot
+merge a broken example against the workspace packages. The nightly run against
+the published packages catches what that misses (an example using an API that
+is not released yet, say); nothing unlists an example automatically, so fix or
+revert it when the nightly goes red. The template-repo sync skips any example
+that fails against the published packages.
 
 ## Template repos
 

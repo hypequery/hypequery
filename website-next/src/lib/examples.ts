@@ -1,84 +1,15 @@
 import registryJson from '@/data/examples-registry.json';
+import { entryHref, REPO_TREE_URL, type ManifestKind, type RegistryEntry } from './examples-core';
+
+export * from './examples-core';
 
 /**
  * The examples registry, generated from every example.json and recipe.json
  * under examples/ and recipes/ by `pnpm examples:registry` (see
  * packages/examples-schema). The website is an npm project outside the pnpm
  * workspace, so it reads the committed JSON instead of the manifests; lint
- * fails when the file is stale. Types here mirror the Zod schema.
+ * fails when the file is stale. Types and pure helpers live in examples-core.ts.
  */
-export type ManifestKind = 'example' | 'recipe' | 'guide';
-
-export interface EnvVar {
-  name: string;
-  description: string;
-  required: boolean;
-}
-
-export interface ManifestCore {
-  slug: string;
-  kind: ManifestKind;
-  title: string;
-  outcome: string;
-  language: 'typescript' | 'python';
-  stack: string[];
-  useCases: string[];
-  packages: string[];
-  keyFile: string;
-  env: EnvVar[];
-  run: { install: string; dev: string; test: string };
-  exampleRequest?: string;
-  related: string[];
-  leadPages: string[];
-  functionPages: string[];
-  keywords: string[];
-  minVersion: string;
-}
-
-export interface ExampleManifest extends ManifestCore {
-  kind: 'example';
-}
-
-export interface RecipeManifest extends ManifestCore {
-  kind: 'recipe';
-  datasetFile: string;
-  expectedSqlFile: string;
-  outputFile: string;
-}
-
-export interface GuideManifest {
-  slug: string;
-  kind: 'guide';
-  title: string;
-  outcome: string;
-  clickhouseVersion: string;
-  sqlFiles: string[];
-  packages: string[];
-  related: string[];
-  leadPages: string[];
-  functionPages: string[];
-  keywords: string[];
-}
-
-export type Manifest = ExampleManifest | RecipeManifest | GuideManifest;
-
-export interface SourceFile {
-  path: string;
-  language: string;
-  source: string;
-}
-
-export interface RegistryEntry {
-  manifest: Manifest;
-  dir: string;
-  /** README.md, or guide.md with its SQL includes expanded. */
-  readme: string;
-  /** Absent for guides. */
-  keyFile?: SourceFile;
-  recipe?: { dataset: SourceFile; expectedSql: string; output: string };
-  guide?: { sqlFiles: Array<{ path: string; source: string }> };
-  screenshot?: string;
-}
 
 interface Registry {
   version: 1;
@@ -106,21 +37,6 @@ export const examples = registryEntries.filter((e) => e.manifest.kind === 'examp
 export const recipes = registryEntries.filter((e) => e.manifest.kind === 'recipe');
 export const guides = registryEntries.filter((e) => e.manifest.kind === 'guide');
 
-export const REPO_TREE_URL = 'https://github.com/hypequery/hypequery/tree/main';
-
-export function kindPath(kind: ManifestKind): '/examples' | '/recipes' | '/guides' {
-  return kind === 'example' ? '/examples' : kind === 'recipe' ? '/recipes' : '/guides';
-}
-
-export function kindLabel(kind: ManifestKind, plural = false): string {
-  const base = kind === 'example' ? 'Example' : kind === 'recipe' ? 'Recipe' : 'Guide';
-  return plural ? `${base}s` : base;
-}
-
-export function entryHref(entry: Pick<RegistryEntry, 'manifest'>): string {
-  return `${kindPath(entry.manifest.kind)}/${entry.manifest.slug}`;
-}
-
 export function getEntry(kind: ManifestKind, slug: string): RegistryEntry | undefined {
   return registryEntries.find((e) => e.manifest.kind === kind && e.manifest.slug === slug);
 }
@@ -144,37 +60,6 @@ export function relatedEntries(entry: RegistryEntry): RegistryEntry[] {
   return entry.manifest.related.map((slug) => getEntryBySlug(slug)).filter((e): e is RegistryEntry => Boolean(e));
 }
 
-export interface Facets {
-  stack: string[];
-  useCases: string[];
-  languages: string[];
-}
-
-export function collectFacets(entries: readonly RegistryEntry[]): Facets {
-  const uniq = (values: string[]) => [...new Set(values)].sort();
-  return {
-    stack: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : e.manifest.stack))),
-    useCases: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : e.manifest.useCases))),
-    languages: uniq(entries.flatMap((e) => (e.manifest.kind === 'guide' ? [] : [e.manifest.language]))),
-  };
-}
-
-export interface FacetSelection {
-  stack?: string | null;
-  useCase?: string | null;
-  language?: string | null;
-}
-
-export function filterEntries(entries: readonly RegistryEntry[], selection: FacetSelection): RegistryEntry[] {
-  return entries.filter((e) => {
-    if (e.manifest.kind === 'guide') return !selection.stack && !selection.useCase && !selection.language;
-    if (selection.stack && !e.manifest.stack.includes(selection.stack)) return false;
-    if (selection.useCase && !e.manifest.useCases.includes(selection.useCase)) return false;
-    if (selection.language && e.manifest.language !== selection.language) return false;
-    return true;
-  });
-}
-
 /**
  * The README body for the page: drop the H1 (the page renders the manifest
  * title) and the first paragraph when it repeats `outcome`, and point
@@ -194,6 +79,13 @@ export function readmeBody(entry: RegistryEntry): string {
   if (entry.screenshot) {
     body = body.replace(/\]\(\.\/screenshot\.png\)/g, `](${entry.screenshot})`);
   }
+  // Files inside the example (`./.mcp.json`) live on GitHub, not under the page URL.
+  body = body.replace(/\]\(\.\/([^)\s]+)\)/g, (_m, file: string) => `](${REPO_TREE_URL}/${entry.dir}/${file})`);
+  // Install steps as they run after `create` (the seed is copied to ./seed),
+  // matching the CLI's rewriteReadmeForScaffold.
+  body = body
+    .replace(/\.\.\/examples\/_seed\/docker-compose\.yml/g, 'seed/docker-compose.yml')
+    .replace(/&& pnpm seed\b/g, '&& (cd seed && pnpm install && pnpm seed)');
   return body.trim();
 }
 
@@ -203,30 +95,3 @@ export function createCommand(entry: RegistryEntry): string | null {
   return entry.manifest.kind === 'guide' ? null : `npx @hypequery/cli create ${entry.manifest.slug} -y`;
 }
 
-export const LABELS: Record<string, string> = {
-  nextjs: 'Next.js',
-  react: 'React',
-  node: 'Node.js',
-  clickhouse: 'ClickHouse',
-  python: 'Python',
-  typescript: 'TypeScript',
-  'pre-aggregation': 'Pre-aggregation',
-  dashboards: 'Dashboards',
-  'time-series': 'Time series',
-  'product-analytics': 'Product analytics',
-  'embedded-analytics': 'Embedded analytics',
-  'multi-tenant': 'Multi-tenant',
-  chdb: 'chDB',
-  fastapi: 'FastAPI',
-  mcp: 'MCP',
-  postgres: 'Postgres',
-  api: 'API',
-  'analytics-api': 'Analytics API',
-  'ai-agents': 'AI agents',
-  'saas-analytics': 'SaaS analytics',
-  'postgres-to-clickhouse': 'Postgres to ClickHouse',
-};
-
-export function label(value: string): string {
-  return LABELS[value] ?? value.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
-}

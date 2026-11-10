@@ -2,7 +2,7 @@
 
 Insert the same 1,000 rows from Node per row, in client batches and with async_insert, and count the parts each creates: 1,000, 4, 10 and 1.
 
-Every synchronous `INSERT` into a MergeTree table writes at least one new part, so 1,000 single-row inserts make 1,000 parts. Batch in the client when you can (1,000 rows in batches of 250 made 4 parts); when many small writers cannot batch, set `async_insert = 1` and the server buffers their rows and writes one part per flush (10 parts here, with 100 inserts in flight and a 500 ms flush). Keep `wait_for_async_insert = 1`, the default, so each insert returns only after its row is written and errors reach the caller; with `0` the calls returned while the table was still empty. The recipe uses hypequery's typed `db.insert()`, which sends JSONEachRow through the official `@clickhouse/client`.
+Every synchronous `INSERT` into a MergeTree table writes at least one new part, so 1,000 single-row inserts make 1,000 parts. Batch in the client when you can (1,000 rows in batches of 250 made 4 parts); when many small writers cannot batch, set `async_insert = 1` and the server buffers their rows and writes one part per flush (10 parts here, with 100 inserts in flight and a 500 ms flush; the exact count depends on how many inserts land in each flush window, so the test only bounds it). Keep `wait_for_async_insert = 1`, the default, so each insert returns only after its row is written and errors reach the caller; with `0` the calls returned while the table was still empty. The recipe uses hypequery's typed `db.insert()`, which sends JSONEachRow through the official `@clickhouse/client`.
 
 ## Demo
 

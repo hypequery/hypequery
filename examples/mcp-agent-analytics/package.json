@@ -8,8 +8,8 @@
     "build": "tsc --project tsconfig.json",
     "serve": "node dist/src/server.js",
     "agent": "node dist/src/agent.js",
-    "dev": "pnpm build && node dist/src/agent.js",
-    "test": "pnpm build && vitest run"
+    "dev": "npm run build && node dist/src/agent.js",
+    "test": "npm run build && vitest run"
   },
   "dependencies": {
     "@hypequery/clickhouse": "workspace:*",
