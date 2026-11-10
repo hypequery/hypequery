@@ -1,0 +1,22 @@
+{
+  "name": "@hypequery-recipes/cursor-pagination",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keyset (cursor) pagination over ClickHouse with the hypequery query builder, compared with LIMIT/OFFSET by rows read: the query, the SQL it generates, and the first two pages on the seed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "pnpm build && node dist/recipe.js",
+    "capture": "pnpm build && node dist/recipe.js --write",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
