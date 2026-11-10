@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import ExamplesGallery from '@/components/examples/ExamplesGallery';
@@ -17,11 +18,6 @@ interface Props {
 
 export default function ExamplesHub({ kind, eyebrow, title, lead, entries, emptyCopy }: Props) {
   const path = kind === 'example' ? '/examples' : kind === 'recipe' ? '/recipes' : '/guides';
-  const breadcrumb = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [{ '@type': 'ListItem', position: 1, name: eyebrow, item: absoluteUrl(path).toString() }],
-  };
   const pickerOptions: ExamplePickerOption[] = entries.flatMap((entry) => {
     const { manifest } = entry;
     const command = createCommand(entry);
@@ -40,12 +36,11 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
 
   return (
     <PageWrapper>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }} />
       <section className="border-b border-border">
         <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
-          <p className={marketing.eyebrow}>{eyebrow}</p>
-          <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>{title}</h1>
+          <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: eyebrow }]} currentPath={path} />
+          <h1 className={`mt-6 max-w-[980px] ${marketing.heroTitle}`}>{title}</h1>
           <p className={`mt-5 max-w-[760px] ${marketing.heroLead}`}>{lead}</p>
           {pickerOptions.length > 0 && (
             <ExamplePicker

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { marketing } from '@/components/ui/marketing';
 import CodeHighlight from '@/components/CodeHighlight';
 import MarkdownContent from '@/components/MarkdownContent';
@@ -39,14 +40,6 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
   const isGuide = manifest.kind === 'guide';
   const tags = isGuide ? manifest.functionPages : [...manifest.stack, ...manifest.useCases];
 
-  const breadcrumb = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: hubLabel, item: absoluteUrl(kindPath(manifest.kind)).toString() },
-      { '@type': 'ListItem', position: 2, name: manifest.title, item: pageUrl },
-    ],
-  };
   const sourceCode = isGuide
     ? {
         '@context': 'https://schema.org',
@@ -71,16 +64,14 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(sourceCode) }} />
 
       <section className="border-b border-border">
         <div className={`${marketing.container} pb-12 pt-12 sm:pb-14 sm:pt-16`}>
-          <nav aria-label="Breadcrumb" className="font-mono text-xs text-text-dim">
-            <Link href={kindPath(manifest.kind)} className="hover:text-text">{hubLabel}</Link>
-            <span className="mx-2" aria-hidden="true">/</span>
-            <span className="text-text-muted">{manifest.slug}</span>
-          </nav>
+          <Breadcrumbs
+            items={[{ label: 'Home', href: '/' }, { label: hubLabel, href: kindPath(manifest.kind) }, { label: manifest.title }]}
+            currentPath={entryHref(entry)}
+          />
           <p className={`mt-6 ${marketing.eyebrow}`}>{kindName} · {isGuide ? `Tested on ClickHouse ${manifest.clickhouseVersion}` : label(manifest.language)}</p>
           <h1 className={`mt-4 max-w-[980px] ${marketing.heroTitle}`}>{manifest.title}</h1>
           <p className={`mt-5 max-w-[760px] ${marketing.heroLead}`}>{manifest.outcome}</p>

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { wantsMarkdown } from '@/lib/markdown-negotiation';
 
 /**
  * Markdown twins for agents.
@@ -6,12 +7,11 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Every page under the roots below has a Markdown copy served by the
  * `/llms.mdx/...` route handlers. A request gets the Markdown when it asks
  * for it in any of three ways: a `.md` suffix, `Accept: text/markdown`, or a
- * known agent / HTTP-library user agent. HTML and Markdown carry the same
+ * known agent / HTTP-library user agent that is not a real browser (see
+ * lib/markdown-negotiation.ts). HTML and Markdown carry the same
  * content and the HTML URL stays canonical, so this is not cloaking.
  * Everything else passes through with a `Link` header pointing at /llms.txt.
  */
-const AGENT_UA = /(claude|chatgpt|gptbot|openai|anthropic|cursor|copilot|perplexity|axios|got\/|node-fetch|undici|python-requests|httpx)/i;
-
 /** Site root -> llms.mdx root that serves its twins. */
 const MD_ROOTS: Record<string, string> = {
   '/examples': '/llms.mdx/examples',
@@ -35,12 +35,14 @@ function twinFor(pathname: string): string | null {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const twin = twinFor(pathname);
-  const wantsMarkdown =
-    pathname.endsWith('.md') ||
-    (request.headers.get('accept') ?? '').includes('text/markdown') ||
-    AGENT_UA.test(request.headers.get('user-agent') ?? '');
+  const markdown = wantsMarkdown({
+    pathname,
+    accept: request.headers.get('accept'),
+    userAgent: request.headers.get('user-agent'),
+    secFetchMode: request.headers.get('sec-fetch-mode'),
+  });
 
-  if (twin && wantsMarkdown) {
+  if (twin && markdown) {
     const url = request.nextUrl.clone();
     url.pathname = twin;
     const response = NextResponse.rewrite(url);
