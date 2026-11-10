@@ -130,12 +130,14 @@ export function removeGeneratedFiles(dir) {
  */
 function verifyExport(dir) {
   const opts = { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, CI: '1' } };
-  if (fs.existsSync(path.join(dir, 'pyproject.toml'))) {
-    run('uv', ['sync'], opts);
-  } else {
-    run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], opts);
-  }
+  // Install and test inside one try: a failed install can already have
+  // written .venv or node_modules, and those must not reach the mirror either.
   try {
+    if (fs.existsSync(path.join(dir, 'pyproject.toml'))) {
+      run('uv', ['sync'], opts);
+    } else {
+      run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], opts);
+    }
     run('pnpm', ['test'], opts);
   } finally {
     removeGeneratedFiles(dir);
