@@ -4,6 +4,176 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b4 (2026-11-10)
+
+- `measure.approx_count_distinct(field)` estimates a distinct count with
+  ClickHouse `uniq` (`uniqIf` with measure filters), far cheaper than the exact
+  `count_distinct` (`uniqExact`) on large columns. Catalogs and semantic
+  contracts mark it, and derived measures that use it, `approximate: true`, as
+  TypeScript does; it is duplicate-insensitive through `belongs_to`. Publishing
+  it is refused until deployment contract 3, as in TypeScript.
+
+- Exported client contracts keep `isNull` and `isNotNull` on boolean filters
+  that allow them (RFC 0023), instead of dropping them.
+
+- Documentation for the ported ClickHouse features: null checks, aggregate
+  states, row resolution, segments, window and shift measures, in the Python
+  datasets pages and the package README. A shared execution corpus
+  (`specs/datasets/time-measures-corpus-v1.json`) now checks Python's window
+  and shift results row for row against TypeScript.
+
+- `measure.shift` can wrap a window, a derived measure or another shift, as in
+  TypeScript: a prior-year year-to-date, a shifted average order value, or
+  `shift(shift(x))`. The wrapped measure is recalculated over the earlier
+  interval, and shifted formulas divide shifted aggregates. Derived measures
+  over derived measures that read windows or shifts are now planned too,
+  instead of refused. Definitions reject dependency cycles through shifts and
+  formulas, and catalogs report the grains both the shift and its input
+  support. A shifted formula has no single aggregation, so its catalog and
+  semantic contract entries omit `aggregation` and `field`, hashing the same as
+  TypeScript. A query is refused as `input-invalid` when nested shifts would
+  need more than 64 evaluation contexts or 1024 evaluated measures.
+
+- `client.stream(target, query)` and `client.stream_arrow(target, query)`
+  stream a dataset query's result instead of returning it whole, so memory
+  stays flat however many rows there are. `stream` yields batches of the rows
+  `execute` returns; `stream_arrow` yields `pyarrow.RecordBatch`es with
+  ClickHouse's native column types (`decimal128`, `uint64`), with `read_all()`
+  and `to_reader()` for DuckDB, polars and pandas (`hypequery[arrow]`). Both
+  run the query `execute` would, under the same settings, tenant scope,
+  deadline and cancellation, without the cache or pagination. Use them as
+  context managers (`async with` on the async client): closing a stream early
+  stops the query, with `KILL QUERY` where a control connection is
+  configured. Every ClickHouse and chDB executor streams; a result that grows
+  past `max_result_rows` or `max_result_bytes` fails as `too-large` rather
+  than ending short. Custom executors stream by implementing the new
+  `StreamingQueryExecutor` protocol.
+- Streams have ceilings of their own. `DatasetLimits(max_stream_rows=...)`
+  lets a dataset allow streams more rows than the pages and agents
+  `max_result_size` bounds; a stream with no `limit` runs under that
+  ceiling as its `LIMIT` and ends there. A stream's memory stays flat, so
+  its byte limit is `stream_max_result_bytes`, a new `create_dataset_client`
+  option of at most 1 TiB. Without it, a stream keeps a `max_result_bytes`
+  the client's settings set and runs under 1 TiB in place of the default.
+  `max_result_rows` and `max_execution_time` still bound it, and a request
+  context can still tighten all three.
+
+- `hypequery demo`: a sample semantic layer on embedded ClickHouse, served to
+  an AI agent over MCP stdio with no server, configuration or network. With
+  only uv installed, `uvx --from "hypequery[chdb,mcp]" hypequery demo` seeds a
+  two-tenant shop in a temporary chDB database (deleted on exit) and serves its
+  `orders`, `events` and `daily_activity` datasets. `--self-test` prints the
+  answers in the terminal, each beside the read a naive query gets: plain
+  reads of a ReplacingMergeTree against `resolved_rows.replacing()`,
+  `count_distinct` against `approx_count_distinct`, `merge("uniq")` over an
+  AggregatingMergeTree against summed daily counts, and `measure.shift` and
+  `measure.trailing` results. `--print-config` prints an `mcpServers` entry
+  and `--tenant` picks the tenant the agent is signed in as.
+
+- Float measures serialize about 65 times faster, with byte-identical output.
+  Python serve's NDJSON streams spent nearly all their time formatting float
+  measures as strings: streaming 1M rows took 44 s and now takes about 4 s,
+  on a par with TypeScript serve. JSON pages, MCP results and canonical
+  protocol values use the same serializer and get the same speedup.
+
+- `hypequery init` telemetry now reports how far setup got (`stage_reached`:
+  started, connection_tested, framework_selected, confirmed or completed) and
+  whether connecting to ClickHouse worked (`connection_result`: ok, failed or
+  skipped), as the TypeScript CLI does. Both are fixed enums: never hosts,
+  table names or anything typed at a prompt.
+
+- `measure.merge(state_function, field)` reads an `AggregateFunction` column of
+  an AggregatingMergeTree table (or the materialized view feeding one) by
+  merging its states: `measure.merge("uniq", "users")` is `uniqMerge(users)`,
+  so a week of daily states merges into one distinct count instead of summing
+  daily counts (RFC 0022). The state function must be one of RFC 0022's list;
+  merge measures take no filters or `sql` and are not merged through a
+  relationship. Estimating states (`uniq`, `uniqCombined`, ...) are marked
+  `approximate`, and the deployment contract carries `stateFunction`, matching
+  TypeScript (shared fixture `specs/datasets/merge-authoring-v1.json`).
+
+- A native MCP server: `hypequery mcp [module:api]` serves an API's authorized
+  client contract to AI agents over stdio, with the same four tools
+  (`list_datasets`, `get_dataset_schema`, `query_metric`, `query_dataset`),
+  input schemas, `dataset_guide` prompt and `MCP_*` errors as `@hypequery/mcp`.
+  Calls run through `Api.handle` in-process, so the API's authentication,
+  policy and tenant apply; `--client-contract-url` bridges a deployed API
+  instead, `--self-test` checks the contract and `--print-config` prints an
+  `mcpServers` entry. Node is no longer needed. Install the `mcp` extra.
+- `hypequery.mcp` exposes the pieces: `ClientContractExecutor`,
+  `ApiContractBackend`, `HttpContractBackend`, `create_mcp_server` and
+  `serve_stdio`.
+- The standalone `hypequery init` app now publishes a client contract
+  (`client_profile=ClientQueryProfile()` and `GET /client-contract`), so
+  `hypequery mcp app:api` works on a fresh project.
+
+- Null-check filters (RFC 0023): `filter.is_null(field)` and
+  `filter.is_not_null(field)` render `IS NULL` / `IS NOT NULL` with nothing
+  bound. Measures may use them in fixed `filters`; callers may use them only on
+  filters whose `FilterDefinition(operators=...)` lists them, so the default
+  operator list, and existing deployment identities, are unchanged. A null
+  check carries no `value` (not even `null`); served requests and the cache
+  and deployment wire omit it. Exported `SEMANTIC_NULL_CHECK_OPERATORS`.
+
+- Resolved-row sources (RFC 0021): `dataset(..., row_resolution=...)` reads a
+  ReplacingMergeTree or CollapsingMergeTree source with `FINAL`, so superseded
+  row versions never double count. `resolved_rows.replacing(deleted_column=...)`
+  also keeps only rows not soft-deleted, and `resolved_rows.collapsing(sign_column=...)`
+  / `.versioned_collapsing(...)` only surviving positive rows; `resolved_rows.final()`
+  is `FINAL` alone. Relationship targets are resolved inside their join, and
+  relationship key checks count current rows. Every statement that reads a
+  resolved source pins `optimize_move_to_prewhere_if_final = 0`, so no filter
+  can match an older version. Catalogs, semantic contracts and deployment
+  contracts carry `rowResolution`, as TypeScript does.
+
+- Joins and relationship key checks over a resolved (`FINAL`) target qualify
+  its current-row column, so a deleted or sign column named like an internal
+  alias (`_hq_match`, `__hq_rows`, `__hq_keys`) no longer reads that alias.
+
+- Segments (RFC 0015): `dataset(segments={"paid": segment(filter.eq("status", "paid"))})`
+  declares named row filters that queries select by name,
+  `DatasetQuery(segments=("paid",))` or `"segments": ["paid"]` in a served
+  request. A segment may use any of the dataset's own dimensions, including
+  ones not exposed as filters, but not a relationship or the tenant column, and
+  may use null checks. Catalogs and contracts list each segment's label and
+  description only. Publishing is refused until deployment contract 3, as in
+  TypeScript.
+
+- Dataset endpoints can stream their results. With
+  `EndpointPolicy(stream_max_rows=...)` (at most the dataset's
+  `max_stream_rows`, else `max_result_size`), a request that asks with
+  `Accept: application/x-ndjson` gets row batches as NDJSON frames (`start`,
+  `rows`…, then `end` with `rowCount`, or an `error` frame if the query fails
+  after the response began), and `Accept: application/vnd.apache.arrow.stream`
+  gets an Arrow IPC stream, frame for frame as TypeScript serve sends them.
+  Streams keep the endpoint's auth, tenant scope and validation, are never
+  cached, and stop the query when the caller goes. They need `to_asgi_app`;
+  WSGI, Django views and Flask answer with the usual page. Under a
+  `ProductionProfile` a stream holds its slot, runs within `timeout_seconds`
+  and stops at `max_result_bytes`: NDJSON with a `PAYLOAD_TOO_LARGE` frame,
+  Arrow broken off before its end-of-stream marker.
+
+- Serve sends a dimension integer beyond ±(2^53 − 1), such as a `UInt64` id,
+  as a string in JSON pages and NDJSON stream frames, so JavaScript clients
+  (React hooks, `fetch`, MCP clients) no longer round it. Smaller integers stay
+  numbers, and local Python client results keep native `int`s.
+
+- `hypequery skill install` writes hypequery's agent skills
+  (`hypequery-datasets`, `hypequery-query`) where Claude Code
+  (`.claude/skills/`), Cursor and Codex (`.agents/skills/`) load them, with
+  `--agent`, `--scope project|user`, `--check` and `--force`. The same skills
+  ship with the TypeScript CLI.
+
+- Window and shift measures (RFC 0015): `measure.trailing("revenue", 7, "day")`,
+  `measure.to_date("revenue", "month")`, `measure.cumulative("orders")` and
+  `measure.shift("revenue", 1, "week")` re-aggregate a base measure along the
+  time axis, and derived measures can divide by them for period-over-period
+  ratios. A query that selects one needs a `by` grain and exactly one bounded
+  range on the time key. It plans one ClickHouse statement that fills every
+  bucket and guards the series size, in the query timezone. Client endpoints do
+  not advertise these measures, and publishing is refused until deployment
+  contract 3, as in TypeScript.
+
 ## 0.1.0b3 (2026-11-05)
 
 - Datasets can run on embedded ClickHouse with the new `chdb` extra:
