@@ -45,3 +45,22 @@ existing pages that already rank.
 
 An example whose CI job fails is unlisted on the site until it is fixed. It is
 never shipped broken.
+
+## Template repos
+
+Each example is also mirrored to its own public GitHub template repo,
+`hypequery/<slug>`, holding exactly what `hypequery create <slug> -y` scaffolds
+(published package versions, the seed in `./seed`). The monorepo stays the
+source of truth; a mirror's README says so and every sync overwrites it.
+
+| Command | What it does |
+| --- | --- |
+| `node scripts/examples/publish-templates.mjs` | Export every example to `.template-export/`. Pushes nothing. |
+| `node scripts/examples/publish-templates.mjs --verify` | Also install and test each export against npm/PyPI (needs the seed running). |
+| `node scripts/examples/publish-templates.mjs --publish --create` | Verify, create missing repos as public templates with topics and homepage, and push. Run by hand once per new example. |
+
+Build the CLI first (`pnpm --filter @hypequery/cli... build`). After the
+Examples workflow passes on `main`, `.github/workflows/example-templates.yml`
+re-verifies and syncs every repo that already exists; it is skipped until the
+`EXAMPLE_TEMPLATES_TOKEN` secret is set. An export that fails against the
+published packages (an example using an unreleased API, say) is not pushed.
