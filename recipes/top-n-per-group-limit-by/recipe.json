@@ -1,0 +1,33 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "top-n-per-group-limit-by",
+  "kind": "recipe",
+  "title": "Top N per group in ClickHouse with LIMIT BY, compared with row_number() and rank()",
+  "outcome": "Get the top 3 paths for every tenant in one query with LIMIT 3 BY, typed in TypeScript, and see how ties change the answer under rank() and dense_rank().",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["product-analytics", "multi-tenant"],
+  "packages": ["@hypequery/clickhouse", "@hypequery/datasets"],
+  "keyFile": "src/recipe.ts",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["multi-tenant-embedded-analytics", "p95-latency"],
+  "leadPages": ["/clickhouse-query-builder", "/clickhouse-typescript", "/clickhouse-multi-tenant-analytics"],
+  "functionPages": [],
+  "keywords": [
+    "clickhouse limit by",
+    "clickhouse top n per group",
+    "clickhouse limit by vs row_number",
+    "clickhouse top 3 per group"
+  ],
+  "minVersion": "2.14.0"
+}
