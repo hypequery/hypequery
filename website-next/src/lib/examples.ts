@@ -216,6 +216,15 @@ export const LABELS: Record<string, string> = {
   'product-analytics': 'Product analytics',
   'embedded-analytics': 'Embedded analytics',
   'multi-tenant': 'Multi-tenant',
+  chdb: 'chDB',
+  fastapi: 'FastAPI',
+  mcp: 'MCP',
+  postgres: 'Postgres',
+  api: 'API',
+  'analytics-api': 'Analytics API',
+  'ai-agents': 'AI agents',
+  'saas-analytics': 'SaaS analytics',
+  'postgres-to-clickhouse': 'Postgres to ClickHouse',
 };
 
 export function label(value: string): string {

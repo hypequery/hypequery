@@ -424,7 +424,7 @@
           "clickhouse"
         ],
         "useCases": [
-          "apis",
+          "api",
           "pagination"
         ],
         "packages": [
