@@ -10,10 +10,27 @@
     "sql/02-what-gets-read.sql",
     "sql/03-cdc-target.sql"
   ],
-  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
-  "related": ["clickhouse-docker-compose", "multi-tenant-embedded-analytics", "top-n-per-group-limit-by", "materialized-view-rollups"],
-  "leadPages": ["/clickhouse-saas-analytics", "/clickhouse-product-analytics", "/clickhouse-real-time-analytics", "/clickhouse-analytics"],
-  "functionPages": ["quantile", "to-date"],
+  "packages": [
+    "@hypequery/datasets",
+    "@hypequery/clickhouse"
+  ],
+  "related": [
+    "clickhouse-docker-compose",
+    "multi-tenant-embedded-analytics",
+    "top-n-per-group-limit-by",
+    "materialized-view-rollups",
+    "postgres-app-clickhouse-analytics"
+  ],
+  "leadPages": [
+    "/clickhouse-saas-analytics",
+    "/clickhouse-product-analytics",
+    "/clickhouse-real-time-analytics",
+    "/clickhouse-analytics"
+  ],
+  "functionPages": [
+    "quantile",
+    "to-date"
+  ],
   "keywords": [
     "clickhouse vs postgres",
     "clickhouse postgres",

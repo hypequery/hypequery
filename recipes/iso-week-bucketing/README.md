@@ -22,7 +22,7 @@ ISO week 1 of 2026 starts on Monday 29 December 2025: the first and last event o
 ## Install
 
 ```bash
-npx hypequery create iso-week-bucketing -y
+npx @hypequery/cli create iso-week-bucketing -y
 cd iso-week-bucketing
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install
