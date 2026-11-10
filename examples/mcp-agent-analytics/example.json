@@ -77,8 +77,11 @@
   "keywords": [
     "clickhouse mcp",
     "clickhouse mcp server",
-    "mcp server clickhouse claude",
-    "clickhouse ai agent analytics"
+    "clickhouse mcp claude code",
+    "clickhouse mcp cursor",
+    "clickhouse mcp docker",
+    "clickhouse mcp github",
+    "claude clickhouse mcp"
   ],
   "minVersion": "2.14.0"
 }
