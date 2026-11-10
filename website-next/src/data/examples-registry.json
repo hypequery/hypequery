@@ -10,7 +10,7 @@
     "@hypequery/protocol-conformance": "0.17.1",
     "@hypequery/react": "0.9.0",
     "@hypequery/serve": "0.25.0",
-    "hypequery": "0.1.0b3"
+    "hypequery": "0.1.0b4"
   },
   "entries": [
     {
