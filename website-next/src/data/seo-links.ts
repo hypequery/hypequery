@@ -103,7 +103,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
 ];
 
 export const homepageResourceLinks: SeoLink[] = [
-  { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
+  { label: 'TypeScript client for ClickHouse Cloud', href: '/clickhouse-typescript' },
   { label: 'ClickHouse Query Builder', href: '/clickhouse-query-builder' },
   { label: 'ClickHouse React', href: '/clickhouse-react' },
   { label: 'ClickHouse Next.js', href: '/clickhouse-nextjs' },
