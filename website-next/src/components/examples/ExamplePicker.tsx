@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import { InstallCommand } from './InstallCommand';
+import { InstallCommand } from '@/components/home/InstallCommand';
 
 export interface ExamplePickerOption {
   slug: string;
@@ -12,16 +12,21 @@ export interface ExamplePickerOption {
 }
 
 /**
- * "Or start from an example": pick a registry example or recipe, copy its
- * `create` command. Options are built on the server from the registry so the
- * hero always matches the example pages.
+ * Pick a registry example or recipe and copy its `create` command. Options are
+ * built on the server from the registry, so the command always matches the
+ * entry's page.
  */
-export function ExamplePicker({
+export default function ExamplePicker({
   options,
+  label = 'Start from an example',
+  location = 'hub_example',
   defaultSlug = 'nextjs-dashboard',
   className = '',
 }: {
   options: ExamplePickerOption[];
+  label?: string;
+  /** Sent with the `code_copy` event. */
+  location?: string;
   defaultSlug?: string;
   className?: string;
 }) {
@@ -38,7 +43,7 @@ export function ExamplePicker({
   return (
     <div className={`flex max-w-full flex-wrap items-center gap-2 ${className}`}>
       <label htmlFor={id} className="text-sm text-text-muted">
-        Or start from an example
+        {label}
       </label>
       <select
         id={id}
@@ -57,7 +62,7 @@ export function ExamplePicker({
           </optgroup>
         ))}
       </select>
-      <InstallCommand command={active.command} location="hero_example" className="max-w-full" />
+      <InstallCommand command={active.command} location={location} className="max-w-full" />
       <Link href={`/${active.kind === 'example' ? 'examples' : 'recipes'}/${active.slug}`} className="text-sm text-text-muted underline-offset-4 hover:text-text hover:underline">
         What it builds <span aria-hidden="true">→</span>
       </Link>

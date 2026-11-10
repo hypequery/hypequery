@@ -2,7 +2,8 @@ import { Suspense } from 'react';
 import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import ExamplesGallery from '@/components/examples/ExamplesGallery';
-import type { RegistryEntry } from '@/lib/examples';
+import ExamplePicker, { type ExamplePickerOption } from '@/components/examples/ExamplePicker';
+import { createCommand, type RegistryEntry } from '@/lib/examples';
 import { absoluteUrl } from '@/lib/site';
 
 interface Props {
@@ -21,6 +22,11 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
     '@type': 'BreadcrumbList',
     itemListElement: [{ '@type': 'ListItem', position: 1, name: eyebrow, item: absoluteUrl(path).toString() }],
   };
+  const pickerOptions: ExamplePickerOption[] = entries.flatMap((entry) => {
+    const { manifest } = entry;
+    const command = createCommand(entry);
+    return command && manifest.kind !== 'guide' ? [{ slug: manifest.slug, kind: manifest.kind, language: manifest.language, command }] : [];
+  });
   const itemList = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -41,6 +47,15 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
           <p className={marketing.eyebrow}>{eyebrow}</p>
           <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>{title}</h1>
           <p className={`mt-5 max-w-[760px] ${marketing.heroLead}`}>{lead}</p>
+          {pickerOptions.length > 0 && (
+            <ExamplePicker
+              options={pickerOptions}
+              label={kind === 'recipe' ? 'Start from a recipe' : 'Start from an example'}
+              location={kind === 'recipe' ? 'hub_recipe' : 'hub_example'}
+              defaultSlug={kind === 'recipe' ? 'p95-latency' : 'nextjs-dashboard'}
+              className="mt-7"
+            />
+          )}
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
               <p className="font-mono text-xs text-text-dim">Data</p>
@@ -51,8 +66,10 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
               <p className="mt-2 text-xl font-medium tracking-tight text-text">Smoke-tested on every change</p>
             </div>
             <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
-              <p className="font-mono text-xs text-text-dim">Start</p>
-              <p className="mt-2 font-mono text-sm text-text">{kind === 'guide' ? 'Copy the SQL, it already ran' : 'npx @hypequery/cli create <slug> -y'}</p>
+              <p className="font-mono text-xs text-text-dim">{kind === 'guide' ? 'Start' : 'Scaffold'}</p>
+              <p className="mt-2 text-xl font-medium tracking-tight text-text">
+                {kind === 'guide' ? 'Copy the SQL, it already ran' : `${entries.length} ${kind === 'recipe' ? 'recipes' : 'examples'}, one command each`}
+              </p>
             </div>
           </div>
         </div>
