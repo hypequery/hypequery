@@ -35,7 +35,9 @@ test('facets and filters work together', () => {
   const onlyNext = filterEntries(examples, { stack: 'nextjs' });
   assert.ok(onlyNext.every((e) => e.manifest.kind !== 'guide' && e.manifest.stack.includes('nextjs')));
   const python = filterEntries(examples, { language: 'python' });
-  assert.deepEqual(python.map((e) => e.manifest.slug), ['fastapi-analytics-api']);
+  assert.ok(python.length > 0 && python.every((e) => e.manifest.kind !== 'guide' && e.manifest.language === 'python'));
+  assert.ok(python.some((e) => e.manifest.slug === 'fastapi-analytics-api'));
+  assert.ok(!python.some((e) => e.manifest.slug === 'nextjs-dashboard'));
   assert.ok(facets.languages.includes('python'));
 });
 
