@@ -1,0 +1,1 @@
+SELECT dictGet('dictionary_lookups_tenants', 'plan', tenant_id) AS `plan`, dictGet('dictionary_lookups_tenants', 'region', tenant_id) AS `region`, COUNT(events.event_id) AS `events`, COUNT(DISTINCT events.tenant_id) AS `tenants` FROM events WHERE toDateTime64(events.occurred_at, 9, 'UTC') BETWEEN ? AND ? GROUP BY `plan`, `region` ORDER BY `plan` ASC, `region` ASC
