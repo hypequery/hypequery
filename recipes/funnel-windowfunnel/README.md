@@ -101,6 +101,7 @@ events ── VIEW funnel_windowfunnel_user_levels (tenant_id, user_id, month, f
 ## Related recipes
 
 - [retention-cohorts](../retention-cohorts): the same "shape it in a view, count it in a dataset" pattern.
+- [sessionization](../sessionization): split the same event stream into sessions instead of funnels.
 
 ## Related examples
 

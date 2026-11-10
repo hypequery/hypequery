@@ -20,7 +20,7 @@
   ],
   "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
   "exampleRequest": "node dist/recipe.js --json",
-  "related": ["retention-cohorts", "multi-tenant-embedded-analytics"],
+  "related": ["retention-cohorts", "sessionization", "multi-tenant-embedded-analytics"],
   "leadPages": ["/clickhouse-product-analytics", "/clickhouse-saas-analytics", "/clickhouse-typescript"],
   "functionPages": [],
   "keywords": [

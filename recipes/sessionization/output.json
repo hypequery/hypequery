@@ -1,0 +1,58 @@
+[
+  {
+    "period": "2026-10-25 00:00:00",
+    "sessions": "1955",
+    "users": "798",
+    "sessionsPerUser": "2.4498746867167918",
+    "avgDurationSeconds": "84.14936061381074",
+    "avgEventsPerSession": "1.0971867007672633"
+  },
+  {
+    "period": "2026-10-26 00:00:00",
+    "sessions": "4413",
+    "users": "1186",
+    "sessionsPerUser": "3.720910623946037",
+    "avgDurationSeconds": "210.13301608882847",
+    "avgEventsPerSession": "1.2583276682528892"
+  },
+  {
+    "period": "2026-10-27 00:00:00",
+    "sessions": "4466",
+    "users": "1175",
+    "sessionsPerUser": "3.8008510638297874",
+    "avgDurationSeconds": "207.0794894760412",
+    "avgEventsPerSession": "1.2420510523958799"
+  },
+  {
+    "period": "2026-10-28 00:00:00",
+    "sessions": "4415",
+    "users": "1177",
+    "sessionsPerUser": "3.7510620220900597",
+    "avgDurationSeconds": "203.56534541336353",
+    "avgEventsPerSession": "1.2437146092865232"
+  },
+  {
+    "period": "2026-10-29 00:00:00",
+    "sessions": "4579",
+    "users": "1191",
+    "sessionsPerUser": "3.8446683459277917",
+    "avgDurationSeconds": "218.0692290893208",
+    "avgEventsPerSession": "1.2550775278445074"
+  },
+  {
+    "period": "2026-10-30 00:00:00",
+    "sessions": "4418",
+    "users": "1193",
+    "sessionsPerUser": "3.703269069572506",
+    "avgDurationSeconds": "229.77455862381169",
+    "avgEventsPerSession": "1.2700316885468539"
+  },
+  {
+    "period": "2026-10-31 00:00:00",
+    "sessions": "2016",
+    "users": "845",
+    "sessionsPerUser": "2.3857988165680473",
+    "avgDurationSeconds": "100.59970238095238",
+    "avgEventsPerSession": "1.1106150793650793"
+  }
+]
