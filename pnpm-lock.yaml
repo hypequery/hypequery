@@ -76,6 +76,8 @@ importers:
         specifier: ^5.0.5
         version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
+  examples/chdb-embedded-analytics: {}
+
   examples/clickhouse-rest-api-openapi:
     dependencies:
       '@hono/node-server':
@@ -96,15 +98,13 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^22.5.0
-        version: 22.20.1
+        version: 22.20.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^5.0.5
-        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
-
-  examples/chdb-embedded-analytics: {}
+        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
   examples/fastapi-analytics-api: {}
 
@@ -261,7 +261,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^22.5.0
-        version: 22.20.1
+        version: 22.20.5
       '@types/pg':
         specifier: ^8.15.6
         version: 8.23.1
@@ -270,7 +270,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^5.0.5
-        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
+        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
   examples/usage-based-billing:
     dependencies:
@@ -295,13 +295,13 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^22.5.0
-        version: 22.20.1
+        version: 22.20.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^5.0.5
-        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
+        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
   packages/cli:
     dependencies:
@@ -409,7 +409,7 @@ importers:
     dependencies:
       '@hypequery/clickhouse':
         specifier: '>=2.13.0'
-        version: 2.15.0(@clickhouse/client-web@1.24.0)(@hypequery/datasets@packages+datasets)
+        version: link:../clickhouse
       '@hypequery/protocol':
         specifier: ^0.25.0
         version: link:../protocol
@@ -1076,18 +1076,6 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
-
-  '@hypequery/clickhouse@2.15.0':
-    resolution: {integrity: sha512-jh7tzRgqAcCBChLrfeEzOpRNNUtH/3YagiBDj8wGeZCpTxbrwP4AZDTv8YIMtc1yC31QF5nf139NIRWYNdUL2g==}
-    hasBin: true
-    peerDependencies:
-      '@clickhouse/client-web': ^0.2.0 || ^1.0.0
-      '@hypequery/datasets': '>=0.1.0'
-    peerDependenciesMeta:
-      '@clickhouse/client-web':
-        optional: true
-      '@hypequery/datasets':
-        optional: true
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -4084,15 +4072,6 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@hypequery/clickhouse@2.15.0(@clickhouse/client-web@1.24.0)(@hypequery/datasets@packages+datasets)':
-    dependencies:
-      '@clickhouse/client': 1.24.1
-      '@clickhouse/client-common': 1.23.0
-      dotenv: 18.0.9
-    optionalDependencies:
-      '@clickhouse/client-web': 1.24.0
-      '@hypequery/datasets': link:packages/datasets
-
   '@img/colour@1.1.0':
     optional: true
 
@@ -4599,7 +4578,7 @@ snapshots:
 
   '@types/pg@8.23.1':
     dependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.6.6
       pg-protocol: 1.16.1
       pg-types: 2.2.0
 
