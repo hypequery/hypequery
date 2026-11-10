@@ -1,0 +1,34 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "replacingmergetree-upserts",
+  "kind": "recipe",
+  "title": "Upserts and deletes in ClickHouse with ReplacingMergeTree and a typed dataset",
+  "outcome": "Upsert and delete rows with ReplacingMergeTree, read the latest version with FINAL or argMax, and pin the results before and after OPTIMIZE.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["saas-analytics", "data-modeling"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "sql/setup.sql",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["projection-for-dataset-queries", "multi-tenant-embedded-analytics"],
+  "leadPages": ["/clickhouse-schema", "/clickhouse-saas-analytics", "/clickhouse-multi-tenant-analytics", "/clickhouse-typescript"],
+  "functionPages": ["multi-if"],
+  "keywords": [
+    "clickhouse replacingmergetree",
+    "clickhouse upsert",
+    "clickhouse deduplication",
+    "clickhouse replacingmergetree is_deleted",
+    "clickhouse final vs argmax"
+  ],
+  "minVersion": "2.14.0"
+}

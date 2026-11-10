@@ -1,0 +1,98 @@
+[
+  {
+    "plan": "enterprise",
+    "region": "ap-south",
+    "events": "1382",
+    "tenants": "1"
+  },
+  {
+    "plan": "enterprise",
+    "region": "eu-west",
+    "events": "58380",
+    "tenants": "8"
+  },
+  {
+    "plan": "enterprise",
+    "region": "us-east",
+    "events": "32562",
+    "tenants": "9"
+  },
+  {
+    "plan": "enterprise",
+    "region": "us-west",
+    "events": "23406",
+    "tenants": "4"
+  },
+  {
+    "plan": "free",
+    "region": "ap-south",
+    "events": "46",
+    "tenants": "7"
+  },
+  {
+    "plan": "free",
+    "region": "eu-west",
+    "events": "41",
+    "tenants": "8"
+  },
+  {
+    "plan": "free",
+    "region": "us-east",
+    "events": "138",
+    "tenants": "22"
+  },
+  {
+    "plan": "free",
+    "region": "us-west",
+    "events": "54",
+    "tenants": "6"
+  },
+  {
+    "plan": "growth",
+    "region": "ap-south",
+    "events": "1476",
+    "tenants": "3"
+  },
+  {
+    "plan": "growth",
+    "region": "eu-west",
+    "events": "4233",
+    "tenants": "10"
+  },
+  {
+    "plan": "growth",
+    "region": "us-east",
+    "events": "11308",
+    "tenants": "21"
+  },
+  {
+    "plan": "growth",
+    "region": "us-west",
+    "events": "4118",
+    "tenants": "6"
+  },
+  {
+    "plan": "starter",
+    "region": "ap-south",
+    "events": "556",
+    "tenants": "9"
+  },
+  {
+    "plan": "starter",
+    "region": "eu-west",
+    "events": "680",
+    "tenants": "19"
+  },
+  {
+    "plan": "starter",
+    "region": "us-east",
+    "events": "1128",
+    "tenants": "19"
+  },
+  {
+    "plan": "starter",
+    "region": "us-west",
+    "events": "236",
+    "tenants": "7"
+  }
+]

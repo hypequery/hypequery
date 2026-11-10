@@ -1,0 +1,1 @@
+SELECT replacingmergetree_upserts_tenants.plan AS `plan`, COUNT(replacingmergetree_upserts_tenants.tenant_id) AS `tenants` FROM replacingmergetree_upserts_tenants FINAL WHERE replacingmergetree_upserts_tenants.is_deleted = ? GROUP BY `plan` ORDER BY `plan` ASC
