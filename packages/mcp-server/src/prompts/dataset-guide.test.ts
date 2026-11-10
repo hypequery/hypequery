@@ -27,8 +27,8 @@ describe('datasetGuidePrompt', () => {
     const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
     expect(text).toContain('- revenue\n');
     expect(text).toContain('- revenueRatio\n');
-    expect(text).toContain('- runningRevenue (requires by and a bounded ISO time range on createdAt)');
-    expect(text).toContain('- growth (requires by and a bounded ISO time range on createdAt)');
+    expect(text).toContain('- runningRevenue (requires grain and a bounded ISO time range on createdAt)');
+    expect(text).toContain('- growth (requires grain and a bounded ISO time range on createdAt)');
   });
 
   it('lists shifted measures and their bounded time-axis requirement', () => {
@@ -36,7 +36,7 @@ describe('datasetGuidePrompt', () => {
       measures: { revenue: measure.sum('amount'), priorRevenue: measure.shift('revenue', { amount: 1, unit: 'year' }) },
     });
     const text = datasetGuidePrompt({ orders }, 'orders').messages[0].content.text;
-    expect(text).toContain('- priorRevenue (requires by and a bounded ISO time range on createdAt)');
+    expect(text).toContain('- priorRevenue (requires grain and a bounded ISO time range on createdAt)');
     expect(text).toContain('[grains: minute, hour, day, week, month, quarter, year]');
   });
 
