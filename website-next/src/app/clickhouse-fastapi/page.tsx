@@ -69,6 +69,7 @@ const requestCode = `curl -X POST https://analytics.example.com/analytics/datase
 export default function ClickHouseFastAPIPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-fastapi"
       eyebrow="ClickHouse FastAPI"
       title="Serve ClickHouse analytics from FastAPI without hand-writing every endpoint"
       description="Most FastAPI analytics endpoints are the same code repeated: parse filters, build SQL, add the tenant, check permissions, shape errors. hypequery serves your ClickHouse datasets as authenticated, tenant-scoped endpoints, so the route stops being where the analytics logic lives."

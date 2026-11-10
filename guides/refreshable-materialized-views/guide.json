@@ -1,0 +1,26 @@
+{
+  "$schema": "https://hypequery.com/schemas/guide.schema.json",
+  "slug": "refreshable-materialized-views",
+  "kind": "guide",
+  "title": "Refreshable materialized views in ClickHouse: schedule, refresh, monitor and query them",
+  "outcome": "Create a refreshable materialized view on a schedule, refresh it on demand, watch it in system.view_refreshes, and query it through a typed hypequery dataset.",
+  "clickhouseVersion": "25.8",
+  "sqlFiles": [
+    "sql/01-create.sql",
+    "sql/02-refresh-and-wait.sql",
+    "sql/03-monitor.sql",
+    "sql/04-depends-on.sql",
+    "sql/05-append-mode.sql",
+    "sql/06-modify-and-drop.sql"
+  ],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "related": ["materialized-view-rollups"],
+  "leadPages": ["/clickhouse-time-series", "/clickhouse-semantic-layer"],
+  "functionPages": ["to-start-of-day", "quantile", "count"],
+  "keywords": [
+    "clickhouse refreshable materialized view",
+    "clickhouse materialized view refresh",
+    "clickhouse refresh every",
+    "clickhouse system.view_refreshes"
+  ]
+}

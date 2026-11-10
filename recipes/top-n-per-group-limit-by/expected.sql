@@ -1,0 +1,1 @@
+SELECT tenant_id, path, COUNT(event_id) AS events FROM events WHERE tenant_id IN (1, 2, 3, 4, 5) AND occurred_at BETWEEN '2026-10-01 00:00:00' AND '2026-10-31 23:59:59' GROUP BY tenant_id, path ORDER BY tenant_id ASC, events DESC, path ASC LIMIT 3 BY tenant_id

@@ -100,6 +100,7 @@ export const analytics = createDatasetClient({ queryBuilder: db });`;
 export default function ClickHouseMcpPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-mcp"
       eyebrow="ClickHouse MCP"
       title="Give AI agents trusted ClickHouse analytics — not a database console"
       description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."

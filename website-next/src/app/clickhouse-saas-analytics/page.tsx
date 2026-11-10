@@ -72,6 +72,7 @@ function AnalyticsDashboard() {
 export default function ClickHouseSaasAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-saas-analytics"
       eyebrow="ClickHouse SaaS Analytics"
       title="Embed customer-facing analytics in your SaaS product with ClickHouse"
       description="Once analytics is part of your product, you need tenant scoping that's hard to bypass, a stable API for the UI, and one definition behind dashboards, exports, support views, and AI agents. hypequery gives you that in the codebase you already have."

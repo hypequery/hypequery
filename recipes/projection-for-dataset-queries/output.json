@@ -1,0 +1,44 @@
+[
+  {
+    "day": "2026-10-25",
+    "events": "2144",
+    "totalLatencyMs": "536478",
+    "avgLatencyMs": "250.22294776119404"
+  },
+  {
+    "day": "2026-10-26",
+    "events": "5551",
+    "totalLatencyMs": "1410483",
+    "avgLatencyMs": "254.09529814447848"
+  },
+  {
+    "day": "2026-10-27",
+    "events": "5548",
+    "totalLatencyMs": "1411296",
+    "avgLatencyMs": "254.37923576063446"
+  },
+  {
+    "day": "2026-10-28",
+    "events": "5491",
+    "totalLatencyMs": "1409198",
+    "avgLatencyMs": "256.6377708978328"
+  },
+  {
+    "day": "2026-10-29",
+    "events": "5749",
+    "totalLatencyMs": "1426139",
+    "avgLatencyMs": "248.06731605496608"
+  },
+  {
+    "day": "2026-10-30",
+    "events": "5612",
+    "totalLatencyMs": "1447614",
+    "avgLatencyMs": "257.9497505345688"
+  },
+  {
+    "day": "2026-10-31",
+    "events": "2239",
+    "totalLatencyMs": "587427",
+    "avgLatencyMs": "262.36132201875836"
+  }
+]

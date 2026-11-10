@@ -1,0 +1,74 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "streamlit-dashboard",
+  "kind": "example",
+  "title": "A governed Streamlit dashboard on ClickHouse with pandas export",
+  "outcome": "Build a Streamlit dashboard on ClickHouse that reads only typed hypequery datasets: filters, a time series, breakdowns and a pandas CSV export.",
+  "language": "python",
+  "stack": [
+    "python",
+    "streamlit",
+    "pandas",
+    "clickhouse"
+  ],
+  "useCases": [
+    "dashboards",
+    "product-analytics",
+    "semantic-layer",
+    "time-series"
+  ],
+  "packages": [
+    "hypequery"
+  ],
+  "keyFile": "app.py",
+  "env": [
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "uv sync",
+    "dev": "uv run streamlit run app.py --server.port 8501",
+    "test": "uv run pytest -q"
+  },
+  "exampleRequest": "uv run python -c \"from datetime import date; from analytics import queries as q; print(q.kpis(q.Filters(date(2026, 10, 1), date(2026, 10, 31))))\"",
+  "related": [
+    "django-analytics",
+    "fastapi-analytics-api",
+    "p95-latency"
+  ],
+  "leadPages": [
+    "/clickhouse-pandas",
+    "/clickhouse-python-analytics",
+    "/clickhouse-dashboard",
+    "/clickhouse-python"
+  ],
+  "functionPages": [
+    "quantile",
+    "to-start-of-week"
+  ],
+  "keywords": [
+    "clickhouse streamlit",
+    "clickhouse python dashboard",
+    "clickhouse pandas",
+    "python dashboard clickhouse"
+  ],
+  "minVersion": "0.1.0"
+}

@@ -1,0 +1,42 @@
+{
+  "beforeOptimize": {
+    "rawRows": {
+      "enterprise": 28,
+      "free": 104,
+      "growth": 47,
+      "starter": 68
+    },
+    "final": {
+      "enterprise": 26,
+      "free": 73,
+      "growth": 40,
+      "starter": 53
+    },
+    "argMax": {
+      "enterprise": 26,
+      "free": 73,
+      "growth": 40,
+      "starter": 53
+    }
+  },
+  "afterOptimize": {
+    "rawRows": {
+      "enterprise": 27,
+      "free": 76,
+      "growth": 40,
+      "starter": 57
+    },
+    "final": {
+      "enterprise": 26,
+      "free": 73,
+      "growth": 40,
+      "starter": 53
+    },
+    "argMax": {
+      "enterprise": 26,
+      "free": 73,
+      "growth": 40,
+      "starter": 53
+    }
+  }
+}

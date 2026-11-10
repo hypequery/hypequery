@@ -1,0 +1,92 @@
+[
+  {
+    "tenantId": 153,
+    "loggedIn": "141",
+    "ranQuery": "106",
+    "exported": "50",
+    "queryRate": "0.75177304964539",
+    "exportRate": "0.4716981132075472",
+    "conversion": "0.3546099290780142"
+  },
+  {
+    "tenantId": 14,
+    "loggedIn": "99",
+    "ranQuery": "61",
+    "exported": "20",
+    "queryRate": "0.6161616161616161",
+    "exportRate": "0.32786885245901637",
+    "conversion": "0.20202020202020202"
+  },
+  {
+    "tenantId": 52,
+    "loggedIn": "98",
+    "ranQuery": "62",
+    "exported": "27",
+    "queryRate": "0.6326530612244898",
+    "exportRate": "0.43548387096774194",
+    "conversion": "0.2755102040816326"
+  },
+  {
+    "tenantId": 9,
+    "loggedIn": "80",
+    "ranQuery": "54",
+    "exported": "21",
+    "queryRate": "0.675",
+    "exportRate": "0.3888888888888889",
+    "conversion": "0.2625"
+  },
+  {
+    "tenantId": 47,
+    "loggedIn": "73",
+    "ranQuery": "59",
+    "exported": "34",
+    "queryRate": "0.8082191780821918",
+    "exportRate": "0.576271186440678",
+    "conversion": "0.4657534246575342"
+  },
+  {
+    "tenantId": 18,
+    "loggedIn": "71",
+    "ranQuery": "47",
+    "exported": "26",
+    "queryRate": "0.6619718309859155",
+    "exportRate": "0.5531914893617021",
+    "conversion": "0.36619718309859156"
+  },
+  {
+    "tenantId": 134,
+    "loggedIn": "57",
+    "ranQuery": "41",
+    "exported": "17",
+    "queryRate": "0.7192982456140351",
+    "exportRate": "0.4146341463414634",
+    "conversion": "0.2982456140350877"
+  },
+  {
+    "tenantId": 36,
+    "loggedIn": "51",
+    "ranQuery": "39",
+    "exported": "23",
+    "queryRate": "0.7647058823529411",
+    "exportRate": "0.5897435897435898",
+    "conversion": "0.45098039215686275"
+  },
+  {
+    "tenantId": 66,
+    "loggedIn": "39",
+    "ranQuery": "29",
+    "exported": "20",
+    "queryRate": "0.7435897435897436",
+    "exportRate": "0.6896551724137931",
+    "conversion": "0.5128205128205128"
+  },
+  {
+    "tenantId": 170,
+    "loggedIn": "33",
+    "ranQuery": "14",
+    "exported": "0",
+    "queryRate": "0.42424242424242425",
+    "exportRate": "0",
+    "conversion": "0"
+  }
+]

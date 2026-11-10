@@ -9,6 +9,9 @@ packages:
   - 'packages/protocol'
   - 'packages/protocol-conformance'
   - 'packages/tsconfig'
+  - 'packages/examples-schema'
+  - 'examples/*'
+  - 'recipes/*'
 
 auditConfig:
   ignoreGhsas:

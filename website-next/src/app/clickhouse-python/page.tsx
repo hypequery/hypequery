@@ -288,6 +288,7 @@ revenue_by_country("acme", status="x' OR tenant_id != '")
 export default function ClickHousePythonPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-python"
       eyebrow="ClickHouse Python clients"
       title="ClickHouse Python clients compared: clickhouse-connect, clickhouse-driver, SQLAlchemy and hypequery"
       description="For most Python code, use clickhouse-connect: it is the client ClickHouse maintains, it talks to the HTTP interface, binds `{name:Type}` parameters on the server, and returns pandas, NumPy or Arrow. clickhouse-driver is the community client for the native TCP protocol, clickhouse-sqlalchemy is a SQLAlchemy dialect built on it, and hypequery runs on top of clickhouse-connect to add named, validated, tenant-scoped analytics queries."

@@ -1,0 +1,22 @@
+{
+  "clickhouse": "25.8.33.6",
+  "eventCount": 1000000,
+  "tables": {
+    "tenants": {
+      "rows": 200,
+      "checksum": "6081986796264689692"
+    },
+    "users": {
+      "rows": 6368,
+      "checksum": "3831675109420512700"
+    },
+    "events": {
+      "rows": 1000000,
+      "checksum": "9684740761899281623"
+    },
+    "subscriptions": {
+      "rows": 141,
+      "checksum": "1184325396405518118"
+    }
+  }
+}

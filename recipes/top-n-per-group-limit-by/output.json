@@ -1,0 +1,77 @@
+[
+  {
+    "tenant_id": 1,
+    "path": "/login",
+    "events": "3"
+  },
+  {
+    "tenant_id": 1,
+    "path": "/explore",
+    "events": "2"
+  },
+  {
+    "tenant_id": 1,
+    "path": "/export",
+    "events": "2"
+  },
+  {
+    "tenant_id": 2,
+    "path": "/explore",
+    "events": "53"
+  },
+  {
+    "tenant_id": 2,
+    "path": "/login",
+    "events": "24"
+  },
+  {
+    "tenant_id": 2,
+    "path": "/reports",
+    "events": "24"
+  },
+  {
+    "tenant_id": 3,
+    "path": "/explore",
+    "events": "226"
+  },
+  {
+    "tenant_id": 3,
+    "path": "/dashboard",
+    "events": "79"
+  },
+  {
+    "tenant_id": 3,
+    "path": "/billing",
+    "events": "77"
+  },
+  {
+    "tenant_id": 4,
+    "path": "/explore",
+    "events": "288"
+  },
+  {
+    "tenant_id": 4,
+    "path": "/settings",
+    "events": "93"
+  },
+  {
+    "tenant_id": 4,
+    "path": "/reports",
+    "events": "84"
+  },
+  {
+    "tenant_id": 5,
+    "path": "/explore",
+    "events": "165"
+  },
+  {
+    "tenant_id": 5,
+    "path": "/dashboard",
+    "events": "80"
+  },
+  {
+    "tenant_id": 5,
+    "path": "/login",
+    "events": "75"
+  }
+]

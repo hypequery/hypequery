@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { skillCommand, type SkillOptions } from './commands/skill.js';
+import { examplesListCommand, type ExamplesListOptions } from './commands/examples.js';
+import { createCommand, type CreateOptions } from './commands/create.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
@@ -62,6 +64,30 @@ program
   .description('Show or change anonymous usage telemetry settings (status|enable|disable)')
   .action(runCommand(async (action: string | undefined) => {
     await telemetryCommand(action, { telemetry: program.opts().telemetry });
+  }));
+
+program
+  .command('examples [action]')
+  .description('List the runnable examples, recipes and guides in the registry (action: list)')
+  .option('--json', 'Print the registry index as JSON')
+  .option('--kind <kind>', 'Only example, recipe or guide')
+  .action(runCommand(async (action: string | undefined, options: ExamplesListOptions) => {
+    if (action !== undefined && action !== 'list') {
+      throw new Error(`Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
+    }
+    await examplesListCommand(options);
+  }));
+
+program
+  .command('create <slug>')
+  .description('Scaffold an example or recipe from the registry into ./<slug>, pinned to published versions')
+  .option('-y, --yes', 'Accept defaults and never prompt')
+  .option('--dir <path>', 'Target directory (default: ./<slug>)')
+  .option('--no-install', 'Skip installing dependencies')
+  .option('--no-seed', 'Skip copying the shared seed dataset into ./<slug>/seed')
+  .option('--tag <dist-tag>', 'Dist-tag for @hypequery/* packages whose recorded version is not on npm (default: latest)')
+  .action(runCommand(async (slug: string, options: CreateOptions) => {
+    await createCommand(slug, options);
   }));
 
 program
@@ -364,6 +390,8 @@ program.on('--help', () => {
   console.log('  hypequery generate --output analytics/schema.ts');
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
+  console.log('  hypequery examples list');
+  console.log('  hypequery create nextjs-dashboard -y');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
   console.log('  hypequery export:client-contract analytics/api.ts --output client-contract.json');
   console.log('  hypequery deploy analytics/cloud.ts');

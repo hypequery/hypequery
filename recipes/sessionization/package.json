@@ -1,0 +1,24 @@
+{
+  "name": "@hypequery-recipes/sessionization",
+  "version": "0.1.0",
+  "private": true,
+  "description": "30-minute inactivity sessions per user in ClickHouse with lagInFrame behind a hypequery dataset: the view, the dataset, the SQL it generates, and the output on the seed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "setup": "npm run build && node dist/setup.js",
+    "dev": "npm run setup && node dist/recipe.js",
+    "capture": "npm run setup && node dist/recipe.js --write",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

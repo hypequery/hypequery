@@ -119,6 +119,7 @@ app = to_asgi_app(api)  # or app.mount("/analytics", ...) in FastAPI`;
 export default function ClickHousePythonAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-python-analytics"
       eyebrow="ClickHouse Python analytics"
       title="Build ClickHouse analytics in Python once, then use it everywhere"
       description="Revenue, paying customers, and average order value start in one script and end up in jobs, notebooks, customer dashboards, and AI agents. hypequery lets you define each metric once in Python, next to your application code, so every consumer gets the same number."

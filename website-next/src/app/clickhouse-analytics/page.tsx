@@ -50,6 +50,7 @@ const reactResult = useQuery('activeUsers', { days: 30 });`;
 export default function ClickHouseAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-analytics"
       eyebrow="ClickHouse Analytics"
       title="Turn ClickHouse into a reusable analytics layer instead of a pile of raw queries"
       description="Once the first few queries work, the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives each one a single definition, in TypeScript or Python, in the codebase you already have. Dashboards, APIs, and AI agents all answer from it."

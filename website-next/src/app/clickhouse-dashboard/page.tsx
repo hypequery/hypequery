@@ -125,6 +125,7 @@ export function DashboardPage() {
 export default function ClickHouseDashboardPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-dashboard"
       eyebrow="ClickHouse Dashboard"
       title="Build typed ClickHouse dashboards without a custom data layer"
       description="The chart library is usually not the hard part. The hard part is that every panel wants a route, a request helper, a response type, loading state handling, and one more place for the metric definition to drift. hypequery gives the dashboard a cleaner backend path."

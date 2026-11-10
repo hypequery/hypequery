@@ -64,6 +64,7 @@ npx hypequery generate:client client-contract.json \\
 export default function FastApiReactAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/fastapi-react-analytics"
       eyebrow="FastAPI + React"
       title="FastAPI analytics with typed React hooks, generated from Python"
       description="Keep your analytics in Python, where your data team already works. hypequery serves the datasets from FastAPI and generates a typed React client from the same definitions, so the frontend can only ask for fields that exist."

@@ -15,6 +15,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
     links: [
       { label: 'Home', href: '/' },
       { label: 'Docs', href: '/docs' },
+      { label: 'Examples', href: '/examples' },
       { label: 'Python SDK', href: '/docs/python' },
       { label: 'Query builder', href: '/clickhouse-query-builder' },
       { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },

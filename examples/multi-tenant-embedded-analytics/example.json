@@ -1,0 +1,32 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "multi-tenant-embedded-analytics",
+  "kind": "example",
+  "title": "Multi-tenant embedded analytics on ClickHouse with signed tokens",
+  "outcome": "Embed tenant-scoped ClickHouse analytics in your product: your server mints a short-lived token, hypequery enforces the tenant on every query.",
+  "language": "typescript",
+  "stack": ["node", "hono", "clickhouse"],
+  "useCases": ["embedded-analytics", "multi-tenant", "saas-analytics"],
+  "packages": ["@hypequery/serve", "@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "analytics/api.ts",
+  "env": [
+    { "name": "HYPEQUERY_AUTH_SECRET", "description": "HS256 secret shared by the token issuer and the verifier. The demo has an insecure default; set your own.", "required": false },
+    { "name": "PORT", "description": "HTTP port (default 3000)", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "TOKEN=$(curl -s -X POST localhost:3000/api/analytics/token -H 'content-type: application/json' -d '{\"email\":\"ada@quartz.example\"}' | jq -r .token) && curl -s -X POST localhost:3000/api/analytics/datasets/events/query -H \"authorization: Bearer $TOKEN\" -H 'content-type: application/json' -d '{\"measures\":[\"events\",\"uniqueUsers\"]}'",
+  "related": ["nextjs-dashboard", "p95-latency"],
+  "leadPages": ["/clickhouse-multi-tenant-analytics", "/clickhouse-saas-analytics", "/clickhouse-hono", "/clickhouse-api", "/clickhouse-nodejs"],
+  "functionPages": ["count", "uniq", "quantile"],
+  "keywords": [
+    "clickhouse multi-tenant",
+    "clickhouse embedded analytics",
+    "clickhouse row level security tenant",
+    "clickhouse saas analytics api"
+  ],
+  "minVersion": "2.14.0"
+}

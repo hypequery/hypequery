@@ -73,6 +73,7 @@ const revenueByRegion = await db
 export default function TypeSafeSqlTypescriptPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/type-safe-sql-typescript"
       eyebrow="Type-safe SQL in TypeScript"
       title="Type-safe SQL in TypeScript: a practical guide"
       description="Type-safe SQL means three concrete things: the compiler rejects table and column names that do not exist, query results carry real types instead of any, and those types tell the truth about what the database driver actually returns. Prisma, Drizzle, Kysely, and SQL codegen tools all deliver this for Postgres and MySQL. None of them cover ClickHouse. This guide explains how each approach works, where each one shines, and what to use when your analytics database is ClickHouse."

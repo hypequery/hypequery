@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import {
@@ -350,6 +351,8 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             ))}
           </div>
         </section>
+
+        <ExamplesBlock functionPage={functionPathSegment(fn.name)} />
 
         {/* Related functions + pillars */}
         <section className="mx-auto max-w-7xl px-4 py-14 lg:px-6">

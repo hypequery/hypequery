@@ -17,6 +17,10 @@ pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list
 | `packages/protocol` / `packages/protocol-conformance` | Security protocol + cross-language conformance runner |
 | `packages/deployment` | Deployment contracts and tooling |
 | `packages/tsconfig` | Shared tsconfig presets — new packages extend this |
+| `packages/examples-schema` | Private. Zod manifest schemas + validator for the examples registry (runs in `pnpm lint`) |
+| `examples/` | Examples registry: `examples/<slug>/example.json` + code, plus `_seed/` (shared ClickHouse seed dataset). See `examples/README.md` |
+| `recipes/` | Recipes registry (`recipe.json`), same rules as examples |
+| `guides/` | Long-form guides whose `*.sql` is run against the seed in CI |
 | `website-next/` | Next.js + Fumadocs site. Docs live in `website-next/docs/` |
 | `testing/` | Manual, model-executable E2E test specs (see `testing/README.md`) |
 | `specs/` | RFCs, decisions, and conformance fixtures (`specs/security-protocol/`) |
@@ -35,6 +39,8 @@ pnpm --filter @hypequery/<pkg> <script>   # per-package (build, test, test:unit,
 pnpm test:integration   # ClickHouse integration tests — requires Docker
 pnpm conformance        # protocol conformance runner (build packages first)
 pnpm smoke:consumers    # all consumer smoke tests (scripts/smoke-*.sh)
+pnpm seed               # load + verify the examples seed dataset (needs examples/_seed/docker-compose.yml up)
+pnpm examples:validate  # validate every example.json / recipe.json
 ```
 
 - Every published package has `test:types` (driven by `tsconfig.type-tests.json`); it runs as part of `pnpm test`. Type-level changes need type tests, not just unit tests.

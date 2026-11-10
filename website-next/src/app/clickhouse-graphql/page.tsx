@@ -147,6 +147,7 @@ console.log(\`GraphQL server ready at \${url}\`);`;
 export default function ClickHouseGraphQLPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-graphql"
       eyebrow="ClickHouse GraphQL"
       title="Use hypequery as the ClickHouse data layer for GraphQL resolvers"
       description="GraphQL resolvers need a data layer. When that data is in ClickHouse, the naive approach is to call @clickhouse/client directly and return untyped rows. hypequery gives resolvers a typed ClickHouse query builder — column types are inferred from the schema, so the resolver return type matches the GraphQL schema without manual bridging."

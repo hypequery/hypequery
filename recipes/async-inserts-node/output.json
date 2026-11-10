@@ -1,0 +1,30 @@
+[
+  {
+    "strategy": "per-row INSERT",
+    "inserts": 1000,
+    "parts": 1000,
+    "rows": 1000,
+    "rowsWhenCallsReturned": 1000
+  },
+  {
+    "strategy": "client batches of 250",
+    "inserts": 4,
+    "parts": 4,
+    "rows": 1000,
+    "rowsWhenCallsReturned": 1000
+  },
+  {
+    "strategy": "async_insert, wait=1, 100 in flight",
+    "inserts": 1000,
+    "parts": 10,
+    "rows": 1000,
+    "rowsWhenCallsReturned": 1000
+  },
+  {
+    "strategy": "async_insert, wait=0, then flush",
+    "inserts": 1000,
+    "parts": 1,
+    "rows": 1000,
+    "rowsWhenCallsReturned": 0
+  }
+]

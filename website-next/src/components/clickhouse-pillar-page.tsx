@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import CodeWindow from '@/components/CodeWindow';
 import { RichText } from '@/components/RichText';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
@@ -146,6 +147,8 @@ type SourceLink = {
 };
 
 export type ClickhousePillarPageProps = {
+  /** The page's own path, e.g. "/clickhouse-nextjs"; examples tagged with it render a block here. */
+  leadPage?: string;
   eyebrow: string;
   title: string;
   description: string;
@@ -187,6 +190,7 @@ export type ClickhousePillarPageProps = {
 };
 
 export function ClickhousePillarPage({
+  leadPage,
   eyebrow,
   title,
   description,
@@ -551,6 +555,7 @@ export function ClickhousePillarPage({
           </div>
         </section>
 
+        {leadPage && <ExamplesBlock leadPage={leadPage} />}
         {faq && faq.length > 0 ? (
           <section className={`${marketing.container} pt-14 sm:pt-20`}>
             <p className={marketing.eyebrow}>FAQ</p>

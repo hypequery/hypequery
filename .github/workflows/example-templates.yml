@@ -1,0 +1,70 @@
+name: Example templates
+
+# Mirrors every registry example into its GitHub template repo
+# (hypequery/<slug>) after the Examples workflow passes on main, so a mirror is
+# never ahead of a green build. Repos are created once by hand with
+# `node scripts/examples/publish-templates.mjs --publish --create`; this job only
+# syncs repos that already exist.
+#
+# Needs the EXAMPLE_TEMPLATES_TOKEN secret: a fine-grained token (or GitHub App
+# token) with contents: write on the hypequery/<slug> repos. Without it the job
+# is skipped.
+on:
+  workflow_run:
+    workflows: [Examples]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Comma-separated slugs (default: all examples)'
+        required: false
+
+concurrency:
+  group: example-templates
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.EXAMPLE_TEMPLATES_TOKEN }}
+      CLICKHOUSE_URL: http://localhost:8123
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: hypequery
+      CLICKHOUSE_DATABASE: hypequery_examples
+    steps:
+      - name: Skip without a token
+        id: token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "EXAMPLE_TEMPLATES_TOKEN is not set; skipping."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v7
+        if: steps.token.outputs.ok == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v6
+        if: steps.token.outputs.ok == 'true'
+      - uses: actions/setup-node@v7.1.0
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        if: steps.token.outputs.ok == 'true'
+      - if: steps.token.outputs.ok == 'true'
+        run: pnpm install --frozen-lockfile && pnpm --filter @hypequery/cli... build
+      # --publish verifies each export against published packages first, so
+      # the seed has to be up.
+      - name: Start and load the seed
+        if: steps.token.outputs.ok == 'true'
+        run: docker compose -f examples/_seed/docker-compose.yml up -d --wait && pnpm seed
+      - name: Sync template repos
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          gh auth setup-git
+          node scripts/examples/publish-templates.mjs --publish ${INPUT_ONLY:+--only "$INPUT_ONLY"}
+        env:
+          INPUT_ONLY: ${{ inputs.only }}

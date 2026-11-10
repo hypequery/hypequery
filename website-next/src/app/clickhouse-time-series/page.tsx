@@ -161,6 +161,7 @@ export const api = serve({
 export default function ClickHouseTimeSeriesPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-time-series"
       eyebrow="ClickHouse Time Series"
       title="Typed time-series queries on ClickHouse in TypeScript"
       description="Time-series queries are the most common ClickHouse use case and the most common source of subtle TypeScript bugs — because ClickHouse DateTime columns return as strings and ClickHouse date functions are specific to ClickHouse SQL. hypequery gives TypeScript teams a composable, type-safe path to time-series analytics."

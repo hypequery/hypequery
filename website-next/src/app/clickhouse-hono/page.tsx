@@ -143,6 +143,7 @@ const { data } = await client.analytics['active-users']
 export default function ClickHouseHonoPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-hono"
       eyebrow="ClickHouse Hono"
       title="Build ClickHouse analytics APIs with Hono and hypequery"
       description="Hono is a fast, lightweight web framework that runs on Node.js, Cloudflare Workers, Deno, and Bun. hypequery gives Hono routes a typed ClickHouse data layer. The combination means you can build analytics APIs where the response shape is inferred all the way from the ClickHouse column definition to the browser client."

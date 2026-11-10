@@ -1,6 +1,7 @@
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { comparePages } from '@/data/compare-pages';
+import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
 import { PRODUCT_DEFINITION } from '@/data/product';
 import { docsPageTitle } from '@/lib/docs-section-label';
 
@@ -96,7 +97,7 @@ export function GET() {
     '',
     `> ${PRODUCT_DEFINITION}`,
     '',
-    `Each docs link below points to the clean Markdown version of the page. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
+    `Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
     '',
     '## Start here',
     '',
@@ -106,7 +107,19 @@ export function GET() {
     if (entry) lines.push(entryLine(entry));
   }
 
-  lines.push('', '## Compare', '');
+  // After the start-here pages: the sub-indexes agents follow to runnable code.
+  lines.push(`- [Examples](${absoluteUrl('/examples/llms.txt').toString()}): runnable apps over one seeded ClickHouse, scaffold with \`npx @hypequery/cli create <slug> -y\`.`);
+  lines.push(`- [Recipes](${absoluteUrl('/recipes/llms.txt').toString()}): one question, one dataset, the SQL it generates.`);
+  lines.push(`- [Guides](${absoluteUrl('/guides/llms.txt').toString()}): long-form ClickHouse guides with CI-tested SQL.`);
+  lines.push(`- [ClickHouse functions](${absoluteUrl('/clickhouse/functions/llms.txt').toString()}): per-function pages with the typed hypequery equivalent.`);
+  lines.push('');
+
+  lines.push('## Examples', '', ...formatEntries(exampleEntries()), '');
+  lines.push('## Recipes', '', ...(recipeEntries().length > 0 ? formatEntries(recipeEntries()) : ['- Coming soon: p95 latency, retention cohorts.']), '');
+  lines.push('## ClickHouse guides', '', ...formatEntries(guideEntries()), '');
+  lines.push('## ClickHouse functions', '', ...formatEntries(functionEntries()), '');
+
+  lines.push('## Compare', '');
   for (const page of comparePages) {
     lines.push(`- [${page.title}](${absoluteUrl(`/llms.mdx/compare/${page.slug}`).toString()}): ${page.verdict}`);
   }

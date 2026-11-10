@@ -1,0 +1,18 @@
+[
+  {
+    "plan": "enterprise",
+    "tenants": "26"
+  },
+  {
+    "plan": "free",
+    "tenants": "73"
+  },
+  {
+    "plan": "growth",
+    "tenants": "40"
+  },
+  {
+    "plan": "starter",
+    "tenants": "53"
+  }
+]

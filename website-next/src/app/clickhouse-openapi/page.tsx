@@ -94,6 +94,7 @@ const openApiOutput = `// GET /openapi.json — generated automatically
 export default function ClickHouseOpenApiPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-openapi"
       eyebrow="ClickHouse OpenAPI"
       title="Auto-generated OpenAPI docs from ClickHouse query definitions"
       description="Most internal analytics APIs never get documented properly because the spec is a second thing to maintain. hypequery makes the docs fall out of the query definition, so the request shape, response shape, and served endpoint stay in sync."
