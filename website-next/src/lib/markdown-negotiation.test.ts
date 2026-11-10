@@ -25,6 +25,9 @@ test('agents and HTTP libraries get Markdown', () => {
 test('explicit asks win for anyone', () => {
   assert.equal(ask('Mozilla/5.0 Chrome/152.0 Safari/537.36', { accept: 'text/markdown' }), true);
   assert.equal(ask('Mozilla/5.0 Chrome/152.0 Safari/537.36', { pathname: `${page}.md`, secFetchMode: 'navigate' }), true);
+  // The docs pages link `<page>.mdx` as their Markdown copy; it is an explicit ask too.
+  assert.equal(ask('Mozilla/5.0 Chrome/152.0 Safari/537.36', { pathname: '/docs/authentication.mdx', secFetchMode: 'navigate' }), true);
+  assert.equal(ask('python-requests/2.32.3', { pathname: '/docs/authentication.mdx' }), true);
 });
 
 test('unknown clients get HTML', () => {

@@ -66,6 +66,9 @@ describe('ClickHouse REST API', () => {
   it('rejects missing and wrong API keys', async () => {
     expect((await get('/api/metrics/daily-active-users', null)).status).toBe(401);
     expect((await get('/api/metrics/daily-active-users', 'wrong-key')).status).toBe(401);
+    // Names inherited by every plain object must not pass as keys.
+    expect((await get('/api/metrics/daily-active-users', 'constructor')).status).toBe(401);
+    expect((await get('/api/metrics/daily-active-users', '__proto__')).status).toBe(401);
   });
 
   it('publishes an OpenAPI document listing every endpoint with its parameters', async () => {

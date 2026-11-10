@@ -24,7 +24,9 @@ const MD_ROOTS: Record<string, string> = {
 
 function twinFor(pathname: string): string | null {
   if (pathname.endsWith('/llms.txt')) return null; // sub-indexes are already text
-  const clean = pathname.endsWith('.md') ? pathname.slice(0, -3) : pathname;
+  // `.md` is the twin suffix; `.mdx` is what the docs pages link for their
+  // own Markdown copy (next.config rewrites it for browsers, this covers agents).
+  const clean = pathname.replace(/\.mdx?$/, '');
   for (const [root, target] of Object.entries(MD_ROOTS)) {
     if (clean === root) return null; // hubs have no twin; /llms.txt indexes them
     if (clean.startsWith(`${root}/`)) return `${target}${clean.slice(root.length)}`;

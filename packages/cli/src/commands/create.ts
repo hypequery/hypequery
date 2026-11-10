@@ -127,13 +127,15 @@ export async function createCommand(slug: string, options: CreateOptions = {}, d
     shouldInstall = answer.install === true;
   }
   let installed = false;
+  let installFailed = false;
   if (shouldInstall) {
     logger.info(`Installing dependencies with ${manager}...`);
     try {
       await (dependencies.runInstall ?? defaultRunInstall)(manager, targetDir);
       installed = true;
     } catch (error) {
-      logger.warn(`Install failed: ${error instanceof Error ? error.message : String(error)}. Run it yourself from the Next block.`);
+      installFailed = true;
+      logger.warn(`Install failed: ${error instanceof Error ? error.message : String(error)}. The project is in place; run the install from the Next block.`);
     }
   }
 
@@ -149,4 +151,7 @@ export async function createCommand(slug: string, options: CreateOptions = {}, d
       url: entry.url,
     }),
   );
+  // The scaffold is usable, but a script that asked for an install must not
+  // read a failed one as success.
+  if (installFailed) process.exitCode = 1;
 }
