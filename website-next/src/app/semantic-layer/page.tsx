@@ -290,7 +290,6 @@ export default function SemanticLayerPage() {
     <HubShell
       path={PATH}
       breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Semantic layer' }]}
-      eyebrow="Semantic layer"
       title="What is a semantic layer?"
       lead={
         <p>

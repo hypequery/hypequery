@@ -34,7 +34,8 @@ export function HubShell({
 }: {
   path: string;
   breadcrumbs: BreadcrumbItem[];
-  eyebrow: string;
+  /** Small label beside the open source badge; omit for none. */
+  eyebrow?: string;
   title: string;
   lead: ReactNode;
   primaryCta: Cta;
@@ -56,7 +57,7 @@ export function HubShell({
             <Breadcrumbs items={breadcrumbs} currentPath={path} />
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <OpenSourceBadge />
-              <p className={marketing.eyebrow}>{eyebrow}</p>
+              {eyebrow ? <p className={marketing.eyebrow}>{eyebrow}</p> : null}
             </div>
             <h1 className={`mt-5 max-w-[980px] text-balance ${marketing.heroTitle}`}>{title}</h1>
             <div className={`mt-5 max-w-[720px] text-pretty ${marketing.heroLead}`}>{lead}</div>
