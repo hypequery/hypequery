@@ -33,7 +33,7 @@ Relay Works upgraded from starter to growth on 2026-09-20, so September bills on
 ## Install
 
 ```bash
-npx hypequery create usage-based-billing -y
+npx @hypequery/cli create usage-based-billing -y
 cd usage-based-billing
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

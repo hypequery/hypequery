@@ -3,7 +3,7 @@ name: Examples
 # Every registry entry (examples/*, recipes/*) is smoke-tested against the
 # shared seed dataset. PRs test against the workspace packages; the nightly run
 # swaps them for the published @latest so a release regression surfaces here
-# before a user hits it with `npx hypequery create`.
+# before a user hits it with `npx @hypequery/cli create`.
 on:
   pull_request:
     paths:
@@ -144,7 +144,7 @@ jobs:
         # before the build, so link again now that dist/ exists.
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      # Latest mode: what a user gets from `npx hypequery create <slug>` today.
+      # Latest mode: what a user gets from `npx @hypequery/cli create <slug>` today.
       - name: Point the example at published packages
         if: env.HYPEQUERY_SOURCE == 'latest'
         run: node scripts/examples/use-published.mjs ${{ matrix.dir }} --tag latest

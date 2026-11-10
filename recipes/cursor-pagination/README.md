@@ -33,7 +33,7 @@ Granule counts come from `EXPLAIN indexes = 1` and are pinned by the test. Rows 
 ## Install
 
 ```bash
-npx hypequery create cursor-pagination -y
+npx @hypequery/cli create cursor-pagination -y
 cd cursor-pagination
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

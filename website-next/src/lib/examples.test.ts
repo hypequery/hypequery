@@ -58,14 +58,14 @@ test('guides load with expanded SQL and a Markdown twin that states the tested v
   const md = entryMarkdown(guide);
   assert.ok(md.includes('Tested on ClickHouse 25.8'));
   assert.ok(md.includes('› [Guides](https://hypequery.com/guides) ›'));
-  assert.ok(!md.includes('npx hypequery create refreshable'), 'guides have no create command');
+  assert.ok(!md.includes('npx @hypequery/cli create refreshable'), 'guides have no create command');
 });
 
 test('the Markdown twin carries breadcrumb, llms.txt link, run block, key file and related links', () => {
   const md = entryMarkdown(getEntry('example', 'materialized-view-rollups')!);
   assert.match(md, /^\[hypequery\]\(https:\/\/hypequery\.com\/\) › \[Examples\]/);
   assert.ok(md.includes('Index for agents: https://hypequery.com/llms.txt'));
-  assert.ok(md.includes('npx hypequery create materialized-view-rollups -y'));
+  assert.ok(md.includes('npx @hypequery/cli create materialized-view-rollups -y'));
   assert.ok(md.includes('## Key file: src/datasets.ts'));
   assert.ok(md.trimEnd().split('\n').slice(-6).join('\n').includes('## Related') || md.includes('## Related'));
   assert.ok(md.endsWith('\n'));

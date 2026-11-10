@@ -197,10 +197,10 @@ export function readmeBody(entry: RegistryEntry): string {
   return body.trim();
 }
 
-/** The one-line `npx hypequery create` an agent or a person can paste. */
+/** The one-line `npx @hypequery/cli create` an agent or a person can paste. */
 /** Guides are read, not scaffolded; examples and recipes get a create command. */
 export function createCommand(entry: RegistryEntry): string | null {
-  return entry.manifest.kind === 'guide' ? null : `npx hypequery create ${entry.manifest.slug} -y`;
+  return entry.manifest.kind === 'guide' ? null : `npx @hypequery/cli create ${entry.manifest.slug} -y`;
 }
 
 export const LABELS: Record<string, string> = {

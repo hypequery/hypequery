@@ -19,7 +19,7 @@ page_view    14549   102   219     290
 ## Install
 
 ```bash
-npx hypequery create p95-latency -y
+npx @hypequery/cli create p95-latency -y
 cd p95-latency
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

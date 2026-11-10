@@ -18,7 +18,7 @@ export function formatExamplesTable(index: ExamplesIndex, kind?: string): string
   return [
     ...lines,
     '',
-    'Scaffold one:  npx hypequery create <slug> -y',
+    'Scaffold one:  npx @hypequery/cli create <slug> -y',
     `Browse:        ${index.entries[0]?.url.replace(/\/[^/]+\/[^/]+$/, '/examples') ?? 'https://hypequery.com/examples'}`,
   ].join('\n');
 }

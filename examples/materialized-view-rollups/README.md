@@ -25,7 +25,7 @@ smoke test proves they match hand-written SQL over the raw table exactly.
 ## Install
 
 ```bash
-npx hypequery create materialized-view-rollups -y
+npx @hypequery/cli create materialized-view-rollups -y
 cd materialized-view-rollups
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or point env vars at your own ClickHouse
 pnpm install

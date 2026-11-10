@@ -26,7 +26,7 @@ The 25th and the 31st are a Sunday and a Saturday, when the seed's traffic dips.
 ## Install
 
 ```bash
-npx hypequery create sessionization -y
+npx @hypequery/cli create sessionization -y
 cd sessionization
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

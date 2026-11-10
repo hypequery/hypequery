@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { DeployWaitlist } from './DeployWaitlist';
 import { SetupCommand } from './SetupCommand';
+import { ExamplePicker, type ExamplePickerOption } from './ExamplePicker';
 import { SiClickhouse } from 'react-icons/si';
 import { Inter } from 'next/font/google';
 import { NpmDownloadsBadge } from './NpmDownloadsBadge';
@@ -13,7 +14,7 @@ import { marketing } from '../ui/marketing';
 // ClickHouse's wordmark is set in Inter; load just the bold weight for it.
 const clickhouseWordmark = Inter({ subsets: ['latin'], weight: '700', display: 'swap' });
 
-export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
+export function Hero({ npmDownloads, exampleOptions = [] }: { npmDownloads: NpmDownloadCounts; exampleOptions?: ExamplePickerOption[] }) {
   return (
     <section className="mx-auto max-w-[1280px] px-5 pb-8 pt-8 sm:px-8 sm:pt-10">
       <div>
@@ -38,6 +39,7 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
           <DeployWaitlist location="hero" className={marketing.secondaryButton} />
         </div>
         <SetupCommand className="mt-4" />
+        <ExamplePicker options={exampleOptions} className="mt-3" />
       </div>
     </section>
   );

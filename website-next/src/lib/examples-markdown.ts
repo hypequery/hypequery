@@ -37,7 +37,7 @@ export function entryMarkdown(entry: RegistryEntry): string {
       '## Run it',
       '',
       '```bash',
-      `npx hypequery create ${manifest.slug} -y`,
+      `npx @hypequery/cli create ${manifest.slug} -y`,
       `cd ${manifest.slug}`,
       manifest.run.install,
       manifest.run.dev,

@@ -22,7 +22,7 @@ describe('hypequery examples list', () => {
     const table = formatExamplesTable(index);
     expect(table).toMatch(/^  nextjs-dashboard\s+example\s+A dashboard\.$/m);
     expect(table).toMatch(/^  p95-latency\s+recipe\s+Percentiles\.$/m);
-    expect(table).toContain('npx hypequery create <slug> -y');
+    expect(table).toContain('npx @hypequery/cli create <slug> -y');
     expect(formatExamplesTable(index, 'guide')).not.toContain('nextjs-dashboard');
     expect(formatExamplesTable({ ...index, entries: [] }, 'recipe')).toBe('No recipes published yet.');
   });

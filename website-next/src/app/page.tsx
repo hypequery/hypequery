@@ -3,6 +3,8 @@ import Navigation from '@/components/Navigation';
 import { softwareApplicationSchema } from '@/data/product';
 import { getPostBySlug } from '@/lib/blog-cms';
 import { getNpmDownloadCounts } from '@/lib/npm-downloads';
+import { createCommand, examples, recipes } from '@/lib/examples';
+import type { ExamplePickerOption } from '@/components/home/ExamplePicker';
 import { AnnouncementBanner, Hero, FinalCTA } from '@/components/home';
 import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { ProductExplainer } from '@/components/home/ProductExplainer';
@@ -58,6 +60,13 @@ const softwareSchema = {
 // The banner links here, so it shows only once the post is published.
 const LAUNCH_POST_SLUG = 'introducing-hypequery-python';
 
+// Built here, not in the client hero, so the registry's README bodies stay out of the bundle.
+const exampleOptions: ExamplePickerOption[] = [...examples, ...recipes].flatMap((entry) => {
+  const command = createCommand(entry);
+  const { manifest } = entry;
+  return command && manifest.kind !== 'guide' ? [{ slug: manifest.slug, kind: manifest.kind, language: manifest.language, command }] : [];
+});
+
 export default async function Home() {
   const [launchPost, npmDownloads] = await Promise.all([getPostBySlug(LAUNCH_POST_SLUG), getNpmDownloadCounts()]);
 
@@ -70,7 +79,7 @@ export default async function Home() {
       {launchPost && <AnnouncementBanner href={`/blog/${LAUNCH_POST_SLUG}`} />}
       <Navigation hasBanner={Boolean(launchPost)} />
       <main className={launchPost ? 'pt-[104px]' : 'pt-[62px]'}>
-        <Hero npmDownloads={npmDownloads} />
+        <Hero npmDownloads={npmDownloads} exampleOptions={exampleOptions} />
         <PatternCallout />
         {/* Hero (what it is) → proof → every interface (what it powers) → runs in your stack (where it lives)
             → production features (can I trust it) → change safely (what happens next) → CTA.

@@ -28,7 +28,7 @@ Every view takes `?from=2026-09-01&to=2026-09-30` for another window.
 ## Install
 
 ```bash
-npx hypequery create django-analytics -y
+npx @hypequery/cli create django-analytics -y
 cd django-analytics
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 uv sync

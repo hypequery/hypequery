@@ -115,7 +115,7 @@ const byPlan = await analytics.execute(TenantDailySummary, {
 Because the target holds final values rather than aggregate states, the measures are plain `sum` and `max`. Note what is deliberately missing: a `sum` over `unique_users` would be wrong at any grain other than tenant-day, so the dataset does not publish it. If you need uniques that roll up, store `uniqExactState(user_id)` in the target and read it with `measure.merge('uniqExact', ...)`, as the incremental half of the [rollups example](/examples/materialized-view-rollups) does.
 
 ```bash
-npx hypequery create materialized-view-rollups -y
+npx @hypequery/cli create materialized-view-rollups -y
 ```
 
 ## Pitfalls

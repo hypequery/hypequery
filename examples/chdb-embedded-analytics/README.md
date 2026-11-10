@@ -37,7 +37,7 @@ curl -s -X POST localhost:8000/datasets/events/query \
 ## Install
 
 ```bash
-npx hypequery create chdb-embedded-analytics -y --no-seed
+npx @hypequery/cli create chdb-embedded-analytics -y --no-seed
 cd chdb-embedded-analytics
 uv sync
 uv run python report.py

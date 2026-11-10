@@ -34,7 +34,7 @@ curl -s "localhost:8000/reports/top-paths?limit=3" -H "authorization: Bearer $TO
 ## Install
 
 ```bash
-npx hypequery create fastapi-analytics-api -y
+npx @hypequery/cli create fastapi-analytics-api -y
 cd fastapi-analytics-api
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait   # or set CLICKHOUSE_* for your own ClickHouse
 uv sync

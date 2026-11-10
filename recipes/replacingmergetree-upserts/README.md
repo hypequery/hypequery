@@ -29,7 +29,7 @@ starter          57     53      53
 ## Install
 
 ```bash
-npx hypequery create replacingmergetree-upserts -y
+npx @hypequery/cli create replacingmergetree-upserts -y
 cd replacingmergetree-upserts
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

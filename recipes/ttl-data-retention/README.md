@@ -29,7 +29,7 @@ Free tenants keep 30 days, starter 180, growth and enterprise everything; every 
 ## Install
 
 ```bash
-npx hypequery create ttl-data-retention -y
+npx @hypequery/cli create ttl-data-retention -y
 cd ttl-data-retention
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

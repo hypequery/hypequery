@@ -26,7 +26,7 @@ Events by type   ▇▇▇▇▇▇▇▇▇ page_view 60,673      Events by dev
 ## Install
 
 ```bash
-npx hypequery create nextjs-dashboard -y
+npx @hypequery/cli create nextjs-dashboard -y
 cd nextjs-dashboard
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

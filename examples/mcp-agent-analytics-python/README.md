@@ -25,7 +25,7 @@ Start it with `TENANT_ID=170` and every number is Relay Works' instead. The agen
 ## Install
 
 ```bash
-npx hypequery create mcp-agent-analytics-python -y
+npx @hypequery/cli create mcp-agent-analytics-python -y
 cd mcp-agent-analytics-python
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 uv sync

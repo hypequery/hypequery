@@ -37,7 +37,7 @@ period,events,active_users,error_rate        # the CSV export, by week
 ## Install
 
 ```bash
-npx hypequery create streamlit-dashboard -y
+npx @hypequery/cli create streamlit-dashboard -y
 cd streamlit-dashboard
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 uv sync

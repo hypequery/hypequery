@@ -22,7 +22,7 @@ Seat use is the number neither database has alone: seats live in Postgres, activ
 ## Install
 
 ```bash
-npx hypequery create postgres-app-clickhouse-analytics -y
+npx @hypequery/cli create postgres-app-clickhouse-analytics -y
 cd postgres-app-clickhouse-analytics
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

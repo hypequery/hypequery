@@ -52,7 +52,7 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
             </div>
             <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
               <p className="font-mono text-xs text-text-dim">Start</p>
-              <p className="mt-2 font-mono text-sm text-text">{kind === 'guide' ? 'Copy the SQL, it already ran' : 'npx hypequery create <slug> -y'}</p>
+              <p className="mt-2 font-mono text-sm text-text">{kind === 'guide' ? 'Copy the SQL, it already ran' : 'npx @hypequery/cli create <slug> -y'}</p>
             </div>
           </div>
         </div>

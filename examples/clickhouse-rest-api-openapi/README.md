@@ -23,7 +23,7 @@ Open http://localhost:3000/docs for the generated API reference (Redoc): every e
 ## Install
 
 ```bash
-npx hypequery create clickhouse-rest-api-openapi -y
+npx @hypequery/cli create clickhouse-rest-api-openapi -y
 cd clickhouse-rest-api-openapi
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

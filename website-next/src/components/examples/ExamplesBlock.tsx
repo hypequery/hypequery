@@ -29,7 +29,7 @@ export default function ExamplesBlock(props: Props) {
         <h2 className={`mt-3 ${marketing.sectionTitle}`}>{title}</h2>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted">
           Every example runs against the same seeded ClickHouse dataset and is smoke-tested on every change. Scaffold one with{' '}
-          <code className="font-mono text-xs text-text">npx hypequery create &lt;slug&gt; -y</code>, or browse the{' '}
+          <code className="font-mono text-xs text-text">npx @hypequery/cli create &lt;slug&gt; -y</code>, or browse the{' '}
           <Link href="/examples" className="text-accent hover:opacity-70">full list</Link>.
         </p>
         <div className="mt-8 grid gap-6 lg:grid-cols-2">

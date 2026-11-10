@@ -18,7 +18,7 @@ cohort      size   w0    w1    w2    w3    w4    w5    w6
 ## Install
 
 ```bash
-npx hypequery create retention-cohorts -y
+npx @hypequery/cli create retention-cohorts -y
 cd retention-cohorts
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

@@ -7,7 +7,7 @@
  * Examples depend on `@hypequery/*` with `workspace:*` so a PR tests the code
  * it changes. The nightly run rewrites those ranges to a dist-tag (default
  * `latest`) and installs with `--ignore-workspace`, which is what a user gets
- * from `npx hypequery create <slug>`. Prints the rewritten dependencies.
+ * from `npx @hypequery/cli create <slug>`. Prints the rewritten dependencies.
  */
 import fs from 'node:fs';
 import path from 'node:path';

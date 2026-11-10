@@ -1,5 +1,5 @@
 # The governed MCP server as a container: `docker run -i` speaks MCP over stdio.
-# Build from the folder `npx hypequery create mcp-agent-analytics` made:
+# Build from the folder `npx @hypequery/cli create mcp-agent-analytics` made:
 #   docker build -t hypequery-mcp-agent-analytics .
 FROM node:22-slim AS build
 WORKDIR /app

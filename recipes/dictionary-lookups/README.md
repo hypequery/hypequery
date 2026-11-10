@@ -37,7 +37,7 @@ The timing lines are one run of `pnpm dev` on a laptop ClickHouse that other wor
 ## Install
 
 ```bash
-npx hypequery create dictionary-lookups -y
+npx @hypequery/cli create dictionary-lookups -y
 cd dictionary-lookups
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

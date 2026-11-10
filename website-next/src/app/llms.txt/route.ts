@@ -108,7 +108,7 @@ export function GET() {
   }
 
   // After the start-here pages: the sub-indexes agents follow to runnable code.
-  lines.push(`- [Examples](${absoluteUrl('/examples/llms.txt').toString()}): runnable apps over one seeded ClickHouse, scaffold with \`npx hypequery create <slug> -y\`.`);
+  lines.push(`- [Examples](${absoluteUrl('/examples/llms.txt').toString()}): runnable apps over one seeded ClickHouse, scaffold with \`npx @hypequery/cli create <slug> -y\`.`);
   lines.push(`- [Recipes](${absoluteUrl('/recipes/llms.txt').toString()}): one question, one dataset, the SQL it generates.`);
   lines.push(`- [Guides](${absoluteUrl('/guides/llms.txt').toString()}): long-form ClickHouse guides with CI-tested SQL.`);
   lines.push(`- [ClickHouse functions](${absoluteUrl('/clickhouse/functions/llms.txt').toString()}): per-function pages with the typed hypequery equivalent.`);

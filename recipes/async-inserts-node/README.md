@@ -21,7 +21,7 @@ Parts and rows are pinned in `output.json`; times are from a laptop (8 cores, Cl
 ## Install
 
 ```bash
-npx hypequery create async-inserts-node -y
+npx @hypequery/cli create async-inserts-node -y
 cd async-inserts-node
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install

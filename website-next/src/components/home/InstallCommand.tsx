@@ -43,9 +43,9 @@ export function InstallCommand({
       className={`group relative inline-flex items-center gap-2 rounded-lg border border-border-strong bg-bg-card px-3 py-2 text-text transition hover:-translate-y-px hover:border-text ${variant === 'card' ? 'font-sans text-xs' : 'font-mono text-[13px]'} ${className}`}
     >
       <span className="text-text-muted select-none">$</span>
-      <span className={`font-medium ${variant === 'card' ? 'min-w-0 flex-1' : ''}`}>{command}</span>
+      <span className={`min-w-0 text-left font-medium [overflow-wrap:anywhere] ${variant === 'card' ? 'flex-1' : ''}`}>{command}</span>
       <svg
-        className="w-4 h-4 text-text-dim group-hover:text-text transition"
+        className="w-4 h-4 shrink-0 text-text-dim group-hover:text-text transition"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
