@@ -48,6 +48,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       // The semantic layer hub is already linked from the Product column.
       { label: 'ClickHouse for developers', href: '/clickhouse' },
       { label: 'Embedded analytics', href: '/embedded-analytics' },
+      { label: 'What is a semantic layer', href: '/semantic-layer' },
       { label: 'ClickHouse functions', href: '/clickhouse/functions' },
       { label: 'Materialized views guide', href: '/blog/a-guide-to-materialized-views-in-clickhouse' },
       { label: 'MooseStack migration guide', href: '/blog/migrating-moosestack-to-hypequery' },

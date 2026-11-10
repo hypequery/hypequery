@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { withInlineCode } from '@/components/InlineCode';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { marketing } from '@/components/ui/marketing';
 import type { BreadcrumbItem, FaqItem } from '@/lib/structured-data';
@@ -198,8 +199,9 @@ export function HubTable({
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="border-b border-border last:border-b-0">
-              {row.map((cell, cellIndex) =>
-                cellIndex === 0 ? (
+              {row.map((rawCell, cellIndex) => {
+                const cell = typeof rawCell === 'string' ? withInlineCode(rawCell) : rawCell;
+                return cellIndex === 0 ? (
                   <th key={cellIndex} scope="row" className="px-4 py-3 align-top text-sm font-medium text-text">
                     {cell}
                   </th>
@@ -210,13 +212,43 @@ export function HubTable({
                   >
                     {cell}
                   </td>
-                ),
-              )}
+                );
+              })}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** The vendor pages a comparison was checked against, grouped by vendor. */
+export function HubSources({
+  checkedOn,
+  sources,
+}: {
+  checkedOn: string;
+  sources: ReadonlyArray<{ vendor: string; urls: readonly string[] }>;
+}) {
+  return (
+    <section className={`${marketing.container} pb-14`}>
+      <h2 className="text-lg font-medium text-text">Sources</h2>
+      <p className="mt-2 text-sm text-text-muted">Vendor pages used for this page, all read on {checkedOn}.</p>
+      <dl className="mt-4 grid gap-x-8 gap-y-3 text-[13px] sm:grid-cols-2">
+        {sources.map((source) => (
+          <div key={source.vendor}>
+            <dt className="font-medium text-text">{source.vendor}</dt>
+            {source.urls.map((url) => (
+              <dd key={url} className="break-all text-text-muted">
+                <a href={url} rel="noopener nofollow" className="hover:text-accent">
+                  {url.replace(/^https:\/\//, '')}
+                </a>
+              </dd>
+            ))}
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
