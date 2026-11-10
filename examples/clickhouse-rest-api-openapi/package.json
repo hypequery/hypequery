@@ -1,0 +1,25 @@
+{
+  "name": "@hypequery-examples/clickhouse-rest-api-openapi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A typed REST API over ClickHouse with named endpoints, API-key auth, rate limiting, caching and a generated OpenAPI document with interactive docs",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "pnpm build && node dist/src/index.js",
+    "start": "node dist/src/index.js",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/serve": "workspace:*",
+    "hono": "^4.13.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

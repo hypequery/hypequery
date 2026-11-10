@@ -1,0 +1,32 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "clickhouse-rest-api-openapi",
+  "kind": "example",
+  "title": "A ClickHouse REST API with OpenAPI docs, API keys and rate limits",
+  "outcome": "Put a typed REST API in front of ClickHouse: named GET endpoints with validated params, API-key auth, rate limits, and an OpenAPI spec with live docs.",
+  "language": "typescript",
+  "stack": ["node", "hono", "clickhouse"],
+  "useCases": ["api", "analytics-api"],
+  "packages": ["@hypequery/serve", "@hypequery/clickhouse"],
+  "keyFile": "analytics/api.ts",
+  "env": [
+    { "name": "API_KEY", "description": "The API key clients send as Authorization: Bearer <key>. The demo default is demo-key-change-me; set your own.", "required": false },
+    { "name": "PORT", "description": "HTTP port (default 3000)", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "curl -s 'localhost:3000/api/metrics/daily-active-users?from=2026-10-01&to=2026-10-07' -H 'authorization: Bearer demo-key-change-me'",
+  "related": ["multi-tenant-embedded-analytics", "fastapi-analytics-api", "p95-latency"],
+  "leadPages": ["/clickhouse-api", "/clickhouse-openapi", "/clickhouse-hono", "/clickhouse-nodejs"],
+  "functionPages": ["quantile"],
+  "keywords": [
+    "clickhouse api",
+    "clickhouse rest api",
+    "clickhouse http api",
+    "clickhouse openapi"
+  ],
+  "minVersion": "2.14.0"
+}
