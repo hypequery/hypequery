@@ -1,0 +1,26 @@
+{
+  "$schema": "https://hypequery.com/schemas/guide.schema.json",
+  "slug": "clickhouse-docker-compose",
+  "kind": "guide",
+  "title": "ClickHouse with Docker Compose: a pinned, persistent local server with a million-row sample dataset",
+  "outcome": "Run ClickHouse 25.8 in Docker Compose with a healthcheck, a password, volumes and a 1M-row sample dataset, then connect from Node, Python and hypequery.",
+  "clickhouseVersion": "25.8",
+  "sqlFiles": [
+    "sql/01-check-server.sql",
+    "sql/02-check-sample-data.sql",
+    "sql/03-your-first-table.sql",
+    "sql/04-app-user.sql",
+    "sql/05-storage-and-logs.sql"
+  ],
+  "packages": ["@hypequery/clickhouse"],
+  "related": ["nextjs-dashboard", "fastapi-analytics-api", "p95-latency"],
+  "leadPages": ["/clickhouse-nodejs", "/clickhouse-python", "/clickhouse-typescript", "/clickhouse-js"],
+  "functionPages": ["quantile"],
+  "keywords": [
+    "clickhouse docker",
+    "clickhouse docker compose",
+    "clickhouse docker-compose.yml",
+    "clickhouse docker password",
+    "clickhouse docker volume"
+  ]
+}
