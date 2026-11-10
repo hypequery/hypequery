@@ -1,0 +1,29 @@
+[project]
+name = "chdb-embedded-analytics"
+version = "0.1.0"
+description = "Embedded ClickHouse analytics with chDB: typed hypequery datasets, a CLI report and an HTTP API, with no server"
+requires-python = ">=3.11"
+dependencies = [
+  # chdb: the embedded engine. clickhouse: the same datasets on a server
+  # (ANALYTICS_BACKEND=clickhouse). server: the development HTTP server.
+  "hypequery[chdb,clickhouse,server]>=0.1.0b3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "httpx>=0.27",
+  "pytest-asyncio>=0.24",
+]
+
+# Inside the hypequery monorepo the example runs against the workspace copy
+# of the Python package, like the TypeScript examples use `workspace:*`.
+# `hypequery create` and the nightly @latest run remove this table so the
+# published PyPI release is installed instead.
+[tool.uv.sources]
+hypequery = { path = "../../python/hypequery", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
