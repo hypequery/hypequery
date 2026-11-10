@@ -54,6 +54,7 @@
   "exampleRequest": "curl -s -H 'X-Demo-User: ada' localhost:8000/api/overview",
   "related": [
     "fastapi-analytics-api",
+    "streamlit-dashboard",
     "p95-latency"
   ],
   "leadPages": [
