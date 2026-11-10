@@ -1,0 +1,33 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "funnel-windowfunnel",
+  "kind": "recipe",
+  "title": "Funnel analysis in ClickHouse with windowFunnel and a typed dataset",
+  "outcome": "Count users through login, query and export within 24 hours per tenant with windowFunnel, get conversion per step, and see what each strict mode changes.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["product-analytics", "funnels"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "src/recipe.ts",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["retention-cohorts", "multi-tenant-embedded-analytics"],
+  "leadPages": ["/clickhouse-product-analytics", "/clickhouse-saas-analytics", "/clickhouse-typescript"],
+  "functionPages": [],
+  "keywords": [
+    "clickhouse windowfunnel",
+    "clickhouse funnel analysis",
+    "clickhouse funnel query",
+    "clickhouse windowfunnel strict_order"
+  ],
+  "minVersion": "2.14.0"
+}
