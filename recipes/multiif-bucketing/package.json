@@ -1,0 +1,22 @@
+{
+  "name": "@hypequery-recipes/multiif-bucketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Latency and status buckets in ClickHouse with multiIf as dataset dimensions, compared with CASE, transform and roundDown, pinned on the seed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "pnpm build && node dist/recipe.js",
+    "capture": "pnpm build && node dist/recipe.js --write",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
