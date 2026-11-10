@@ -1,0 +1,25 @@
+{
+  "name": "@hypequery-recipes/projection-for-dataset-queries",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Add a normal and an aggregate projection to a ClickHouse table and prove, with EXPLAIN and system.query_log, that an unchanged hypequery dataset query uses them",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "setup": "pnpm build && node dist/setup.js",
+    "teardown": "pnpm build && node dist/setup.js --teardown",
+    "dev": "pnpm run setup && node dist/recipe.js",
+    "capture": "pnpm run setup && node dist/recipe.js --write",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

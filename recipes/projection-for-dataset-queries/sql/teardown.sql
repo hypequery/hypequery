@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS projection_for_dataset_queries_events;

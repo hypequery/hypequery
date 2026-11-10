@@ -1,0 +1,34 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "projection-for-dataset-queries",
+  "kind": "recipe",
+  "title": "Add a ClickHouse projection that a typed dataset query uses automatically",
+  "outcome": "Add a sort-key and an aggregate projection to a ClickHouse table, then prove with EXPLAIN and query_log that an unchanged dataset query reads from them.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["performance", "time-series"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "sql/setup.sql",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["materialized-view-rollups", "p95-latency"],
+  "leadPages": ["/clickhouse-schema", "/clickhouse-time-series", "/clickhouse-typescript"],
+  "functionPages": ["sum", "to-date"],
+  "keywords": [
+    "clickhouse projection",
+    "clickhouse add projection",
+    "clickhouse projection example",
+    "clickhouse aggregate projection",
+    "clickhouse materialize projection"
+  ],
+  "minVersion": "2.14.0"
+}
