@@ -56,22 +56,6 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
               className="mt-7"
             />
           )}
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
-              <p className="font-mono text-xs text-text-dim">Data</p>
-              <p className="mt-2 text-xl font-medium tracking-tight text-text">One seeded ClickHouse, 1M events</p>
-            </div>
-            <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
-              <p className="font-mono text-xs text-text-dim">Trust</p>
-              <p className="mt-2 text-xl font-medium tracking-tight text-text">Smoke-tested on every change</p>
-            </div>
-            <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
-              <p className="font-mono text-xs text-text-dim">{kind === 'guide' ? 'Start' : 'Scaffold'}</p>
-              <p className="mt-2 text-xl font-medium tracking-tight text-text">
-                {kind === 'guide' ? 'Copy the SQL, it already ran' : `${entries.length} ${kind === 'recipe' ? 'recipes' : 'examples'}, one command each`}
-              </p>
-            </div>
-          </div>
         </div>
       </section>
       <section className={`${marketing.container} py-14 sm:py-20`}>
