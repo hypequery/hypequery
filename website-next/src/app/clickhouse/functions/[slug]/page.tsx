@@ -5,11 +5,13 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
 import ExamplesBlock from '@/components/examples/ExamplesBlock';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import {
   clickhouseFunctions,
   findFunction,
   functionPathSegment,
+  indexedFunctionSlugs,
 } from '@/data/clickhouse-functions';
 
 type Props = {
@@ -31,6 +33,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: fn.metaTitle,
     description: fn.metaDescription,
     alternates: { canonical },
+    // Pages without search demand stay readable but out of the index.
+    ...(!indexedFunctionSlugs.has(fn.slug) && { robots: { index: false, follow: true } }),
     openGraph: {
       type: 'website',
       url: canonical,
@@ -110,13 +114,17 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-border">
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
-              <Link href="/clickhouse/functions" className="transition hover:opacity-70">
-                ClickHouse Functions
-              </Link>
-              <span className="text-text-dim">/</span>
-              <span className="text-accent">{clusterLabel[fn.cluster] ?? fn.cluster}</span>
-            </div>
+            <Breadcrumbs
+              items={[
+                { label: 'ClickHouse', href: '/clickhouse' },
+                { label: 'Functions', href: '/clickhouse/functions' },
+                { label: fn.name },
+              ]}
+              currentPath={`/clickhouse/functions/${functionPathSegment(fn.name)}`}
+            />
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+              {clusterLabel[fn.cluster] ?? fn.cluster}
+            </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text sm:text-5xl">
               <code className="font-mono">{fn.name}</code>
             </h1>
@@ -276,6 +284,57 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             </div>
           </div>
         </section>
+
+        {/* Python example */}
+        {fn.pythonExample && (
+          <section className="border-b border-border bg-bg-alt/60">
+            <div className="mx-auto max-w-7xl px-4 py-14 lg:px-6">
+              <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+                    Python with hypequery
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold text-text">
+                    Use {fn.name} from Python
+                  </h2>
+                  <p className="mt-5 text-base leading-8 text-text-muted">
+                    The hypequery Python SDK defines datasets of dimensions and measures and compiles queries on them
+                    to ClickHouse SQL. This example was run against ClickHouse 26.6 on the same tables as the SQL
+                    example above.
+                  </p>
+                  {fn.pythonNote && (
+                    <p className="mt-4 text-sm leading-7 text-text-muted">{fn.pythonNote}</p>
+                  )}
+                  <div className="mt-8 flex flex-wrap gap-4">
+                    <Link
+                      href="/docs/python/quick-start"
+                      data-umami-event="cta_click"
+                      data-umami-event-target="docs_python_quick_start"
+                      data-umami-event-location="python_example_panel"
+                      className="bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+                    >
+                      Python quick start
+                    </Link>
+                    <Link
+                      href="/docs/python/datasets/measures"
+                      className="border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
+                    >
+                      Python measures
+                    </Link>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
+                  <CodeWindow
+                    code={fn.pythonExample}
+                    filename={fn.pythonFilename ?? `${fn.slug}_example.py`}
+                    language="python"
+                    className="mt-0"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Search intent cards */}
         <section className="mx-auto max-w-7xl px-4 py-14 lg:px-6">

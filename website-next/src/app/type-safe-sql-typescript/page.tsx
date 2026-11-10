@@ -225,19 +225,20 @@ export default function TypeSafeSqlTypescriptPage() {
             'Why there is no Prisma for ClickHouse, and what the ORM-like workflow looks like on a columnar database.',
         },
         {
-          href: '/prisma-clickhouse',
-          title: 'Prisma and ClickHouse',
+          href: '/blog/does-prisma-support-clickhouse',
+          title: 'Does Prisma support ClickHouse?',
           description:
             'The state of Prisma + ClickHouse, the MySQL-port workaround, and the OLTP-plus-analytics pattern that actually works.',
         },
         {
-          href: '/drizzle-clickhouse',
-          title: 'Drizzle and ClickHouse',
+          href: '/compare/hypequery-vs-drizzle',
+          title: 'hypequery vs Drizzle',
           description:
             'What Drizzle offers on ClickHouse today, where Waddler fits, and when to reach for a typed builder instead.',
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-orm', label: 'ClickHouse ORM' },

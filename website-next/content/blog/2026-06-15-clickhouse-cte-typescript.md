@@ -226,7 +226,7 @@ const perUser = await checkoutEvents(42)
 
 Each report starts from the same filtered builder and adds only its own aggregation. The reuse lives in your codebase, where it's cheap, instead of in the SQL, where it isn't. When the definition of a checkout event changes — a new event type, an extra filter — you change one function and every report follows. Reach for `.withCTE()` here only when a report needs to *join* the subset against other data rather than aggregate it directly; then the subset becomes a named derived table, exactly like Form 1 above.
 
-If a subset is genuinely expensive to compute and consumed by many queries per minute, a CTE is the wrong tool entirely; that's what materialized views are for. The [materialized views post](/blog/clickhouse-materialized-views-typescript) covers when to promote a hot CTE into one.
+If a subset is genuinely expensive to compute and consumed by many queries per minute, a CTE is the wrong tool entirely; that's what materialized views are for. The [materialized views post](/blog/a-guide-to-materialized-views-in-clickhouse) covers when to promote a hot CTE into one.
 
 ## Scalar WITH expressions
 
@@ -260,6 +260,6 @@ From TypeScript, the constant case mostly dissolves: a scalar you'd name in SQL 
 - [ClickHouse query builder](/clickhouse-query-builder) — the full builder surface `.withCTE()` composes with
 - [ClickHouse JOINs in TypeScript](/blog/clickhouse-joins-typescript) — join types, aliasing, and how CTE aliases behave in joins
 - [ClickHouse window functions in TypeScript](/blog/clickhouse-window-functions-typescript) — the most common reason a CTE body drops to raw SQL
-- [Materialized views in TypeScript](/blog/clickhouse-materialized-views-typescript) — where a hot CTE should graduate to
+- [Materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse) — where a hot CTE should graduate to
 
 Or start from zero: the [quick start](/docs/quick-start) generates types from your ClickHouse schema so every CTE you compose is checked before it runs.

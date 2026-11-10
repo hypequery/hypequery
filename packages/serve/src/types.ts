@@ -474,6 +474,12 @@ export interface ServeEndpoint<
   >[];
   auth?: AuthStrategy<TAuth> | null;
   tenant?: TenantConfigOverride<TAuth>;
+  /**
+   * Skips tenant resolution. Set on the built-in endpoints that describe the
+   * API (OpenAPI document, docs page, semantic contract): they read no tenant
+   * data, so a required tenant must not turn them into 403s.
+   */
+  tenantIndependent?: boolean;
   metadata: EndpointMetadata;
   cacheTtlMs?: number | null;
   defaultHeaders?: Record<string, string>;
@@ -1032,6 +1038,21 @@ export interface StartServerOptions {
    */
   requestTimeout?: number;
   /**
+   * Maximum time in milliseconds a streamed response may go without sending
+   * anything, whether its producer stalls or its client stops reading. The
+   * stream is then cancelled, which stops the query behind it, the connection
+   * is closed, and the failure reaches `onError`. Set to `0` to disable.
+   * Node adapter only; with the fetch adapter, the runtime bounds the response.
+   * @default the `requestTimeout` (30000)
+   */
+  streamIdleTimeout?: number;
+  /**
+   * Maximum total time in milliseconds a streamed response may take once it
+   * has opened, handled as for `streamIdleTimeout`. Node adapter only.
+   * @default 0 (no limit)
+   */
+  streamTimeout?: number;
+  /**
    * Maximum request body size in bytes.
    * Requests exceeding this limit receive 413 Payload Too Large.
    * Set to `0` to disable.
@@ -1379,16 +1400,46 @@ export interface RequestLifecycleBase<TAuth extends AuthContext = AuthContext> {
 export type RequestStartEvent<TAuth extends AuthContext = AuthContext> =
   RequestLifecycleBase<TAuth>;
 
+/**
+ * How a streamed response ended:
+ * - `completed`: the stream reached its end.
+ * - `failed`: the stream errored, reported a failure in-band (such as an NDJSON
+ *   `error` frame), or the server stopped it at a stream timeout.
+ * - `cancelled`: the client went away before the end.
+ */
+export type ServeStreamOutcome = "completed" | "failed" | "cancelled";
+
+/** What a streamed response did, reported once it has ended. */
+export interface ServeStreamInfo {
+  outcome: ServeStreamOutcome;
+  /** Bytes the stream produced for the response. */
+  bytes: number;
+  /** Milliseconds from the request's start until the stream opened and its status was ready. */
+  openDurationMs: number;
+}
+
 export interface RequestEndEvent<TAuth extends AuthContext = AuthContext>
   extends RequestLifecycleBase<TAuth> {
+  /** For a streamed response, measured to the end of the stream. */
   durationMs: number;
   result: unknown;
+  /**
+   * Set for a streamed response, whose end event fires once the stream has
+   * finished (`completed`) or the client left (`cancelled`), not when it opens.
+   */
+  stream?: ServeStreamInfo;
 }
 
 export interface RequestErrorEvent<TAuth extends AuthContext = AuthContext>
   extends RequestLifecycleBase<TAuth> {
   durationMs: number;
   error: unknown;
+  /**
+   * Set when a streamed response failed after its status was sent
+   * (`outcome: 'failed'`). The client got a 200 and, for NDJSON, a sanitized
+   * `error` frame; `error` is the original failure.
+   */
+  stream?: ServeStreamInfo;
 }
 
 export interface AuthFailureEvent<TAuth extends AuthContext = AuthContext>

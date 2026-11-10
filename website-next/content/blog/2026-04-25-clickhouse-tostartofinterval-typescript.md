@@ -1,161 +1,156 @@
 ---
-title: "ClickHouse toStartOfInterval with GROUP BY in TypeScript"
-description: "How to use toStartOfInterval with GROUP BY and column aliases in ClickHouse. TypeScript examples using hypequery and raw SQL — DateTime bucketing for time-series analytics."
-seoTitle: "ClickHouse toStartOfInterval GROUP BY Alias — TypeScript Examples"
-seoDescription: "How to use toStartOfInterval with GROUP BY and column aliases in ClickHouse. TypeScript examples using hypequery and raw SQL — DateTime bucketing for time-series analytics."
+title: "ClickHouse toStartOfInterval: GROUP BY, Return Types and TypeScript"
+description: "toStartOfInterval rounds a timestamp down to the start of a 5-minute, hourly, daily or weekly bucket. How to group by it, what type it returns for each interval, how week buckets are anchored, and how to fill empty buckets, with TypeScript examples."
+seoTitle: "ClickHouse toStartOfInterval: GROUP BY and Return Types"
+seoDescription: "toStartOfInterval(ts, INTERVAL 5 MINUTE) buckets timestamps. Group by its alias, fill gaps with WITH FILL, and note it returns DateTime or Date by interval."
 pubDate: 2026-04-25
+updatedAt: 2026-11-08
 heroImage: ""
 slug: clickhouse-tostartofinterval-typescript
 status: published
+tags:
+  - ClickHouse
+  - TypeScript
 ---
 
-`toStartOfInterval` is the most flexible date bucketing function in ClickHouse. Instead of reaching for a separate function for each granularity — `toStartOfHour`, `toStartOfDay`, `toStartOfWeek` — you can use a single function with an `INTERVAL` expression to bucket a `DateTime` into any interval you need.
+`toStartOfInterval(ts, INTERVAL n unit)` rounds a timestamp down to the start of the bucket it falls in, so `GROUP BY toStartOfInterval(created_at, INTERVAL 5 MINUTE)` gives one row per 5-minute bucket. It returns a `DateTime` for SECOND, MINUTE, HOUR and DAY intervals, a `Date` for WEEK, MONTH, QUARTER and YEAR, and a `DateTime64` only for sub-second intervals on a `DateTime64` column. Buckets with no rows are missing from the result unless you add `ORDER BY ... WITH FILL`.
 
-## What toStartOfInterval Does
+Every query below was run on ClickHouse 26.6.
 
-`toStartOfInterval(datetime, INTERVAL n unit)` rounds a `DateTime` down to the start of the containing interval. The result is the floor of the timestamp, not a midpoint or ceiling.
+## How toStartOfInterval rounds a timestamp
 
-```sql
--- 2026-04-25 14:37:22 bucketed to 1-hour intervals → 2026-04-25 14:00:00
-SELECT toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 1 HOUR);
-
--- Same timestamp bucketed to 15-minute intervals → 2026-04-25 14:30:00
-SELECT toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 15 MINUTE);
-
--- Bucketed to 1-day intervals → 2026-04-25 00:00:00
-SELECT toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 1 DAY);
-```
-
-Supported interval units: `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `QUARTER`, `YEAR`. This makes it more flexible than the fixed-granularity helpers like `toStartOfHour` or `toStartOfDay`, which only do one thing.
-
-## Basic GROUP BY with an Alias
-
-Here is a time-series query that counts events per hour:
+The result is the floor of the timestamp: the start of the interval that contains it.
 
 ```sql
 SELECT
-  toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket,
-  count() AS events
-FROM events
-GROUP BY bucket
-ORDER BY bucket
+    toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 1 HOUR) AS hour,       -- 2026-04-25 14:00:00
+    toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 15 MINUTE) AS quarter, -- 2026-04-25 14:30:00
+    toStartOfInterval(toDateTime('2026-04-25 14:37:22'), INTERVAL 1 DAY) AS day;         -- 2026-04-25 00:00:00
 ```
 
-ClickHouse allows `GROUP BY bucket` where `bucket` is an alias defined in the `SELECT` clause. This is one area where ClickHouse differs from strict SQL dialects — standard SQL does not allow grouping by a `SELECT`-level alias, but ClickHouse does.
+It accepts SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER and YEAR on any timestamp. MILLISECOND, MICROSECOND and NANOSECOND work only on `DateTime64` columns; on a `DateTime` they fail with `ILLEGAL_TYPE_OF_ARGUMENT`.
 
-The key constraint: the alias must be defined in the same `SELECT` clause. You cannot reference an alias from a subquery's SELECT in an outer GROUP BY, and you cannot invent aliases that aren't in SELECT. This query fails:
+## How to GROUP BY toStartOfInterval
+
+Give the expression an alias and group by the alias:
 
 ```sql
--- Wrong: 'bucket' alias doesn't exist in SELECT
+SELECT
+    toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket,
+    count() AS events
+FROM events
+GROUP BY bucket
+ORDER BY bucket;
+```
+
+ClickHouse lets you define the alias anywhere in the query, so this also works and returns the same rows:
+
+```sql
 SELECT count() AS events
 FROM events
 GROUP BY toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket
-ORDER BY bucket
+ORDER BY bucket;
 ```
 
-The correct pattern is to define the alias in SELECT and then reference it in GROUP BY, as shown in the working example above.
+Defining it in `SELECT` is clearer when you also want the bucket in the output.
 
-## What toStartOfInterval Returns
+## What type does toStartOfInterval return?
 
-`toStartOfInterval` returns a `DateTime` when the input is `DateTime`, and a `Date` when the input is `Date`. In both cases ClickHouse returns this as a **string** to the client — not a JavaScript `Date` object.
+The type depends on the interval, not only on the input:
 
-A `DateTime` result looks like `"2026-04-25 14:00:00"`. A `Date` result looks like `"2026-04-25"`. There is no automatic coercion to a JS `Date` — you parse it yourself if needed:
+| Interval | Input `DateTime` | Input `DateTime64(6)` | Input `Date` |
+|---|---|---|---|
+| SECOND, MINUTE, HOUR, DAY | `DateTime` | `DateTime` | `DateTime` |
+| WEEK, MONTH, QUARTER, YEAR | `Date` | `Date` | `Date` |
+| MILLISECOND, MICROSECOND, NANOSECOND | error | `DateTime64` | error |
 
-```typescript
-const date = new Date(row.bucket.replace(' ', 'T') + 'Z'); // treat as UTC
+Two results surprise people. A `DateTime64` column bucketed by a second or more comes back as `DateTime`, so the fraction of a second is gone. And a `Date` bucketed by `INTERVAL 1 DAY` comes back as a `DateTime`. An origin passed as the third argument must have the same type as the timestamp, and then the result keeps the timestamp's type: `DateTime` in, `DateTime` out, even for WEEK or MONTH.
+
+## Which day do week buckets start on?
+
+Without an origin, `INTERVAL 1 WEEK` buckets start on Monday. For 2026-11-08, a Sunday, `toStartOfInterval(ts, INTERVAL 1 WEEK)` returns 2026-11-02. To start weeks on another day, pass an origin on that weekday:
+
+```sql
+SELECT toStartOfInterval(
+    toDateTime('2026-11-08 10:17:33', 'UTC'),
+    INTERVAL 1 WEEK,
+    toDateTime('2026-01-03 00:00:00', 'UTC')  -- a Saturday
+) AS saturday_week;  -- 2026-11-07 00:00:00
 ```
 
-This is consistent with how hypequery maps ClickHouse types: `DateTime` columns in the schema are typed as `string`, `Date` columns as `string`. The value coming back from `toStartOfInterval` is the same shape.
+Note that `toStartOfWeek(ts)` starts weeks on Sunday by default, so the two functions disagree unless you pass `toStartOfWeek(ts, 1)`. See [toStartOfWeek](/clickhouse/functions/to-start-of-week).
 
-## Using toStartOfInterval in hypequery
+## How to fill empty buckets with WITH FILL
 
-hypequery's `.select()` accepts raw SQL expressions as strings. This is the straightforward way to use `toStartOfInterval`:
+`GROUP BY` only returns buckets that have rows. Add `WITH FILL` to the `ORDER BY` to generate the missing ones with zero counts:
 
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './schema';
-
-const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
-
-const result = await db
-  .table('events')
-  .select(
-    'toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket',
-    'count() AS events'
-  )
-  .where('tenant_id', 'eq', tenantId)
-  .groupBy(['bucket'])
-  .orderBy('bucket', 'ASC')
-  .execute();
-
-// result[0].bucket → "2026-04-25 14:00:00"
-// result[0].events → "142"  (UInt64 comes back as string)
+```sql
+SELECT
+    toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket,
+    count() AS events
+FROM events
+WHERE tenant_id = 1
+  AND created_at >= '2026-04-25 00:00:00'
+  AND created_at < '2026-04-25 06:00:00'
+GROUP BY bucket
+ORDER BY bucket ASC WITH FILL
+    FROM toDateTime('2026-04-25 00:00:00')
+    TO toDateTime('2026-04-25 06:00:00')
+    STEP INTERVAL 1 HOUR;
 ```
 
-The schema-generated type for `created_at` is `string` (since ClickHouse `DateTime` maps to `string`), which is consistent with what `toStartOfInterval` hands back. No type mismatch to work around.
+With three rows at 01:10, 01:50 and 04:05, this returns six buckets: 0, 2, 0, 0, 1 and 0 events.
 
-## A Practical Dashboard Query
+## Using toStartOfInterval from TypeScript with hypequery
 
-Real dashboards usually need a variable granularity — hourly for short ranges, daily for longer ones. A common pattern:
+Select the expression with `rawAs` and give it a type. `DateTime` results arrive as strings such as `"2026-04-25 14:00:00"`, and `count()` and `uniq()` return `UInt64`, which hypequery receives as strings so large counts keep their precision.
 
-```typescript
-type Granularity = '15min' | '1hour' | '1day';
+```ts
+import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-function intervalExpression(granularity: Granularity): string {
-  switch (granularity) {
-    case '15min':  return 'INTERVAL 15 MINUTE';
-    case '1hour':  return 'INTERVAL 1 HOUR';
-    case '1day':   return 'INTERVAL 1 DAY';
-  }
-}
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-async function getEventTimeSeries(
+// Only these strings ever reach the SQL, so the interval can't be injected
+const intervals = {
+  '15min': 'INTERVAL 15 MINUTE',
+  '1hour': 'INTERVAL 1 HOUR',
+  '1day': 'INTERVAL 1 DAY',
+} as const;
+
+export async function eventTimeSeries(
   tenantId: number,
-  from: string,
+  from: string, // "2026-04-25 00:00:00"
   to: string,
-  granularity: Granularity
+  granularity: keyof typeof intervals,
 ) {
-  const interval = intervalExpression(granularity);
-
   return db
     .table('events')
-    .select(
-      `toStartOfInterval(created_at, ${interval}) AS bucket`,
-      'count() AS events',
-      'uniq(user_id) AS unique_users'
-    )
+    .select([
+      rawAs<string, 'bucket'>(`toStartOfInterval(created_at, ${intervals[granularity]})`, 'bucket'),
+      rawAs<string, 'events'>('count()', 'events'),
+      rawAs<string, 'unique_users'>('uniq(user_id)', 'unique_users'),
+    ])
     .where('tenant_id', 'eq', tenantId)
     .where('created_at', 'gte', from)
     .where('created_at', 'lt', to)
-    .groupBy(['bucket'])
+    .groupBy('bucket')
     .orderBy('bucket', 'ASC')
     .execute();
 }
 ```
 
-If you later decide this query specifically needs an explicit ClickHouse `PREWHERE`, treat that as a raw SQL optimisation step rather than assuming there is a dedicated builder helper for it today. See [PREWHERE vs WHERE](/blog/clickhouse-prewhere-vs-where) for when that tradeoff matters.
+To turn a bucket into a JavaScript `Date`, render it in a known zone and parse it as that zone: with a UTC column, `new Date(row.bucket.replace(' ', 'T') + 'Z')`.
 
-## Filling Gaps
+## Related
 
-One limitation of this query: if there are no events in a time bucket, that bucket won't appear in the results. ClickHouse has a `WITH FILL` clause for ORDER BY that can generate missing intervals:
-
-```sql
-SELECT
-  toStartOfInterval(created_at, INTERVAL 1 HOUR) AS bucket,
-  count() AS events
-FROM events
-WHERE tenant_id = 1
-  AND created_at >= '2026-04-25 00:00:00'
-  AND created_at < '2026-04-26 00:00:00'
-GROUP BY bucket
-ORDER BY bucket ASC WITH FILL
-  FROM toDateTime('2026-04-25 00:00:00')
-  TO toDateTime('2026-04-26 00:00:00')
-  STEP INTERVAL 1 HOUR
-```
-
-This fills in zero-count buckets automatically. It's a raw SQL feature — use it via an escape hatch if your dashboard needs gap filling at the database level.
-
----
-
-Related: [ClickHouse Time-Series Patterns](/clickhouse-time-series) · [ClickHouse TypeScript Guide](/clickhouse-typescript) · [PREWHERE vs WHERE](/blog/clickhouse-prewhere-vs-where)
+- [toStartOfWeek: Sunday or Monday](/clickhouse/functions/to-start-of-week)
+- [formatDateTime for bucket labels](/clickhouse/functions/format-date-time)
+- [ClickHouse time-series patterns](/clickhouse-time-series)
+- [PREWHERE vs WHERE](/blog/clickhouse-prewhere-vs-where)
+- ClickHouse docs: [toStartOfInterval](https://clickhouse.com/docs/sql-reference/functions/date-time-functions#toStartOfInterval), [ORDER BY ... WITH FILL](https://clickhouse.com/docs/sql-reference/statements/select/order-by#order-by-expr-with-fill-modifier)

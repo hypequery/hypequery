@@ -2,6 +2,8 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { comparePages } from '@/data/compare-pages';
 import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
+import { PRODUCT_DEFINITION } from '@/data/product';
+import { docsPageTitle } from '@/lib/docs-section-label';
 
 // Static, regenerated only at build time.
 export const revalidate = false;
@@ -19,11 +21,30 @@ function sectionOf(url: string): string {
 // Product pages that answer "which tool should I use" questions. These have no
 // Markdown copy, so they link to the HTML page.
 const PRODUCT_PAGES: Entry[] = [
+  { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and 8 tools compared on embed model, licensing, self-hosting and pricing.' },
+  { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
+  { title: 'ClickHouse semantic layer', url: '/clickhouse-semantic-layer', description: 'What a semantic layer is, and how to define one for ClickHouse in TypeScript or Python with typed datasets, tenant keys and time keys.' },
   { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
   { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
-  { title: 'MooseStack alternative', url: '/moosestack-alternative', description: 'MooseStack has reached end of life. Migrate typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools to hypequery.' },
   { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },
   { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
+];
+
+// The pages an agent should read first, in order: the definition, both quick starts, then the dataset and MCP
+// entry points. They are listed once, under "Start here", and left out of the sections below.
+const START_HERE = [
+  '/docs/what-is-hypequery',
+  '/docs/quick-start',
+  '/docs/python/quick-start',
+  '/docs/why-hypequery',
+  '/docs/core-concepts',
+  '/docs/introduction',
+  '/docs/python',
+  '/docs/datasets/overview',
+  '/docs/python/datasets/overview',
+  '/docs/mcp/overview',
+  '/docs/capabilities',
+  '/docs/python/feature-status',
 ];
 
 const SECTION_ORDER = ['Guides', 'query-building', 'datasets', 'python', 'mcp', 'react', 'reference', 'cloud'];
@@ -39,18 +60,29 @@ const SECTION_TITLES: Record<string, string> = {
   cloud: 'Cloud (not live yet: planned hosted service, no sign-up available)',
 };
 
+function entryLine(e: Entry): string {
+  return `- [${e.title}](${e.url})${e.description ? `: ${e.description}` : ''}`;
+}
+
 export function GET() {
   const groups = new Map<string, Entry[]>();
+  const startHere = new Map<string, Entry>();
 
   for (const page of source.getPages()) {
-    const section = sectionOf(page.url);
-    const list = groups.get(section) ?? [];
-    list.push({
-      title: page.data.title,
+    const entry: Entry = {
+      // Self-describing titles ("Overview · MCP"), since an entry is read out of its sidebar context.
+      title: docsPageTitle(page),
       // Link to the clean-markdown version so an LLM gets prose, not HTML.
       url: absoluteUrl(`/llms.mdx${page.url}`).toString(),
       description: page.data.description,
-    });
+    };
+    if (START_HERE.includes(page.url)) {
+      startHere.set(page.url, entry);
+      continue;
+    }
+    const section = sectionOf(page.url);
+    const list = groups.get(section) ?? [];
+    list.push(entry);
     groups.set(section, list);
   }
 
@@ -63,16 +95,19 @@ export function GET() {
   const lines: string[] = [
     '# hypequery',
     '',
-    '> The analytics layer for ClickHouse, in your codebase. Open-source SDKs for TypeScript and Python (beta): semantic datasets, an HTTP/OpenAPI serve runtime, typed React hooks, and an MCP server for agents. TypeScript also includes a type-safe ClickHouse query builder. hypequery cloud, a hosted option, is not live yet.',
+    `> ${PRODUCT_DEFINITION}`,
     '',
-    'Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or `Accept: text/markdown`. The full corpus is available at /llms-full.txt.',
+    `Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
+    '',
+    '## Start here',
     '',
   ];
+  for (const url of START_HERE) {
+    const entry = startHere.get(url);
+    if (entry) lines.push(entryLine(entry));
+  }
 
-  // Agents land here first: the shortest path from "I need hypequery in this
-  // codebase" to working code, then the sub-indexes for everything else.
-  lines.push('## Start here', '');
-  lines.push(`- [Quick start](${absoluteUrl('/llms.mdx/docs/quick-start').toString()}): install, generate types, run a typed query or define a dataset.`);
+  // After the start-here pages: the sub-indexes agents follow to runnable code.
   lines.push(`- [Examples](${absoluteUrl('/examples/llms.txt').toString()}): runnable apps over one seeded ClickHouse, scaffold with \`npx hypequery create <slug> -y\`.`);
   lines.push(`- [Recipes](${absoluteUrl('/recipes/llms.txt').toString()}): one question, one dataset, the SQL it generates.`);
   lines.push(`- [Guides](${absoluteUrl('/guides/llms.txt').toString()}): long-form ClickHouse guides with CI-tested SQL.`);
@@ -90,7 +125,7 @@ export function GET() {
   }
   lines.push('', '## Alternatives and use cases', '');
   for (const e of PRODUCT_PAGES) {
-    lines.push(`- [${e.title}](${absoluteUrl(e.url).toString()}): ${e.description}`);
+    lines.push(entryLine({ ...e, url: absoluteUrl(e.url).toString() }));
   }
   lines.push('');
 
@@ -98,7 +133,7 @@ export function GET() {
     lines.push(`## ${SECTION_TITLES[section] ?? section}`, '');
     const entries = groups.get(section)!.sort((a, b) => a.title.localeCompare(b.title));
     for (const e of entries) {
-      lines.push(`- [${e.title}](${e.url})${e.description ? `: ${e.description}` : ''}`);
+      lines.push(entryLine(e));
     }
     lines.push('');
   }

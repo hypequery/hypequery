@@ -63,7 +63,6 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'vs Metabase', href: '/compare/hypequery-vs-metabase' },
       { label: 'vs HTTP Interface', href: '/compare/hypequery-vs-clickhouse-http' },
       { label: 'vs Raw SQL', href: '/compare/hypequery-vs-raw-sql' },
-      { label: 'ClickHouse Query Builders', href: '/blog/clickhouse-query-builder-typescript' },
     ],
   },
   {
@@ -71,7 +70,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
     links: [
       { label: 'Cube.js Alternative', href: '/cube-js-alternative' },
       { label: 'Tinybird Alternative', href: '/tinybird-alternative' },
-      { label: 'MooseStack Alternative', href: '/moosestack-alternative' },
+      { label: 'MooseStack Alternative', href: '/compare/hypequery-vs-moose' },
       { label: 'Cube vs Tinybird vs hypequery', href: '/compare/cube-vs-tinybird-vs-hypequery' },
     ],
   },
@@ -83,8 +82,8 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
-      { label: 'Prisma for ClickHouse', href: '/prisma-clickhouse' },
-      { label: 'TypeORM for ClickHouse', href: '/typeorm-clickhouse' },
+      { label: 'Does Prisma Support ClickHouse?', href: '/blog/does-prisma-support-clickhouse' },
+      { label: 'Query Builder vs ORM', href: '/blog/query-builder-vs-orm-clickhouse' },
     ],
   },
   {

@@ -144,6 +144,7 @@ export default function ClickHousePandasPage() {
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Reuse results across notebook runs.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
         { href: '/clickhouse-sqlalchemy', label: 'ClickHouse with SQLAlchemy' },

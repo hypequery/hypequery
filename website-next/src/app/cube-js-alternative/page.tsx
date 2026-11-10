@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Cube.js Alternative for ClickHouse — A Code-First Semantic Layer',
+  title: 'Cube.js Alternative for ClickHouse (2026)',
   description:
-    'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.',
+    'A Cube.js alternative for ClickHouse with no Cube server, Cube Store cluster, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.',
   alternates: { canonical: absoluteUrl('/cube-js-alternative') },
   openGraph: {
     images: ogImage('Cube.js Alternative for ClickHouse — A Code-First Semantic Layer'),
@@ -64,7 +64,7 @@ export default function CubeJsAlternativePage() {
         {
           title: 'Cube is a platform you have to operate',
           copy:
-            'A production Cube deployment means the Cube API server, a Cube Store or Redis cache layer, and schema config deployed alongside both. That is a lot of operational surface when what you actually have is a handful of product queries.',
+            'A production Cube deployment means Cube API instances, a refresh worker, Cube Store router and worker nodes for caching and pre-aggregations, and the data model deployed alongside them. That is a lot of operational surface when what you actually have is a handful of product queries.',
         },
         {
           title: 'The data model lives outside your application',
@@ -123,7 +123,7 @@ export default function CubeJsAlternativePage() {
         rows: [
           {
             label: 'Runs as',
-            competitor: 'Separate API server plus Cube Store or Redis cache',
+            competitor: 'Cube API instances and a refresh worker, plus Cube Store router and worker nodes',
             hypequery: 'A library inside your existing Node.js or Python app',
           },
           {
@@ -143,7 +143,7 @@ export default function CubeJsAlternativePage() {
           },
           {
             label: 'BI tool access',
-            competitor: 'SQL API for Tableau, Metabase, Superset',
+            competitor: 'Postgres-compatible SQL API for Tableau, Power BI, Metabase and Superset',
             hypequery: 'Not a goal — typed application APIs instead',
           },
           {
@@ -158,12 +158,27 @@ export default function CubeJsAlternativePage() {
           },
           {
             label: 'Cost',
-            competitor: 'Open source, with Cube Cloud as the managed option',
-            hypequery: 'Free and open source',
+            competitor: 'Cube Core is open source (Apache 2.0); Cube Cloud has a Free plan, then $40 or $80 per developer per month',
+            hypequery: 'Free and open source (Apache 2.0)',
+          },
+          {
+            label: 'Agents and MCP',
+            competitor: 'Cube Cloud includes an MCP server and analytics agents, from the Free plan',
+            hypequery: '`@hypequery/mcp` exposes your datasets and metrics as MCP tools',
           },
         ],
         footnote:
           'If the left column reads like a list of things you rely on — multiple databases, BI consumers, heavy pre-aggregation — stay with Cube. This page is for teams who noticed they only use the right column.',
+      }}
+      chooseAlternative={{
+        title: 'When to pick Cube instead',
+        bullets: [
+          'BI tools such as Tableau, Power BI or Metabase need the same metric definitions as your app, through Cube’s Postgres-compatible SQL API.',
+          'Your metrics span several databases, not only ClickHouse.',
+          'Expensive queries hit by many users need managed pre-aggregations in Cube Store.',
+          'A data team owns metric definitions separately from the product engineers who consume them.',
+          'You want the vendor to host analytics agents and chat on top of the semantic layer, as Cube Cloud does.',
+        ],
       }}
       searchIntentCards={[
         {
@@ -185,6 +200,23 @@ export default function CubeJsAlternativePage() {
           title: 'When Cube is still the right answer',
           copy:
             'Multiple databases, BI tool consumers, or heavy pre-aggregation needs are Cube territory. hypequery deliberately trades that breadth for a lighter, ClickHouse-native developer experience.',
+        },
+      ]}
+      faq={[
+        {
+          question: 'Is there an open-source Cube.js alternative?',
+          answer:
+            'Cube Core is itself open source under Apache 2.0. hypequery is a lighter open-source option under the same license: a TypeScript or Python library with no server to run, aimed at ClickHouse-backed product features rather than a shared metrics platform.',
+        },
+        {
+          question: 'Does Cube still need Redis?',
+          answer:
+            'No. Cube deprecated Redis in v0.32 and removed support in v0.36. Cube Store now handles the cache, the query queue and pre-aggregations, so a production Cube Core deployment runs API instances, a refresh worker, and Cube Store router and worker nodes.',
+        },
+        {
+          question: 'Can hypequery serve BI tools the way Cube does?',
+          answer:
+            'No. hypequery does not expose a SQL API for BI tools. It serves typed HTTP endpoints, React hooks and MCP tools. If Tableau, Power BI or Metabase must read the same metrics as your app, Cube’s Postgres-compatible SQL API is built for that.',
         },
       ]}
       readingLinks={[
@@ -219,7 +251,7 @@ export default function CubeJsAlternativePage() {
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/tinybird-alternative', label: 'Tinybird Alternative' },
-        { href: '/moosestack-alternative', label: 'MooseStack Alternative' },
+        { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

@@ -7,6 +7,10 @@ pubDate: 2026-05-18
 heroImage: ""
 slug: typescript-vs-dbt-clickhouse
 status: published
+tags:
+  - ClickHouse
+  - TypeScript
+  - Semantic layer
 ---
 
 dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.
@@ -134,6 +138,6 @@ If your team is TypeScript-first and the transformation logic is manageable, you
 ---
 
 **Related reading:**
-- [hypequery vs @clickhouse/client: what you actually gain](/blog/hypequery-vs-clickhouse-client)
-- [Building a real-time dashboard with ClickHouse and React](/blog/clickhouse-real-time-dashboard-react)
+- [hypequery vs @clickhouse/client: what you actually gain](/compare/hypequery-vs-clickhouse-client)
+- [Building a real-time dashboard with ClickHouse and React](/blog/building-dashboards-clickhouse-hypequery-nextjs#step-5-typed-react-hooks-with-polling)
 - [Type-safe schema management for ClickHouse](/blog/type-safe-schema-management-clickhouse)

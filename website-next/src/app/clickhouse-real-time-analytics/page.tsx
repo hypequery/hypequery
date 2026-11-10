@@ -256,9 +256,9 @@ export default function ClickHouseRealTimeAnalyticsPage() {
           description: 'The case for a typed analytics layer over raw real-time ClickHouse access.',
         },
         {
-          href: '/blog/real-time-leaderboard-clickhouse-typescript',
-          title: 'How to Build a Real-Time Leaderboard with ClickHouse and TypeScript',
-          description: 'How to build a real-time leaderboard in ClickHouse with TypeScript: top-N queries, rank columns, per-segment leaderboards with LIMIT BY, and a polling React hook.',
+          href: '/blog/building-dashboards-clickhouse-hypequery-nextjs#a-real-time-leaderboard',
+          title: 'A real-time leaderboard with ClickHouse and React',
+          description: 'Top-N queries, a rank column, a top 10 per region with LIMIT BY, and a polling React hook.',
         },
       ]}
       relatedPillars={[

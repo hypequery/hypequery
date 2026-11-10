@@ -6,14 +6,14 @@ import CodeHighlight from '@/components/CodeHighlight';
 /**
  * Shared markdown renderer for blog posts, compare articles, and CMS previews.
  * Adds GFM support (tables, strikethrough, task lists) on top of the standard
- * code highlighting, and renders tables with design-system tokens so they
+ * code highlighting, gives headings ids so `#section` links and redirects land
+ * on them, and renders tables with design-system tokens so they
  * follow the active theme.
  */
 export default function MarkdownContent({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      // Heading ids so tables of contents and deep links (#faq) resolve.
       rehypePlugins={[rehypeSlug]}
       components={{
         code({ className, children, ...props }) {

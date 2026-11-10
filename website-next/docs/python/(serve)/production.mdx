@@ -61,7 +61,10 @@ To close an executor at shutdown, pass the ASGI app with a lifespan:
 | `max_threads` | 4 | ClickHouse thread ceiling per query |
 
 Time, row, byte, and thread ceilings are passed into the compiled query and intersected with stricter client
-settings. Responses are buffered under the byte ceiling, so this profile does not provide streaming exports.
+settings. Responses are buffered under the byte ceiling. A [streamed](/docs/python/dataset-endpoints#streaming) response
+counts its bytes as it is written instead: at the ceiling an NDJSON stream ends with a `PAYLOAD_TOO_LARGE` error
+frame and an Arrow stream is broken off before its end-of-stream marker, so raise
+`max_result_bytes` and `timeout_seconds` for endpoints that stream exports.
 
 A request that times out keeps its admission slot until the work it started has stopped, so timed-out requests can't
 pile up. Work still waiting for a worker thread is cancelled before your code starts. Synchronous executors must

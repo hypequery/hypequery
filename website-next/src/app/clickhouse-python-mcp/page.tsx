@@ -130,6 +130,8 @@ export default function ClickHousePythonMcpPage() {
         { href: '/docs/mcp/safety', title: 'MCP safety model', description: 'Credentials, limits, and tenant isolation.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
+        { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

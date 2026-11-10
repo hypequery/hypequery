@@ -1,56 +1,92 @@
 ---
-title: "Embedded Analytics with ClickHouse: A Practical Guide to Multi-Tenant Dashboards"
-description: "A practical guide to building multi-tenant embedded analytics on ClickHouse with typed TypeScript query layers, row-policy isolation, projections, quotas, and operational patterns that scale."
-seoTitle: "Embedded Analytics with ClickHouse for Multi-Tenant Dashboards"
-seoDescription: "Learn how to build fast, secure multi-tenant embedded analytics with ClickHouse using shared tables, row policies, typed query layers, projections, quotas, and tenant-aware operations."
+title: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+description: "How to build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed tenant-scoped API, dashboard performance, quotas, and tenant offboarding."
+seoTitle: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+seoDescription: "Multi-tenant embedded analytics architecture on ClickHouse: shared tables, row policies plus app-side tenant scoping, a typed API, quotas, fast dashboards."
 pubDate: 2026-04-30
+updated: 2026-11-09
 heroImage: ""
 slug: embedded-analytics-clickhouse-multi-tenant-dashboards
 status: published
+tags:
+  - ClickHouse
+  - TypeScript
+  - Embedded analytics
 ---
 
 Customers expect usage dashboards and reporting inside your product. Not in a separate BI tool, but inside your app, loading fast, showing only their data. ClickHouse is one of the best engines for this, and teams like PostHog, LaunchDarkly, Grafana Cloud, GitLab, Cloudflare, and Inigo have all built customer-facing analytics on it. What they all also discovered is that the hard part is not query performance. It is multi-tenancy, isolation, and keeping the codebase maintainable as you scale to thousands of tenants.
 
-This guide covers the full picture: schema design, row-level security done properly, performance optimization with materialized views and ClickHouse's newer caching primitives, per-tenant resource isolation, and the operational realities of onboarding and offboarding at scale.
+This guide covers the full picture: schema design, row-level security and app-side tenant scoping, a typed tenant-scoped API, dashboard performance, per-tenant resource limits, and onboarding and offboarding tenants. Every SQL statement here was run on a ClickHouse 26.6 server, including the row policies, quotas and read-only users.
+
+## Quick answers
+
+### How do you secure multi-tenant embedded analytics?
+
+Put every tenant in one shared table with `tenant_id` first in the sort key. Resolve the tenant on the server from the user's verified session, never from request input. Apply the tenant filter in one place in your API layer, and add a ClickHouse row policy underneath so a bug in application code still cannot read another tenant's rows.
+
+### Does ClickHouse have row-level security?
+
+Yes, through row policies: `CREATE ROW POLICY ... USING tenant_id = ...`. Unlike Postgres RLS, a policy is attached to ClickHouse users or roles, not to a session variable, so the scaling trick is a single role whose policy reads a per-query custom setting. See [row-level security done right](#row-level-security-done-right).
+
+### Row policies or app-side tenant scoping?
+
+Both. App-side scoping knows who the user is and which workspace or role they have. Row policies cover code that bypasses your API: a script, a migration tool, a raw SQL escape hatch. The [comparison below](#row-policies-vs-app-side-tenant-scoping) shows what each one catches.
+
+### What does a multi-tenant embedded analytics architecture look like?
+
+One shared ClickHouse table per event type, one read-only database user with a tenant row policy, and one typed API layer that injects the tenant into every query. The [architecture section](#multi-tenant-embedded-analytics-architecture) shows each layer.
+
+## Multi-Tenant Embedded Analytics Architecture
+
+A multi-tenant embedded analytics stack on ClickHouse has four layers, and each one has a single job:
+
+1. **Storage.** One shared table per event type, with `tenant_id` first in the sort key, so a tenant's query reads only that tenant's part of the data. See [the schema that scales](#the-schema-that-scales).
+2. **Database guard.** A read-only role with a row policy that reads the tenant from a per-query setting, plus settings profiles and keyed quotas per plan tier, so a bug or a heavy tenant can't reach other tenants' rows or starve them. See [row-level security done right](#row-level-security-done-right) and [resource isolation](#resource-isolation-and-noisy-neighbors).
+3. **API layer.** The server resolves the tenant from the verified session and injects the tenant filter into every query in one place; datasets reject queries that would bypass the tenant key. See [enforcing tenancy at plan time](#enforcing-tenancy-at-plan-time-with-datasets).
+4. **Dashboard.** React components call typed endpoints. The browser never sends SQL or a tenant id. See [a typed analytics API](#a-typed-analytics-api-for-your-dashboards).
+
+```text
+Next.js App Router
+  └── app/api/analytics/[...path]/route.ts
+        └── createFetchHandler(api.handler)
+              └── serve({ tenant: { extract, column: 'tenant_id' } })
+                    ├── auth: session → { userId, tenantId }
+                    ├── queries: ctx.db.table(...) gets WHERE tenant_id = ?
+                    ├── datasets: tenantKey enforced at plan time
+                    └── context: per-request ctx.db sends { SQL_tenant_id, quota_key }
+
+ClickHouse
+  ├── events: ORDER BY (tenant_id, event_time, event_id)
+  ├── projection: (tenant_id, hour, event_type) → count()
+  ├── row policy: tenant_id = getSetting('SQL_tenant_id')
+  ├── role settings: SQL_tenant_id CHANGEABLE_IN_READONLY
+  ├── settings profile per plan tier
+  └── quota KEYED BY client_key
+```
+
+The rest of this guide builds each layer, in that order.
 
 ---
 
 ## Why ClickHouse for Embedded Analytics
 
-ClickHouse is a column-oriented OLAP database designed for fast aggregations over large datasets. It can serve many concurrent dashboard queries without the write-path penalties that come with row-oriented databases, which makes it a natural fit for:
-
-- Product usage dashboards (events, sessions, feature flags)
-- Billing and subscription analytics
-- Time-series metrics at per-customer granularity
-- Any aggregation by tenant, team, account, or workspace
-
-The short version of why it beats Postgres for this workload: on a 200M-row events table, a cold scan for last-24h event counts takes around 1.4 seconds. Add an aggregate projection and you are at around 12ms. Add ClickHouse 25.3's Query Condition Cache and repeat loads are under 50ms even without precomputed aggregates. None of that is achievable with a general-purpose OLTP database.
+ClickHouse is a column-oriented OLAP database built for fast aggregations over large, append-heavy datasets: product usage events, billing usage, per-customer time series. Keep transactional data (users, accounts, subscriptions) in Postgres or MySQL, and put the events your dashboards aggregate in ClickHouse.
 
 ---
 
 ## Three Isolation Models, and Which One to Choose
 
-Before writing a line of SQL, you need to decide how tenant data is physically stored. ClickHouse supports three main approaches, and the right choice depends on a few practical factors.
+Before writing a line of SQL, decide how tenant data is physically stored.
 
 ### Model 1: Shared Table (recommended default)
 
-A single events table with `tenant_id` in the primary key. All tenants share the same schema, same table, same cluster. This is what PostHog (column: `team_id`), Grafana Cloud, and most SaaS analytics products use.
+A single events table with `tenant_id` in the primary key. All tenants share the same schema, the same table and the same cluster. It works for thousands of tenants and keeps operational overhead low. Isolation comes from the API layer and a row policy, both covered below.
 
-It works for tens of thousands of tenants, scales to petabytes without sharding complexity, and keeps operational overhead minimal. The isolation layer is ClickHouse's row policy system, covered in detail below.
+### Models 2 and 3: Separate Tables or Databases per Tenant
 
-### Model 2: Separate Tables per Tenant
+A dedicated `events_acme` table, or a database per tenant, suits a handful of large customers with different schemas or compliance terms. It does not scale to hundreds of tenants: every table adds parts to merge and another target for every schema migration.
 
-A dedicated `events_acme`, `events_globex`, and so on for each customer. This makes sense if tenants have meaningfully different schemas or if you have a small number of very large customers. It does not scale to hundreds of tenants. ClickHouse starts degrading past a few thousand parts per table, and managing schema migrations across N tables becomes painful fast.
-
-### Model 3: Separate Databases per Tenant
-
-A separate ClickHouse database per tenant. Better logical separation than separate tables, with cleaner permission scoping. It still does not scale to thousands of tenants for the same reasons. Altinity's knowledge base puts the practical ceiling around a few hundred before operational overhead becomes the dominant cost.
-
-### When to Consider Stronger Isolation
-
-If you have enterprise customers with contractual data residency requirements, ClickHouse Cloud's compute-compute separation ("Warehouses") lets you run isolated compute services over the same shared data without copying anything. Full separate ClickHouse services per tenant are only justified by compliance requirements. The operational cost is significant.
-
-**Decision tree in short:** start with a shared table. Move to separate databases for a handful of enterprise accounts where schema or compliance requirements diverge. Use Warehouses (Cloud) or separate services only when you have a contractual obligation to do so.
+**In short:** start with a shared table. Move individual enterprise accounts to their own database or ClickHouse service only when a contract requires it. ClickHouse Cloud can also run [separate compute services over the same data](https://clickhouse.com/docs/cloud/reference/warehouses) if a large customer needs dedicated compute without a data copy.
 
 ---
 
@@ -62,7 +98,7 @@ For the shared-table model, the most important decision is where `tenant_id` sit
 CREATE TABLE events
 (
     tenant_id   UInt32,
-    event_id    UUID,
+    event_id    UUID DEFAULT generateUUIDv4(),
     event_time  DateTime64(3),
     user_id     UInt64,
     event_type  LowCardinality(String),
@@ -73,21 +109,17 @@ PARTITION BY toYYYYMM(event_time)
 ORDER BY (tenant_id, event_time, event_id);
 ```
 
-A few things worth being precise about here:
+**`tenant_id` goes first in `ORDER BY`.** ClickHouse's sparse primary index follows the sort key, so a query for one tenant skips the granules of every other tenant. A tenant-scoped query reads data in proportion to that tenant's size, not the table's.
 
-**`tenant_id` goes first in `ORDER BY`.** ClickHouse's sparse primary index is based on the sort key. Putting `tenant_id` first means that per-tenant scans skip granules from other tenants entirely, rather than scanning the full table and filtering afterward. Without this, tenant queries scan data proportionally to total table size, not tenant data size.
+**Partition by time, not by tenant.** `PARTITION BY (tenant_id, toYYYYMM(event_time))` multiplies the number of parts by the number of tenants, and too many parts slows merges and inserts. Partition by time and let the primary key do per-tenant pruning. The exception is fast deletion for a few large tenants, covered in [offboarding](#tenant-onboarding-and-offboarding).
 
-**Partition by time, not by tenant.** A common mistake is `PARTITION BY (tenant_id, toYYYYMM(event_time))`. This is fine for fewer than about 50 tenants. Beyond that you'll blow past ClickHouse's recommended part counts. The database starts creating too many parts to merge efficiently, and performance degrades. For multi-thousand-tenant SaaS, partition by time only and rely on the primary key for per-tenant pruning.
-
-The one exception: if fast per-tenant data deletion is a hard requirement, such as GDPR offboarding or plan expiry, a composite partition key lets you drop entire partitions with `ALTER TABLE events DROP PARTITION tuple(42, 202501)` rather than waiting for a slow mutation. If that tradeoff matters for your use case, limit the partition-by-tenant approach to a small number of high-value accounts.
-
-**`DateTime` columns return as strings.** When `@clickhouse/client` (and by extension hypequery) reads `DateTime64` values, they come back as `"YYYY-MM-DD HH:MM:SS.mmm"` strings, not `Date` objects. `UInt64` commonly comes back as a string too for precision safety. Parse them explicitly in your application layer.
+**64-bit values and dates arrive as strings.** `DateTime64` columns come back from the HTTP interface as `"YYYY-MM-DD hh:mm:ss.sss"` strings, not `Date` objects. Since ClickHouse 25.8 the server sends `UInt64` and `Int64` as plain JSON numbers by default, which lose precision above 2^53 in JavaScript. hypequery asks for quoted values (`output_format_json_quote_64bit_integers = 1`), so `user_id` and every `count()` arrive as exact strings. Convert them at the display layer.
 
 ---
 
 ## Row-Level Security Done Right
 
-Shared tables need an enforcement layer. ClickHouse's row policies handle this, but there are two distinct patterns with very different production characteristics.
+Shared tables need an enforcement layer in the database as well as in the application. ClickHouse row policies provide it, and there are two patterns with very different operational costs.
 
 ### The Per-Tenant-User Approach (works for tens of tenants)
 
@@ -104,102 +136,88 @@ CREATE USER tenant_42_user IDENTIFIED BY 'strong_password'
 GRANT tenant_42_role TO tenant_42_user;
 ```
 
-Simple and easy to reason about. The problem is that it does not scale: you're creating N users, N roles, and N policies per table. At 10,000 tenants across 50 tables, that is 500,000 row-policy objects. Migrations, audits, and connection management become unworkable.
-
-There is also a critical operational issue: ClickHouse connection pooling uses a fixed set of credentials. If you need one ClickHouse user per tenant, you need one connection pool per tenant, or you reconnect on every request, which destroys throughput.
+Even `SELECT * FROM events` run as `tenant_42_user` returns only tenant 42's rows. The cost is one user, one role and one policy per tenant per table. You provision users at signup, rotate credentials, and your app needs a separate ClickHouse client per tenant, because credentials belong to the connection. That is fine for a few dozen tenants and painful for thousands.
 
 ### The Custom-Setting Approach (works for thousands of tenants)
 
-This is the pattern LaunchDarkly uses in production for their Highlight observability backend. Instead of per-tenant users, you have a single shared user. Tenant identity is passed as a custom per-query setting, and a row policy reads it.
+Use one shared database user. The application passes the tenant as a per-query custom setting, and a single row policy reads it.
 
 ```sql
--- Create a role with one special property: the custom setting is
--- allowed to be changed even by a readonly user
+-- The role lets a read-only user change the custom setting
 CREATE ROLE analytics_readonly;
 ALTER ROLE analytics_readonly SETTINGS SQL_tenant_id CHANGEABLE_IN_READONLY;
 GRANT SELECT ON events TO analytics_readonly;
 
--- Single row policy reads the per-query setting
+-- One row policy reads the per-query setting
 CREATE ROW POLICY tenant_isolation ON events
   FOR SELECT
   USING tenant_id = getSetting('SQL_tenant_id')::UInt32
   TO analytics_readonly;
 
--- One shared database user for the entire application
+-- One shared database user for the whole application
 CREATE USER app_analytics IDENTIFIED BY 'strong_password'
   SETTINGS readonly = 1;
 GRANT analytics_readonly TO app_analytics;
 SET DEFAULT ROLE analytics_readonly TO app_analytics;
 ```
 
-Your application sends the tenant as a per-connection setting before each query:
+What we saw running this on ClickHouse 26.6:
 
-```typescript
-// With the official @clickhouse/client
-const client = createClient({
-  host: process.env.CLICKHOUSE_HOST,
-  username: 'app_analytics',
-  password: process.env.CLICKHOUSE_PASSWORD,
-});
+- **It fails closed.** A query without `SQL_tenant_id` fails with `Unknown setting 'SQL_tenant_id'`. There is no path where a missing tenant silently returns every tenant's rows.
+- **A spoofed filter returns nothing.** `WHERE tenant_id = 41` with `SQL_tenant_id = '42'` returns zero rows, because the policy is ANDed with the query.
+- **`CHANGEABLE_IN_READONLY` is required.** Without it, every query fails with `Cannot modify 'SQL_tenant_id' setting in readonly mode`.
+- **The policy prunes the primary index.** With the policy alone, `EXPLAIN indexes = 1` showed `Condition: (tenant_id in [42, 42])` and read the same granules as an explicit `WHERE tenant_id = 42`. Keep the explicit filter in your queries anyway: it documents intent and keeps working if the policy is ever dropped.
 
-async function queryForTenant(tenantId: number, sql: string) {
-  return client.query({
-    query: sql,
-    clickhouse_settings: {
-      SQL_tenant_id: tenantId.toString(),
-    },
-  });
-}
-```
+Two setup details. Custom settings only work if their prefix is listed in the `custom_settings_prefixes` [server setting](https://clickhouse.com/docs/operations/server-configuration-parameters/settings); our test server listed `SQL_`, so check yours. And adding tenant 10,001 needs no DDL at all.
 
-Three properties make this the right model for SaaS:
+### The read-only user and hypequery's precision setting
 
-**Fail-closed.** If your application code omits `SQL_tenant_id`, ClickHouse throws `Unknown setting 'SQL_tenant_id'` and the query fails. There is no path where a missing tenant context silently returns all tenants' data.
-
-**Connection pooling works.** A single pool of connections against a single user can serve all tenants. The tenant identity is passed at the query level, not the connection level.
-
-**O(1) policy management.** Adding tenant 10,001 requires no ClickHouse DDL at all, just an insert into your application's tenants table.
-
-One important caveat: `CHANGEABLE_IN_READONLY` is required. Without it, a readonly user cannot change the custom setting and every query fails with a permissions error. Also note that `getSetting()` row policies do not drive primary key pruning on their own. The policy filter is applied after granule selection. Best practice is to include `WHERE tenant_id = ?` explicitly in your queries even though the row policy provides the correctness guarantee:
+A `readonly = 1` user rejects any setting it is not explicitly allowed to change. hypequery sends `output_format_json_quote_64bit_integers = 1` on every query, so with the user above every hypequery query fails with `Cannot modify 'output_format_json_quote_64bit_integers' setting in readonly mode`. Fix it on the role, so the value hypequery sends matches the profile:
 
 ```sql
--- Correct pattern: redundant tenant filter drives the primary index scan,
--- while the row policy provides the safety net
-SELECT
-    event_type,
-    count() AS total_events
-FROM events
-WHERE tenant_id = 42
-  AND event_time >= now() - INTERVAL 7 DAY
-GROUP BY event_type
-ORDER BY total_events DESC;
+ALTER ROLE analytics_readonly SETTINGS
+  SQL_tenant_id CHANGEABLE_IN_READONLY,
+  output_format_json_quote_64bit_integers = 1;
 ```
+
+Or use `readonly = 2`, which still blocks writes and DDL but accepts per-query settings. The [read-only users reference](/docs/reference/readonly-users) covers both options.
+
+---
+
+## Row Policies vs App-Side Tenant Scoping
+
+ClickHouse's row policies and your application's tenant scoping protect against different failures. Use both.
+
+| | Row policy (custom setting) | App-side scoping (API layer) |
+|---|---|---|
+| Where it runs | ClickHouse, on every query from the role | Your backend, on every API request |
+| What it knows | The tenant ID the app passed | The verified user, workspace, roles and plan |
+| Catches | Scripts, migration tools and raw SQL that bypass your API | A client asking for another tenant's data, missing role checks |
+| Misses | A bug that passes the wrong tenant ID | Code that does not go through the API layer |
+| Cost | One role and one policy per table | One context function and a tenant config |
+
+The app layer is the primary mechanism, because only it knows who is asking. The row policy caps the blast radius of a bug in it. Neither replaces the other: if your app passes the wrong tenant in `SQL_tenant_id`, the policy enforces the wrong tenant.
+
+The one rule that matters most for the app layer: **the tenant ID never comes from request input.** If a query accepts `tenantId` in its input schema, a client can send someone else's. Derive it from the session on the server.
 
 ---
 
 ## Wiring Tenant Context Through Your Application
 
-The row policy above provides the database-level guarantee. You still need to get the tenant identity from the incoming request to the ClickHouse query. Here is the full path.
+### Without an abstraction layer
 
-### Without an Abstraction Layer
+With the official `@clickhouse/client`, pass the tenant twice: as a bound query parameter and as the row-policy setting.
 
 ```typescript
 import { createClient } from '@clickhouse/client';
-import jwt from 'jsonwebtoken';
 
 const client = createClient({
-  host: process.env.CLICKHOUSE_HOST!,
+  url: process.env.CLICKHOUSE_URL,
   username: 'app_analytics',
-  password: process.env.CLICKHOUSE_PASSWORD!,
+  password: process.env.CLICKHOUSE_PASSWORD,
 });
 
-// Next.js App Router route handler
-export async function POST(req: Request) {
-  const token = req.headers.get('authorization')?.replace('Bearer ', '');
-  if (!token) return new Response('Unauthorized', { status: 401 });
-
-  const payload = jwt.verify(token, process.env.JWT_SECRET!) as { tenantId: number };
-
+export async function eventCounts(tenantId: number) {
   const result = await client.query({
     query: `
       SELECT event_type, count() AS total_events
@@ -209,181 +227,208 @@ export async function POST(req: Request) {
       GROUP BY event_type
       ORDER BY total_events DESC
     `,
-    query_params: { tenantId: payload.tenantId },
+    query_params: { tenantId },
     clickhouse_settings: {
-      SQL_tenant_id: payload.tenantId.toString(),
+      SQL_tenant_id: String(tenantId),
+      quota_key: String(tenantId),
     },
+    format: 'JSONEachRow',
   });
-
-  return Response.json(await result.json());
+  return result.json<{ event_type: string; total_events: string }>();
 }
 ```
 
-This is functional and ships the safety properties we want: a parameterized query prevents SQL injection, `clickhouse_settings` sets the row-policy guard, and both fail independently if compromised.
+This works, but every function must remember both lines, and nothing stops a handler passing a `tenantId` read from the query string.
 
-### With a Typed Query Layer
+### With a typed query layer
 
-If you're defining many analytics endpoints across a TypeScript codebase, it is worth centralizing the tenant injection. [hypequery](https://github.com/hypequery/hypequery)'s serve API does this through a `context` callback on `initServe`. You extract the tenant once, and every query definition receives it automatically through the typed `ctx` object. In practice, this gives you **auto-injection of tenant context** at the application layer: route handlers do not need to thread `tenantId` manually through every function call, and individual query definitions do not need to re-parse auth state.
-
-The difference is easiest to see side by side:
-
-**Manual threading:**
+[hypequery](https://github.com/hypequery/hypequery)'s serve runtime resolves the tenant once per request from your auth strategy, then injects it for you. With `tenant.column` set, every `ctx.db.table(...)` call in a query gets `WHERE tenant_id = <tenant>` added automatically, and requests without a tenant are rejected.
 
 ```typescript
-async function getEventCounts(tenantId: number, days: number) {
-  return db
-    .table('events')
-    .select(['event_type'])
-    .count('event_id', 'total_events')
-    .where('tenant_id', 'eq', tenantId)
-    .where('event_time', 'gte', `now() - INTERVAL ${days} DAY`)
-    .groupBy(['event_type'])
-    .settings({ SQL_tenant_id: tenantId })
-    .execute();
-}
-
-export async function POST(req: Request) {
-  const tenantId = await readTenantIdFromJwt(req);
-  return Response.json(await getEventCounts(tenantId, 7));
-}
-```
-
-**Auto-injection through request context:**
-
-```typescript
-const { query, serve } = initServe({
-  context: ({ req }) => {
-    const tenantId = readTenantIdFromJwt(req);
-    return { db, tenantId };
-  },
-});
-
-const eventCounts = query({
-  input: z.object({ days: z.number().default(7) }),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('events')
-      .select(['event_type'])
-      .count('event_id', 'total_events')
-      .where('tenant_id', 'eq', ctx.tenantId)
-      .where('event_time', 'gte', `now() - INTERVAL ${input.days} DAY`)
-      .groupBy(['event_type'])
-      .settings({ SQL_tenant_id: ctx.tenantId })
-      .execute(),
-});
-```
-
-Both are correct. The second scales better because the tenant value is injected once at the edge of the request and then flows through every query automatically. That reduces repetitive auth plumbing and makes missing tenant scope much easier to spot in review.
-
-```typescript
+import { createClient } from '@clickhouse/client';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
-import jwt from 'jsonwebtoken';
-import type { IntrospectedSchema } from './generated-schema';
+import type { IntrospectedSchema } from './schema';
+import { verifySession } from './auth'; // your JWT or session check
 
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
+// One connection pool for the app.
+const client = createClient({
+  url: process.env.CLICKHOUSE_URL!,
   username: 'app_analytics',
-  password: process.env.CLICKHOUSE_PASSWORD!,
+  password: process.env.CLICKHOUSE_PASSWORD,
 });
 
+// A per-request builder on that pool. Every query it runs, hand-written or
+// dataset, sends the tenant's row-policy setting and quota key.
+const tenantDb = (tenantId: string) =>
+  createQueryBuilder<IntrospectedSchema>({
+    client,
+    clickhouse_settings: { SQL_tenant_id: tenantId, quota_key: tenantId },
+  });
+
+type AppAuth = { userId: string; tenantId: string };
+
 const { query, serve } = initServe({
-  context: ({ req }) => {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) throw new Error('Unauthorized');
-
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as { tenantId: number; userId: string };
-
-    // Return a typed context available in every query
-    return { db, tenantId: payload.tenantId, userId: payload.userId };
+  basePath: '/api/analytics',
+  auth: async ({ request }): Promise<AppAuth | null> => {
+    const token = request.headers['authorization']?.replace('Bearer ', '');
+    return token ? verifySession(token) : null;
   },
+  // No session means no settings: the row policy and quota fail the query closed.
+  context: ({ auth }) => ({ db: tenantDb(auth?.tenantId ?? '') }),
 });
 
 const eventCounts = query({
-  description: 'Event counts grouped by type for the last N days',
-  input: z.object({ days: z.number().min(1).max(90).default(7) }),
+  description: 'Event counts by type for the last N days',
+  input: z.object({ days: z.number().int().min(1).max(90).default(7) }),
   query: ({ ctx, input }) =>
     ctx.db
-      .table('events')
+      .table('events') // tenant filter injected here
       .select(['event_type'])
       .count('event_id', 'total_events')
-      .where('tenant_id', 'eq', ctx.tenantId)
-      .where('event_time', 'gte', `now() - INTERVAL ${input.days} DAY`)
+      .where((expr) =>
+        expr.fn('greaterOrEquals', expr.col('event_time'),
+          expr.fn('subtractDays', expr.fn('now'), input.days)),
+      )
       .groupBy(['event_type'])
       .orderBy('total_events', 'DESC')
-      .settings({ SQL_tenant_id: ctx.tenantId })
       .execute(),
 });
 
-const weeklyRevenue = query({
-  description: 'Daily revenue totals for the last 30 days',
-  input: z.object({}),
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .select(['toDate(created_at) AS day'])
-      .sum('amount', 'revenue')
-      .where('tenant_id', 'eq', ctx.tenantId)
-      .where('status', 'eq', 'completed')
-      .groupBy(['day'])
-      .orderBy('day', 'ASC')
-      .settings({ SQL_tenant_id: ctx.tenantId })
-      .execute(),
+export const api = serve({
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+    column: 'tenant_id',
+  },
+  queries: { eventCounts },
 });
-
-export const api = serve({ queries: { eventCounts, weeklyRevenue } });
 ```
 
-The important property here is not just type safety. It is that tenant context is **auto-injected once per request** and then reused by every query definition behind that API surface. That makes the safe path the default path: developers write analytics queries against `ctx.tenantId`, and the request-scoped tenant value is already there instead of being passed manually from handler to handler.
+Three things to notice:
 
-Mount in Next.js App Router:
+- **`input` is what the client sends; `ctx` is what the server derives.** No input schema accepts a tenant, so a client cannot ask for one.
+- **Tenant resolution lives in one place.** Change auth providers and you edit `auth` and `extract`, not every endpoint.
+- **The ClickHouse settings live in one place too.** `context` builds `ctx.db` per request, so no query can forget `SQL_tenant_id` or `quota_key`.
+- **Exceptions are explicit.** An internal admin query opts out with a per-query override, `tenant: { required: false, mode: 'manual' }`, which is easy to grep for in review. The [multi-tenancy docs](/docs/multi-tenancy) cover the options.
+
+One caveat from the docs: calling a query definition's own `.execute()` directly skips the tenant pipeline. Run tenant-scoped queries through `api.run(...)`, `api.execute(...)` or HTTP.
+
+Mount it in the Next.js App Router at `app/api/analytics/[...path]/route.ts`:
 
 ```typescript
-// app/api/analytics/[[...slug]]/route.ts
 import { createFetchHandler } from '@hypequery/serve';
 import { api } from '@/analytics/api';
 
 const handler = createFetchHandler(api.handler);
-export { handler as GET, handler as POST };
+
+export const runtime = 'nodejs';
+export const GET = handler;
+export const POST = handler;
 ```
 
-On the frontend, the same definitions drive typed React hooks:
+---
+
+## Enforcing Tenancy at Plan Time with Datasets
+
+Serve's tenant column scopes hand-written builder queries. For metrics that many dashboards share, [`@hypequery/datasets`](/clickhouse-semantic-layer) goes further: declare the tenant column once on the dataset, and the planner refuses to build an unscoped query.
 
 ```typescript
+import { createDatasetClient, dataset, dimension, eq, measure } from '@hypequery/datasets';
+import { db } from './client';
+
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    region: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('total', { filters: [eq('status', 'completed')] }),
+    orderCount: measure.count('id'),
+  },
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const result = await analytics.execute(
+  Orders,
+  { dimensions: ['region'], measures: ['revenue'] },
+  { runtime: { tenant: 'tenant_123' } },
+);
+```
+
+The tenant predicate is added before anything else, and enforcement is strict in both directions:
+
+- No tenant context fails with `Invalid dataset query: Dataset "orders" requires runtime tenant scoping.`
+- A caller filtering on the tenant field fails with `Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.`
+
+The second rule stops an endpoint from filtering for one tenant while the runtime context says another. Legitimate exceptions are written down: `{ tenant: { in: ['t1', 't2'] } }` for a known set of tenants, `{ tenant: { scope: 'all' } }` for trusted internal jobs. A cross-tenant query is now something you can grep for.
+
+---
+
+## A Typed Analytics API for Your Dashboards
+
+The same `serve()` call can publish hand-written queries, datasets and metrics as one HTTP API. Datasets registered here use the serve tenant identity and their own `tenantKey`, and they run on the request's `ctx.db`, so they send the same `SQL_tenant_id` and `quota_key` as the queries:
+
+```typescript
+export const api = serve({
+  tenant: { extract: (auth) => auth.tenantId, required: true, column: 'tenant_id' },
+  queries: { eventCounts },
+  datasets: { orders: Orders },
+});
+```
+
+The role needs `SELECT` on `orders` and a row policy of its own there, because policies are per table.
+
+Each query gets a validated route, such as `GET /api/analytics/queries/eventCounts?days=7`; the zod schema rejects bad input before any SQL runs, and a request without a session gets a 401. Datasets get `POST /api/analytics/datasets/orders/query`. Serve also publishes an OpenAPI document at `/api/analytics/openapi.json` with interactive docs at `/api/analytics/docs`, generated from the same definitions, so the docs cannot drift from the code. With a required tenant, those two routes need a signed-in tenant too. See [HTTP and OpenAPI](/docs/http-openapi).
+
+On the frontend, import only the API's type, plus a route manifest generated with `npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json`:
+
+```tsx
 import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/api';
+import manifest from '@/analytics/hypequery-manifest.json';
+import { getSessionToken } from '@/lib/auth'; // your auth SDK's client-side token getter
 
-const { useQuery } = createHooks<typeof api>({ baseUrl: '/api/analytics' });
+export const { useQuery } = createHooks<InferApiType<typeof api>>({
+  baseUrl: '/api/analytics',
+  manifest,
+  // The server's auth reads a bearer token, so send one with every request.
+  token: () => getSessionToken(),
+});
 
-function EventCountsWidget() {
-  const { data, loading } = useQuery('eventCounts', { days: 7 });
+export function EventCountsWidget() {
+  const { data, isLoading, error } = useQuery('eventCounts', { days: 7 });
 
-  if (loading) return <Skeleton />;
+  if (isLoading) return <p>Loading…</p>;
+  if (error) return <p>Could not load events.</p>;
   return (
-    <BarChart
-      data={data}
-      xKey="event_type"
-      yKey="total_events"
-    />
+    <ul>
+      {data?.map((row) => (
+        <li key={row.event_type}>
+          {row.event_type}: {Number(row.total_events).toLocaleString()}
+        </li>
+      ))}
+    </ul>
   );
 }
 ```
 
-The type safety runs end-to-end: if you rename a column in the ClickHouse schema and regenerate with `npx hypequery generate`, the TypeScript compiler flags every query that references the old name, across both your server query definitions and your React components. Just as importantly for multi-tenancy, tenant filtering is no longer a parameter-passing convention. It is an auto-injected request context that each query consumes consistently.
+`import type` keeps the server code and the ClickHouse client out of the browser bundle. Rename a column, run `npx hypequery generate`, and the compiler flags every query and component that used the old name. The [React and Next.js dashboard guide](/blog/building-dashboards-clickhouse-hypequery-nextjs) builds out the frontend side.
 
 ---
 
 ## Making Dashboards Feel Instant
 
-Correctness is the prerequisite. Performance is what makes the feature worth having. Three layers of optimization, in order of impact:
-
 ### Aggregate Projections
 
-Projections are one of the most underused ClickHouse features for dashboard workloads. A projection stores a precomputed aggregation inside the same parts as the base table. When a query matches its definition, ClickHouse rewrites the query to use the projection automatically, with no application changes and no separate table to query.
+A projection stores a precomputed aggregation inside the same parts as the base table. When a query matches it, ClickHouse reads the projection automatically, with no application changes.
 
 ```sql
 ALTER TABLE events ADD PROJECTION hourly_event_counts
@@ -396,17 +441,15 @@ ALTER TABLE events ADD PROJECTION hourly_event_counts
   GROUP BY tenant_id, hour, event_type
 );
 
--- Materialize for existing data
+-- Build it for existing data
 ALTER TABLE events MATERIALIZE PROJECTION hourly_event_counts;
 ```
 
-After this, dashboard queries aggregating hourly event counts are served from the projection rather than scanning the raw events. The speedup on large datasets is an order of magnitude. The 200M-row example goes from around 1.4s to around 12ms for hourly aggregations.
-
-One caveat: tables with projections currently do not support lightweight `UPDATE`/`DELETE` operations. If your tenant offboarding workflow does row-level deletes, you'll need to drop and re-add projections around the mutation, or use the partition-drop approach instead.
+`EXPLAIN` on an hourly per-tenant count then shows `ReadFromMergeTree (hourly_event_counts)`. One trade-off: on 26.6, `DELETE FROM` on a table with projections throws unless you change the table's `lightweight_mutation_projection_mode` setting.
 
 ### Incremental Materialized Views
 
-For more complex pre-aggregations, such as different sort orders, joins at insert time, or separate TTLs per tenant tier, a materialized view with `AggregatingMergeTree` is the right tool:
+For pre-aggregations a projection can't express (joins at insert time, separate retention), write to an `AggregatingMergeTree` table:
 
 ```sql
 CREATE TABLE events_hourly_agg
@@ -430,46 +473,17 @@ FROM events
 GROUP BY tenant_id, hour, event_type;
 ```
 
-Query via `countMerge()`:
+Read it with `countMerge(total_events)` and `WHERE tenant_id = 42`. Put the row policy on this table too: policies are per table. The [materialized views guide](/blog/a-guide-to-materialized-views-in-clickhouse) covers backfills and engine choice.
 
-```sql
-SELECT
-    event_type,
-    countMerge(total_events) AS total_events
-FROM events_hourly_agg
-WHERE tenant_id = 42
-  AND hour >= now() - INTERVAL 7 DAY
-GROUP BY event_type
-ORDER BY total_events DESC;
-```
+### Query Condition Cache
 
-### Query Condition Cache (ClickHouse 25.3+)
-
-Introduced in March 2025, the Query Condition Cache stores which granules satisfied a `WHERE` predicate in a previous query. On repeat executions of the same dashboard query shape, ClickHouse skips the predicate evaluation entirely for granules it already knows do not match.
-
-For multi-tenant dashboards, where many tenants run the same query pattern against different `tenant_id` values, this is significant. The cache is hit after the first execution and repeat loads drop to sub-50ms even on queries that do not benefit from aggregate projections. Enable it with:
-
-```sql
-SET use_query_condition_cache = 1;
-```
-
-This is now the free performance layer you get before reaching for materialized views or projections. Instrument your top queries, check whether they are hitting the cache, then decide whether a projection is still worth the maintenance overhead.
-
-### Result Caching and Deduplication
-
-A single dashboard page typically fires 8 to 15 queries simultaneously. Without deduplication, each widget independently fires against ClickHouse. With SWR-style result caching, repeated queries within a short window, say 60 seconds, are served from memory, and concurrent identical queries are coalesced into one request.
-
-Set `max_execution_time` per settings profile, covered below, to ensure no single slow query can block a dashboard load indefinitely.
+ClickHouse caches which granules matched a `WHERE` condition, so repeated dashboard queries with the same filter can skip granules on later runs. On 26.6 it is on by default (`use_query_condition_cache = 1`).
 
 ---
 
 ## Resource Isolation and Noisy Neighbors
 
-When tenants share a cluster, one tenant's expensive query can degrade latency for everyone else. ClickHouse has three independent layers to address this.
-
 ### Settings Profiles per Plan Tier
-
-Assign a settings profile to each plan tier. New users inherit the profile for their plan:
 
 ```sql
 CREATE SETTINGS PROFILE free_tier
@@ -478,274 +492,96 @@ CREATE SETTINGS PROFILE free_tier
            max_threads = 2,
            priority = 10;
 
-CREATE SETTINGS PROFILE pro_tier
-  SETTINGS max_memory_usage = 4294967296,
-           max_execution_time = 60,
-           max_threads = 8,
-           priority = 5;
-
-CREATE SETTINGS PROFILE enterprise_tier
-  SETTINGS max_memory_usage = 17179869184,
-           max_execution_time = 300,
-           max_threads = 16,
-           priority = 1;
-
-ALTER USER app_analytics SETTINGS PROFILE 'pro_tier';
+ALTER USER app_analytics SETTINGS PROFILE 'free_tier';
 ```
 
-For multi-tier support where different tenants have different limits, the cleanest approach is one ClickHouse user per tier rather than one per tenant.
+Profiles attach to users, so per-plan limits mean one ClickHouse user per tier, not per tenant.
 
-### Keyed Quotas for Per-Tenant Rate Limiting
+### Keyed Quotas for Per-Tenant Rate Limits
 
-ClickHouse quotas let you define usage limits per time window. The `keyed` mode is what matters for multi-tenancy: the `quota_key` is passed per query, and ClickHouse tracks usage separately for each distinct key value.
+A quota keyed by `client_key` tracks usage separately for each `quota_key` value, which your app sets to the tenant ID:
 
 ```sql
 CREATE QUOTA tenant_quota
-  KEYED BY 'quota_key'
+  KEYED BY client_key
   FOR INTERVAL 1 MINUTE MAX queries = 30,
-  FOR INTERVAL 1 HOUR MAX queries = 500, read_rows = 10000000000,
-                       result_rows = 1000000;
-
-GRANT QUOTA tenant_quota TO analytics_readonly;
+  FOR INTERVAL 1 HOUR MAX queries = 500, read_rows = 10000000000
+  TO analytics_readonly;
 ```
 
-Pass the quota key per query:
+Both snippets above already pass `quota_key`. On our test server, the fourth query in a minute with `MAX queries = 3` failed with `QUOTA_EXCEEDED` while another tenant's key kept working, and a query with no `quota_key` failed with `QUOTA_REQUIRES_CLIENT_KEY`. Note that `KEYED BY 'quota_key'`, which appears in some older guides, is a syntax error. Use `client_key_or_user_name` if you want a fallback instead of a failure.
 
-```typescript
-await client.query({
-  query: sql,
-  clickhouse_settings: {
-    SQL_tenant_id: tenantId.toString(),
-    quota_key: tenantId.toString(),
-  },
-});
-```
-
-Note: quota counters are in-memory and reset on server restart. For billing-grade enforcement, where you need durable per-tenant counts that survive restarts, supplement with application-layer limits. A Redis token bucket keyed on tenant ID is the common pattern. Quotas are best used as a protection layer, not as a billing source of truth.
+Quotas are a protection layer, not a billing ledger. Keep durable per-tenant usage counts in your own tables.
 
 ### Query Cancellation
 
-Dashboards generate abandoned queries when users navigate away. Without cleanup, these accumulate and compete for resources. Two mechanisms:
-
-```sql
-SET cancel_http_readonly_queries_on_client_close = 1;
-```
-
-For explicit cancellation, such as when a user clicks a stop button, the route changes, or a dashboard unmounts:
+Dashboards abandon queries when users navigate away. Pass the request's abort signal through so the HTTP request to ClickHouse closes:
 
 ```typescript
-const queryId = crypto.randomUUID();
-
-const result = await client.query({
-  query: sql,
-  query_id: queryId,
-  clickhouse_settings: { SQL_tenant_id: tenantId.toString() },
-});
-
-await client.command({ query: `KILL QUERY WHERE query_id = '${queryId}'` });
+const rows = await db
+  .table('events')
+  .select(['event_type'])
+  .count('event_id', 'total_events')
+  .where('tenant_id', 'eq', tenantId)
+  .groupBy(['event_type'])
+  .settings({ SQL_tenant_id: String(tenantId), quota_key: String(tenantId) })
+  .execute({ abortSignal: request.signal });
 ```
 
-Set `max_execution_time` via the settings profile as the hard backstop. Even if the client does not cancel, ClickHouse will.
+ClickHouse only cancels a read-only query when its client disconnects if `cancel_http_readonly_queries_on_client_close = 1`, which is off by default on 26.6; put it in the user's profile. `max_execution_time` in the profile is the hard backstop.
 
 ---
 
-## Tenant Onboarding and Offboarding at Scale
+## Tenant Onboarding and Offboarding
 
-### Onboarding
+**Onboarding** with the custom-setting policy needs no ClickHouse DDL.
 
-With the custom-setting row-policy model, adding a new tenant is just an application-level operation:
-
-```sql
-CREATE TABLE tenants
-(
-    tenant_id   UInt32,
-    tenant_name String,
-    plan        LowCardinality(String),
-    created_at  DateTime DEFAULT now()
-)
-ENGINE = MergeTree()
-ORDER BY tenant_id;
-```
-
-```typescript
-await appDb.query(
-  'INSERT INTO tenants (tenant_id, tenant_name, plan) VALUES (?, ?, ?)',
-  [newTenantId, tenantName, 'pro']
-);
-```
-
-No ClickHouse DDL is required. The row policy handles isolation automatically.
-
-### Offboarding and Data Deletion
-
-Three options, depending on your schema and compliance requirements:
-
-**Partition drop (fastest, only available if `tenant_id` is in `PARTITION BY`):**
+**Offboarding** has three options:
 
 ```sql
+-- Partition drop: only if tenant_id is in PARTITION BY
 ALTER TABLE events DROP PARTITION tuple(42, 202501);
-```
 
-**Lightweight delete (ClickHouse 23.3+, general-purpose):**
-
-```sql
+-- Lightweight delete: the general-purpose default
 DELETE FROM events WHERE tenant_id = 42;
 ```
 
-Lightweight deletes are asynchronous. They mark rows as deleted and the physical removal happens during background merges. They are the right default for most schemas. Note that they are currently incompatible with tables that have projections defined.
+Lightweight deletes mark rows as deleted at once and remove them during background merges. If the table has projections, set `lightweight_mutation_projection_mode` first, as above. A composite partition key buys fast drops at the cost of more parts, so keep it to tables with a small number of large tenants.
 
-**Tombstone table (alternative, soft delete via MV filter):**
-
-If you cannot modify the base table, a separate `tenant_deletions` table combined with a `WHERE tenant_id NOT IN (SELECT ...)` filter gives you a soft-delete layer that is easy to revert.
-
-### Per-Tenant Observability
-
-`system.query_log` is a goldmine for per-tenant usage analytics. Build a materialized view over it to track usage patterns, catch abusive queries, and drive billing:
+**Per-tenant usage** is already in `system.query_log`: the `Settings` column records the custom setting each query sent. String values are stored with their quotes, so strip them:
 
 ```sql
-CREATE MATERIALIZED VIEW tenant_query_stats
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(query_hour)
-ORDER BY (tenant_id, query_hour)
-AS
 SELECT
-    toUInt32(getSetting('SQL_tenant_id')) AS tenant_id,
-    toStartOfHour(query_start_time) AS query_hour,
-    count() AS query_count,
+    toUInt32OrZero(trimBoth(Settings['SQL_tenant_id'], '''')) AS tenant_id,
+    count() AS queries,
     sum(read_rows) AS rows_read,
-    sum(memory_usage) AS memory_used,
-    sum(query_duration_ms) AS total_duration_ms
+    sum(query_duration_ms) AS total_ms
 FROM system.query_log
 WHERE type = 'QueryFinish'
-GROUP BY tenant_id, query_hour;
-```
-
-Query this for billing, abuse detection, and capacity planning without touching your application events table.
-
----
-
-## ClickHouse Cloud vs Self-Hosted
-
-Most of this guide applies equally to both. A few important differences:
-
-**SharedMergeTree vs ReplicatedMergeTree.** Cloud uses SharedMergeTree, where storage lives in object storage and compute is stateless. Adding replicas is instant. On self-hosted, shard topology is set at table creation time and changing it requires data movement.
-
-**Compute-compute separation (Warehouses).** Cloud-only. Multiple isolated compute services share the same underlying data. This is the cleanest way to offer dedicated compute to enterprise customers without duplicating your data lake, and without the full operational overhead of a separate ClickHouse service.
-
-**Parallel replicas.** Now beta-stable in self-hosted 25.x, and likely GA soon in Cloud. A single large tenant's query can fan out across all nodes, which addresses the one-big-tenant-dominates-the-cluster problem elegantly.
-
-**PostgreSQL CDC.** Cloud has a built-in managed CDC connector from PostgreSQL. If your tenant metadata lives in Postgres, which is common for SaaS, this is a clean path to syncing it into ClickHouse for analytics joins without building a custom pipeline.
-
-**Refreshable materialized views.** Available in both. `REFRESH EVERY 1 HOUR` lets you build nightly or hourly per-tenant rollups on a schedule rather than relying on streaming MV triggers. This is useful for expensive aggregations where streaming MVs are disproportionate overhead.
-
----
-
-## What Changed in 2025 That Affects This Architecture
-
-The pace of ClickHouse development means advice from 2023 is sometimes wrong today. A few changes worth calling out explicitly:
-
-**Query Condition Cache (25.3, March 2025):** covered above. Probably the biggest single win for dashboard workloads at no architectural cost.
-
-**Lightweight updates:** `UPDATE column = expression WHERE ...` with patch-part semantics, roughly 2x faster than traditional mutations. Still incompatible with projections as of writing.
-
-**Lazy materialization / lazy column reads:** ClickHouse now defers reading column data to the latest possible stage. This helps row-policy-filtered queries where late filtering was previously reading more data than necessary.
-
-**Parallel replicas (beta-stable):** fan out a single query across replicas without manual query splitting. This changes the calculus for large-tenant isolation. A dedicated replica can serve one big tenant's queries without impacting others.
-
-**`_part_offset` projections:** projections can now store just the sort key plus a pointer back to the base part. This is a cheaper way to maintain alternate sort orders for per-tenant access patterns when full projection materialization is too expensive.
-
----
-
-## A Reference Architecture
-
-Pulling everything together into one deployable pattern:
-
-```text
-Next.js App Router
-  └── /api/analytics/[[...slug]]/route.ts
-        └── createFetchHandler(api.handler)
-              └── initServe({ context: JWT → tenantId })
-                    └── query({ ... ctx.tenantId ... })
-                          └── @hypequery/clickhouse
-                                ├── .where('tenant_id', 'eq', ctx.tenantId)
-                                └── .settings({ SQL_tenant_id: ctx.tenantId })
-
-ClickHouse
-  ├── events table: ORDER BY (tenant_id, event_time, event_id)
-  ├── Aggregate projection: (tenant_id, hour, event_type) → COUNT
-  ├── Row policy: tenant_id = getSetting('SQL_tenant_id')
-  ├── Settings profile: max_memory_usage / max_threads / max_execution_time per tier
-  └── Keyed quota: per-tenant query/row rate limits
-```
-
-The schema:
-
-```sql
-CREATE TABLE events
-(
-    tenant_id   UInt32,
-    event_id    UUID DEFAULT generateUUIDv4(),
-    event_time  DateTime64(3),
-    user_id     UInt64,
-    event_type  LowCardinality(String),
-    properties  Map(String, String)
-)
-ENGINE = MergeTree()
-PARTITION BY toYYYYMM(event_time)
-ORDER BY (tenant_id, event_time, event_id)
-TTL event_time + INTERVAL 2 YEAR DELETE;
-
-ALTER TABLE events ADD PROJECTION hourly_counts
-(
-  SELECT tenant_id, toStartOfHour(event_time) AS hour, event_type, count()
-  GROUP BY tenant_id, hour, event_type
-);
-ALTER TABLE events MATERIALIZE PROJECTION hourly_counts;
-
-CREATE ROLE analytics_readonly;
-ALTER ROLE analytics_readonly SETTINGS SQL_tenant_id CHANGEABLE_IN_READONLY;
-GRANT SELECT ON events TO analytics_readonly;
-
-CREATE ROW POLICY tenant_isolation ON events
-  FOR SELECT
-  USING tenant_id = getSetting('SQL_tenant_id')::UInt32
-  TO analytics_readonly;
-
-CREATE USER app_analytics IDENTIFIED BY '<strong-password>'
-  SETTINGS readonly = 1;
-GRANT analytics_readonly TO app_analytics;
-SET DEFAULT ROLE analytics_readonly TO app_analytics;
-
-CREATE QUOTA tenant_quota KEYED BY 'quota_key'
-  FOR INTERVAL 1 MINUTE MAX queries = 30,
-  FOR INTERVAL 1 HOUR MAX queries = 500, read_rows = 10000000000;
-GRANT QUOTA tenant_quota TO analytics_readonly;
+  AND Settings['SQL_tenant_id'] != ''
+  AND event_date >= today() - 30
+GROUP BY tenant_id
+ORDER BY rows_read DESC;
 ```
 
 ---
 
 ## Common Mistakes
 
-**Putting `tenant_id` after time in the sort key.** `ORDER BY (event_time, tenant_id)` means every tenant query scans a time range across all tenants before filtering. It can be 100x slower than `ORDER BY (tenant_id, event_time)`.
+**Accepting the tenant ID as input.** The most common multi-tenant bug in analytics APIs. Derive it from the session.
+
+**Putting `tenant_id` after time in the sort key.** `ORDER BY (event_time, tenant_id)` makes every tenant query scan a time range across all tenants.
 
 **Partitioning by tenant at scale.** Fine for dozens of tenants, a parts-count problem at thousands.
 
-**Omitting the redundant `WHERE tenant_id = ?`.** The row policy provides correctness, but not pruning. Without the explicit filter, ClickHouse still scans all granules and filters at the row-policy stage.
+**Forgetting `CHANGEABLE_IN_READONLY`, or hypequery's precision setting, on a `readonly = 1` role.** Every query fails. Test this in your integration tests against a real read-only user.
 
-**Forgetting `CHANGEABLE_IN_READONLY` on the role.** Every query fails with a permissions error. Test this explicitly in your integration tests.
+**One row policy, many tables.** Policies are per table. A rollup table without one is an unguarded copy of every tenant's data.
 
-**Tiny inserts.** ClickHouse is optimized for batch writes. Sending individual events via `INSERT` produces too many parts and slows background merges. Buffer through Kafka, a Buffer engine table, or batch at the application layer. Aim for inserts of at least thousands of rows at a time.
-
-**Join-heavy schemas.** ClickHouse performs best when the schema is designed for analytics from the start. If you're normalizing heavily, for example `events -> sessions -> users -> accounts`, you'll pay for every join. Denormalize common join attributes into the events table and use joins only where the alternative is unacceptable duplication.
-
-**Stale advice on mutations.** Many posts still recommend `ALTER TABLE ... DELETE WHERE` heavy mutations. Lightweight deletes with `DELETE FROM ... WHERE` are now the right default for row-level removals in ClickHouse 23.3+.
+**Tiny inserts.** Batch writes, or use [async inserts](https://clickhouse.com/docs/optimize/asynchronous-inserts).
 
 ---
 
 ## Closing
 
-The technical foundation for multi-tenant embedded analytics on ClickHouse is more stable than it was two years ago. Row policies with `getSetting()` solve the isolation problem at scale in a way that actually works with connection pooling. Aggregate projections and the Query Condition Cache have made sub-100ms dashboard loads achievable without elaborate caching infrastructure. And ClickHouse's quota system, when used with `quota_key`, gives you real per-tenant rate limiting at the database layer.
-
-The pattern that holds across PostHog, Grafana Cloud, LaunchDarkly, and other teams that have made this work at scale is consistent: shared tables, `tenant_id` first in the sort key, one row policy driven by a custom setting, and a typed query layer in the application that enforces the tenant context so it can never be accidentally omitted.
-
-Get those four things right from the start and the rest is optimization.
+Four decisions carry most of the weight: a shared table with `tenant_id` first in the sort key, a tenant resolved from the session and injected by one API layer, a custom-setting row policy as the backstop, and per-tenant limits through profiles and keyed quotas. For the architecture overview, see [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) and the [multi-tenant SaaS use case](/use-cases/multi-tenant-saas).

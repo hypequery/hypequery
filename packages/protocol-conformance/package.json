@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/protocol-conformance",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Cross-language conformance runner for the Hypequery analytics security protocol",
   "keywords": [
     "hypequery",
@@ -41,7 +41,7 @@
     "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
   },
   "devDependencies": {
-    "@types/node": "^22.5.0",
+    "@types/node": "^26.6.6",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   },

@@ -37,14 +37,14 @@ const d = new Date(row.day + 'T00:00:00Z');
 | `toStartOfTenMinutes(dt)` | DateTime | DateTime | Start of the 10-minute block |
 | `toStartOfFifteenMinutes(dt)` | DateTime | DateTime | Start of the 15-minute block |
 | `toStartOfHour(dt)` | DateTime | DateTime | Start of the hour |
-| `toStartOfDay(dt)` | DateTime/Date | Date | Start of the day |
+| `toStartOfDay(dt)` | DateTime/Date | DateTime | Start of the day (midnight, as a DateTime) |
 | `toStartOfWeek(dt[, mode])` | DateTime/Date | Date | Start of the week (Sunday=0 by default) |
 | `toStartOfMonth(dt)` | DateTime/Date | Date | First day of the month |
 | `toStartOfQuarter(dt)` | DateTime/Date | Date | First day of the quarter (Jan 1, Apr 1, Jul 1, Oct 1) |
 | `toStartOfYear(dt)` | DateTime/Date | Date | January 1st of the year |
-| `toStartOfInterval(dt, INTERVAL n unit)` | DateTime/Date | DateTime/Date | Start of any interval |
+| `toStartOfInterval(dt, INTERVAL n unit)` | DateTime/Date | DateTime (SECOND to DAY) or Date (WEEK to YEAR) | Start of any interval |
 
-Note that `toStartOfDay` and below return `Date` not `DateTime` — the string format changes from `"YYYY-MM-DD HH:MM:SS"` to `"YYYY-MM-DD"`.
+`toStartOfDay` and everything above it in the table return a `DateTime` (`"YYYY-MM-DD HH:MM:SS"`, with `toStartOfDay` at midnight). From `toStartOfWeek` down they return a `Date`, so the string changes to `"YYYY-MM-DD"`. `toStartOfInterval` follows its interval: `DateTime` for SECOND to DAY, `Date` for WEEK to YEAR.
 
 ## toStartOfQuarter
 
@@ -223,5 +223,7 @@ ORDER BY bucket
 See [ClickHouse toStartOfInterval with GROUP BY in TypeScript](/blog/clickhouse-tostartofinterval-typescript) for a deeper treatment of this function including the alias rules and gap filling.
 
 ---
+
+Function references: [toStartOfWeek (Sunday or Monday)](/clickhouse/functions/to-start-of-week) · [toDate](/clickhouse/functions/to-date) · [formatDateTime](/clickhouse/functions/format-date-time)
 
 Related: [ClickHouse Time-Series Patterns](/clickhouse-time-series) · [toStartOfInterval with GROUP BY](/blog/clickhouse-tostartofinterval-typescript) · [ClickHouse TypeScript Guide](/clickhouse-typescript)

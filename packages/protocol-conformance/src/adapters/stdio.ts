@@ -28,8 +28,8 @@ export interface StdioAdapterOptions {
  * Resolves with the process exit code the caller should use.
  */
 export function createStdioAdapter(options: StdioAdapterOptions): Promise<number> {
-  const input = options.input ?? process.stdin;
-  const output = options.output ?? process.stdout;
+  const input: NodeJS.ReadableStream = options.input ?? process.stdin;
+  const output: NodeJS.WritableStream = options.output ?? process.stdout;
   const families = [...options.families];
 
   const write = (message: unknown): void => {

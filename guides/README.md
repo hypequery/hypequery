@@ -11,6 +11,4 @@ against the seed dataset in `examples/_seed` on the pinned ClickHouse, in path
 order. Keep statements idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and use
 table names that do not collide with the seed or the examples.
 
-Folders starting with `_` are not pages. `_blog-materialized-views/` holds the
-CI-tested SQL behind the blog pillar `/blog/a-guide-to-materialized-views-in-clickhouse`,
-which keeps its URL and lives in `website-next/content/blog/`.
+Folders starting with `_` are not pages.

@@ -31,7 +31,7 @@ const queryFromSubquery = db.from(totalsSubquery)
 type FromSubqueryResult = Awaited<ReturnType<typeof queryFromSubquery.execute>>;
 type FromSubqueryExpected = {
   id: number;
-  sum_value: string;
+  sum_value: number;
   negative_sum_value: string;
 }[];
 type AssertFromSubquery = Expect<Equal<FromSubqueryResult, FromSubqueryExpected>>;
@@ -41,7 +41,7 @@ type AllFromSubqueryResult = Awaited<ReturnType<typeof allFromSubquery.execute>>
 type AllFromSubqueryExpected = {
   id: number;
   created_by: number;
-  sum_value: string;
+  sum_value: number;
 }[];
 type AssertAllFromSubquery = Expect<Equal<AllFromSubqueryResult, AllFromSubqueryExpected>>;
 
@@ -50,7 +50,8 @@ const reaggregatedSubquery = db.from(totalsSubquery)
   .sum('sum_value', 'combined_sum')
   .groupBy('id');
 type ReaggregatedSubqueryResult = Awaited<ReturnType<typeof reaggregatedSubquery.execute>>;
-type ReaggregatedSubqueryExpected = { id: number; combined_sum: string }[];
+// Only the TypeScript type survives the subquery, so the sum may be either form.
+type ReaggregatedSubqueryExpected = { id: number; combined_sum: number | string }[];
 type AssertReaggregatedSubquery = Expect<
   Equal<ReaggregatedSubqueryResult, ReaggregatedSubqueryExpected>
 >;
@@ -59,7 +60,7 @@ const joinedFromSubquery = db.from(totalsSubquery)
   .innerJoin('users', 'created_by', 'users.id')
   .select(['id', 'sum_value', 'users.email']);
 type JoinedFromSubqueryResult = Awaited<ReturnType<typeof joinedFromSubquery.execute>>;
-type JoinedFromSubqueryExpected = { id: number; sum_value: string; email: string }[];
+type JoinedFromSubqueryExpected = { id: number; sum_value: number; email: string }[];
 type AssertJoinedFromSubquery = Expect<
   Equal<JoinedFromSubqueryResult, JoinedFromSubqueryExpected>
 >;
@@ -104,12 +105,13 @@ type AssertSimpleSelect = Expect<Equal<SimpleResult, SimpleExpected>>;
 
 const aggregationQuery = builder.sum('price', 'total_price').count('price', 'total_count');
 type AggResult = Awaited<ReturnType<typeof aggregationQuery.execute>>;
-type AggExpected = { total_price: string; total_count: string }[];
+// sum(Float64) is a JSON number; count() is a quoted UInt64.
+type AggExpected = { total_price: number; total_count: string }[];
 type AssertAggregations = Expect<Equal<AggResult, AggExpected>>;
 
 const selectWithAgg = builder.select(['category']).sum('price');
 type SelectAggResult = Awaited<ReturnType<typeof selectWithAgg.execute>>;
-type SelectAggExpected = { category: string; price_sum: string }[];
+type SelectAggExpected = { category: string; price_sum: number }[];
 type AssertSelectAggregations = Expect<Equal<SelectAggResult, SelectAggExpected>>;
 
 type JoinTables = Parameters<typeof builder.innerJoin>[0];
@@ -617,3 +619,108 @@ declareCte('untyped', 'SELECT 1 AS id').table('untyped');
 detachedRecursiveCte.select(['missing']);
 // @ts-expect-error - state transitions keep the non-table marker
 detachedRecursiveCte.where('id', 'eq', 'root').final();
+
+// Aggregate result types follow what ClickHouse returns (checked on 26.6).
+type AggSchema = {
+  facts: {
+    id: 'UInt64';
+    qty: 'Int32';
+    ratio: 'Float32';
+    amount: 'Decimal(10, 2)';
+    maybe_qty: 'Nullable(Int32)';
+    maybe_ratio: 'Nullable(Float64)';
+    flag: 'UInt8';
+    seen_at: 'DateTime';
+    label: 'LowCardinality(String)';
+  };
+};
+const aggDb = createQueryBuilder<AggSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+const typedAggregates = aggDb.table('facts')
+  .sum('qty', 'qty_sum')
+  .sum('ratio', 'ratio_sum')
+  .sum('amount', 'amount_sum')
+  .sum('maybe_qty', 'maybe_qty_sum')
+  .sum('maybe_ratio', 'maybe_ratio_sum')
+  .avg('qty', 'qty_avg')
+  .min('flag', 'flag_min')
+  .max('seen_at', 'seen_max')
+  .min('maybe_qty', 'maybe_qty_min')
+  .argMax('label', 'seen_at', 'latest_label')
+  .quantile('ratio', 0.95, 'ratio_p95')
+  .quantile('seen_at', 0.5, 'seen_median')
+  .stddev('ratio', 'ratio_stddev')
+  .variance('qty', 'qty_variance')
+  .approxCountDistinct('label', 'labels')
+  .count('id', 'rows');
+type TypedAggregatesResult = Awaited<ReturnType<typeof typedAggregates.execute>>;
+type TypedAggregatesExpected = {
+  qty_sum: string; // Int32 sums widen to Int64, which the adapter quotes
+  ratio_sum: number; // Float sums are Float64
+  amount_sum: number; // Decimal sums are Decimal(38, S), a JSON number
+  maybe_qty_sum: string | null; // NULL when every value is NULL
+  maybe_ratio_sum: number | null;
+  qty_avg: number | null; // NaN (null) over zero rows
+  flag_min: number; // the column's own type
+  seen_max: string;
+  maybe_qty_min: number | null;
+  latest_label: string;
+  ratio_p95: number | null; // Float64, NULL over zero rows
+  seen_median: string | null; // dates keep their own type
+  ratio_stddev: number | null; // NULL for fewer than two rows
+  qty_variance: number | null;
+  labels: string; // uniq() is a quoted UInt64
+  rows: string; // count() is a quoted UInt64
+}[];
+type AssertTypedAggregates = Expect<Equal<TypedAggregatesResult, TypedAggregatesExpected>>;
+
+// Generated schemas include AggregatingMergeTree columns.
+type RollupSchema = {
+  events_daily: {
+    day: 'Date';
+    app: 'LowCardinality(String)';
+    unique_users: 'AggregateFunction(uniq, UInt64)';
+    bytes: 'SimpleAggregateFunction(sum, UInt64)';
+    peak: 'SimpleAggregateFunction(max, Float64)';
+  };
+};
+const rollupDb = createQueryBuilder<RollupSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+const rollupRows = rollupDb.table('events_daily').select(['day', 'app', 'bytes', 'peak', 'unique_users']);
+type RollupRowsResult = Awaited<ReturnType<typeof rollupRows.execute>>;
+type RollupRowsExpected = { day: string; app: string; bytes: string; peak: number; unique_users: string }[];
+type AssertRollupRows = Expect<Equal<RollupRowsResult, RollupRowsExpected>>;
+
+const rollupTotals = rollupDb.table('events_daily')
+  .select(['app'])
+  .sum('bytes', 'total_bytes')
+  .max('peak', 'max_peak')
+  .mergeState('uniq', 'unique_users', 'users');
+type RollupTotalsResult = Awaited<ReturnType<typeof rollupTotals.execute>>;
+type RollupTotalsExpected = { app: string; total_bytes: string; max_peak: number; users: string }[];
+type AssertRollupTotals = Expect<Equal<RollupTotalsResult, RollupTotalsExpected>>;
+
+// Through a subquery only TypeScript types survive, so results stay conservative.
+type DerivedSchema = {
+  facts: { id: 'UInt64'; seen_at: 'DateTime'; maybe_big: 'Nullable(UInt64)'; ratio: 'Float64' };
+};
+const derivedDb = createQueryBuilder<DerivedSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+const derivedInner = derivedDb.table('facts').select(['id', 'seen_at', 'maybe_big', 'ratio']);
+const derivedAggregates = derivedDb.from(derivedInner)
+  .quantile('seen_at', 0.5, 'seen_median')
+  .quantile('ratio', 0.5, 'ratio_median')
+  .sum('maybe_big', 'big_sum');
+type DerivedAggregatesResult = Awaited<ReturnType<typeof derivedAggregates.execute>>;
+type DerivedAggregatesExpected = {
+  seen_median: number | string | null; // a date string, or a Float64 for a 64-bit integer
+  ratio_median: number | null;
+  big_sum: string | null; // NULL when every value is NULL
+}[];
+type AssertDerivedAggregates = Expect<Equal<DerivedAggregatesResult, DerivedAggregatesExpected>>;

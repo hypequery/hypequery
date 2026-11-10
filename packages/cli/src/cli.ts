@@ -55,7 +55,7 @@ export function normalizeInitOptions(options: Record<string, unknown>) {
 
 program
   .name('hypequery')
-  .description('Type-safe analytics layer for ClickHouse')
+  .description('Type-safe embedded analytics on ClickHouse')
   .version(getCliVersion())
   .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation');
 

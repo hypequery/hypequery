@@ -424,6 +424,9 @@ describe('ClickHouseAdapter abort signals', () => {
 
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toContain("integerJsonEncoding: 'server-default'");
+      // The precision-preserving fixes come first.
+      expect((error as Error).message).toContain(`add ${QUOTE_64BIT} = 1 to the user's settings profile`);
+      expect((error as Error).message).toContain('readonly = 2');
       expect((error as Error).cause).toBe(cause);
       expect(clientQueryMock).toHaveBeenCalledTimes(1);
     });
@@ -498,22 +501,51 @@ describe('ClickHouseAdapter abort signals', () => {
 });
 
 describe('ClickHouseAdapter.streamArrow', () => {
-  const exec = (headers: Record<string, string> = {}, body = 'arrow-bytes') =>
+  const EOS = Buffer.from([0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0]);
+  const arrowBody = (data = 'arrow-bytes') => Buffer.concat([Buffer.from(data), EOS]);
+  const exec = (headers: Record<string, string> = {}, body: string | Buffer = arrowBody()) =>
     vi.fn().mockResolvedValue({ stream: Readable.from([Buffer.from(body)]), response_headers: headers });
+  const readAll = async (stream: ReadableStream<Uint8Array>) => {
+    const chunks: Buffer[] = [];
+    const reader = stream.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) return { bytes: Buffer.concat(chunks) };
+        chunks.push(Buffer.from(value));
+      }
+    } catch (error) {
+      return { bytes: Buffer.concat(chunks), error: error as Error };
+    }
+  };
+  const readonlyCompressionError = () => Object.assign(
+    new Error("Code: 164. DB::Exception: Cannot modify 'output_format_arrow_compression_method' setting in readonly mode. (READONLY)"),
+    { code: '164', type: 'READONLY' },
+  );
 
-  it('requests uncompressed ArrowStream, sending the statement as written', async () => {
+  it('requests ArrowStream with a FORMAT clause, dropping a trailing semicolon and comment', async () => {
     const execMock = exec();
     const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any });
 
-    const stream = await adapter.streamArrow('SELECT ? AS x; -- export', [1], { queryId: 'arrow-1' });
-    const bytes = Buffer.from((await stream.getReader().read()).value!).toString();
+    const { bytes, error } = await readAll(await adapter.streamArrow('SELECT ? AS x; -- export', [1], { queryId: 'arrow-1' }));
 
-    expect(bytes).toBe('arrow-bytes');
+    expect(error).toBeUndefined();
+    expect(bytes.equals(arrowBody())).toBe(true);
     expect(execMock).toHaveBeenCalledWith(expect.objectContaining({
-      query: 'SELECT 1 AS x; -- export',
-      clickhouse_settings: { output_format_arrow_compression_method: 'none', default_format: 'ArrowStream' },
+      query: 'SELECT 1 AS x\nFORMAT ArrowStream',
+      clickhouse_settings: { output_format_arrow_compression_method: 'none' },
       query_id: 'arrow-1',
     }));
+  });
+
+  it('never sends default_format, which readonly = 1 users may not change', async () => {
+    const execMock = exec();
+    const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any, arrowCompression: 'server-default' });
+
+    await adapter.streamArrow('SELECT 1');
+
+    expect(execMock.mock.calls[0]![0].clickhouse_settings).toEqual({});
+    expect(execMock.mock.calls[0]![0].query).toBe('SELECT 1\nFORMAT ArrowStream');
   });
 
   it('applies connection-level settings to a caller-supplied client', async () => {
@@ -525,7 +557,7 @@ describe('ClickHouseAdapter.streamArrow', () => {
     await adapter.streamArrow('SELECT 1', [], { clickhouseSettings: { max_threads: 4 } });
 
     expect(execMock.mock.calls[0]![0].clickhouse_settings).toEqual({
-      output_format_arrow_compression_method: 'none', final: 1, max_threads: 4, default_format: 'ArrowStream',
+      output_format_arrow_compression_method: 'none', final: 1, max_threads: 4,
     });
   });
 
@@ -537,12 +569,46 @@ describe('ClickHouseAdapter.streamArrow', () => {
     });
     await configured.streamArrow('SELECT 1');
     expect(execMock.mock.calls[0]![0].clickhouse_settings)
-      .toEqual({ output_format_arrow_compression_method: 'lz4_frame', default_format: 'ArrowStream' });
+      .toEqual({ output_format_arrow_compression_method: 'lz4_frame' });
 
-    const perCall = new ClickHouseAdapter({ client: { exec: execMock } as any });
+    const perCall = new ClickHouseAdapter({ client: { exec: execMock } as any, arrowCompression: 'server-default' });
     await perCall.streamArrow('SELECT 1', [], { clickhouseSettings: { output_format_arrow_compression_method: 'zstd' } });
     expect(execMock.mock.calls[1]![0].clickhouse_settings)
-      .toEqual({ output_format_arrow_compression_method: 'zstd', default_format: 'ArrowStream' });
+      .toEqual({ output_format_arrow_compression_method: 'zstd' });
+  });
+
+  it('explains a readonly = 1 rejection of the compression default, keeping the cause', async () => {
+    const cause = readonlyCompressionError();
+    const execMock = vi.fn().mockRejectedValue(cause);
+    const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any });
+
+    const error = await adapter.streamArrow('SELECT 1').catch((caught: unknown) => caught as Error);
+
+    expect(error.message).toContain("arrowCompression: 'server-default'");
+    expect(error.message).toContain('settings profile');
+    expect(error.cause).toBe(cause);
+    expect(execMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the original error when the rejected compression setting is the caller\'s', async () => {
+    const cause = readonlyCompressionError();
+    const adapter = new ClickHouseAdapter({ client: { exec: vi.fn().mockRejectedValue(cause) } as any });
+
+    await expect(adapter.streamArrow('SELECT 1', [], {
+      clickhouseSettings: { output_format_arrow_compression_method: 'none' },
+    })).rejects.toBe(cause);
+  });
+
+  it('keeps a trailing FORMAT ArrowStream and sorts on a column named format', async () => {
+    const execMock = exec();
+    const adapter = new ClickHouseAdapter({ client: { exec: execMock } as any });
+
+    await adapter.streamArrow('SELECT 1 format ArrowStream;');
+    expect(execMock.mock.calls[0]![0].query).toBe('SELECT 1 format ArrowStream');
+
+    const db = createQueryBuilder<{ events: { format: 'String' } }>({ client: { exec: execMock } as any });
+    await db.table('events').select(['format']).orderBy('format', 'DESC').streamArrow();
+    expect(execMock.mock.calls[1]![0].query).toMatch(/ORDER BY format DESC\nFORMAT ArrowStream$/);
   });
 
   it("fails the stream with ClickHouse's error when the response carries an exception block", async () => {
@@ -557,6 +623,26 @@ describe('ClickHouseAdapter.streamArrow', () => {
 
     expect(Buffer.from((await reader.read()).value!).toString()).toBe('data');
     await expect(reader.read()).rejects.toThrow('boom');
+  });
+
+  it("recovers ClickHouse's error from an untagged failure on servers before 25.11", async () => {
+    const message = 'Code: 395. DB::Exception: boom mid-stream: while executing. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 24.8.1.1)\n';
+    const adapter = new ClickHouseAdapter({ client: { exec: exec({}, `partial${message}`) } as any });
+
+    const { bytes, error } = await readAll(await adapter.streamArrow('SELECT 1'));
+
+    expect(bytes.toString()).toBe('partial');
+    expect(error?.message).toContain('boom mid-stream');
+    expect(error).toMatchObject({ code: '395', type: 'FUNCTION_THROW_IF_VALUE_IS_NON_ZERO' });
+  });
+
+  it('fails a body that ends without the end-of-stream marker', async () => {
+    const adapter = new ClickHouseAdapter({ client: { exec: exec({}, 'truncated') } as any });
+
+    const { bytes, error } = await readAll(await adapter.streamArrow('SELECT 1'));
+
+    expect(bytes.toString()).toBe('truncated');
+    expect(error?.message).toContain('result is incomplete');
   });
 
   it('rejects a pre-aborted stream without calling the client', async () => {
@@ -577,8 +663,8 @@ describe('ClickHouseAdapter.streamArrow', () => {
     await db.table('events').select(['id']).settings({ max_threads: 2 }).streamArrow();
 
     expect(execMock).toHaveBeenCalledWith(expect.objectContaining({
-      query: expect.stringMatching(/FROM events$/),
-      clickhouse_settings: { output_format_arrow_compression_method: 'none', max_threads: 2, default_format: 'ArrowStream' },
+      query: expect.stringMatching(/FROM events\nFORMAT ArrowStream$/),
+      clickhouse_settings: { output_format_arrow_compression_method: 'none', max_threads: 2 },
     }));
   });
 });

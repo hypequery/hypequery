@@ -1,15 +1,15 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./website-next/public/logo-on-dark.png" />
-    <img src="./website-next/public/logo.png" alt="hypequery, the analytics layer for ClickHouse" width="300" />
+    <img src="./website-next/public/logo.png" alt="hypequery, embedded analytics on ClickHouse" width="300" />
   </picture>
 </p>
 
-<p align="center"><strong>The analytics layer for ClickHouse.</strong></p>
+<p align="center"><strong>Embedded analytics on ClickHouse.</strong></p>
 
 Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend today. A hosted option, hypequery cloud, is coming soon.
 
-hypequery is open source, with SDKs for TypeScript and Python. Model datasets, dimensions, and measures in code, query them by name with tenant isolation built in, then serve them as authenticated HTTP endpoints, typed React hooks, and MCP tools for agents. There's no separate BI server and no YAML project.
+hypequery is an open-source embedded analytics toolkit for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
 
 <p align="center">
   <a href="https://hypequery.com/docs/quick-start">TypeScript quick start</a> ·
@@ -103,6 +103,15 @@ result = analytics.execute(
 ```
 
 See the [Python docs](https://hypequery.com/docs/python) and [`python/hypequery`](./python/hypequery).
+
+## ClickHouse MCP server
+
+[`@hypequery/mcp`](./packages/mcp-server) is a governed ClickHouse MCP server for Claude Code, Cursor, Codex and other agents. Agents call `list_datasets`, `get_dataset_schema`, `query_metric` and `query_dataset` against the datasets and metrics you define; there is no raw SQL tool. To try it against the public ClickHouse playground in five minutes, install the packages, save the `mcp-config.mjs` from the [quickstart](https://hypequery.com/clickhouse-mcp#quickstart), and add the server to your agent:
+
+```bash
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+claude mcp add clickhouse -- npx -y @hypequery/mcp --config "$PWD/mcp-config.mjs"
+```
 
 ## Built for product analytics
 

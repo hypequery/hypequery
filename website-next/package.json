@@ -9,7 +9,8 @@
     "lint": "eslint",
     "telemetry:schema": "tsx scripts/telemetry-schema.mjs",
     "telemetry:schema:check": "tsx scripts/telemetry-schema.mjs --check",
-    "test": "npm run telemetry:schema:check && tsx --test src/lib/telemetry/*.test.ts src/lib/*.test.ts"
+    "test": "npm run telemetry:schema:check && tsx --test src/lib/telemetry/*.test.ts src/lib/changelog/*.test.ts src/lib/*.test.ts",
+    "check:functions": "tsx scripts/check-function-examples.mts"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.3.1",
@@ -28,6 +29,7 @@
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
     "rehype-stringify": "^10.0.1",
+    "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "shiki": "^4.5.0",
     "tailwind-merge": "^3.7.0",

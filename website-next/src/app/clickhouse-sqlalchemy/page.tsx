@@ -130,6 +130,7 @@ export default function ClickHouseSqlAlchemyPage() {
         { href: '/compare/hypequery-vs-clickhouse-connect', title: 'hypequery vs clickhouse-connect', description: 'Driver or semantic layer: what each one is for.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
         { href: '/clickhouse-django', label: 'ClickHouse with Django' },

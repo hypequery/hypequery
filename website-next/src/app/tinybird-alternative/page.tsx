@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Tinybird Alternative: Typed ClickHouse APIs, Self-Hosted',
+  title: 'Tinybird Alternative for ClickHouse APIs (2026)',
   description:
-    'Looking for a Tinybird alternative? hypequery + your own ClickHouse gives you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.',
+    'Looking for a Tinybird alternative? hypequery + your own ClickHouse gives you typed analytics APIs with no data ingestion into a third-party platform and no second platform plan to pay for.',
   alternates: { canonical: absoluteUrl('/tinybird-alternative') },
   openGraph: {
     images: ogImage('Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure'),
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/tinybird-alternative'),
     title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure | hypequery',
     description:
-      'Keep your data in your own ClickHouse and build the API layer in TypeScript or Python. Open source, schema-generated datasets, no usage-based pricing.',
+      'Keep your data in your own ClickHouse and build the API layer in TypeScript or Python. Open source, schema-generated datasets, no platform fee.',
   },
   twitter: {
     card: 'summary_large_image',
@@ -52,7 +52,7 @@ export default function TinybirdAlternativePage() {
       leadPage="/tinybird-alternative"
       eyebrow="Tinybird Alternative"
       title="Looking for a Tinybird alternative?"
-      description="Tinybird's pitch is real: point data at their ClickHouse, write SQL Pipes, get APIs. What sends teams looking elsewhere is usually one of three things — the data has to live in their platform, the bill grows with your traffic, or nothing in the workflow speaks TypeScript. hypequery plus your own ClickHouse fixes all three."
+      description="Tinybird's pitch is real: point data at their ClickHouse, write SQL pipes, get APIs. What sends teams looking elsewhere is usually one of three things: the data has to live in their platform, you would be paying for a second ClickHouse-based platform next to the one you already run, or the analytics logic should live in your own application code with types from your own schema. hypequery plus your own ClickHouse covers all three."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-tinybird', label: 'Read the full comparison' }}
       stats={[
@@ -64,17 +64,17 @@ export default function TinybirdAlternativePage() {
         {
           title: 'Your data has to live in their platform',
           copy:
-            'Using Tinybird means ingesting your data into Tinybird-managed ClickHouse. If you have residency requirements, compliance controls, or just a strong preference for owning your analytics data, the conversation ends there.',
+            'Using Tinybird means ingesting your data into Tinybird-managed ClickHouse. Self-managed regions in your own AWS account exist, but Tinybird marks them beta and for development only. If you have residency requirements, compliance controls, or just a strong preference for owning your analytics data, that is usually where the conversation ends.',
         },
         {
-          title: 'The pricing grows with your success',
+          title: 'A second platform bill for the same data',
           copy:
-            'Tinybird bills on data processed and API calls. User-facing analytics with real traffic is exactly the workload where that gets expensive compared to running the same queries on your own ClickHouse or ClickHouse Cloud.',
+            'Tinybird plans are sized in vCPUs, with overages for vCPU time, storage and data transfer. If you already run ClickHouse or pay for ClickHouse Cloud, serving the same queries through Tinybird means paying for a second ClickHouse-based platform and keeping your data in sync with it.',
         },
         {
-          title: 'SQL Pipes, not TypeScript contracts',
+          title: 'Types come from Tinybird definitions, not your database',
           copy:
-            'Pipes are SQL in Tinybird’s workflow, and your app consumes the endpoints as untyped HTTP. Nothing generates TypeScript types from your schema, so every consumer ends up hand-maintaining its own interfaces.',
+            'Tinybird’s TypeScript SDK, which it marks experimental, infers types from the data sources and endpoints you define for Tinybird. That works for data that lives in Tinybird. It does not generate types from a ClickHouse you already run, and it does not give you a query builder or datasets inside your own application.',
         },
       ]}
       solutionSection={{
@@ -87,7 +87,7 @@ export default function TinybirdAlternativePage() {
           'Generate TypeScript types from your live schema, including ClickHouse-specific runtime mappings',
           'Define queries as code, reviewed and versioned like the rest of your application',
           'Serve them as REST endpoints with input validation and OpenAPI docs via @hypequery/serve',
-          'No per-query or per-GB pricing — the whole stack is open source',
+          'No platform plan to size: the whole stack is open source',
         ],
         codePanel: {
           eyebrow: 'Step 1',
@@ -103,7 +103,7 @@ export default function TinybirdAlternativePage() {
         description:
           'Each query definition becomes an HTTP endpoint with validated inputs and a typed response shape — the same publish-a-query workflow, without the platform in the middle.',
         paragraphs: [
-          'The honest tradeoff: Tinybird bundles managed ingestion, caching, token-based rate limiting, and zero ops. With hypequery you own the ClickHouse instance, and auth and caching come from your existing API stack rather than a platform.',
+          'The honest tradeoff: Tinybird bundles managed ingestion, endpoint hosting, token auth with per-token rate limits, and zero ops. With hypequery you own the ClickHouse instance. `@hypequery/serve` gives you JWT auth, tenant scoping and a `rateLimit` middleware, and the query builder has an optional result cache, but you deploy and run them in your own app.',
           'If you already run ClickHouse — or are happy letting ClickHouse Cloud run it — that trade usually lands on the side of owning the layer. No data movement, no lock-in on the data model, and compile-time types the whole way down.',
         ],
         codePanel: {
@@ -123,28 +123,28 @@ export default function TinybirdAlternativePage() {
         rows: [
           {
             label: 'Where data lives',
-            competitor: 'Ingested into Tinybird’s managed ClickHouse',
+            competitor: 'Ingested into Tinybird’s managed ClickHouse; self-managed regions are beta, for development only',
             hypequery: 'Stays in your ClickHouse — self-hosted or Cloud',
           },
           {
             label: 'Query definitions',
-            competitor: 'SQL Pipes in Tinybird’s workflow',
+            competitor: 'SQL pipes in datafiles or TypeScript, deployed to Tinybird with the CLI',
             hypequery: 'TypeScript or Python in your repo, reviewed like any other code',
           },
           {
             label: 'TypeScript types',
-            competitor: 'Hand-maintained interfaces over HTTP responses',
+            competitor: 'Inferred from your Tinybird definitions by `@tinybirdco/sdk` (experimental)',
             hypequery: 'Generated from your live schema',
           },
           {
             label: 'Auth and rate limiting',
-            competitor: 'Built in, token-based',
-            hypequery: 'Your existing API stack',
+            competitor: 'Tokens, plus JWTs with per-token rate limits and fixed tenant parameters',
+            hypequery: 'JWT auth, tenant scoping and `rateLimit` middleware in `@hypequery/serve`',
           },
           {
-            label: 'Caching',
-            competitor: 'Built in',
-            hypequery: 'Bring your own, or ClickHouse materialized views',
+            label: 'Rollups and caching',
+            competitor: 'Materialized views and copy pipes',
+            hypequery: 'ClickHouse materialized views, plus an optional query result cache',
           },
           {
             label: 'Ops burden',
@@ -153,17 +153,31 @@ export default function TinybirdAlternativePage() {
           },
           {
             label: 'Pricing',
-            competitor: 'Data processed plus API calls',
+            competitor: 'Free plan, then plans sized in vCPUs plus storage, data transfer and overages',
             hypequery: 'Free and open source — you pay for your infra',
           },
           {
+            label: 'Agents and MCP',
+            competitor: 'Tinybird MCP server with token-scoped access to a workspace',
+            hypequery: '`@hypequery/mcp` exposes your datasets and metrics as MCP tools',
+          },
+          {
             label: 'Leaving later',
-            competitor: 'Schema, Pipes, and ingestion live in the platform',
+            competitor: 'Data and ingestion live in the platform; datafiles describe Tinybird resources',
             hypequery: 'Plain code and your own database — nothing to migrate off',
           },
         ],
         footnote:
           'Zero ops is genuinely worth money to some teams. If nobody on your side wants to think about a database, Tinybird is a fine answer and this table won’t change that.',
+      }}
+      chooseAlternative={{
+        title: 'When to pick Tinybird instead',
+        bullets: [
+          'You do not run ClickHouse yet and nobody on the team wants to operate it.',
+          'The deliverable is hosted analytics APIs, and you want ingestion, endpoint hosting and token auth handled by one platform.',
+          'Your team is more SQL-fluent than TypeScript-fluent and would rather publish SQL pipes than write application code.',
+          'A vendor-run region meets your data residency and compliance needs.',
+        ],
       }}
       searchIntentCards={[
         {
@@ -179,12 +193,29 @@ export default function TinybirdAlternativePage() {
         {
           title: 'Tinybird pricing concerns at scale',
           copy:
-            'With hypequery the cost model is just your ClickHouse infrastructure. API calls are your own endpoints on your own compute — no per-request or per-GB-processed billing.',
+            'With hypequery the cost model is just your ClickHouse infrastructure. API calls are your own endpoints on your own compute, with no second platform plan to size or overages to track.',
         },
         {
           title: 'When Tinybird is still the right answer',
           copy:
             'No ops capacity, SQL-first team, and a need to ship a public data API this week: Tinybird earns its price. hypequery is the fit when ownership, types, and cost control matter more than zero ops.',
+        },
+      ]}
+      faq={[
+        {
+          question: 'Is there an open-source Tinybird alternative?',
+          answer:
+            'Yes. hypequery is open source under Apache 2.0. Pair it with self-hosted ClickHouse for a fully open stack, or with ClickHouse Cloud if you want the database managed and the API layer in your own code.',
+        },
+        {
+          question: 'How does Tinybird pricing work?',
+          answer:
+            'Tinybird has a free plan with 0.25 vCPU, 1,000 requests per day and 10 GB of storage. Paid plans are sized in vCPUs, with overages for vCPU time, storage and data transfer, and no per-request charge. Check tinybird.co/pricing for current figures; we last checked on 8 November 2026.',
+        },
+        {
+          question: 'Can Tinybird run in my own cloud account?',
+          answer:
+            'Only for development today. Tinybird’s self-managed regions run in your own AWS account, but they are in beta and Tinybird advises against production workloads. With hypequery the data stays in the ClickHouse you already run.',
         },
       ]}
       readingLinks={[
@@ -219,7 +250,7 @@ export default function TinybirdAlternativePage() {
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
-        { href: '/moosestack-alternative', label: 'MooseStack Alternative' },
+        { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

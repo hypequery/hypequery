@@ -101,14 +101,14 @@ const comparisonLinks = [
     description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
   },
   {
-    href: '/drizzle-clickhouse',
-    title: 'Drizzle ORM for ClickHouse',
-    description: 'For teams searching for Drizzle ORM support on ClickHouse and the closest TypeScript-native alternative.',
+    href: '/compare/hypequery-vs-drizzle',
+    title: 'hypequery vs Drizzle',
+    description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
   },
   {
-    href: '/blog/clickhouse-testing-typescript',
-    title: 'How to Test ClickHouse Queries in TypeScript',
-    description: 'Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.',
+    href: '/blog/add-clickhouse-analytics-nodejs-backend#testing-clickhouse-queries',
+    title: 'How to test ClickHouse queries in TypeScript',
+    description: 'Type checks in CI, SQL assertions, and integration tests against chDB or a ClickHouse container.',
   },
   {
     href: '/blog/clickhouse-final-replacingmergetree-typescript',
@@ -123,6 +123,11 @@ const comparisonLinks = [
 ];
 
 const ecosystemLinks = [
+  {
+    href: '/clickhouse',
+    title: 'ClickHouse with TypeScript and Python',
+    description: 'The hub for every ClickHouse client, framework, SQL guide and function page on this site.',
+  },
   {
     href: '/clickhouse-nextjs',
     title: 'ClickHouse Next.js',
@@ -270,7 +275,7 @@ export default function ClickHouseTypeScriptPage() {
                   If you want the shortest path to a working setup, skip the comparison content and <Link href="/docs/quick-start" className="text-accent hover:opacity-70">start with hypequery now</Link>. One real query against your own schema will tell you more than another hour of reading.
                 </p>
                 <p>
-                  If your team is comparing options, read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-accent hover:opacity-70">hypequery vs @clickhouse/client</Link>, <Link href="/compare/hypequery-vs-kysely" className="text-accent hover:opacity-70">hypequery vs Kysely</Link>, and <Link href="/drizzle-clickhouse" className="text-accent hover:opacity-70">Drizzle ORM for ClickHouse</Link> after this page.
+                  If your team is comparing options, read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-accent hover:opacity-70">hypequery vs @clickhouse/client</Link>, <Link href="/compare/hypequery-vs-kysely" className="text-accent hover:opacity-70">hypequery vs Kysely</Link>, and <Link href="/compare/hypequery-vs-drizzle" className="text-accent hover:opacity-70">hypequery vs Drizzle</Link> after this page.
                 </p>
               </div>
             </div>
@@ -355,7 +360,7 @@ export default function ClickHouseTypeScriptPage() {
               </Link>
             ))}
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-4">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {ecosystemLinks.map((item) => (
               <Link
                 key={item.href}

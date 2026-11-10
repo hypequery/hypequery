@@ -109,3 +109,21 @@ const db = createQueryBuilder<Schema>({ url: process.env.CLICKHOUSE_URL, passwor
 ## How It Works
 
 The adapter implements hypequery's `DatabaseAdapter` contract: hypequery compiles your query to SQL client-side, and the adapter executes it in-process via a chDB `Session`, returning `JSONEachRow` rows. The adapter is maintained by the chDB team — issues with the adapter itself belong on [chdb-io/chdb-node](https://github.com/chdb-io/chdb-node/issues).
+
+## Differences from the HTTP adapter
+
+Checked with chdb 3.5.0:
+
+- **64-bit integers arrive as numbers.** The HTTP adapter asks ClickHouse to quote `Int64`, `UInt64` and `count()` results, which is why hypequery types them as `string`. The chDB adapter sends no settings, so they come back as JSON numbers, which lose precision above 2^53. Set the same option once on the session to get strings, as the types expect:
+
+<CodeBlock>
+
+```typescript
+const session = new Session('./analytics.chdb');
+session.query('SET output_format_json_quote_64bit_integers = 1');
+const db = createQueryBuilder<Schema>({ adapter: chdbAdapter({ session }) });
+```
+
+</CodeBlock>
+
+- **No `insert()`.** The adapter implements `query()` and `stream()` only, so the builder's typed insert is not available. Load data with SQL on the session instead, for example `session.query("INSERT INTO trips SELECT * FROM file('trips.parquet')")`.

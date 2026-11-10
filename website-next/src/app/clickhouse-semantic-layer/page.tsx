@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand } from '@/components/home/SetupCommand';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
+import { HubDefinition, HubLinkGrid, type HubLink } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
@@ -168,6 +169,85 @@ const comparisonRows = [
   },
 ] as const;
 
+// The shared vocabulary of semantic layers, so the page answers "what is a semantic layer" directly.
+const vocabulary = [
+  { term: 'Dimensions', copy: 'The attributes you slice by: region, plan, status, signup date. They end up in GROUP BY and WHERE.' },
+  { term: 'Measures', copy: 'Aggregations bound to a column, such as sum(total) or count(id), optionally with a filter built in.' },
+  { term: 'Metrics', copy: 'Named business quantities built from measures. Average order value is revenue divided by order count.' },
+  { term: 'Grain', copy: 'The time level a result is aggregated to, driven by one agreed time column: daily, weekly, monthly.' },
+  { term: 'Governed filters', copy: 'Conditions that always apply, whether or not the caller asks. Tenant isolation is the usual one.' },
+] as const;
+
+const shapes = [
+  { name: 'Inside a BI tool', copy: 'LookML or Power BI datasets. Consistent inside that tool, unavailable to your app code and APIs.' },
+  { name: 'Standalone platform', copy: 'Cube runs as a separate service with its own query API and pre-aggregation store.' },
+  { name: 'Warehouse side', copy: 'dbt MetricFlow keeps metrics in YAML next to your models. It still needs a runtime layer to serve app requests.' },
+  { name: 'Code-first library', copy: 'Definitions are typed code in your repo, imported by your backend and deployed with it. This is hypequery.' },
+] as const;
+
+const guideLinks: HubLink[] = [
+  {
+    href: '/docs/datasets/overview',
+    title: 'Datasets docs',
+    description: 'Define datasets, dimensions, measures and metrics in TypeScript, then execute and serve them.',
+  },
+  {
+    href: '/docs/datasets/metrics',
+    title: 'Metrics docs',
+    description: 'Attach named KPIs and derived calculations, such as average order value, to datasets.',
+  },
+  {
+    href: '/docs/datasets/multi-tenancy',
+    title: 'Dataset multi-tenancy',
+    description: 'How tenant keys are enforced at runtime and why missing tenant context fails closed.',
+  },
+  {
+    href: '/python-semantic-layer',
+    title: 'Python semantic layer',
+    description: 'The same datasets and Serve protocol for FastAPI, Django and Flask backends.',
+  },
+  {
+    href: '/blog/introducing-hypequery-datasets',
+    title: 'Introducing hypequery datasets',
+    description: 'Define dimensions, measures and metrics once, then reuse them across code, APIs, dashboards and agents.',
+  },
+  {
+    href: '/blog/introducing-hypequery-python',
+    title: 'Introducing hypequery for Python',
+    description: 'The Python SDK: datasets, serving and DataFrames over ClickHouse.',
+  },
+  {
+    href: '/clickhouse-mcp',
+    title: 'ClickHouse MCP server',
+    description: 'Expose datasets to Claude, Cursor and other MCP clients without raw SQL.',
+  },
+  {
+    href: '/compare/hypequery-vs-cube',
+    title: 'hypequery vs Cube',
+    description: 'A code-first library compared with a configuration-first semantic layer platform.',
+  },
+  {
+    href: '/cube-js-alternative',
+    title: 'Cube.js alternative for ClickHouse',
+    description: 'A semantic layer with no Cube server, Redis cache or YAML to run.',
+  },
+  {
+    href: '/compare/hypequery-vs-dbt',
+    title: 'hypequery vs dbt',
+    description: 'Scheduled transformations in dbt compared with request-time serving from your app.',
+  },
+  {
+    href: '/blog/typescript-vs-dbt-clickhouse',
+    title: 'TypeScript vs dbt for ClickHouse',
+    description: 'Which one belongs in your ClickHouse stack, and when you need both.',
+  },
+  {
+    href: '/embedded-analytics',
+    title: 'Embedded analytics',
+    description: 'Serving tenant-scoped metrics to customers: build vs buy and vendors compared.',
+  },
+];
+
 function Verdict({ yes }: { yes: boolean }) {
   return yes ? (
     <span className="mt-[2px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
@@ -267,6 +347,25 @@ export default function ClickHouseSemanticLayerPage() {
           </p>
         </section>
 
+        <section className={`${marketing.container} pb-6 pt-6`}>
+          <HubDefinition term="What is a semantic layer?">
+            <p>
+              A semantic layer is a single, shared definition of your business metrics that sits between your raw tables
+              and everything that queries them. Dashboards, APIs, notebooks and AI agents ask it for &ldquo;revenue&rdquo;
+              by name, and the layer decides which column, aggregate, filters and time column that means, so every
+              consumer gets the same number and no caller can skip a filter that must always apply.
+            </p>
+          </HubDefinition>
+          <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {vocabulary.map((item) => (
+              <div key={item.term} className="rounded-xl border border-border bg-bg-card p-5">
+                <dt className="text-sm font-semibold text-text">{item.term}</dt>
+                <dd className="mt-2 text-[13px] leading-5 text-text-muted">{item.copy}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
         <section className={`${marketing.container} pb-6 pt-[72px]`}>
           <SectionIntro title="Your semantic layer is a file in your repo.">
             <p>
@@ -285,6 +384,14 @@ export default function ClickHouseSemanticLayerPage() {
               For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend, or let hypequery cloud host the same definitions.
             </p>
           </SectionIntro>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {shapes.map((shape) => (
+              <div key={shape.name} className="rounded-xl border border-border bg-bg-card p-5">
+                <h3 className="text-sm font-semibold text-text">{shape.name}</h3>
+                <p className="mt-2 text-[13px] leading-5 text-text-muted">{shape.copy}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className={`${marketing.container} pb-6 pt-[96px]`}>
@@ -360,6 +467,15 @@ export default function ClickHouseSemanticLayerPage() {
         </section>
 
         <ExamplesBlock leadPage="/clickhouse-semantic-layer" />
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
+          <SectionIntro eyebrow="Guides" title="Semantic layer guides and docs">
+            <p>
+              Docs, design notes and comparisons for defining a ClickHouse semantic layer in code and serving it to APIs,
+              dashboards and agents.
+            </p>
+          </SectionIntro>
+          <HubLinkGrid links={guideLinks} />
+        </section>
 
         <section className={`${marketing.container} py-20 text-center`}>
           <p className={`mb-3.5 ${marketing.eyebrow}`}>Next step</p>

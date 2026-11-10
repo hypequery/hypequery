@@ -1,5 +1,40 @@
 # @hypequery/clickhouse Changelog
 
+## 2.15.0
+
+### Minor Changes
+
+- c320820: Aggregate result types now match what ClickHouse returns, instead of `string` for every aggregate:
+
+  - `sum()`: `number` for `Float*` and `Decimal` columns, `string` for integer columns (they widen to a quoted `Int64`), plus `| null` for `Nullable` columns. Over a subquery or CTE column known only as `number`, it is `number | string`.
+  - `avg()`, `stddev()`, `variance()`: `number | null`. NaN over too few rows arrives as `null`.
+  - `min()`, `max()`, `argMin()`, `argMax()`: the column's own type.
+  - `quantile()`: `number | null` for numeric columns, the column's type for dates.
+  - `count()`, `countDistinct()`, `approxCountDistinct()`: unchanged (`string`).
+
+  Code that converted results with `Number(...)` keeps compiling. Code that called string methods on, for example, a `Float64` sum now gets a type error where it used to fail at runtime.
+
+  Schemas can now declare `AggregateFunction(...)` and `SimpleAggregateFunction(fn, T)` columns, so a generated schema containing an AggregatingMergeTree table type-checks with `createQueryBuilder<IntrospectedSchema>()`. A `SimpleAggregateFunction(fn, T)` column has `T`'s type; an `AggregateFunction` column is an opaque state that you read with `mergeState()`.
+
+  GROUP BY inference no longer adds a selected expression that wraps an aggregate (`round(avg(x), 2)`) or a window function (`rank() OVER (ORDER BY sum(x))`), which ClickHouse rejected with "Aggregate function ... is found in GROUP BY".
+
+  The readonly error for the precision-safe 64-bit setting now names the fixes that keep precision: setting `output_format_json_quote_64bit_integers = 1` in the user's profile, or `readonly = 2`. `integerJsonEncoding: 'server-default'` is still offered as the fallback.
+
+  The legacy `hypequery-generate-types` generator types parameterized views, and types `SimpleAggregateFunction` columns by their value type, as `@hypequery/cli` now does.
+
+- 3bb485c: Stream results as Arrow. `builder.streamArrow()` and `db.rawArrowStream(sql, params)` return the result as Arrow IPC stream bytes (ClickHouse `ArrowStream`) with native column types, for any Arrow reader to decode or for passing on unchanged. Batches are uncompressed by default, because JavaScript Arrow readers don't include the LZ4 codec; a connection-level or per-call `output_format_arrow_compression_method` overrides that. `db.rawStream(sql, params)` streams a raw statement's rows, as `builder.stream()` does for built queries. If ClickHouse fails after sending part of an Arrow result, the stream errors rather than handing the exception text to the decoder: with ClickHouse's own error on ClickHouse 25.11 or later, which marks the failure, and on older servers because the bytes end without Arrow's end-of-stream marker. Custom adapters can implement the new optional `DatabaseAdapter.streamArrow`.
+- c320820: Fix JavaScript `Date` filter values against `DateTime` sorting-key columns. A `Date` used to render as a quoted ISO string (`'2026-03-01T00:00:00.000Z'`), which ClickHouse rejects with `TYPE_MISMATCH` when it compares the string with a `DateTime` column in the sorting key. The same happened for a `Date` column, and for any value with milliseconds. A `Date` now renders as `toDateTime('2026-03-01 00:00:00', 'UTC')`, or as `toDateTime64(..., 3, 'UTC')` when it has milliseconds or falls outside the `DateTime` range. This keeps the exact UTC instant, still lets the primary index prune, and works in `IN` lists. It applies to `where`, `between`, `in`, `rawQuery` placeholders and `CrossFilter`. `CrossFilter` no longer converts `Date` values to ISO strings itself. Dates inside array, tuple and map parameters are still sent as ISO text, which `CAST` parses correctly.
+
+### Patch Changes
+
+- 0ba4596: Arrow streams work for `readonly = 1` users and catch mid-stream failures on servers before ClickHouse 25.11.
+
+  - `streamArrow()` and `rawArrowStream()` request the format with a `FORMAT ArrowStream` clause instead of the `default_format` setting, which `readonly = 1` users may not change. A trailing `;` or comment is dropped first.
+  - The uncompressed-batches default (`output_format_arrow_compression_method = 'none'`) is still sent, and a `readonly = 1` user accepts it when its profile already sets that value. When ClickHouse rejects it, the error explains the fix. The new `arrowCompression: 'server-default'` adapter option leaves the setting out, so batches use the server's compression method.
+  - Detecting a mid-stream failure from its tagged exception block needs ClickHouse 25.11 or later, because older servers send no `X-ClickHouse-Exception-Tag`. An Arrow stream from any server now also errors when its bytes end without Arrow's end-of-stream marker, so a failed or truncated stream no longer looks complete. On older servers, ClickHouse's error message is recovered from the response where possible.
+
+- 3bb485c: `stream()` no longer hangs when an adapter's byte stream splits a JSON row across two chunks, keeps a final row that has no trailing newline, and keeps characters split across chunks intact. The built-in adapter was unaffected because its client hands over whole rows; custom adapters that stream raw bytes were.
+
 ## 2.14.0
 
 ### Minor Changes

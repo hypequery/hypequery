@@ -202,7 +202,14 @@ Streams use the endpoint's auth, roles, tenant isolation and validation, and are
 first row are ordinary JSON errors with their status. If the query fails after the response began, an NDJSON stream
 ends with an `error` frame instead of `end`, and an Arrow stream breaks off without its end-of-stream marker: a
 response that lacks its final frame or marker is incomplete. An endpoint without `stream`, or a request that doesn't
-ask for one, gets the usual JSON page.
+ask for one, gets the usual JSON page. `Accept` q-values are honored: `application/json, application/x-ndjson;q=0.5`
+gets a page. Responses from a streaming endpoint carry `Vary: Accept`.
+
+A failure after the response began still reaches the `onError` hook and the query log with the original error, and
+`onRequestEnd` fires when the stream ends, not when it opens (see [Observability](/docs/observability)). With the
+Node adapter, a stream that sends nothing for `streamIdleTimeout` (default: the `requestTimeout`) or runs past
+`streamTimeout` (default: no limit) is stopped, which also stops its query; on fetch runtimes the platform bounds the
+response.
 
 For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).
 

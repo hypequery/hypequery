@@ -23,7 +23,7 @@ npm run dev
 
 Then visit these URLs:
 - **Blog Index**: http://localhost:3000/blog
-- **Individual Post**: http://localhost:3000/blog/turn-your-clickhouse-schema-into-a-type-safe-analytics-layer-in-5-minutes
+- **Individual Post**: http://localhost:3000/blog/clickhouse-typescript-type-problem
 
 ### 2. Production Build Testing
 
@@ -41,12 +41,12 @@ Visit the same URLs as above to verify production build works.
 
 Based on your content/blog directory, you can test these slugs:
 
-1. `turn-your-clickhouse-schema-into-a-type-safe-analytics-layer-in-5-minutes`
+1. `clickhouse-typescript-type-problem`
 2. `a-guide-to-materialized-views-in-clickhouse`
 3. `type-safe-schema-management-clickhouse`
 4. `the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases`
 5. `seven-companies-one-pattern-why-every-scaled-clickhouse-deployment-looks-the-same`
-6. `type-safe-sql-in-typescript-why-your-current-approach-is-failing-you-and-what-to-do-about-it`
+6. `embedded-analytics-clickhouse-multi-tenant-dashboards`
 7. `building-dashboards-clickhouse-hypequery-nextjs`
 
 ## Common Production Issues
