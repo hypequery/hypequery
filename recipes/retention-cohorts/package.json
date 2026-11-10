@@ -7,8 +7,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "setup": "pnpm build && node dist/setup.js",
-    "dev": "pnpm setup && node dist/recipe.js",
-    "capture": "pnpm setup && node dist/recipe.js --write",
+    "dev": "pnpm run setup && node dist/recipe.js",
+    "capture": "pnpm run setup && node dist/recipe.js --write",
     "test": "pnpm build && vitest run"
   },
   "dependencies": {

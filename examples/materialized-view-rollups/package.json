@@ -8,7 +8,7 @@
     "build": "tsc --project tsconfig.json",
     "setup": "pnpm build && node dist/setup.js",
     "query": "pnpm build && node dist/query.js",
-    "dev": "pnpm setup && node dist/query.js",
+    "dev": "pnpm run setup && node dist/query.js",
     "test": "pnpm build && vitest run"
   },
   "dependencies": {
