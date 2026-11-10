@@ -203,7 +203,6 @@ export default function DatabricksMetricViewsPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('Databricks metric views')}
-      eyebrow="Semantic layer · Databricks"
       title="Databricks metric views, compared with a semantic layer in code"
       lead={
         <p>

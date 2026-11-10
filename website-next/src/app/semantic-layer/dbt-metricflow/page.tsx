@@ -216,7 +216,6 @@ export default function DbtMetricFlowPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('dbt MetricFlow')}
-      eyebrow="Semantic layer · dbt"
       title="dbt Semantic Layer and MetricFlow, compared with a semantic layer in code"
       lead={
         <p>

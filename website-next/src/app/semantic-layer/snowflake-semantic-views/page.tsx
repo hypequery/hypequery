@@ -196,7 +196,6 @@ export default function SnowflakeSemanticViewsPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('Snowflake semantic views')}
-      eyebrow="Semantic layer · Snowflake"
       title="Snowflake semantic views, compared with a semantic layer in code"
       lead={
         <p>

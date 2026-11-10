@@ -208,7 +208,6 @@ export default function OpenSemanticInterchangePage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('Open Semantic Interchange')}
-      eyebrow="Semantic layer · OSI"
       title="Open Semantic Interchange, now Apache Ossie, explained"
       lead={
         <p>
