@@ -272,6 +272,37 @@ importers:
         specifier: ^5.0.5
         version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
 
+  examples/usage-based-billing:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.0.5
+        version: 2.1.3(hono@4.13.13)
+      '@hypequery/clickhouse':
+        specifier: workspace:*
+        version: link:../../packages/clickhouse
+      '@hypequery/datasets':
+        specifier: workspace:*
+        version: link:../../packages/datasets
+      '@hypequery/serve':
+        specifier: workspace:*
+        version: link:../../packages/serve
+      hono:
+        specifier: ^4.13.1
+        version: 4.13.13
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.20.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.1.0(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
+
   packages/cli:
     dependencies:
       '@clickhouse/client':
