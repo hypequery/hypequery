@@ -1,0 +1,33 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "async-inserts-node",
+  "kind": "recipe",
+  "title": "ClickHouse async inserts from Node.js: per-row vs batch vs async_insert",
+  "outcome": "Insert the same 1,000 rows from Node per row, in client batches and with async_insert, and count the parts each creates: 1,000, 4, 10 and 1.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["ingestion", "real-time-analytics"],
+  "packages": ["@hypequery/clickhouse"],
+  "keyFile": "src/ingest.ts",
+  "datasetFile": "src/schema.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user with INSERT, CREATE TABLE and SYSTEM rights (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database for the recipe's ingest table (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["materialized-view-rollups", "cursor-pagination"],
+  "leadPages": ["/clickhouse-nodejs", "/clickhouse-js", "/clickhouse-real-time-analytics"],
+  "functionPages": [],
+  "keywords": [
+    "clickhouse async insert",
+    "clickhouse batch insert",
+    "clickhouse bulk insert",
+    "clickhouse wait_for_async_insert"
+  ],
+  "minVersion": "2.14.0"
+}

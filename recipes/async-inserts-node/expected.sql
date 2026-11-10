@@ -1,0 +1,1 @@
+INSERT INTO async_inserts_node_events FORMAT JSONEachRow
