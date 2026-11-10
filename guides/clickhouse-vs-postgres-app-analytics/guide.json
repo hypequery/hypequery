@@ -1,0 +1,24 @@
+{
+  "$schema": "https://hypequery.com/schemas/guide.schema.json",
+  "slug": "clickhouse-vs-postgres-app-analytics",
+  "kind": "guide",
+  "title": "ClickHouse vs Postgres for app analytics: when Postgres is enough, and how to add ClickHouse",
+  "outcome": "Measured on the same million events: which analytics queries Postgres handles, which need ClickHouse, and how to move data with CDC, dual writes or batch pulls.",
+  "clickhouseVersion": "25.8",
+  "sqlFiles": [
+    "sql/01-dashboard-shapes.sql",
+    "sql/02-what-gets-read.sql",
+    "sql/03-cdc-target.sql"
+  ],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "related": ["clickhouse-docker-compose", "multi-tenant-embedded-analytics", "top-n-per-group-limit-by", "materialized-view-rollups"],
+  "leadPages": ["/clickhouse-saas-analytics", "/clickhouse-product-analytics", "/clickhouse-real-time-analytics", "/clickhouse-analytics"],
+  "functionPages": ["quantile", "to-date"],
+  "keywords": [
+    "clickhouse vs postgres",
+    "clickhouse postgres",
+    "postgres to clickhouse",
+    "clickhouse vs postgresql for analytics",
+    "postgres cdc to clickhouse"
+  ]
+}

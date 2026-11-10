@@ -1,0 +1,22 @@
+{
+  "name": "@hypequery-recipes/top-n-per-group-limit-by",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Top N rows per group in ClickHouse with LIMIT BY from the hypequery query builder, compared with row_number() and rank(), pinned on the seed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "pnpm build && node dist/recipe.js",
+    "capture": "pnpm build && node dist/recipe.js --write",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
