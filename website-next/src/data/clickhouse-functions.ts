@@ -36,8 +36,8 @@ export type ClickHouseFunctionDef = {
  * Function pages that stay in Google's index. These are the pages with search
  * demand in Search Console (500+ impressions over three months in November
  * 2026), plus sumIf, which targets sumIf searches that currently land on the
- * sum page without clicks. The rest stay reachable for readers but are
- * noindexed and left out of the sitemap: ClickHouse's own docs answer those
+ * sum page without clicks, and count, which is submitted for indexing. The
+ * rest stay reachable for readers but are noindexed and left out of the sitemap: ClickHouse's own docs answer those
  * queries, so they add pages to crawl without bringing visitors.
  */
 export const indexedFunctionSlugs: ReadonlySet<string> = new Set([
@@ -45,6 +45,7 @@ export const indexedFunctionSlugs: ReadonlySet<string> = new Set([
   'groupArray',
   'sum',
   'sumIf',
+  'count',
   'formatDateTime',
   'toStartOfWeek',
   'multiIf',
@@ -805,16 +806,16 @@ for row in result.named_results():
     longDescription:
       'ClickHouse count() is highly optimised — for count() without a column argument it uses stored row counts and avoids data reading entirely. count(DISTINCT col) is available but use uniq() instead for approximate counts on large datasets as it is orders of magnitude faster. countIf(condition) avoids a subquery when you need conditional counts in a single pass.',
     exampleSql: `-- Total events
-SELECT count() FROM events
+SELECT count() FROM events;
 
 -- Non-null events with user_id
-SELECT count(user_id) FROM events
+SELECT count(user_id) FROM events;
 
 -- Conditional count without subquery
 SELECT
   countIf(status = 'paid') AS paid_count,
-  countIf(status = 'failed') AS failed_count
-FROM orders`,
+  countIf(status = 'refunded') AS refunded_count
+FROM orders;`,
     hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
