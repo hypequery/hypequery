@@ -1,9 +1,11 @@
 import { isPromptCancelled } from '../prompts.js';
 import { CommandExit } from '../command-exit.js';
+import { isCliError } from '../cli-error.js';
 import { ERROR_CODES } from './domains.js';
 
 export function telemetryErrorCode(error: unknown): typeof ERROR_CODES[number] {
   if (error instanceof CommandExit) return error.errorCode ?? 'unknown';
+  if (isCliError(error)) return error.telemetryCode;
   if (isPromptCancelled(error)) return 'prompt_cancelled';
   if (!error || typeof error !== 'object') return 'unknown';
   try {

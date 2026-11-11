@@ -1,3 +1,4 @@
+import { isJsonOutput } from '../utils/machine-output.js';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -65,7 +66,7 @@ async function defaultRunInstall(manager: PackageManager, cwd: string): Promise<
 export async function createCommand(slug: string, options: CreateOptions = {}, dependencies: CreateDependencies = {}): Promise<void> {
   const write = dependencies.write ?? ((line: string) => console.log(line));
   const cwd = dependencies.cwd ?? process.cwd();
-  const interactive = !options.yes && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
+  const interactive = !options.yes && !isJsonOutput() && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
 
   const index = await loadExamplesIndex(dependencies);
   const entry = findIndexEntry(index, slug);

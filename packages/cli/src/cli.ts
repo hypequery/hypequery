@@ -42,6 +42,15 @@ import { isPromptCancelled } from './utils/prompts.js';
 import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
+import { isCliError } from './utils/cli-error.js';
+import { EXIT_CODES, exitClassFor } from './utils/exit-codes.js';
+import {
+  emitDefaultResult,
+  emitError,
+  enableJsonOutput,
+  errorEnvelope,
+  isJsonOutput,
+} from './utils/machine-output.js';
 import { telemetryErrorCode } from './utils/telemetry/error-code.js';
 
 const program = new Command();
@@ -57,7 +66,13 @@ program
   .name('hypequery')
   .description('Type-safe embedded analytics on ClickHouse')
   .version(getCliVersion())
-  .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation');
+  .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation')
+  .option('--json', 'Print one JSON result (or error) on stdout; logs go to stderr; never prompt');
+
+// `--json` is read before any command runs, so its output starts clean.
+program.hook('preAction', () => {
+  if (program.opts().json) enableJsonOutput();
+});
 
 program
   .command('telemetry [action]')
@@ -69,13 +84,12 @@ program
 program
   .command('examples [action]')
   .description('List the runnable examples, recipes and guides in the registry (action: list)')
-  .option('--json', 'Print the registry index as JSON')
   .option('--kind <kind>', 'Only example, recipe or guide')
   .action(runCommand(async (action: string | undefined, options: ExamplesListOptions) => {
     if (action !== undefined && action !== 'list') {
       throw new Error(`Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
     }
-    await examplesListCommand(options);
+    await examplesListCommand({ ...options, json: isJsonOutput() });
   }));
 
 program
@@ -139,11 +153,26 @@ function runCommand<TArgs extends unknown[]>(
       // the interrupt it is instead of dumping an error and exiting 1.
       if (isPromptCancelled(error)) {
         console.log('\nCancelled.');
-        throw new CommandExit(130, 'cancelled', 'prompt_cancelled');
+        throw new CommandExit(EXIT_CODES.interrupted, 'cancelled', 'prompt_cancelled');
       }
+      const telemetryCode = isCliError(error) ? error.telemetryCode : telemetryErrorCode(error);
+      const exitClass = isCliError(error) ? error.exitClass : exitClassFor(telemetryCode, error);
+      if (isJsonOutput()) emitError(errorEnvelope(error, exitClass, telemetryCode.toUpperCase()));
       console.error(error instanceof Error ? error.message : error);
-      throw new CommandExit(1, 'failure', telemetryErrorCode(error));
+      throw new CommandExit(EXIT_CODES[exitClass], 'failure', telemetryCode);
     }
+    if (!isJsonOutput()) return;
+    // Commands that report failure through process.exitCode print their reasons
+    // to stderr; stdout still gets one JSON document.
+    if (process.exitCode) {
+      emitError(errorEnvelope(
+        new Error('The command failed; its reasons are on stderr.'),
+        'correctable',
+        'COMMAND_FAILED',
+      ));
+      return;
+    }
+    emitDefaultResult();
   };
 }
 
@@ -400,6 +429,9 @@ program.on('--help', () => {
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
   console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
+  console.log('');
+  console.log('Machine output (--json): one JSON result or {"error": {...}} on stdout, logs on stderr.');
+  console.log('Exit codes: 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal, 130 interrupted.');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });
