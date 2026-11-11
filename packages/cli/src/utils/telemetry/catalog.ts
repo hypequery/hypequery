@@ -1,4 +1,4 @@
-import { COMMANDS, COMMAND_FLAGS, COUNT_BUCKETS, DATABASES, DURATION_BUCKETS, ERROR_CODES, GLOBAL_FLAGS, HYPEQUERY_PACKAGES, OUTCOMES, TYPE_FAMILIES, WARNING_CODES } from './domains.js';
+import { COMMANDS, COMMAND_FLAGS, COUNT_BUCKETS, DATABASES, DURATION_BUCKETS, ERROR_CODES, EXAMPLE_KINDS, EXAMPLE_SLUGS, GLOBAL_FLAGS, HYPEQUERY_PACKAGES, OUTCOMES, TYPE_FAMILIES, WARNING_CODES } from './domains.js';
 import { boolean, enumeration, enumList, fieldsFor, formatted, optional, record, type Fields, type Properties } from './schema.js';
 
 const count = (description: string) => enumeration(description, COUNT_BUCKETS);
@@ -40,7 +40,9 @@ const generation = {
   custom_output: optional(output),
 } as const;
 
-const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'generate:client', 'help', 'unknown'] as const;
+const createStages = ['started', 'resolved', 'fetched', 'pinned', 'installed', 'completed'] as const;
+
+const INSTRUMENTED = ['init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets', 'generate:manifest', 'generate:client', 'examples', 'create', 'help', 'unknown'] as const;
 
 /** Command-specific completion fields; absence means that stage was not reached. */
 export const COMMAND_PROPERTIES = {
@@ -95,6 +97,22 @@ export const COMMAND_PROPERTIES = {
     query_count_bucket: optional(count('How much query-based React integration is adopted?')),
     endpoint_count_bucket: optional(count('How much endpoint-based React integration is adopted?')),
     custom_output: optional(output),
+  },
+  examples: {
+    kind_filter: optional(enumeration('Which registry kinds are browsed?', EXAMPLE_KINDS)),
+    output: optional(enumeration('Is the registry read by people or by tools?', ['table', 'json'])),
+    entry_count_bucket: optional(count('How many registry entries are listed?')),
+  },
+  create: {
+    example_slug: optional(enumeration('Which public registry entries are scaffolded? Input that names no registry entry becomes other.', EXAMPLE_SLUGS)),
+    example_kind: optional(enumeration('Are examples, recipes or guides requested?', EXAMPLE_KINDS)),
+    language: optional(enumeration('Which language are scaffolded examples written in?', ['typescript', 'python', 'unknown'])),
+    stage_reached: optional(enumeration('Where does scaffolding stop?', createStages)),
+    failed_stage: optional(enumeration('Which scaffolding stage needs reliability work?', createStages)),
+    seed: optional(boolean('Is the shared seed dataset copied?')),
+    install_result: optional(enumeration('Does dependency installation succeed after scaffolding?', ['ok', 'failed', 'skipped'])),
+    unpublished_pins: optional(boolean('Did any recorded package version fall back to a dist-tag?')),
+    interactive: optional(boolean('How much scaffolding is interactive?')),
   },
   // Other commands report only the common completion fields until they are
   // instrumented; each instrumentation change adds its command's fields here.
