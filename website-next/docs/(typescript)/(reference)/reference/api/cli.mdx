@@ -462,6 +462,7 @@ operand in a deployable formula`. See
 | `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
 | `--project`, `--environment` | Override the target from `hypequery login` |
 | `--replace-restored` | Replace a live release that was restored from history |
+| `--take-ownership` | Replace a live model built in hypequery Cloud. The project is then managed in code. Without it, the CLI asks in a terminal and refuses in CI |
 | `--draft <name>` | Save or update a named code draft without publishing Production |
 | `--no-source` | Leave project source files out of the bundle |
 
@@ -477,7 +478,7 @@ Use lowercase letters, numbers and single hyphens, up to 64 characters. Reusing
 that name updates the same draft in the target project. The CLI prints its draft
 ID and staging endpoint, then stops; it does not print Production connection
 configuration or change the active release. `--draft` cannot be combined with
-`--replace-restored`.
+`--replace-restored` or `--take-ownership`.
 
 Review and test the saved model in Cloud before publishing it. Uploading again
 does not silently advance a stale draft's Production base. If Production has

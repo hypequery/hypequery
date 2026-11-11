@@ -319,6 +319,10 @@ program
     '--replace-restored',
     'Intentionally replace a restored live release',
   )
+  .option(
+    '--take-ownership',
+    'Replace a live model built in hypequery Cloud; the project is then managed in code',
+  )
   .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
     await submitDeploymentCommand(bundle, options);
   }));
@@ -350,6 +354,10 @@ program
   .option(
     '--replace-restored',
     'Intentionally replace a restored live release',
+  )
+  .option(
+    '--take-ownership',
+    'Replace a live model built in hypequery Cloud; the project is then managed in code',
   )
   .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
   .option('--client <path>', 'Regenerate this typed client file from the new live release')

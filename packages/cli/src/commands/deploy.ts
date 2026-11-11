@@ -30,6 +30,7 @@ import {
   prepareDeploymentReleaseCommand,
 } from './deployment.js';
 import { generateClientCommand } from './generate-client.js';
+import { confirmTakeOwnership } from '../utils/prompts.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
@@ -39,6 +40,8 @@ export interface SubmitDeploymentOptions {
   release?: string;
   endpoint?: string;
   replaceRestored?: boolean;
+  /** Replace a live model built in hypequery Cloud; the project is then managed in code. */
+  takeOwnership?: boolean;
   draft?: string;
   /** Also print MCP client configuration for the hosted endpoint. */
   mcpConfig?: boolean;
@@ -47,6 +50,8 @@ export interface SubmitDeploymentOptions {
 export interface DeployOptions {
   endpoint?: string;
   replaceRestored?: boolean;
+  /** Replace a live model built in hypequery Cloud; the project is then managed in code. */
+  takeOwnership?: boolean;
   draft?: string;
   project?: string;
   environment?: string;
@@ -64,6 +69,8 @@ export interface SubmitDeploymentDependencies {
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
   readonly fetchLive?: typeof fetchLiveDeployment;
   readonly fetchEndpoints?: typeof fetchHostedEndpoints;
+  /** Asks the user before replacing a Cloud-built model; undefined when there's no terminal to ask in. */
+  readonly confirmTakeOwnership?: ((project: string) => Promise<boolean>) | null;
 }
 
 export interface DeployDependencies extends SubmitDeploymentDependencies {
@@ -192,6 +199,28 @@ export async function submitDeploymentCommand(
       + 'Run the command again with --replace-restored to replace it intentionally.',
     );
   }
+  // Decision 0020: a model built in Cloud is replaced only on purpose, and the
+  // project is then managed in code. Cloud refuses it too; asking here first
+  // explains it before anything is uploaded.
+  let takeOwnership = options.takeOwnership === true;
+  if (live?.active?.authoredIn === 'cloud'
+    && live.active.releaseIdentity !== release.identity
+    && !takeOwnership) {
+    const confirm = dependencies.confirmTakeOwnership === undefined
+      ? defaultConfirmTakeOwnership()
+      : dependencies.confirmTakeOwnership;
+    if (!confirm) {
+      throw new Error(
+        `The live model of ${release.release.target.project} was built in hypequery Cloud. `
+        + 'Deploying replaces it, and the project is then managed in code: its model can no longer '
+        + 'be edited in Cloud. Run the command again with --take-ownership to do this intentionally.',
+      );
+    }
+    if (!(await confirm(release.release.target.project))) {
+      throw new Error('Deployment cancelled: the model built in hypequery Cloud is still live.');
+    }
+    takeOwnership = true;
+  }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
   const transportOptions: HttpDeploymentUploadTransportOptions = {
     endpoint: deploymentEndpoint,
@@ -200,7 +229,7 @@ export async function submitDeploymentCommand(
       ? { expectedActivationRevision: live.active?.revision ?? null }
       : {}),
     ...(options.replaceRestored ? { replaceRestored: true } : {}),
-    ...(options.draft !== undefined ? { draft: options.draft } : {}),
+    ...(options.draft !== undefined ? { draft: options.draft } : { takeOwnership }),
   };
   const result = await createTransport(transportOptions).submit(bundle, release);
   if (options.draft !== undefined) {
@@ -229,6 +258,12 @@ export async function submitDeploymentCommand(
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
   return result;
+}
+
+/** In a terminal, ask; with no terminal (CI), there is nobody to ask. */
+function defaultConfirmTakeOwnership(): ((project: string) => Promise<boolean>) | null {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
+  return confirmTakeOwnership;
 }
 
 /**
@@ -294,6 +329,7 @@ export async function deployCommand(
     release: releasePath,
     endpoint: options.endpoint,
     replaceRestored: options.replaceRestored,
+    takeOwnership: options.takeOwnership,
     mcpConfig: options.mcpConfig,
     ...(options.draft !== undefined ? { draft: options.draft } : {}),
   }, dependencies);

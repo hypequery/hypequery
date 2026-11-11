@@ -393,6 +393,7 @@ describe('deploy command', () => {
     expect(createTransport).toHaveBeenCalledWith({
       endpoint: 'https://deploy.example.test/v1/releases',
       token: 'secret-token',
+      takeOwnership: false,
     });
     expect(submit).toHaveBeenCalledWith(
       bundle,
@@ -466,6 +467,7 @@ describe('deploy command', () => {
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',
       token: 'secret-token',
       expectedActivationRevision: currentRevision,
+      takeOwnership: false,
     });
   });
 
@@ -532,6 +534,72 @@ describe('deploy command', () => {
     }));
   });
 
+  describe('a live model built in hypequery Cloud (decision 0020)', () => {
+    const cloudLive = async () => ({
+      target: { project: 'project-1', environment: 'production' },
+      active: {
+        revision: 'c'.repeat(64),
+        releaseIdentity: 'd'.repeat(64),
+        activatedAt: '2026-08-01T10:00:00.000Z',
+        restored: false,
+        authoredIn: 'cloud' as const,
+        hasSource: false,
+      },
+    });
+    const accepted = (identity: string) => vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+    const options = (release: { path: string }, extra: Record<string, unknown> = {}) => ({
+      release: release.path,
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      ...extra,
+    });
+    const env = { HYPEQUERY_API_TOKEN: 'secret-token' };
+
+    it('refuses without a terminal unless --take-ownership is passed', async () => {
+      const release = await releaseFile();
+      const createTransport = vi.fn();
+      await expect(submitDeploymentCommand('dist/bundle', options(release), {
+        env, fetchLive: cloudLive, createTransport, confirmTakeOwnership: null,
+      })).rejects.toThrow('--take-ownership');
+      expect(createTransport).not.toHaveBeenCalled();
+
+      const submit = accepted(release.identity);
+      const transport = vi.fn(() => ({ submit }));
+      await submitDeploymentCommand('dist/bundle', options(release, { takeOwnership: true }), {
+        env, fetchLive: cloudLive, createTransport: transport, confirmTakeOwnership: null,
+      });
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({ takeOwnership: true }));
+    });
+
+    it('asks in a terminal, and sends the answer', async () => {
+      const release = await releaseFile();
+      const declined = vi.fn().mockResolvedValue(false);
+      const createTransport = vi.fn();
+      await expect(submitDeploymentCommand('dist/bundle', options(release), {
+        env, fetchLive: cloudLive, createTransport, confirmTakeOwnership: declined,
+      })).rejects.toThrow('Deployment cancelled');
+      expect(declined).toHaveBeenCalledWith('project-1');
+      expect(createTransport).not.toHaveBeenCalled();
+
+      const submit = accepted(release.identity);
+      const transport = vi.fn(() => ({ submit }));
+      await submitDeploymentCommand('dist/bundle', options(release), {
+        env, fetchLive: cloudLive, createTransport: transport, confirmTakeOwnership: async () => true,
+      });
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({ takeOwnership: true }));
+    });
+
+    it('rejects --take-ownership with --draft, which never replaces Production', async () => {
+      await expect(submitDeploymentCommand('bundle', { release: 'release.json', draft: 'revenue', takeOwnership: true }))
+        .rejects.toThrow('--take-ownership');
+    });
+  });
+
   it('uses the credential stored by interactive login', async () => {
     const release = await releaseFile();
     const submit = vi.fn().mockResolvedValue({
@@ -560,6 +628,7 @@ describe('deploy command', () => {
     expect(createTransport).toHaveBeenCalledWith({
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',
       token: `hqdp_v1_${'f'.repeat(43)}`,
+      takeOwnership: false,
     });
   });
 

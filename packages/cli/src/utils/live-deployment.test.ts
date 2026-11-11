@@ -48,6 +48,18 @@ describe('live deployment client', () => {
     expect(live?.active?.source?.files[0]?.bytes).toEqual(bytes);
   });
 
+  it('reads where the live model was authored, and rejects an unknown value', async () => {
+    const fetchWith = (authoredIn: unknown) => fetchLiveDeployment({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: 'secret-token',
+      target,
+      resource: 'source',
+      fetch: (async () => Response.json({ ...response(), active: { ...response().active, authoredIn } })) as typeof fetch,
+    });
+    expect((await fetchWith('cloud'))?.active?.authoredIn).toBe('cloud');
+    await expect(fetchWith('github')).rejects.toThrow();
+  });
+
   it('rejects source bytes that do not match their digest', async () => {
     await expect(fetchLiveDeployment({
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',
