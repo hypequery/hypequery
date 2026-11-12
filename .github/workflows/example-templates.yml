@@ -54,8 +54,10 @@ jobs:
           cache: pnpm
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         if: steps.token.outputs.ok == 'true'
+      # publish-templates.mjs needs the CLI's scaffold helpers and the examples
+      # schema's readPackageVersions; the schema is not a CLI dependency.
       - if: steps.token.outputs.ok == 'true'
-        run: pnpm install --frozen-lockfile && pnpm --filter @hypequery/cli... build
+        run: pnpm install --frozen-lockfile && pnpm --filter @hypequery/cli... --filter @hypequery/examples-schema build
       # --publish verifies each export against published packages first, so
       # the seed has to be up.
       - name: Start and load the seed
