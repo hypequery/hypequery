@@ -69,7 +69,7 @@ export interface SubmitDeploymentDependencies {
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
   readonly fetchLive?: typeof fetchLiveDeployment;
   readonly fetchEndpoints?: typeof fetchHostedEndpoints;
-  /** Asks the user before replacing a Cloud-built model; undefined when there's no terminal to ask in. */
+  /** Asks the user before replacing a Cloud-built model; null when there's no terminal to ask in. Defaults to a prompt when stdin and stdout are TTYs. */
   readonly confirmTakeOwnership?: ((project: string) => Promise<boolean>) | null;
 }
 
