@@ -2,7 +2,8 @@
  * Self-hosted remote MCP over Streamable HTTP.
  *
  * `createMCPHttpHandler` answers Fetch `Request`s, so it runs on Node (through
- * `listenMCPHttpServer`), Bun, Deno, Workers or inside an existing router. Each
+ * `listenMCPHttpServer`), Bun, Deno, Cloudflare Workers (with `nodejs_compat`:
+ * the package imports Node built-ins) or inside an existing router. Each
  * MCP session belongs to the principal that opened it and gets its own
  * executor, created for that principal's tenant.
  */

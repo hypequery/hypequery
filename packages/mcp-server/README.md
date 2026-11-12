@@ -234,7 +234,9 @@ for compatibility.
 
 `createMCPHttpHandler` serves the same tools to remote agents. It answers Fetch
 `Request`s, so it runs on Node (`listenMCPHttpServer`,
-`createMCPNodeRequestListener`), Bun, Deno or Workers:
+`createMCPNodeRequestListener`), Bun, Deno or Cloudflare Workers. The package
+imports Node built-ins (`node:crypto`, `node:http`, `node:stream`), so a Worker
+needs the `nodejs_compat` compatibility flag:
 
 ```ts
 import {

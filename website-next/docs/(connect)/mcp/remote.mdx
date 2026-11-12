@@ -191,7 +191,7 @@ await listenMCPHttpServer(handler, { host: '0.0.0.0', port: 3333 });
 </CodeBlock>
 
 `handler.handle(request)` takes a Fetch `Request` and returns a `Response`, so it also runs in Hono, Bun, Deno or
-Workers, and `createMCPNodeRequestListener(handler)` mounts it on an existing Node or Express server.
+Cloudflare Workers (with the `nodejs_compat` flag, since the package imports Node built-ins), and `createMCPNodeRequestListener(handler)` mounts it on an existing Node or Express server.
 `createMCPStaticKeyAuthenticator({ key, tenantId })` is the shared-key option. To verify credentials any other way,
 pass your own `authenticate(request)`. It returns `{ subject, tenantId, scopes }`, returns `null` when there is no
 credential, or throws `MCPHttpAuthError`.
