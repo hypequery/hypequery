@@ -8,4 +8,4 @@ MCP tool errors can carry three optional host fields:
 - `docsUrl`: a page explaining the failure.
 - `requestId`: the host's request id.
 
-Set them through `MCPToolError`'s options. Every tool's error envelope schema lists them, so MCP SDK clients accept errors that include them.
+Set them through `MCPToolError`'s options, or pass them to `mcpToolErrorFromSemanticFailure`. Every tool's error envelope schema lists them, so MCP SDK clients accept errors that include them.
