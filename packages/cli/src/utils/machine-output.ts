@@ -40,12 +40,15 @@ export function enableJsonOutput(stdout: Writer = writeStdout): void {
   enabled = true;
   emitted = false;
   writeStdout = stdout;
-  const { log, info } = console;
+  // Node writes log, info and debug to stdout; send all of them to stderr.
+  const { log, info, debug } = console;
   console.log = (...args: unknown[]) => console.error(...args);
   console.info = (...args: unknown[]) => console.error(...args);
+  console.debug = (...args: unknown[]) => console.error(...args);
   restoreConsole = () => {
     console.log = log;
     console.info = info;
+    console.debug = debug;
   };
 }
 

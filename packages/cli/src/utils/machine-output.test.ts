@@ -33,6 +33,8 @@ describe('machine output', () => {
     enableJsonOutput((text) => out.push(text));
 
     console.log('human progress');
+    console.info('info line');
+    console.debug('debug line');
     emitResult({ releaseIdentity: 'abc' });
     emitDefaultResult();
 
@@ -40,6 +42,8 @@ describe('machine output', () => {
     expect(out).toHaveLength(1);
     expect(JSON.parse(out[0])).toEqual({ releaseIdentity: 'abc' });
     expect(stderr).toHaveBeenCalledWith('human progress');
+    expect(stderr).toHaveBeenCalledWith('info line');
+    expect(stderr).toHaveBeenCalledWith('debug line');
   });
 
   it('prints preserialized JSON once, ending in a newline', () => {
