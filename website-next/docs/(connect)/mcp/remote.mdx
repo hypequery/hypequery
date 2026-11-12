@@ -85,8 +85,7 @@ own tenant, exactly as over REST.
   `requiredScopes`, `middlewares`, `tenant`), and not the global middlewares REST runs before every endpoint
   (`defineServe({ middlewares })` and `api.use()`). If any entry sets those options, or any global middleware exists,
   `hypequery mcp --http` refuses to start and says which, because a caller could otherwise query data REST would
-  refuse them. Remove them, or serve one trusted principal with `HYPEQUERY_MCP_KEY`. Remove those options, or serve one
-  trusted principal with `HYPEQUERY_MCP_KEY`.
+  refuse them. Remove them, or serve one trusted principal with `HYPEQUERY_MCP_KEY`.
 - **Python:** the `Api`'s own authentication and tenant resolver. The caller's credential header is forwarded on every
   discovery and query, so the API also checks endpoint policy, scopes and rate limits on each call. Each request sends
   only its own credential, never another client's, even for the same user. A session keeps the executor it started
