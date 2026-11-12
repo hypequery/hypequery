@@ -74,7 +74,7 @@ The server forwards that value into dataset execution as runtime tenant context.
 
 With the CLI, pass the tenant as `npx hypequery mcp --tenant <id>`. It refuses to start for tenant-scoped datasets without one.
 
-The standalone `hypequery-mcp` binary does not accept a tenant, so it cannot serve tenant-keyed datasets: startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Use `hypequery mcp --tenant` or the programmatic `createMCPServer({ ..., tenantId })` instead.
+The config-file server (`npx @hypequery/mcp --config`) does not accept a tenant, so it cannot serve tenant-keyed datasets: startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Use `hypequery mcp --tenant` or the programmatic `createMCPServer({ ..., tenantId })` instead.
 
 Either way, a stdio server process serves one tenant. Over HTTP with your app's auth or OAuth, each session gets the
 tenant from its caller's verified credential instead; see [Remote servers](#remote-servers).
