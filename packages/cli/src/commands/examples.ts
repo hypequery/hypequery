@@ -1,3 +1,4 @@
+import { emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { loadExamplesIndex, type ExamplesIndex, type LoadIndexOptions } from '../utils/examples/registry-index.js';
 import { countBucket } from '../utils/telemetry/buckets.js';
 import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
@@ -40,7 +41,10 @@ export async function examplesListCommand(options: ExamplesListOptions = {}, dep
     ...(options.kind ? { kind_filter: options.kind as typeof EXAMPLE_KINDS[number] } : {}),
   });
   if (options.json) {
-    write(JSON.stringify({ version: index.version, packageVersions: index.packageVersions, entries }, null, 2));
+    const result = { version: index.version, packageVersions: index.packageVersions, entries };
+    // Under the global --json, stdout is reserved for the one result document.
+    if (isJsonOutput()) emitResult(result);
+    else write(JSON.stringify(result, null, 2));
     return;
   }
   write(formatExamplesTable(index, options.kind));

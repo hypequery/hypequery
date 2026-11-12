@@ -7,6 +7,7 @@ import { decodeProtocolClientContract } from '@hypequery/protocol';
 import { exportClientContractCommand } from './export-client-contract.js';
 import { generateClientCommand } from './generate-client.js';
 import { canonicalClientContract } from '../utils/client-contract-canonical.js';
+import { disableJsonOutput, emitDefaultResult, enableJsonOutput } from '../utils/machine-output.js';
 
 vi.mock('../utils/logger.js', () => ({ logger: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
 
@@ -66,6 +67,21 @@ describe('export:client-contract', () => {
     const { api } = await import('../../type-tests/fixtures/serve-client-api.js');
     expect(write).toHaveBeenCalledWith(api.clientContract().canonical);
     await expect(exportClientContractCommand(apiFile, { stdout: true, check: true })).rejects.toThrow(/--stdout/);
+  });
+
+  it('prints the contract as the one --json result with --stdout', async () => {
+    const out: string[] = [];
+    enableJsonOutput(text => out.push(text));
+    try {
+      await exportClientContractCommand(apiFile, { stdout: true });
+      emitDefaultResult(); // What the CLI wrapper does after every command.
+    } finally {
+      disableJsonOutput();
+    }
+    const { api } = await import('../../type-tests/fixtures/serve-client-api.js');
+    expect(out).toHaveLength(1);
+    expect(out[0].trimEnd()).toBe(api.clientContract().canonical.trimEnd());
+    expect(() => JSON.parse(out[0])).not.toThrow();
   });
 
   it('keeps the API module\'s startup logs off stdout', async () => {

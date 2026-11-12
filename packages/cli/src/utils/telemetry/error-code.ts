@@ -1,9 +1,11 @@
 import { isPromptCancelled } from '../prompts.js';
 import { CommandExit } from '../command-exit.js';
+import { isCliError } from '../cli-error.js';
 import { ERROR_CODES } from './domains.js';
 
 export function telemetryErrorCode(error: unknown): typeof ERROR_CODES[number] {
   if (error instanceof CommandExit) return error.errorCode ?? 'unknown';
+  if (isCliError(error)) return error.telemetryCode;
   if (isPromptCancelled(error)) return 'prompt_cancelled';
   if (!error || typeof error !== 'object') return 'unknown';
   try {
@@ -12,6 +14,9 @@ export function telemetryErrorCode(error: unknown): typeof ERROR_CODES[number] {
       if ((ERROR_CODES as readonly string[]).includes(code)) return code as typeof ERROR_CODES[number];
       if (['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN'].includes(code)) return 'connection_failed';
       if (['UNAUTHORIZED', 'FORBIDDEN', 'AUTHENTICATION_FAILED'].includes(code)) return 'auth_failed';
+      // The Cloud upload client's own codes (DeploymentUploadError).
+      if (code === 'HQ_UPLOAD_NETWORK') return 'cloud_network_error';
+      if (code === 'HQ_UPLOAD_REJECTED') return uploadRejection((error as { status?: unknown }).status);
       if (code === 'commander.unknownCommand') return 'unknown_command';
       if (code === 'commander.unknownOption') return 'unknown_option';
       if (code.startsWith('commander.')) return 'validation_failed';
@@ -19,12 +24,19 @@ export function telemetryErrorCode(error: unknown): typeof ERROR_CODES[number] {
     // Some existing libraries expose only messages. Classify locally and discard
     // the text; the returned value is always from the closed catalog.
     if (error instanceof Error) {
+      if (error.name === 'TimeoutError') return 'connection_failed';
       if (/authentication failed|unauthorized|forbidden/i.test(error.message)) return 'auth_failed';
       if (/build failed|compilation failed|transform failed/i.test(error.message)) return 'compile_error';
-      if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|fetch failed|network error/i.test(error.message)) return 'connection_failed';
+      if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|fetch failed|network error|timed out|aborted due to timeout/i.test(error.message)) return 'connection_failed';
     }
   } catch { /* No error content is retained. */ }
   return 'unknown';
+}
+
+function uploadRejection(status: unknown): typeof ERROR_CODES[number] {
+  if (status === 401 || status === 403) return 'auth_failed';
+  if (status === 408 || status === 429 || (typeof status === 'number' && status >= 500)) return 'cloud_network_error';
+  return 'cloud_rejected';
 }
 
 export function exceptionClass(error: unknown): 'Error' | 'TypeError' | 'RangeError' | 'SyntaxError' | 'ReferenceError' | 'URIError' | 'EvalError' | 'AggregateError' | 'unknown' {

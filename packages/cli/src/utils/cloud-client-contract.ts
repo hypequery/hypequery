@@ -1,3 +1,4 @@
+import { cloudHttpError } from './cli-error.js';
 import type { ProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 import { liveUrl, type LiveDeploymentFetch } from './live-deployment.js';
 import { readCapped } from './read-capped.js';
@@ -51,7 +52,7 @@ export async function fetchCloudClientContract(input: {
   });
   const target = `${input.target.project} / ${input.target.environment}`;
   if (response.status === 401 || response.status === 403) {
-    throw new Error(`Cloud refused the client contract for ${target}. Run \`hypequery login\` again.`);
+    throw cloudHttpError(response.status, `Cloud refused the client contract for ${target}. Run \`hypequery login\` again.`);
   }
   if (response.status === 404) {
     throw new Error(
@@ -60,7 +61,7 @@ export async function fetchCloudClientContract(input: {
     );
   }
   if (!response.ok) {
-    throw new Error(`Cloud could not return the client contract for ${target} (HTTP ${response.status}).`);
+    throw cloudHttpError(response.status, `Cloud could not return the client contract for ${target} (HTTP ${response.status}).`);
   }
   return new TextDecoder('utf-8', { fatal: true }).decode(await readCapped(response, MAX_CONTRACT_BYTES));
 }
