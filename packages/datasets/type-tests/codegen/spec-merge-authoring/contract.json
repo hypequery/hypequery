@@ -1,0 +1,146 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "dailyUsers",
+      "source": "analytics.daily_users",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "day",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "day"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "region"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "activeUsers",
+          "aggregation": "merge",
+          "field": "users",
+          "filters": [],
+          "stateFunction": "uniq",
+          "label": "Active users"
+        },
+        {
+          "name": "events",
+          "aggregation": "merge",
+          "field": "event_states",
+          "filters": [],
+          "stateFunction": "count"
+        },
+        {
+          "name": "exactUsers",
+          "aggregation": "merge",
+          "field": "exact_users",
+          "filters": [],
+          "stateFunction": "uniqExact"
+        },
+        {
+          "name": "revenue",
+          "aggregation": "merge",
+          "field": "revenue_state",
+          "filters": [],
+          "stateFunction": "sum"
+        },
+        {
+          "kind": "derived",
+          "name": "revenuePerUser",
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            },
+            {
+              "alias": "exactUsers",
+              "measure": "exactUsers"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "exactUsers"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "filters": [
+        {
+          "name": "day",
+          "field": "day",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "region",
+          "field": "region",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [],
+      "timeField": "day",
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/dailyUsers/query"
+      }
+    }
+  ]
+}

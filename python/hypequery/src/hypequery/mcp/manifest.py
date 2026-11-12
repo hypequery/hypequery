@@ -51,6 +51,9 @@ def _error_envelope() -> JsonSchema:
                     "retryAfterSeconds": {"type": "number", "minimum": 0},
                     "relist": {"type": "boolean"},
                     "reason": {"type": "string"},
+                    "hint": {"type": "string"},
+                    "docsUrl": {"type": "string"},
+                    "requestId": {"type": "string"},
                 },
                 "required": ["code", "category", "message", "retryable", "correctable"],
             }

@@ -84,3 +84,25 @@ describe('renderNextBlock for a Python example', () => {
     expect(block).toContain('Test: uv run pytest');
   });
 });
+
+describe('rewritePyproject', () => {
+  it('drops the monorepo uv.lock with the workspace source, and keeps it when nothing changed', async () => {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { existsSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const path = await import('node:path');
+    const { rewritePyproject } = await import('./scaffold.js');
+    const dir = await mkdtemp(path.join(tmpdir(), 'hq-py-'));
+    try {
+      await writeFile(path.join(dir, 'pyproject.toml'), '[project]\nname = "x"\n\n[tool.uv.sources]\nhypequery = { path = "../../python/hypequery", editable = true }\n');
+      await writeFile(path.join(dir, 'uv.lock'), 'source = { editable = "../../python/hypequery" }\n');
+      expect(await rewritePyproject(dir)).toBe(true);
+      expect(existsSync(path.join(dir, 'uv.lock'))).toBe(false);
+      await writeFile(path.join(dir, 'uv.lock'), 'kept\n');
+      expect(await rewritePyproject(dir)).toBe(false);
+      expect(existsSync(path.join(dir, 'uv.lock'))).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -1,0 +1,55 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "daily_active_users",
+      "source": "daily_active_users",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "day",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "day"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "active_users",
+          "aggregation": "merge",
+          "field": "users",
+          "filters": [],
+          "stateFunction": "uniq"
+        },
+        {
+          "name": "events",
+          "aggregation": "merge",
+          "field": "events",
+          "filters": [],
+          "stateFunction": "sum"
+        }
+      ],
+      "filters": [],
+      "relationships": [],
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/daily_active_users/query"
+      }
+    }
+  ]
+}

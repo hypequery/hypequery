@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const telemetry = vi.hoisted(() => ({ metrics: {} as Record<string, unknown> }));
+vi.mock('../utils/telemetry/command-context.js', () => ({
+  updateCommandTelemetry: (command: string, metrics: Record<string, unknown>) => {
+    if (command === 'examples') Object.assign(telemetry.metrics, metrics);
+  },
+}));
 import { examplesListCommand, formatExamplesTable } from './examples.js';
 import type { ExamplesIndex } from '../utils/examples/registry-index.js';
 
@@ -33,6 +40,13 @@ describe('hypequery examples list', () => {
     const parsed = JSON.parse(lines.join('\n'));
     expect(parsed.entries.map((e: { slug: string }) => e.slug)).toEqual(['p95-latency']);
     expect(parsed.packageVersions['@hypequery/clickhouse']).toBe('2.14.0');
+    expect(telemetry.metrics).toEqual({ output: 'json', kind_filter: 'recipe', entry_count_bucket: '1' });
+  });
+
+  it('records table output and the listed count without a filter', async () => {
+    telemetry.metrics = {};
+    await examplesListCommand({}, { fetchImpl: fetchIndex(), source: 'https://example.test/examples.json', write: () => {} });
+    expect(telemetry.metrics).toEqual({ output: 'table', entry_count_bucket: '2-5' });
   });
 
   it('rejects an unknown kind and a broken index', async () => {

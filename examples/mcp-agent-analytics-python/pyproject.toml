@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A governed ClickHouse MCP server in Python: agents query published, tenant-scoped hypequery datasets and never see SQL"
 requires-python = ">=3.11"
 dependencies = [
-  "hypequery[clickhouse,mcp]>=0.1.0b3",
+  "hypequery[clickhouse,mcp]>=0.1.0b4",
 ]
 
 [dependency-groups]

@@ -54,7 +54,12 @@ async function loadScaffold() {
   }
   const scaffold = await import(pathToFileURL(path.join(dist, 'scaffold.js')).href);
   const { resolvePins } = await import(pathToFileURL(path.join(dist, 'npm-versions.js')).href);
-  return { ...scaffold, resolvePins };
+  const schemaDist = path.join(root, 'packages/examples-schema/dist/registry.js');
+  if (!fs.existsSync(schemaDist)) {
+    throw new Error('Build the examples schema first: pnpm --filter @hypequery/examples-schema build');
+  }
+  const { readPackageVersions } = await import(pathToFileURL(schemaDist).href);
+  return { ...scaffold, resolvePins, readPackageVersions };
 }
 
 function templateFooter(slug, sha) {
@@ -188,7 +193,9 @@ async function main() {
   const entries = registry.entries.filter((e) => e.manifest.kind === 'example' && (args.only.length === 0 || args.only.includes(e.manifest.slug)));
   if (entries.length === 0) throw new Error('No matching examples in the registry.');
   const scaffold = await loadScaffold();
-  const { pins, unpublished } = await scaffold.resolvePins(Object.keys(registry.packageVersions).filter((name) => name.startsWith('@hypequery/')), registry.packageVersions);
+  // Versions come from the checkout, not the committed registry (see Registry in examples-schema).
+  const packageVersions = scaffold.readPackageVersions(root);
+  const { pins, unpublished } = await scaffold.resolvePins(Object.keys(packageVersions).filter((name) => name.startsWith('@hypequery/')), packageVersions);
   if (unpublished.length > 0) console.warn(`Not on npm yet, using @latest: ${unpublished.join(', ')}`);
   const sha = run('git', ['rev-parse', 'HEAD'], { cwd: root });
   const failed = [];

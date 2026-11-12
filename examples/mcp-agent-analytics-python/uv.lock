@@ -436,7 +436,7 @@ wheels = [
 
 [[package]]
 name = "hypequery"
-version = "0.1.0b3"
+version = "0.1.0b4"
 source = { editable = "../../python/hypequery" }
 dependencies = [
     { name = "anyio" },

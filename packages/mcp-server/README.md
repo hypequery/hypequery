@@ -148,11 +148,13 @@ Tool failures use a stable structured envelope:
 Unclassified backend failures are redacted to `MCP_EXECUTION_FAILED`; database
 error details and physical SQL are not copied into agent-facing errors.
 
-A hosted server can add `retryAfterSeconds`, `relist` and `reason` (its own
-stable code) to an error, and refuse a call over a rate limit with
+A hosted server can add `retryAfterSeconds`, `relist`, `reason` (its own
+stable code), `hint` (the next action), `docsUrl` and `requestId` to an error
+through `MCPToolError`'s options, and refuse a call over a rate limit with
 `MCP_RATE_LIMITED`. `mcpToolErrorFromSemanticFailure` maps a semantic
-data-plane failure to these fields, and `createMCPErrorResponse` returns it in
-the published envelope.
+data-plane failure's `code` to `reason` and its `relist` to `relist`, and takes
+the host's `retryAfterSeconds`, `hint`, `docsUrl` and `requestId` as options.
+`createMCPErrorResponse` returns the error in the published envelope.
 
 ## Safer than raw SQL access
 

@@ -120,6 +120,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -244,6 +253,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -414,6 +432,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -582,6 +609,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -735,6 +771,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -859,6 +904,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -1029,6 +1083,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -1197,6 +1260,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -1350,6 +1422,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -1474,6 +1555,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -1644,6 +1734,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -1812,6 +1911,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -1965,6 +2073,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -2089,6 +2206,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -2259,6 +2385,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -2427,6 +2562,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -2580,6 +2724,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -2704,6 +2857,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -2874,6 +3036,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -3042,6 +3213,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -3810,6 +3990,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -3934,6 +4123,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -4104,6 +4302,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -4272,6 +4479,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -4425,6 +4641,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -4549,6 +4774,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },
@@ -4719,6 +4953,15 @@
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -4887,6 +5130,15 @@
                       "type": "boolean"
                     },
                     "reason": {
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    },
+                    "docsUrl": {
+                      "type": "string"
+                    },
+                    "requestId": {
                       "type": "string"
                     }
                   },

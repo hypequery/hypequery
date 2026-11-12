@@ -37,11 +37,12 @@ export interface Registry {
   /** Bump when the shape of entries changes. */
   version: 1;
   /**
-   * Versions of the workspace's published `@hypequery/*` packages at the time
-   * the registry was generated. `hypequery create` pins an example's
-   * `workspace:*` dependencies to these.
+   * Package versions are not part of the committed registry: every release
+   * bump on main would make the committed file stale and turn the registry
+   * check red on open examples PRs. Consumers that need them (the website's
+   * `/examples.json`, the template publisher) call `readPackageVersions` at
+   * build time instead.
    */
-  packageVersions: Record<string, string>;
   entries: RegistryEntry[];
 }
 
@@ -159,10 +160,14 @@ export function buildRegistry(options: BuildRegistryOptions): Registry {
   }
 
   entries.sort((a, b) => a.manifest.slug.localeCompare(b.manifest.slug));
-  return { version: 1, packageVersions: readPackageVersions(options.repoRoot), entries };
+  return { version: 1, entries };
 }
 
-/** `@hypequery/<name>` → version, from every public package under packages/. */
+/**
+ * `@hypequery/<name>` → version from every public package under packages/,
+ * plus the PyPI `hypequery` version from python/hypequery/pyproject.toml.
+ * Read at build time by consumers; see `Registry` for why it is not committed.
+ */
 export function readPackageVersions(repoRoot: string): Record<string, string> {
   const packagesDir = path.join(repoRoot, 'packages');
   const versions: Record<string, string> = {};
