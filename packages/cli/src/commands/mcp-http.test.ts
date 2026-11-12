@@ -122,6 +122,35 @@ describe('hypequery mcp --http', () => {
     expect(logger.indent).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_MCP_KEY'));
   });
 
+  it('refuses to serve a dataset with no tenantKey to callers that have a tenant', async () => {
+    const api = apiWithDatasets({
+      orders: { name: 'orders', tenantKey: 'org_id' },
+      reference: { name: 'reference' },
+    }, {
+      strategies: [async () => ({ userId: 'u1', org: 'acme' })],
+      tenant: { extract: (auth: { org: string }) => auth.org },
+    });
+    const serveHttp = vi.fn(async (_input: RunMcpHttpServerInput) => undefined);
+    await expect(mcpCommand(await entrypointFile(), { http: true }, {
+      loadApi: async () => api, loadMcp: async () => mcpPackage, serveHttp, env: {},
+    })).rejects.toThrow('process.exit:1');
+    expect(serveHttp).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith('--http cannot tenant-scope these datasets, which have no tenantKey: reference');
+    expect(logger.indent).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_MCP_KEY'));
+  });
+
+  it('refuses a tenant configuration when no dataset has a tenantKey, which REST would also refuse', async () => {
+    const api = apiWithDatasets({ reference: { name: 'reference' } }, {
+      strategies: [async () => ({ userId: 'u1', org: 'acme' })],
+      tenant: { extract: (auth: { org: string }) => auth.org },
+    });
+    const serveHttp = vi.fn(async (_input: RunMcpHttpServerInput) => undefined);
+    await expect(mcpCommand(await entrypointFile(), { http: true }, {
+      loadApi: async () => api, loadMcp: async () => mcpPackage, serveHttp, env: {},
+    })).rejects.toThrow('process.exit:1');
+    expect(serveHttp).not.toHaveBeenCalled();
+  });
+
   it('refuses to verify callers when defineServe has global middlewares MCP would skip', async () => {
     const api = apiWithDatasets({ orders: { name: 'orders' } }, {
       strategies: [async () => ({ userId: 'u1' })],

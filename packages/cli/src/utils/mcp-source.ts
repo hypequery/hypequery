@@ -38,14 +38,27 @@ export function readServeMcpSource(value: unknown): ServeMcpSource | undefined {
     : undefined;
 }
 
+function hasTenantKey(dataset: unknown): boolean {
+  const value = dataset as { tenantKey?: unknown; config?: { tenantKey?: unknown } };
+  const tenantKey = value?.tenantKey ?? value?.config?.tenantKey;
+  return typeof tenantKey === 'string' && tenantKey.length > 0;
+}
+
 /** Datasets a caller cannot query unless a trusted tenant is configured. */
 export function tenantScopedDatasets(datasets: Record<string, unknown>): string[] {
   return Object.entries(datasets)
-    .filter(([, dataset]) => {
-      const value = dataset as { tenantKey?: unknown; config?: { tenantKey?: unknown } };
-      const tenantKey = value?.tenantKey ?? value?.config?.tenantKey;
-      return typeof tenantKey === 'string' && tenantKey.length > 0;
-    })
+    .filter(([, dataset]) => hasTenantKey(dataset))
+    .map(([name]) => name)
+    .sort();
+}
+
+/**
+ * Datasets with no `tenantKey`. The planner can add no tenant filter to them, so REST refuses a
+ * caller that has a tenant, and MCP must refuse to serve them to one rather than return every row.
+ */
+export function datasetsWithoutTenantKey(datasets: Record<string, unknown>): string[] {
+  return Object.entries(datasets)
+    .filter(([, dataset]) => !hasTenantKey(dataset))
     .map(([name]) => name)
     .sort();
 }

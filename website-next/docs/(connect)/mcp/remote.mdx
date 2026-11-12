@@ -80,7 +80,8 @@ Without `HYPEQUERY_MCP_KEY`, `--http` verifies callers with the auth your API al
 own tenant, exactly as over REST.
 
 - **TypeScript:** the `auth` and `tenant` you pass to `defineServe`. Any strategy works, including `createJwtStrategy`.
-  If a dataset is tenant-scoped, a caller whose credential names no tenant is refused. MCP applies only that global
+  If a dataset is tenant-scoped, a caller whose credential names no tenant is refused, and with a `tenant` configured every
+  dataset must have a `tenantKey` (REST refuses a tenant's query on one that has none, so `--http` refuses to start). MCP applies only that global
   auth and tenant, **not** the options on an individual dataset or metric entry (`auth`, `requiredRoles`,
   `requiredScopes`, `middlewares`, `tenant`), and not the global middlewares REST runs before every endpoint
   (`defineServe({ middlewares })` and `api.use()`). If any entry sets those options, or any global middleware exists,

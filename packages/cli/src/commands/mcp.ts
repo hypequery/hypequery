@@ -2,7 +2,7 @@ import { runHttpMcp } from '../utils/mcp-http.js';
 import { exitWith } from '../utils/command-exit.js';
 import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
 import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
-import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
+import { datasetsWithoutTenantKey, readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
 import path from 'node:path';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
@@ -215,6 +215,16 @@ export async function mcpCommand(
         'Callers are verified by defineServe auth, but defineServe({ middlewares }) and api.use() are not',
         'run over MCP, so a caller could query data a middleware would refuse them over REST.',
         `Remove those middlewares, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
+    const untenanted = tenantFromCredential && source.auth?.tenant ? datasetsWithoutTenantKey(datasets) : [];
+    if (untenanted.length > 0) {
+      // REST refuses a caller that has a tenant on a dataset with no tenantKey, since no tenant
+      // filter can be added to it. MCP would return every row, so refuse to serve it.
+      fail(`--http cannot tenant-scope these datasets, which have no tenantKey: ${untenanted.join(', ')}`, [
+        'defineServe assigns each caller a tenant, and REST refuses to run a dataset without a tenantKey for',
+        'a caller that has one. Over MCP the query would not be filtered to the caller\'s tenant.',
+        `Add a tenantKey to those datasets, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
       ]);
     }
     if (tenantFromCredential && options.tenant) {
