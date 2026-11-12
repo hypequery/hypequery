@@ -30,6 +30,7 @@ def export_client_contract(
     mount_path: str | None = None,
     view: Literal["build", "authorized"] = "build",
     auths: Mapping[ClientEndpointRegistry, RequestAuth | None] | None = None,
+    field_metadata: bool = False,
 ) -> PreparedProtocolClientContract:
     """Export only the opted-in endpoints actually installed on *api*.
 
@@ -41,7 +42,9 @@ def export_client_contract(
     contract never describes limits or paths its endpoints do not execute
     under. Proxy headers are never consulted. An authorized view checks each
     target against *auths*, the request's authentication by the API (None
-    when it was refused).
+    when it was refused). *field_metadata* also advertises each field's
+    synonyms, examples, format, unit and currency; consumers released before
+    these members existed reject them, so it is off by default.
     """
 
     if isinstance(api, AsgiApp | WsgiApp):
@@ -66,4 +69,5 @@ def export_client_contract(
         mount_path=api.client_mount_path,
         view=view,
         auths=auths,
+        field_metadata=field_metadata,
     )

@@ -6,11 +6,11 @@ from typing import Literal
 
 from pydantic import model_validator
 
-from ._base import DefinitionModel
 from .formulas import Formula, compile_formula
+from .vocabulary import FieldVocabulary
 
 
-class DerivedMeasure(DefinitionModel):
+class DerivedMeasure(FieldVocabulary):
     kind: Literal["derived"] = "derived"
     formula: Formula
     label: str | None = None

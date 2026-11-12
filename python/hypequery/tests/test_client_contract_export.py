@@ -336,6 +336,64 @@ def test_overlong_or_control_annotation_text_fails_export(description: str) -> N
     assert error.value.path == "/endpoints/0/annotations/description"
 
 
+def vocabulary_contract(*, field_metadata: bool) -> ProtocolClientContract:
+    dataset = Dataset(
+        name="orders",
+        source="private_orders",
+        dimensions={
+            "id": dimension.number(),
+            "country": dimension.string(
+                label="Country",
+                synonyms=("market", " market ", "   ", "nation\n state"),
+                examples=("DE", "FR"),
+            ),
+        },
+        measures={
+            "revenue": measure.sum("id", format=" #,##0.00 ", unit="euro", currency="EUR"),
+            "average": measure.derived(divide("revenue", "revenue"), synonyms=("mean",)),
+        },
+    )
+    definition = ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile())
+    return export_client_contract([definition], field_metadata=field_metadata)["contract"]
+
+
+def test_field_vocabulary_is_advertised_only_with_field_metadata() -> None:
+    (rich,) = vocabulary_contract(field_metadata=True)["endpoints"]
+    # Items fold like text, blank ones are dropped, and the first occurrence wins.
+    assert rich["annotations"] == {
+        "fields": {
+            "average": {"synonyms": ["mean"]},
+            "country": {
+                "label": "Country",
+                "synonyms": ["market", "nation state"],
+                "examples": ["DE", "FR"],
+            },
+            "revenue": {"format": "#,##0.00", "unit": "euro", "currency": "EUR"},
+        }
+    }
+    (plain,) = vocabulary_contract(field_metadata=False)["endpoints"]
+    assert plain["annotations"] == {"fields": {"country": {"label": "Country"}}}
+    assert plain["schemaHash"] == rich["schemaHash"]
+
+
+def test_invalid_vocabulary_fails_at_declaration_or_export() -> None:
+    with pytest.raises(ValueError, match="ISO 4217"):
+        dimension.string(currency="eur")
+    dataset = Dataset(
+        name="orders",
+        source="private_orders",
+        dimensions={"id": dimension.number(synonyms=tuple(f"s{i}" for i in range(101)))},
+    )
+    definition = ClientEndpointDefinition(dataset, "/orders", ClientQueryProfile())
+    # Vocabulary is validated even when it is not advertised.
+    with pytest.raises(ProtocolClientContractError) as error:
+        export_client_contract([definition])
+    assert (error.value.code, error.value.path) == (
+        "HQ_CLIENT_LIMIT",
+        "/endpoints/0/annotations/fields/id/synonyms",
+    )
+
+
 def test_boolean_filters_keep_explicitly_allowed_null_checks() -> None:
     dataset = Dataset(
         name="orders",

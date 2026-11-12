@@ -13,9 +13,10 @@ from .formulas import Formula
 from .query_helpers import Filter
 from .time_measures import MeasureTimeInterval, ShiftMeasure, TimeGrainName, WindowMeasure
 from .validation import validate_non_empty, validate_qualified_identifier
+from .vocabulary import FieldVocabulary
 
 
-class Measure(Aggregation):
+class Measure(Aggregation, FieldVocabulary):
     """A named dataset measure backed by an aggregation."""
 
     sql: str | None = None
@@ -57,6 +58,11 @@ def _create_measure(
     label: str | None = None,
     description: str | None = None,
     filters: tuple[Filter, ...] | None = None,
+    synonyms: tuple[str, ...] | None = None,
+    examples: tuple[str, ...] | None = None,
+    format: str | None = None,  # noqa: A002 - the TypeScript option name
+    unit: str | None = None,
+    currency: str | None = None,
 ) -> Measure:
     """Attach measure metadata to a normalized aggregation."""
 
@@ -71,6 +77,11 @@ def _create_measure(
         label=label,
         description=description,
         filters=filters,
+        synonyms=synonyms,
+        examples=examples,
+        format=format,
+        unit=unit,
+        currency=currency,
     )
 
 
@@ -80,6 +91,11 @@ class _MeasureOptions(TypedDict, total=False):
     label: str | None
     description: str | None
     filters: tuple[Filter, ...] | None
+    synonyms: tuple[str, ...] | None
+    examples: tuple[str, ...] | None
+    format: str | None
+    unit: str | None
+    currency: str | None
 
 
 class _MeasureHelpers:
@@ -141,9 +157,26 @@ class _MeasureHelpers:
 
     @staticmethod
     def derived(
-        formula: Formula, *, label: str | None = None, description: str | None = None
+        formula: Formula,
+        *,
+        label: str | None = None,
+        description: str | None = None,
+        synonyms: tuple[str, ...] | None = None,
+        examples: tuple[str, ...] | None = None,
+        format: str | None = None,  # noqa: A002 - the TypeScript option name
+        unit: str | None = None,
+        currency: str | None = None,
     ) -> DerivedMeasure:
-        return DerivedMeasure(formula=formula, label=label, description=description)
+        return DerivedMeasure(
+            formula=formula,
+            label=label,
+            description=description,
+            synonyms=synonyms,
+            examples=examples,
+            format=format,
+            unit=unit,
+            currency=currency,
+        )
 
     @staticmethod
     def sum(field: str, **options: Unpack[_MeasureOptions]) -> Measure:

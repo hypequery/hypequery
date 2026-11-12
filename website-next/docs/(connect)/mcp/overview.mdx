@@ -7,32 +7,45 @@ description: Expose hypequery datasets and metrics to AI agents through the Mode
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-`@hypequery/mcp` exposes your hypequery semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
+hypequery exposes your semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema
+metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
 
 Use MCP when you want an agent to work inside a constrained analytics vocabulary:
 
 - expose only the datasets you register
 - expose only named metrics you attach to those datasets
 - let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
-- execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) have a native server)
+- execute through the same dataset client the rest of your app uses, in TypeScript or Python
 - avoid handing an LLM a direct SQL console
+
+New to it? The [Quickstart](/docs/mcp/quickstart) connects Claude or Cursor to one of your ClickHouse tables, from
+TypeScript or Python.
 
 <Callout type="info">
   MCP is a capability boundary, not an authentication layer. If your data is multi-tenant, read <a href="/docs/mcp/safety">Safety model</a> before exposing a server broadly.
 </Callout>
 
-## How it fits together
+## Choose how to run it
 
-| Piece | What it does |
-| --- | --- |
-| `hypequery mcp` (CLI) | Starts an MCP server for your project |
-| MCP server (`@hypequery/mcp`) | Gives an agent tools to discover datasets and query them |
-| Datasets | Define what the agent is allowed to query |
+**Use `hypequery mcp`.** It serves the datasets in your API, in TypeScript or Python, and every other page assumes it.
+The other rows are for setups it doesn't fit.
 
-## Quick start with the CLI
+| Your setup | Run | Details |
+| --- | --- | --- |
+| A TypeScript API that serves datasets (`serve({ datasets })`) | `npx hypequery mcp` | [TypeScript](#typescript) |
+| A Python API (`hypequery.serve`) | `hypequery mcp app:api` | [Python](#datasets-served-from-python) |
+| A hypequery API that's already deployed | `hypequery mcp --client-contract-url <url>` | [A deployed API](#deployed-api) |
+| TypeScript datasets with no Serve API | `npx @hypequery/mcp --config mcp-config.mjs` | [Configuration](/docs/mcp/configuration) |
+| Your own Node process starts the server | `createMCPServer` (stdio) or `createMCPHttpHandler` (HTTP) | [Programmatic usage](/docs/mcp/programmatic) |
+| hypequery Cloud | Nothing: every release has an `/mcp` endpoint | [Cloud MCP](/docs/cloud/mcp) |
 
-If your project already serves datasets with `@hypequery/serve`, the CLI can expose them over MCP with no extra
-config. Install the MCP server package alongside the CLI:
+By default the server speaks stdio, so an MCP client starts it on the same machine ([Clients](/docs/mcp/clients)). Add
+`--http` to any `hypequery mcp` command to serve it at a URL instead ([Remote MCP over HTTP](/docs/mcp/remote)).
+
+## TypeScript: `hypequery mcp` [#typescript]
+
+If your project serves datasets with `@hypequery/serve`, the CLI exposes them over MCP with no extra config. Install
+the MCP server package alongside the CLI:
 
 <CodeBlock>
 ```bash
@@ -50,8 +63,8 @@ npx hypequery mcp
 </CodeBlock>
 
 The command finds your Serve API file (`analytics/api.ts`, `hypequery.ts`, or `analytics/queries.ts`, among others)
-and serves the datasets registered with `serve({ queryBuilder, datasets })`. Pass a file to choose one explicitly, or
-`--path` for a different analytics directory:
+and serves the datasets registered with `serve({ queryBuilder, datasets })`. It reads `.env` and `.env.local` from the
+folder it runs in. Pass a file to choose one explicitly, or `--path` for a different analytics directory:
 
 <CodeBlock>
 ```bash
@@ -77,13 +90,12 @@ npx hypequery mcp --self-test
 ```
 </CodeBlock>
 
-## Datasets served from Python
+## Python: `hypequery mcp app:api` [#datasets-served-from-python]
 
-A Python backend (`hypequery.serve`) has its own MCP server, with the same four
-tools, the same input schemas and the same `MCP_*` errors as `@hypequery/mcp`.
-It serves the API's **authorized client contract**: the endpoints the caller's
-principal may call, with their fields and limits. The API keeps ownership of
-SQL, authentication and the tenant.
+A Python backend (`hypequery.serve`) has its own MCP server, with the same four tools, the same input schemas and the
+same `MCP_*` errors as the TypeScript one. It serves the API's **authorized client contract**: the endpoints the
+caller's principal may call, with their fields and limits. The API keeps ownership of SQL, authentication and the
+tenant.
 
 <CodeBlock>
 ```bash
@@ -92,15 +104,19 @@ hypequery mcp app:api --self-test
 ```
 </CodeBlock>
 
-`app:api` is the `Api` from `create_api` (or the ASGI app from `to_asgi_app`).
-Each tool call goes through `Api.handle` in the same process, so authentication,
-endpoint policy, rate limits and tenant resolution are exactly the ones an HTTP
-caller meets, without running a server. The `hypequery init` scaffolds already
-publish a client contract; in your own API, give endpoints
-`client_profile=ClientQueryProfile()` and call `add_client_contract_endpoint(api)`;
-the server reads that route and never changes the API.
+`app:api` is the `Api` from `create_api` (or the ASGI app from `to_asgi_app`). Each tool call goes through `Api.handle`
+in the same process, so authentication, endpoint policy, rate limits and tenant resolution are exactly the ones an HTTP
+caller meets, without running a server. The `hypequery init` scaffolds already publish a client contract; in your own
+API, give endpoints `client_profile=ClientQueryProfile()` and call `add_client_contract_endpoint(api)`; the server
+reads that route and never changes the API.
 
-To reach an API that is already deployed instead, bridge its discovery route:
+`--self-test` reads and validates the contract and counts the endpoints it would expose, without calling any query
+tool. `--print-config` prints the `mcpServers` entry for Claude, Cursor or another MCP client.
+
+## A deployed API [#deployed-api]
+
+To give agents an API that's already running somewhere, TypeScript or Python, bridge its client contract route instead
+of loading code:
 
 <CodeBlock>
 ```bash
@@ -108,38 +124,14 @@ HYPEQUERY_API_KEY=… hypequery mcp --client-contract-url https://analytics.exam
 ```
 </CodeBlock>
 
-- The URL is the backend's discovery route (`add_client_contract_endpoint`). It
-  must be HTTPS, or plain HTTP on `localhost`, `127.0.0.1` or `[::1]`, and must not
-  contain credentials, a query string or a fragment.
-- `HYPEQUERY_API_KEY` is sent as `Authorization: Bearer …`, in-process or to that
-  origin only; `--header 'Name: value'` sends any other credential. Redirects are
-  refused, so a credential is never forwarded elsewhere.
-- One process serves one principal. Its tenant comes from that principal on the
-  Python side; there is no tenant tool argument.
-- If the backend's definitions change while the server runs, tools fail with
-  `MCP_STALE_CONTRACT`. Restart it to load the new contract.
+- The URL is the backend's discovery route (`add_client_contract_endpoint`). It must be HTTPS, or plain HTTP on
+  `localhost`, `127.0.0.1` or `[::1]`, and must not contain credentials, a query string or a fragment.
+- `HYPEQUERY_API_KEY` is sent as `Authorization: Bearer …`, to that origin only; `--header 'Name: value'` sends any
+  other credential. Redirects are refused, so a credential is never forwarded elsewhere.
+- One process serves one principal. Its tenant comes from that principal on the backend; there is no tenant tool
+  argument.
+- If the backend's definitions change while the server runs, tools fail with `MCP_STALE_CONTRACT`. Restart it to load
+  the new contract.
 
-`--self-test` reads and validates the contract and counts the endpoints it would
-expose, without calling any query tool. `--print-config` prints the `mcpServers`
-entry for Claude, Cursor or another MCP client.
-
-The Node bridge, `npx hypequery mcp --client-contract-url …` with `@hypequery/mcp`
-installed, serves the same contract with the same tools and remains supported.
-
-The server speaks MCP over stdio, so an MCP client normally launches it. See [Clients](/docs/mcp/clients) for Claude
-Desktop and Cursor configuration.
-
-## Standalone server
-
-Use `@hypequery/mcp` directly when you don't have a Serve API, or want a dedicated config file for the agent:
-
-<CodeBlock>
-```bash
-npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
-npx hypequery-mcp --config ./mcp-config.mjs
-```
-</CodeBlock>
-
-The config file exports `datasets` and an `analytics` dataset client; [Configuration](/docs/mcp/configuration) shows a
-minimal one, publishing several datasets, and the metadata agents see. To register the server with Claude Desktop or
-Cursor, see [Clients](/docs/mcp/clients).
+The Python CLI (`pip install "hypequery[mcp]"`) and the Node CLI (`npx hypequery mcp`, with `@hypequery/mcp`
+installed) both run the bridge, with the same tools.

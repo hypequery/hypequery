@@ -50,5 +50,7 @@ analytics.execute(
 | --- | --- |
 | `column` | The ClickHouse column, when it differs from the semantic name |
 | `label`, `description` | Human-readable metadata for catalogs and tools |
+| `synonyms`, `examples` | Tuples of other names and example values that agents see through MCP |
+| `format`, `unit`, `currency` | Display format, unit text and an ISO 4217 code such as `"EUR"`, also shown to agents |
 | `sql`, `dependencies` | A SQL expression instead of a column |
 | `filterable`, `groupable` | Set to `False` to stop callers filtering or grouping by the field. Both are allowed by default |

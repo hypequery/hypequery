@@ -5,7 +5,9 @@ description: Start the hypequery MCP server from a Node process.
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Use `createMCPServer` when you want to start the MCP server from your own Node process instead of using the CLI.
+Most projects don't need this: `hypequery mcp` starts the server for you ([Quickstart](/docs/mcp/quickstart)). Use
+`createMCPServer` when your own Node process has to start and stop the MCP server, over stdio. To serve over HTTP from
+your own process, use `createMCPHttpHandler` instead: see [Remote MCP over HTTP](/docs/mcp/remote#in-your-own-server).
 
 <CodeBlock>
 ```typescript

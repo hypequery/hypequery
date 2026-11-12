@@ -25,7 +25,9 @@ MCP can also expose relationship metadata through schema introspection, but curr
 MCP does not replace authentication, authorization, or tenant identity. The stock stdio server receives tool calls from a local MCP client and executes them through the `analytics` dataset client you provide.
 
 <Callout type="warn">
-  Do not expose a shared multi-tenant MCP server unless the process is already scoped to one tenant. Treat MCP clients as powerful local operators, not public end-user clients.
+  A stdio server, or an HTTP server behind one shared key, runs as one caller with one tenant. Do not share one between
+  tenants. To serve several users or tenants from one server, use [remote MCP](/docs/mcp/remote) with your app's auth
+  or OAuth, so each caller's tenant comes from their own verified credential.
 </Callout>
 
 ## Safer patterns
@@ -72,9 +74,28 @@ The server forwards that value into dataset execution as runtime tenant context.
 
 With the CLI, pass the tenant as `npx hypequery mcp --tenant <id>`. It refuses to start for tenant-scoped datasets without one.
 
-The standalone `hypequery-mcp` binary does not accept a tenant, so it cannot serve tenant-keyed datasets: startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Use `hypequery mcp --tenant` or the programmatic `createMCPServer({ ..., tenantId })` instead.
+The config-file server (`npx @hypequery/mcp --config`) does not accept a tenant, so it cannot serve tenant-keyed datasets: startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Use `hypequery mcp --tenant` or the programmatic `createMCPServer({ ..., tenantId })` instead.
 
-Either way, one server process serves one tenant.
+Either way, a stdio server process serves one tenant. Over HTTP with your app's auth or OAuth, each session gets the
+tenant from its caller's verified credential instead; see [Remote servers](#remote-servers).
+
+## Remote servers
+
+`hypequery mcp --http` puts the server on a network, so who can reach it matters as much as what it exposes.
+
+- **Credentials.** Every request needs one. A shared key (`HYPEQUERY_MCP_KEY`) is one caller: everyone holding it sees
+  the same data. Your app's auth or OAuth gives each caller their own identity and tenant.
+- **Tenant.** Over HTTP the tenant comes from the verified credential, never from a tool argument or the prompt. A
+  session belongs to the caller that opened it; anyone else using its id gets `404`.
+- **Per-dataset rules (TypeScript).** MCP applies `defineServe`'s global `auth` and `tenant` only. Per-endpoint `auth`,
+  roles, scopes and middlewares, and global middlewares, are not applied, so `hypequery mcp --http` refuses to verify
+  callers with your app's auth when any are set. In Python, every call goes through the API's own policy.
+- **Network.** Requests must name an allowed `Host`, which stops DNS-rebinding attacks, and browser pages must come from
+  `--allowed-origins`. Terminate TLS in front of the server; it speaks plain HTTP.
+- **OAuth tokens.** The JWT audience must be exactly the server's resource URL, so a token issued for another API can't
+  open a session. The CLI refuses to start otherwise.
+
+[Remote MCP over HTTP](/docs/mcp/remote) has the full order of checks and deployment notes.
 
 ## Raw SQL boundary
 

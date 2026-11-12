@@ -498,6 +498,9 @@ importers:
       '@hypequery/clickhouse':
         specifier: workspace:*
         version: link:../clickhouse
+      '@hypequery/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6

@@ -7,6 +7,8 @@ The family is required by the TypeScript/Python conformance gates.
   no-timezone signed contracts. no-timezone has time axes without a caller timezone
   and no groupable dimensions.
   annotated is build plus endpoint annotations: same schemaHashes, new contentHash.
+  field-metadata is annotated plus field synonyms, examples, format, unit and
+  currency, including entries that carry no label or description.
 - identities.json pins canonical complete documents and both identity domains.
 - rejections.json pins malformed descriptors, identity failures, safe messages
   and JSON Pointer paths, plus exact size/depth/count boundaries and text decoding.

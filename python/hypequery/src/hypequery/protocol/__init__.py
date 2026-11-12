@@ -36,6 +36,9 @@ from .cache_preimages import (
     derive_protocol_tenant_fingerprint,
 )
 from .client_contract import (
+    CLIENT_CONTRACT_FEATURES,
+    CLIENT_CONTRACT_FEATURES_HEADER,
+    CLIENT_CONTRACT_FIELD_METADATA_FEATURE,
     CLIENT_ERROR_MESSAGES,
     ClientContractToolSchemas,
     ClientDimension,
@@ -51,11 +54,14 @@ from .client_contract import (
     ProtocolClientContractError,
     ProtocolClientContractErrorCode,
     ProtocolClientEndpoint,
+    accepts_client_field_metadata,
     build_client_contract_tool_schemas,
     decode_protocol_client_contract,
+    parse_client_contract_features,
     prepare_protocol_client_contract,
     validate_protocol_client_contract,
     validate_protocol_client_query,
+    without_client_field_metadata,
 )
 from .constructors import (
     TaggedValue,
@@ -228,6 +234,9 @@ from .values import (
 )
 
 __all__ = [
+    "CLIENT_CONTRACT_FEATURES",
+    "CLIENT_CONTRACT_FEATURES_HEADER",
+    "CLIENT_CONTRACT_FIELD_METADATA_FEATURE",
     "CLIENT_ERROR_MESSAGES",
     "DEFAULT_CANONICAL_VALUE_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS",
@@ -352,6 +361,7 @@ __all__ = [
     "ProtocolVoidSchema",
     "SchemaDefault",
     "TaggedValue",
+    "accepts_client_field_metadata",
     "array_value",
     "build_client_contract_tool_schemas",
     "build_protocol_cache_preimage",
@@ -383,6 +393,7 @@ __all__ = [
     "is_protocol_qualified_identifier",
     "join_protocol_qualified_identifier",
     "map_value",
+    "parse_client_contract_features",
     "parse_protocol_identifier",
     "parse_protocol_qualified_identifier",
     "prepare_protocol_client_contract",
@@ -415,4 +426,5 @@ __all__ = [
     "validate_protocol_schema",
     "validate_protocol_semantic_query",
     "validate_protocol_sql_expression",
+    "without_client_field_metadata",
 ]

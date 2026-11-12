@@ -90,3 +90,37 @@ it('exports a governed HTTP executor without adding tenant or SQL configuration'
   };
   void [configuration, invalidTenant, invalidSql];
 });
+
+it('exports the self-hosted HTTP transport and its authenticators', async () => {
+  const {
+    createMCPHttpHandler,
+    createMCPStaticKeyAuthenticator,
+    createMCPServeAuthenticator,
+    listenMCPHttpServer,
+    createMCPNodeRequestListener,
+    MCPHttpAuthError,
+  } = await import('./index.js');
+  type Options = import('./index.js').MCPHttpHandlerOptions;
+  type Principal = import('./index.js').MCPPrincipal;
+  type Handler = import('./index.js').MCPHttpHandler;
+
+  expectTypeOf(createMCPHttpHandler).parameter(0).toEqualTypeOf<Options>();
+  expectTypeOf(createMCPHttpHandler).returns.toEqualTypeOf<Handler>();
+  expectTypeOf<Handler['handle']>().toEqualTypeOf<(request: Request) => Promise<Response>>();
+  expectTypeOf<Options['createExecutor']>().parameter(0).toEqualTypeOf<Principal>();
+  expectTypeOf<Principal['tenantId']>().toEqualTypeOf<string | undefined>();
+  expectTypeOf(createMCPStaticKeyAuthenticator).returns.toEqualTypeOf<import('./index.js').MCPHttpAuthenticator>();
+  expectTypeOf(createMCPServeAuthenticator).returns.toEqualTypeOf<import('./index.js').MCPHttpAuthenticator>();
+  expectTypeOf(listenMCPHttpServer).returns.toEqualTypeOf<Promise<import('./index.js').MCPHttpListener>>();
+  expectTypeOf(createMCPNodeRequestListener).parameter(0).toEqualTypeOf<Handler>();
+  expectTypeOf(new MCPHttpAuthError('invalid_token').code).toEqualTypeOf<import('./index.js').MCPHttpAuthErrorCode>();
+
+  // A serve auth strategy with a custom auth context plugs in with its own tenant extraction.
+  type AppAuth = { userId?: string; orgId: string; [key: string]: unknown };
+  createMCPServeAuthenticator<AppAuth>({
+    strategies: async () => ({ userId: 'u', orgId: 'o' }),
+    tenant: { extract: auth => auth.orgId },
+  });
+  // @ts-expect-error the OAuth resource is required when oauth is configured.
+  const _missing: Options['oauth'] = { authorizationServers: ['https://auth.example.test'] };
+});

@@ -2,7 +2,7 @@ import type { ClientDimension, ClientEndpointAnnotations, ClientFieldAnnotation,
   ClientQueryLimits, ClientTime } from './types.js';
 import { clientError } from './errors.js';
 import { bool, choice, CLIENT_FIELD_TYPES, CLIENT_GRAINS, CLIENT_OPERATORS,
-  integer, name, names, optionalShape, pointer, record, shape, text, timezone } from './primitives.js';
+  currency, integer, name, names, optionalShape, pointer, record, shape, text, textList, timezone } from './primitives.js';
 
 export function dimension(input: unknown, path: string): ClientDimension {
   const value = shape(input, ['type', 'wireType', 'nullable', 'groupable', 'orderable'], path);
@@ -63,11 +63,18 @@ export function limits(input: unknown, path: string): ClientQueryLimits {
   }
   return result as unknown as ClientQueryLimits;
 }
+/** Field annotation members after label/description, in validation order. */
+export const CLIENT_FIELD_METADATA_MEMBERS = ['synonyms', 'examples', 'format', 'unit', 'currency'] as const;
 function annotation(input: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
   const value = optionalShape(input, keys, path);
   const result: Record<string, unknown> = Object.create(null);
   if (Object.hasOwn(value, 'label')) result.label = text(value.label, pointer(path, 'label'));
   if (Object.hasOwn(value, 'description')) result.description = text(value.description, pointer(path, 'description'));
+  if (Object.hasOwn(value, 'synonyms')) result.synonyms = textList(value.synonyms, pointer(path, 'synonyms'));
+  if (Object.hasOwn(value, 'examples')) result.examples = textList(value.examples, pointer(path, 'examples'));
+  if (Object.hasOwn(value, 'format')) result.format = text(value.format, pointer(path, 'format'));
+  if (Object.hasOwn(value, 'unit')) result.unit = text(value.unit, pointer(path, 'unit'));
+  if (Object.hasOwn(value, 'currency')) result.currency = currency(value.currency, pointer(path, 'currency'));
   return result;
 }
 /** Presentation text; references to dimension/measure keys are checked with the endpoint's. */
@@ -83,7 +90,7 @@ export function annotations(input: unknown, path: string): ClientEndpointAnnotat
     const described: Record<string, ClientFieldAnnotation> = Object.create(null);
     for (const key of keys.sort()) {
       name(key, fieldsPath, true);
-      described[key] = annotation(entries[key], pointer(fieldsPath, key), ['label', 'description']);
+      described[key] = annotation(entries[key], pointer(fieldsPath, key), ['label', 'description', ...CLIENT_FIELD_METADATA_MEMBERS]);
     }
     result.fields = described;
   }

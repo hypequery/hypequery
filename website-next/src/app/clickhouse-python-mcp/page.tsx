@@ -38,18 +38,24 @@ add_dataset_endpoint(
     policy=policy,
     client_profile=profile,
 )
-# The authorized catalog the MCP bridge reads
+# The authorized catalog hypequery mcp serves to agents
 add_client_contract_endpoint(api, "/v1/client-contract", policy=policy)`;
 
-const bridgeCode = `npm install @hypequery/mcp
-npm install -D @hypequery/cli
+const mcpCode = `pip install "hypequery[mcp]"
 
-# One bridge process acts as one principal: one API key, one tenant
-HYPEQUERY_API_KEY=… npx hypequery mcp \\
-  --client-contract-url https://analytics.example.com/v1/client-contract
+# The credential the server calls your API with: one principal, one tenant
+export HYPEQUERY_API_KEY=…
 
 # Check the setup without calling any query tool
-npx hypequery mcp --client-contract-url … --self-test`;
+hypequery mcp app:api --self-test
+
+# Print the entry for Claude Desktop or Cursor
+hypequery mcp app:api --print-config
+
+# Or serve it at a URL for your team, behind a shared key.
+# Keep the key: clients send it as "Authorization: Bearer <key>".
+export HYPEQUERY_MCP_KEY=$(openssl rand -hex 32)
+hypequery mcp app:api --http`;
 
 export default function ClickHousePythonMcpPage() {
   return (
@@ -57,8 +63,8 @@ export default function ClickHousePythonMcpPage() {
       leadPage="/clickhouse-python-mcp"
       eyebrow="Python MCP"
       title="Give AI agents your Python ClickHouse datasets, not a SQL console"
-      description="Define datasets in Python and serve them with FastAPI. The hypequery MCP bridge exposes exactly the endpoints an API key may call, so Claude and Cursor query governed measures while SQL, credentials, and the tenant stay in your backend."
-      primaryCta={{ href: '/docs/python/client-endpoints', label: 'Set up MCP for Python' }}
+      description="Define datasets in Python and run `hypequery mcp app:api`. Agents get exactly the endpoints the caller may call, so Claude and Cursor query governed measures while SQL, credentials, and the tenant stay in your Python process."
+      primaryCta={{ href: '/docs/mcp/quickstart', label: 'Set up MCP for Python' }}
       secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}
       language="python"
       stats={[
@@ -89,7 +95,7 @@ export default function ClickHousePythonMcpPage() {
           'Agents see only endpoints the API key’s principal is allowed to call',
           'The tenant comes from that principal on the Python side; the agent cannot choose it',
           'Fields, filters, and limits are validated by Python before any SQL runs',
-          'If definitions change while the bridge runs, tools fail with `MCP_STALE_CONTRACT` until restart',
+          'Every tool call runs through `Api.handle`, so auth, endpoint policy and rate limits apply exactly as they do over HTTP',
         ],
         codePanel: {
           eyebrow: 'api.py',
@@ -100,19 +106,19 @@ export default function ClickHousePythonMcpPage() {
         },
       }}
       implementationSection={{
-        eyebrow: 'MCP bridge',
-        title: 'Point the bridge at your Python API',
+        eyebrow: 'MCP server',
+        title: 'Run hypequery mcp on your API',
         description:
-          'The hypequery CLI runs the MCP server over stdio and turns each tool call into the same HTTP request a generated React client sends. Python needs no Node process; only the bridge does.',
+          'The Python CLI serves your API\'s authorized client contract to agents, over stdio or, with --http, at a URL. No Node process and no separate agent backend.',
         paragraphs: [
-          'The contract URL must be HTTPS (or plain HTTP on localhost), and the API key is sent only to that origin. Redirects are refused.',
-          'Agents get `list_datasets`, `get_dataset_schema`, and `query_dataset` tools. They never write or receive SQL.',
+          '`app:api` is the `Api` from `create_api`. Each tool call goes through it in the same process, so authentication, endpoint policy, rate limits and tenant resolution are the ones an HTTP caller meets.',
+          'API already deployed? `hypequery mcp --client-contract-url` bridges it over HTTPS instead, with the same tools. Agents get `list_datasets`, `get_dataset_schema`, and `query_dataset`, and never write or receive SQL.',
         ],
         codePanel: {
           eyebrow: 'terminal',
-          title: 'Start the bridge',
-          description: 'Add the same command to Claude Desktop or Cursor’s MCP config.',
-          code: bridgeCode,
+          title: 'Serve it to an agent',
+          description: 'Paste the printed entry into Claude Desktop or Cursor, or connect a client to the --http URL.',
+          code: mcpCode,
           filename: 'terminal',
           language: 'bash',
         },
@@ -120,12 +126,13 @@ export default function ClickHousePythonMcpPage() {
       searchIntentCards={[
         { title: 'ClickHouse MCP server for Python', copy: 'Use your existing Python service as the MCP backend instead of exposing ClickHouse directly.' },
         { title: 'Semantic layer for AI agents in Python', copy: 'Agents query named measures and dimensions from your datasets, so their numbers match your product.' },
-        { title: 'Multi-tenant MCP', copy: 'Run one bridge per principal. Each one is scoped to that principal’s tenant by your Python auth.' },
-        { title: 'Native Python MCP server?', copy: 'Not today. The Node bridge reads your live contract; Python keeps ownership of SQL, auth, and tenancy.' },
+        { title: 'Multi-tenant MCP', copy: 'Over stdio the server acts as one principal and its tenant. Over HTTP with your app’s auth or OAuth, each caller’s tenant comes from their own credential.' },
+        { title: 'Native Python MCP server', copy: 'Yes: `hypequery mcp app:api` runs in your Python process. Python keeps ownership of SQL, auth, and tenancy.' },
       ]}
       readingLinks={[
-        { href: '/docs/python/client-endpoints', title: 'React and MCP clients', description: 'Declare client endpoints, export the contract, connect MCP.' },
-        { href: '/docs/mcp/overview', title: 'MCP overview', description: 'How the MCP server and bridge fit together.' },
+        { href: '/docs/mcp/quickstart', title: 'MCP quick start', description: 'Expose your first Python dataset to Claude or Cursor, then share it over HTTP.' },
+        { href: '/docs/python/client-endpoints', title: 'React and MCP clients', description: 'Declare client endpoints and export the contract.' },
+        { href: '/docs/mcp/overview', title: 'MCP overview', description: 'Every way to run the MCP server, and when to use each.' },
         { href: '/docs/mcp/tools', title: 'MCP tool catalog', description: 'Exactly what agents can discover and run.' },
         { href: '/docs/mcp/safety', title: 'MCP safety model', description: 'Credentials, limits, and tenant isolation.' },
       ]}
@@ -140,8 +147,8 @@ export default function ClickHousePythonMcpPage() {
       nextStep={{
         eyebrow: 'Next step',
         title: 'Connect one dataset to your first agent',
-        description: 'Add a client contract route to your FastAPI app, then run the bridge with `--self-test`.',
-        primaryCta: { href: '/docs/python/client-endpoints', label: 'Set up MCP for Python' },
+        description: 'Add a client contract route to your API, then run `hypequery mcp app:api --self-test`.',
+        primaryCta: { href: '/docs/mcp/quickstart', label: 'Open the MCP quickstart' },
         secondaryCta: { href: '/docs/mcp/clients', label: 'Configure a client' },
       }}
     />

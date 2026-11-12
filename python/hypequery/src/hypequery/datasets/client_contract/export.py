@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ...protocol import PreparedProtocolClientContract, prepare_protocol_client_contract
+from ...protocol import (
+    PreparedProtocolClientContract,
+    prepare_protocol_client_contract,
+    without_client_field_metadata,
+)
 from ..constants import SUPPORTED_TIME_GRAINS
 from ..registry import DatasetRegistry
 from ..utils.derived_measures import base_measure_names
@@ -90,15 +94,22 @@ def export_client_contract(
     *,
     registry: DatasetRegistry | None = None,
     mount_path: str = "",
+    field_metadata: bool = False,
 ) -> PreparedProtocolClientContract:
     """Export a deterministic build view without importing or connecting a backend.
 
     mount_path is trusted host configuration, not a proxy/request header. Supply
     final paths including router/inclusion prefixes; this pure function cannot
     infer how an application is mounted. Live authorized views belong to Serve.
+
+    *field_metadata* also advertises each field's synonyms, examples, format,
+    unit and currency. Consumers released before these members existed reject
+    them, so it is off by default.
     """
     return export_registered_client_contract(
-        [(endpoint, registry) for endpoint in endpoints], mount_path=mount_path
+        [(endpoint, registry) for endpoint in endpoints],
+        mount_path=mount_path,
+        field_metadata=field_metadata,
     )
 
 
@@ -106,15 +117,17 @@ def export_registered_client_contract(
     endpoints: Sequence[tuple[ClientEndpointDefinition, DatasetRegistry | None]],
     *,
     mount_path: str = "",
+    field_metadata: bool = False,
 ) -> PreparedProtocolClientContract:
     """Export a build view where each endpoint resolves fields in its own registry.
 
     Separate clients may register different datasets under one name, so their
-    registries are never merged into a shared namespace.
+    registries are never merged into a shared namespace. Field vocabulary is
+    always validated, and advertised only with *field_metadata*.
     """
     if mount_path and (not mount_path.startswith("/") or mount_path.endswith("/")):
         raise ValueError("mount_path must be empty or an absolute path without a trailing slash")
-    return prepare_protocol_client_contract(
+    prepared = prepare_protocol_client_contract(
         {
             "kind": "hypequery-client-contract",
             "version": 1,
@@ -125,3 +138,4 @@ def export_registered_client_contract(
             ],
         }
     )
+    return prepared if field_metadata else without_client_field_metadata(prepared)

@@ -316,6 +316,8 @@ source_modules = [
   "hypequery.mcp.budgets",
   "hypequery.mcp.errors",
   "hypequery.mcp.executor",
+  "hypequery.mcp.http_auth",
+  "hypequery.mcp.http_executors",
   "hypequery.mcp.manifest",
   "hypequery.mcp.responses",
   "hypequery.mcp.utils",

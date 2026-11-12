@@ -264,6 +264,12 @@ A `label` and `description` on datasets, dimensions and measures travel in the c
 `generate:client` emits it as JSDoc. Editing that text changes the view hash but not an endpoint's schema pin, so it
 never triggers a 409.
 
+`synonyms`, `examples`, `format`, `unit` and `currency` on dimensions and measures travel as field metadata in the
+same annotations. Live discovery sends them only to a client that asks with an `X-Hypequery-Client-Features:
+field-metadata` request header (both MCP servers do), because `@hypequery/mcp` and `@hypequery/cli` releases from
+before 5 November 2026 reject them. Other requests, and `export_client_contract` unless you pass
+`field_metadata=True`, get the label and description only. Both views have the same schema pins.
+
 ## Keeping clients in sync
 
 | Change | What catches it |
