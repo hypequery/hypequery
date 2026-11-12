@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import type { StdioOptions } from 'node:child_process';
 import { DEFAULT_CATEGORY, isCliError, type CliErrorCategory, type CliInputIssue } from './cli-error.js';
 import { EXIT_CODES, type ExitClass } from './exit-codes.js';
+import { isUnattended } from './input-mode.js';
 
 /** The CLI reference section that documents every exit code and error code. */
 export const CLI_ERRORS_DOCS_URL = 'https://hypequery.com/docs/reference/api/cli#exit-codes-and-errors';
@@ -131,11 +132,13 @@ export async function withoutResult<T>(step: () => Promise<T>): Promise<T> {
 
 /**
  * Stdio for child processes such as package managers. Their output bypasses the
- * console, so in `--json` mode it goes to stderr, and they never get a terminal
- * to prompt on.
+ * console, so in `--json` mode it goes to stderr. With `--json`, `--no-input`
+ * or CI they get no stdin, so an install script cannot wait for an answer.
  */
 export function childProcessStdio(): StdioOptions {
-  return enabled ? ['ignore', 2, 2] : 'inherit';
+  if (enabled) return ['ignore', 2, 2];
+  // Unattended (--no-input or CI): output as usual, but no stdin to wait on.
+  return isUnattended() ? ['ignore', 'inherit', 'inherit'] : 'inherit';
 }
 
 /** Print the default result for a command that has no structured result yet. */

@@ -1,14 +1,13 @@
 /**
  * Whether anyone is there to answer. `--no-input` and CI mean nobody is: no
- * prompt, and no wait for a browser (`login`). `--json` alone still allows a
- * person to approve in a browser, but never a terminal prompt.
+ * prompt, no wait for a browser (`login`), and no stdin for child processes
+ * such as package installers. `--json` alone still allows a person to approve
+ * in a browser, but never a terminal prompt.
+ *
+ * Only the executable decides this, from its flags and environment, before a
+ * command runs; commands called directly (tests, embedders) stay attended.
  */
-let noInput = false;
-
-/** Set from the root `--no-input` flag before a command runs. */
-export function setNoInput(value: boolean): void {
-  noInput = value;
-}
+let unattended = false;
 
 /** `CI=true`, `CI=1` or any other non-empty value except "0" and "false". */
 export function isCiEnvironment(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
@@ -16,7 +15,12 @@ export function isCiEnvironment(env: Readonly<Record<string, string | undefined>
   return value !== undefined && value !== '' && value !== '0' && value !== 'false';
 }
 
-/** `--no-input` or CI: fail fast on anything that needs a person. */
-export function isUnattended(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
-  return noInput || isCiEnvironment(env);
+/** Set from the root `--no-input` flag and `CI` before a command runs. */
+export function setUnattended(noInput: boolean, env: Readonly<Record<string, string | undefined>> = process.env): void {
+  unattended = noInput || isCiEnvironment(env);
+}
+
+/** `--no-input` or CI under the executable: fail fast on anything that needs a person. */
+export function isUnattended(): boolean {
+  return unattended;
 }

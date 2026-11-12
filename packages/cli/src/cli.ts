@@ -44,7 +44,7 @@ import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
 import { CliError, cloudHttpError, isCliError } from './utils/cli-error.js';
 import { DeploymentUploadError } from './utils/deployment-upload.js';
-import { setNoInput } from './utils/input-mode.js';
+import { setUnattended } from './utils/input-mode.js';
 import { EXIT_CODES, exitClassFor, exitClassForCode } from './utils/exit-codes.js';
 import {
   emitDefaultResult,
@@ -75,7 +75,7 @@ program
 // `--json` is read before any command runs, so its output starts clean.
 program.hook('preAction', () => {
   if (program.opts().json) enableJsonOutput();
-  setNoInput(program.opts().input === false);
+  setUnattended(program.opts().input === false);
 });
 
 program
