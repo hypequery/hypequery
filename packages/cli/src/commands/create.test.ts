@@ -134,6 +134,32 @@ describe('hypequery create', () => {
     expect(out.join('\n')).not.toContain('docker compose');
   });
 
+  it('keeps the scaffold but exits non-zero when the requested install fails', async () => {
+    const cwd = await directory();
+    const source = await fakeSource();
+    const out: string[] = [];
+    const before = process.exitCode;
+    try {
+      await createCommand('demo', { yes: true, seed: false }, {
+        cwd,
+        fetchImpl: indexFetch,
+        source: 'https://example.test/examples.json',
+        npmFetch,
+        packageManager: 'pnpm',
+        fetchSource: async () => ({ root: source, cleanup: async () => {} }),
+        runInstall: async () => {
+          throw new Error('registry unreachable');
+        },
+        write: (line) => out.push(line),
+      });
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = before;
+    }
+    expect((await readdir(path.join(cwd, 'demo'))).sort()).toEqual(['README.md', 'package.json', 'src']);
+    expect(out.join('\n')).toContain('  pnpm install\n  pnpm dev');
+  });
+
   it('fails clearly for unknown slugs, guides, and non-empty targets', async () => {
     const cwd = await directory();
     const deps = { cwd, fetchImpl: indexFetch, source: 'https://example.test/examples.json', npmFetch, packageManager: 'pnpm' as const, runInstall: async () => {} };

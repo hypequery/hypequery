@@ -14,8 +14,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.8
     ports:
-      - "8123:8123"   # HTTP: @clickhouse/client, clickhouse-connect, hypequery, curl
-      - "9000:9000"   # native TCP: clickhouse-client
+      - "127.0.0.1:8123:8123"   # HTTP: @clickhouse/client, clickhouse-connect, hypequery, curl
+      - "127.0.0.1:9000:9000"   # native TCP: clickhouse-client
     environment:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: hypequery
@@ -46,7 +46,7 @@ What each part is for:
 | Setting | Why |
 | --- | --- |
 | `image: ...:25.8` | A fixed LTS tag. `latest` moves under you, and a new major can change defaults and SQL behaviour. |
-| `8123` and `9000` | 8123 is the HTTP interface every JavaScript and most Python clients use. 9000 is the native protocol for `clickhouse-client` and native drivers. Expose only what you use. |
+| `127.0.0.1:8123` and `127.0.0.1:9000` | 8123 is the HTTP interface every JavaScript and most Python clients use. 9000 is the native protocol for `clickhouse-client` and native drivers. The `127.0.0.1:` prefix publishes them on loopback only, so a dev box on a shared network does not expose a database with a known password. Expose only what you use, and drop the prefix only behind a firewall. |
 | `CLICKHOUSE_PASSWORD` | Without `CLICKHOUSE_USER` or `CLICKHOUSE_PASSWORD`, the entrypoint disables network access for `default`; every client outside the container gets an authentication error. |
 | `CLICKHOUSE_DB` | Creates the database on first start. It does not make it the default for clients: pass `database` in every connection. |
 | `CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT` | Lets `default` run `CREATE USER` and `GRANT`, so you can make a read-only user for your app in SQL. |
