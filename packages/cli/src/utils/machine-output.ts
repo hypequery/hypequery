@@ -98,12 +98,18 @@ function write(text: string): void {
 }
 
 /**
- * Resolves once the JSON document has been handed to the OS. The executable
- * awaits it before `process.exit()`, which would otherwise drop a large
- * document still queued on a pipe.
+ * Resolves once the JSON document has been handed to the OS, or after
+ * `timeoutMs` if the reader stopped reading. The executable awaits it before
+ * `process.exit()`, which would otherwise drop a large document still queued
+ * on a pipe; the bound keeps a stalled pipe from holding the process open.
  */
-export function flushJsonOutput(): Promise<void> {
-  return pendingWrite;
+export function flushJsonOutput(timeoutMs = 5_000): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, timeoutMs);
+    timer.unref();
+  });
+  return Promise.race([pendingWrite, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**

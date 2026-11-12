@@ -52,7 +52,8 @@ async function main() {
       await settleTelemetrySettings();
       await cleanupLoadedApiArtifacts();
       // process.exit() follows; let the --json document leave the pipe first.
-      await flushJsonOutput();
+      // A signal ends the process now: it must not wait on a stalled reader.
+      if (exit.outcome !== 'interrupted') await flushJsonOutput();
     })();
     return finishing;
   };
