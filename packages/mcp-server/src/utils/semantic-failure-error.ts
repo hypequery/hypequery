@@ -2,7 +2,7 @@ import type {
   ProtocolSemanticInvocationFailure,
   ProtocolSemanticInvocationFailureCategory,
 } from '@hypequery/protocol';
-import { MCPToolError, type MCPToolErrorCode } from '../errors.js';
+import { MCPToolError, type MCPToolErrorCode, type MCPToolErrorOptions } from '../errors.js';
 
 /**
  * The MCP code for each semantic data-plane failure category.
@@ -37,14 +37,15 @@ const CODE_BY_CATEGORY: Record<ProtocolSemanticInvocationFailureCategory, MCPToo
  * the tool's published envelope. This is the one mapping between them, so
  * every hosted MCP states the same failure the same way. The failure's own
  * `code` travels as `reason`, its `relist` as `relist`, and its message is
- * already safe to show (protocol failures are closed by construction).
+ * already safe to show (protocol failures are closed by construction). The
+ * host adds its own `retryAfterSeconds`, `hint`, `docsUrl` and `requestId`.
  */
 export function mcpToolErrorFromSemanticFailure(
   failure: Pick<
     ProtocolSemanticInvocationFailure,
     'category' | 'code' | 'message' | 'retryable' | 'relist'
   >,
-  options: { retryAfterSeconds?: number } = {},
+  options: Pick<MCPToolErrorOptions, 'retryAfterSeconds' | 'hint' | 'docsUrl' | 'requestId'> = {},
 ): MCPToolError {
   return new MCPToolError(CODE_BY_CATEGORY[failure.category] ?? 'MCP_EXECUTION_FAILED', failure.message, {
     retryable: failure.retryable,
@@ -52,5 +53,8 @@ export function mcpToolErrorFromSemanticFailure(
     relist: failure.relist,
     reason: failure.code,
     ...(options.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: options.retryAfterSeconds }),
+    ...(options.hint === undefined ? {} : { hint: options.hint }),
+    ...(options.docsUrl === undefined ? {} : { docsUrl: options.docsUrl }),
+    ...(options.requestId === undefined ? {} : { requestId: options.requestId }),
   });
 }

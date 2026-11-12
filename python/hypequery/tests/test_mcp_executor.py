@@ -383,3 +383,26 @@ def test_host_error_details_reach_the_envelope() -> None:
     for bad in (-1, float("inf"), float("nan")):
         with pytest.raises(ValueError, match="retry_after_seconds"):
             McpToolError("MCP_RATE_LIMITED", "x", retry_after_seconds=bad)
+
+
+def test_host_hint_docs_url_and_request_id_reach_the_envelope() -> None:
+    from hypequery.mcp.errors import McpToolError, classify_mcp_tool_error
+
+    refused = McpToolError(
+        "MCP_UNAUTHORIZED",
+        "Sign in again.",
+        hint="Reconnect the MCP client to sign in again.",
+        docs_url="https://hypequery.com/docs/errors/mcp-unauthorized",
+        request_id="req_123",
+    )
+    assert classify_mcp_tool_error(refused) == {
+        "code": "MCP_UNAUTHORIZED",
+        "category": "unauthorized",
+        "message": "Sign in again.",
+        "retryable": False,
+        "correctable": False,
+        "hint": "Reconnect the MCP client to sign in again.",
+        "docsUrl": "https://hypequery.com/docs/errors/mcp-unauthorized",
+        "requestId": "req_123",
+    }
+    assert "hint" not in classify_mcp_tool_error(McpToolError("MCP_NOT_FOUND", "No."))

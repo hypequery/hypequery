@@ -53,6 +53,19 @@ describe('semantic data-plane failures as MCP tool errors', () => {
     });
   });
 
+  it('carries the host hint, docs link and request id', () => {
+    expect(classifyMCPToolError(mcpToolErrorFromSemanticFailure(
+      failure('tenant-required', 'HQ_SEMANTIC_TENANT_REQUIRED'),
+      { hint: 'Sign in to a workspace.', docsUrl: 'https://hypequery.com/docs/mcp', requestId: 'req_1' },
+    ))).toMatchObject({
+      code: 'MCP_UNAUTHORIZED',
+      reason: 'HQ_SEMANTIC_TENANT_REQUIRED',
+      hint: 'Sign in to a workspace.',
+      docsUrl: 'https://hypequery.com/docs/mcp',
+      requestId: 'req_1',
+    });
+  });
+
   it('refuses a negative or non-finite retry delay', () => {
     expect(() => new MCPToolError('MCP_RATE_LIMITED', 'x', { retryAfterSeconds: -1 })).toThrow(RangeError);
     expect(() => new MCPToolError('MCP_RATE_LIMITED', 'x', { retryAfterSeconds: Number.NaN })).toThrow(RangeError);
@@ -68,6 +81,9 @@ describe('semantic data-plane failures as MCP tool errors', () => {
           retryAfterSeconds: 7,
           relist: false,
           reason: 'HOST_RATE_LIMITED',
+          hint: 'Wait, then retry.',
+          docsUrl: 'https://hypequery.com/docs/mcp',
+          requestId: 'req_7',
         })),
         listPrompts: async () => ({ prompts: [] }),
         getPrompt: async () => ({ messages: [] }),
@@ -91,6 +107,9 @@ describe('semantic data-plane failures as MCP tool errors', () => {
         retryAfterSeconds: 7,
         relist: false,
         reason: 'HOST_RATE_LIMITED',
+        hint: 'Wait, then retry.',
+        docsUrl: 'https://hypequery.com/docs/mcp',
+        requestId: 'req_7',
       },
     });
     await client.close();

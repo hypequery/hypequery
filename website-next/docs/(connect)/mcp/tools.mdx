@@ -158,13 +158,16 @@ A failed tool call returns `isError: true`, a text line such as `Error [MCP_INVA
 | `MCP_RATE_LIMITED` | `budget` | yes, after `retryAfterSeconds` | A hosted server's rate limit or quota refused the call |
 | `MCP_EXECUTION_FAILED` | `internal` | yes | The query or backend failed; details stay in server logs |
 
-A hosted server may add three optional fields:
+A hosted server may add these optional fields:
 
 | Field | Meaning |
 | --- | --- |
 | `retryAfterSeconds` | How long to wait before retrying |
 | `relist` | Call `list_datasets` and the schema tools again before retrying |
 | `reason` | The host's own stable code for the failure, such as `HQ_SEMANTIC_TENANT_REQUIRED`; `code` stays the portable classification |
+| `hint` | The next action, in one sentence |
+| `docsUrl` | A page that explains the failure and how to fix it |
+| `requestId` | The host's request id, to find the call in its logs |
 
 A host that executes through the semantic data plane builds these with `mcpToolErrorFromSemanticFailure` and returns them with `createMCPErrorResponse`.
 
