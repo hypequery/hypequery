@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-typescript'),
     title: 'ClickHouse TypeScript Client for ClickHouse Cloud | hypequery',
     description:
-      'Connect to ClickHouse Cloud or self-hosted ClickHouse from TypeScript. Build ClickHouse backends in TypeScript with generated schema types, typed queries, reusable analytics definitions, and cleaner delivery paths.',
+      'Connect to ClickHouse Cloud or self-hosted ClickHouse from TypeScript, with generated schema types, typed queries, and reusable analytics definitions.',
   },
   twitter: {
     card: 'summary_large_image',
@@ -38,11 +38,15 @@ CLICKHOUSE_USERNAME=default
 CLICKHOUSE_PASSWORD=your-service-password
 CLICKHOUSE_DATABASE=default
 
+# Install the client and CLI in your project
+npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
+
 # Generates types from the tables in your Cloud service
 npx hypequery generate --output analytics/schema.ts`;
 
 const cloudClientCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './analytics/schema';
+import type { IntrospectedSchema } from './schema.js';
 
 export const db = createQueryBuilder<IntrospectedSchema>({
   url: process.env.CLICKHOUSE_URL!, // https://<service>.<region>.<cloud>.clickhouse.cloud:8443
