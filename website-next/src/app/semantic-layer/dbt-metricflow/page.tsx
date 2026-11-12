@@ -53,6 +53,9 @@ models:
         agg: count
         expr: order_id
 
+# A customers model (not shown) declares the customer entity
+# as its primary key and a categorical country dimension.
+
 # A ratio metric goes in the top-level metrics block
 metrics:
   - name: average_order_value
@@ -83,8 +86,9 @@ import { belongsTo, dataset, dimension, divide, measure, nullIfZero } from '@hyp
 
 const Customers = dataset('customers', {
   source: 'customers',
+  tenantKey: 'tenant_id',
   dimensions: {
-    id: dimension.string(),
+    id: dimension.string({ column: 'customer_id' }),
     country: dimension.string(),
   },
 });
@@ -106,7 +110,7 @@ export const Orders = dataset('orders', {
     }),
   },
   relationships: {
-    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
   },
 });`;
 
@@ -131,7 +135,7 @@ const mappingRows = [
   ['Semantic model', 'Dataset', 'One per table. `source` is the table.'],
   ['Primary and foreign entities', 'Relationships: `belongsTo`, `hasOne`', 'Declared on the dataset; to-one joins run one hop deep.'],
   ['Categorical and time dimensions', '`dimension.string()`, `dimension.timestamp()`, `timeKey`', 'The time key plays the part of agg_time_dimension.'],
-  ['Simple metric (agg + expr)', '`measure.sum()`, `measure.count()` and friends', 'Measures are typed, so a misspelled column fails to compile.'],
+  ['Simple metric (agg + expr)', '`measure.sum()`, `measure.count()` and friends', 'TypeScript checks declared measure names in queries, not backing column names; those are checked when the query runs.'],
   ['Ratio and derived metrics', '`measure.derived()`', 'Formulas use symbolic helpers such as divide() and nullIfZero(), not SQL strings.'],
   ['Cumulative metrics', '`measure.cumulative()`, `trailing()`, `toDate()`', 'Running totals, trailing windows and month-to-date.'],
   ['Conversion metrics', 'No direct equivalent', 'Write the funnel as its own dataset or query.'],

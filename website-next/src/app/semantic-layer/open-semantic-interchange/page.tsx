@@ -69,16 +69,14 @@ metrics:
       sql: SUM(orders.amount) / COUNT(DISTINCT customers.customer_id)`;
 
 const codeModel = `// datasets/sales.ts: the same model, defined in code
-import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
 
 const Customers = dataset('customers', {
   source: 'customers',
+  tenantKey: 'tenant_id',
   dimensions: {
     id: dimension.string({ column: 'customer_id' }),
     country: dimension.string(),
-  },
-  measures: {
-    customerCount: measure.countDistinct('customer_id'),
   },
 });
 
@@ -94,6 +92,13 @@ export const Orders = dataset('orders', {
     revenue: measure.sum('amount', {
       description: 'Sales; total revenue.',
     }),
+    // Derived measures combine measures on the same dataset, so the
+    // customer count comes from the orders' customer_id column.
+    customerCount: measure.countDistinct('customer_id'),
+    revenuePerCustomer: measure.derived({
+      uses: { revenue: 'revenue', customers: 'customerCount' },
+      formula: ({ revenue, customers }) => divide(revenue, nullIfZero(customers)),
+    }),
   },
   relationships: {
     customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
@@ -103,7 +108,7 @@ export const Orders = dataset('orders', {
 // Ossie describes the model. Querying it is up to each tool:
 await analytics.execute(Orders, {
   dimensions: ['customer.country'],
-  measures: ['revenue', 'customer.customerCount'],
+  measures: ['revenue', 'revenuePerCustomer'],
 }, { runtime: { tenant: { id: session.orgId } } });`;
 
 const timelineRows = [
@@ -133,7 +138,7 @@ const mappingRows = [
   ['Dataset with `source` and `primary_key`', 'Dataset', '`source` is the ClickHouse table.'],
   ['Field', 'Dimension', 'A time field (`is_time`) becomes the `timeKey`.'],
   ['Dataset-scoped metric', 'Measure', 'Typed helpers instead of SQL strings.'],
-  ['Model-scoped metric', 'Measures on related datasets, such as `customer.customerCount`', 'Selected together in one query.'],
+  ['Model-scoped metric', '`measure.derived()` on one dataset', 'Derived measures combine measures on the same dataset only; a formula cannot reference a measure on a related dataset.'],
   ['Relationship', '`belongsTo`', 'Composite keys are supported.'],
   ['`ai_context`', '`label`, `description`', 'Exposed to agents over MCP.'],
   ['Not in the spec yet', 'Tenant key, Serve API, React hooks, MCP tools', 'Access control and querying are on Ossie’s roadmap, not in the spec.'],

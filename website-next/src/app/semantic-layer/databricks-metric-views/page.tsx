@@ -71,8 +71,9 @@ import { belongsTo, dataset, dimension, divide, measure, nullIfZero } from '@hyp
 
 const Customers = dataset('customers', {
   source: 'customers',
+  tenantKey: 'tenant_id',
   dimensions: {
-    id: dimension.string(),
+    id: dimension.string({ column: 'customer_id' }),
     country: dimension.string({ label: 'Customer country' }),
   },
 });
@@ -97,7 +98,7 @@ export const Orders = dataset('orders', {
     trailingRevenue: measure.trailing('revenue', { amount: 7, unit: 'day' }),
   },
   relationships: {
-    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
   },
 });`;
 
@@ -119,7 +120,7 @@ const mappingRows = [
   ['`source`', 'Dataset `source`', 'A table or view. Point it at a view for a query-shaped source.'],
   ['`joins` (many-to-one)', '`belongsTo`, `hasOne`', 'To-one joins, one hop deep; hasMany is metadata only.'],
   ['`fields` (formerly dimensions)', 'Dimensions', 'Time grains come from `timeKey` and `by` instead of one field per grain.'],
-  ['`measures`', '`measure.sum()`, `count()`, `derived()`', 'Typed names, so a typo is a compile error.'],
+  ['`measures`', '`measure.sum()`, `count()`, `derived()`', 'Queries are checked against declared measure names at compile time; backing column names are checked when the query runs.'],
   ['Measure `window`', '`measure.trailing()`, `toDate()`, `cumulative()`', 'Trailing windows, to-date periods and running totals.'],
   ['Top-level `filter`', 'Measure filters, or a filtered view as the source', 'Datasets have no single dataset-wide filter.'],
   ['`materialization`', 'ClickHouse materialized views or projections', 'Defined in ClickHouse; point a dataset at the rollup table.'],

@@ -65,8 +65,9 @@ import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
 
 const Customers = dataset('customers', {
   source: 'customers',
+  tenantKey: 'tenant_id',
   dimensions: {
-    id: dimension.string(),
+    id: dimension.string({ column: 'customer_id' }),
     country: dimension.string({
       label: 'Customer country',
       description: 'Billing country of the customer.',
@@ -86,7 +87,7 @@ export const Orders = dataset('orders', {
     averageOrderValue: measure.avg('amount'),
   },
   relationships: {
-    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
   },
 });`;
 
