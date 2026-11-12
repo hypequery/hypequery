@@ -10,6 +10,7 @@ import {
   kindLabel,
   kindPath,
   label,
+  packageUrl,
   readmeBody,
   relatedEntries,
   REPO_TREE_URL,
@@ -162,7 +163,7 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
                 <ul className="mt-4 space-y-2 text-sm">
                   {manifest.packages.map((pkg) => (
                     <li key={pkg}>
-                      <a href={`https://www.npmjs.com/package/${pkg}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-text hover:text-accent">{pkg}</a>
+                      <a href={packageUrl(pkg)} target="_blank" rel="noreferrer" className="font-mono text-xs text-text hover:text-accent">{pkg}</a>
                     </li>
                   ))}
                 </ul>

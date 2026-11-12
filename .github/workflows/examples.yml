@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - 'packages/**'
+      - 'python/hypequery/**'
       - 'examples/**'
       - 'recipes/**'
       - 'guides/**'
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - 'packages/**'
+      - 'python/hypequery/**'
       - 'examples/**'
       - 'recipes/**'
       - 'guides/**'
