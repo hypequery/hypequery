@@ -448,7 +448,11 @@ export default function SemanticLayerPage() {
             </li>
             <li>
               <strong className="text-text">You need a serving layer with caching</strong> and APIs in front of any
-              warehouse: a standalone service such as Cube.
+              warehouse: a standalone service such as Cube. If Cube is close but not quite right, the{' '}
+              <Link href="/cube-js-alternative" className={inlineLink}>
+                Cube alternatives comparison
+              </Link>{' '}
+              lays out the other semantic layers by how and where their models are defined.
             </li>
             <li>
               <strong className="text-text">The metrics power your own product</strong>, behind your API and in

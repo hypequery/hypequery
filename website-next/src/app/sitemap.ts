@@ -4,6 +4,7 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
 import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { entryHref, registryEntries } from '@/lib/examples';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
@@ -63,6 +64,8 @@ const staticRoutes = [
   '/contact-us',
   '/cube-js-alternative',
   '/tinybird-alternative',
+  // Embedded analytics comparison pages. Static routes under /compare, not compare-pages.ts entries.
+  ...embeddedAnalyticsComparePages.map((page) => page.href),
   ...comparePages.map((page) => page.href),
 ];
 

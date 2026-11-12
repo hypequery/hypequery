@@ -219,6 +219,21 @@ const faqItems: FaqItem[] = [
 
 const guides: HubLink[] = [
   {
+    href: '/compare/embedded-analytics-platforms',
+    title: 'Best embedded analytics platforms',
+    description: 'Twelve vendors in three groups, each with a best-for and a watch-out.',
+  },
+  {
+    href: '/compare/embedded-analytics-pricing',
+    title: 'Embedded analytics pricing compared',
+    description: 'Every vendor’s published price for embedding, and a 200-customer SaaS priced end to end.',
+  },
+  {
+    href: '/clickhouse-saas-analytics',
+    title: 'Embedded analytics for SaaS on ClickHouse',
+    description: 'One typed, tenant-scoped model serving dashboards, a customer API and agents.',
+  },
+  {
     href: '/blog/embedded-analytics-clickhouse-multi-tenant-dashboards',
     title: 'Embedded analytics with ClickHouse',
     description: 'The long guide: isolation models, row policies, projections, quotas and a reference architecture.',
@@ -227,11 +242,6 @@ const guides: HubLink[] = [
     href: '/clickhouse-multi-tenant-analytics',
     title: 'ClickHouse multi-tenant analytics',
     description: 'Tenant isolation for SaaS when ClickHouse powers customer-facing features.',
-  },
-  {
-    href: '/clickhouse-saas-analytics',
-    title: 'ClickHouse SaaS analytics',
-    description: 'A multi-tenant analytics layer for SaaS products on ClickHouse.',
   },
   {
     href: '/clickhouse-dashboard',

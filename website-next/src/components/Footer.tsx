@@ -49,6 +49,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       // The semantic layer hub is already linked from the Product column.
       { label: 'ClickHouse for developers', href: '/clickhouse' },
       { label: 'Embedded analytics', href: '/embedded-analytics' },
+      { label: 'Embedded analytics platforms', href: '/compare/embedded-analytics-platforms' },
       { label: 'What is a semantic layer', href: '/semantic-layer' },
       { label: 'ClickHouse functions', href: '/clickhouse/functions' },
       { label: 'Materialized views guide', href: '/blog/a-guide-to-materialized-views-in-clickhouse' },
@@ -56,7 +57,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
       { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
       { label: 'Real-time analytics', href: '/clickhouse-real-time-analytics' },
-      { label: 'SaaS analytics', href: '/clickhouse-saas-analytics' },
+      { label: 'Embedded analytics for SaaS', href: '/clickhouse-saas-analytics' },
       { label: 'Product analytics', href: '/clickhouse-product-analytics' },
     ],
   },

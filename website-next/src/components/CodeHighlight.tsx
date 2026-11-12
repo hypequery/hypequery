@@ -28,10 +28,19 @@ export default function CodeHighlight({ code, language = 'ts', className = '' }:
     });
   }, [code, language, resolvedTheme]);
 
-  return (
-    <div
-      className={`not-prose overflow-x-auto text-sm font-mono [&_.shiki]:bg-transparent! [&_.shiki]:p-0! [&_.shiki]:font-mono! [&_pre]:m-0 [&_pre]:bg-transparent [&_pre]:font-mono! [&_code]:font-mono! [&_span]:font-mono! ${className}`}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  const classes = `not-prose overflow-x-auto text-sm font-mono [&_.shiki]:bg-transparent! [&_.shiki]:p-0! [&_.shiki]:font-mono! [&_pre]:m-0 [&_pre]:bg-transparent [&_pre]:font-mono! [&_code]:font-mono! [&_span]:font-mono! ${className}`;
+
+  // Until Shiki loads (and in the server-rendered HTML), show the plain code so
+  // crawlers, AI fetchers and no-JS readers still get it.
+  if (!html) {
+    return (
+      <div className={classes}>
+        <pre>
+          <code>{code.trim()}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  return <div className={classes} dangerouslySetInnerHTML={{ __html: html }} />;
 }
