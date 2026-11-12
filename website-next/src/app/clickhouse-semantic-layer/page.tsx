@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand } from '@/components/home/SetupCommand';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { HubDefinition, HubLinkGrid, type HubLink } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
@@ -187,6 +188,11 @@ const shapes = [
 
 const guideLinks: HubLink[] = [
   {
+    href: '/semantic-layer',
+    title: 'What is a semantic layer',
+    description: 'The vendor-neutral guide: dbt MetricFlow, Snowflake semantic views, Databricks metric views and OSI compared.',
+  },
+  {
     href: '/docs/datasets/overview',
     title: 'Datasets docs',
     description: 'Define datasets, dimensions, measures and metrics in TypeScript, then execute and serve them.',
@@ -230,6 +236,11 @@ const guideLinks: HubLink[] = [
     href: '/cube-js-alternative',
     title: 'Cube.js alternative for ClickHouse',
     description: 'A semantic layer with no Cube server, Redis cache or YAML to run.',
+  },
+  {
+    href: '/semantic-layer/dbt-metricflow',
+    title: 'dbt MetricFlow vs a code-defined layer',
+    description: 'Semantic models and metric types in dbt, mapped onto datasets defined in code.',
   },
   {
     href: '/compare/cube-vs-tinybird-vs-hypequery',
@@ -322,8 +333,12 @@ export default function ClickHouseSemanticLayerPage() {
     <div className="min-h-screen bg-bg text-text">
       <Navigation />
       <main className="pt-[62px]">
-        <section className={`${marketing.container} pb-14 pt-12 sm:pt-16`}>
-          <div className="flex flex-wrap items-center gap-3">
+        <section className={`${marketing.container} pb-14 pt-10 sm:pt-12`}>
+          <Breadcrumbs
+            items={[{ label: 'Home', href: '/' }, { label: 'Semantic layer', href: '/semantic-layer' }, { label: 'ClickHouse' }]}
+            currentPath="/clickhouse-semantic-layer"
+          />
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <OpenSourceBadge />
             <p className={marketing.eyebrow}>ClickHouse semantic layer</p>
           </div>
