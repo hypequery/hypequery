@@ -255,7 +255,15 @@ describe('createMCPHttpHandler', () => {
     const opened = await handler.handle(post(initialize));
     const sessionId = opened.headers.get('mcp-session-id')!;
     await drain(opened);
+
+    // The body is only pulled once the handler is reading it, which is how the test knows the
+    // request is past authentication (real-time work that fake timers do not control). Without
+    // that wait the clock can move before the request counts as in flight, and the test flakes.
     let finish!: (chunk: string) => void;
+    let reading!: () => void;
+    const readStarted = new Promise<void>((resolve) => {
+      reading = resolve;
+    });
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         finish = (chunk) => {
@@ -263,7 +271,10 @@ describe('createMCPHttpHandler', () => {
           controller.close();
         };
       },
-    });
+      pull() {
+        reading();
+      },
+    }, { highWaterMark: 0 });
     const pending = handler.handle(new Request('http://mcp.example.test/mcp', {
       method: 'POST',
       headers: {
@@ -276,10 +287,15 @@ describe('createMCPHttpHandler', () => {
       body,
       duplex: 'half',
     } as RequestInit));
+    await readStarted;
     await vi.advanceTimersByTimeAsync(2500);
     expect(handler.sessionCount).toBe(1);
+
     finish(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }));
     expect((await pending).status).toBe(202);
+    // Once it has finished the session is idle again and expires as usual.
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(handler.sessionCount).toBe(0);
   });
 
   it('hides unexpected authenticator errors', async () => {

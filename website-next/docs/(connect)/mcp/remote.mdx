@@ -47,7 +47,7 @@ A static key is one principal, and every holder of it is that principal:
 
 - **TypeScript:** every holder can query everything the server exposes, whatever rules an individual dataset or metric
   sets for its own callers (`auth`, `requiredRoles`, `requiredScopes`, `middlewares`, `tenant`), because those are not
-  applied over MCP. The CLI lists the affected entries when it starts. Every caller gets the `--tenant`.
+  applied over MCP, and the global middlewares do not run either. The CLI says what is affected when it starts. Every caller gets the `--tenant`.
 - **Python:** every holder acts as the backend credential's principal (`HYPEQUERY_API_KEY` or `--header`), so the API's
   policy for that principal applies, and every caller gets that principal's tenant.
 
@@ -82,8 +82,10 @@ own tenant, exactly as over REST.
 - **TypeScript:** the `auth` and `tenant` you pass to `defineServe`. Any strategy works, including `createJwtStrategy`.
   If a dataset is tenant-scoped, a caller whose credential names no tenant is refused. MCP applies only that global
   auth and tenant, **not** the options on an individual dataset or metric entry (`auth`, `requiredRoles`,
-  `requiredScopes`, `middlewares`, `tenant`). If any entry sets them, `hypequery mcp --http` refuses to start and names
-  the entries, because a caller could otherwise query data REST would refuse them. Remove those options, or serve one
+  `requiredScopes`, `middlewares`, `tenant`), and not the global middlewares REST runs before every endpoint
+  (`defineServe({ middlewares })` and `api.use()`). If any entry sets those options, or any global middleware exists,
+  `hypequery mcp --http` refuses to start and says which, because a caller could otherwise query data REST would
+  refuse them. Remove them, or serve one trusted principal with `HYPEQUERY_MCP_KEY`. Remove those options, or serve one
   trusted principal with `HYPEQUERY_MCP_KEY`.
 - **Python:** the `Api`'s own authentication and tenant resolver. The caller's credential header is forwarded on every
   discovery and query, so the API also checks endpoint policy, scopes and rate limits on each call. Each request sends
