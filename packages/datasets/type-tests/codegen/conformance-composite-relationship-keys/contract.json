@@ -1,0 +1,71 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "customers",
+      "source": "customers",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [],
+      "measures": [],
+      "filters": [],
+      "relationships": [],
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/customers/query"
+      }
+    },
+    {
+      "name": "orders",
+      "source": "orders",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [],
+      "measures": [],
+      "filters": [],
+      "relationships": [
+        {
+          "name": "customer",
+          "kind": "belongsTo",
+          "target": "customers",
+          "from": "customer_id",
+          "to": "id",
+          "keys": [
+            {
+              "from": "customer_id",
+              "to": "id"
+            },
+            {
+              "from": "region_code",
+              "to": "region"
+            }
+          ],
+          "queryable": true
+        }
+      ],
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/orders/query"
+      }
+    }
+  ]
+}
