@@ -65,6 +65,7 @@ app.all('/api/analytics/{*path}', createNodeHandler(api.handler));`;
 export default function ClickHouseNodejsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-nodejs"
       eyebrow="ClickHouse Node.js"
       title="Use ClickHouse from Node.js without hand-maintained query types"
       description="Scripts, workers, and Express servers all end up querying ClickHouse. hypequery gives them generated types and one place for each query, so a helper buried in a service file can become a typed API when it needs to."

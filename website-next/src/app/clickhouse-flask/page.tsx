@@ -65,6 +65,7 @@ def revenue_csv():
 export default function ClickHouseFlaskPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-flask"
       eyebrow="ClickHouse Flask"
       title="ClickHouse analytics in Flask routes, defined once"
       description="Flask keeps your routes small. hypequery keeps your ClickHouse analytics small too: measures and dimensions defined once in Python, queried by name from any route, and scoped to the customer making the request."

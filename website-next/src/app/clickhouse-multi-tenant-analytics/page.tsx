@@ -48,6 +48,7 @@ const queryCode = `const accountRevenue = query({
 export default function ClickHouseMultiTenantAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-multi-tenant-analytics"
       eyebrow="ClickHouse Multi-Tenant Analytics"
       title="Build multi-tenant ClickHouse analytics without trusting every query author"
       description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, AI agents, and internal tooling."

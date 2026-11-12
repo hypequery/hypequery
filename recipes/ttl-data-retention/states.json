@@ -1,0 +1,62 @@
+{
+  "beforeMaterialize": [
+    {
+      "plan": "enterprise",
+      "events": "855125",
+      "eventsWithPath": "855125",
+      "oldestEvent": "2025-11-01 00:01:14",
+      "newestEvent": "2026-10-31 23:58:36"
+    },
+    {
+      "plan": "free",
+      "events": "2063",
+      "eventsWithPath": "2063",
+      "oldestEvent": "2025-11-01 15:18:19",
+      "newestEvent": "2026-10-31 16:11:29"
+    },
+    {
+      "plan": "growth",
+      "events": "126853",
+      "eventsWithPath": "126853",
+      "oldestEvent": "2025-11-01 00:11:30",
+      "newestEvent": "2026-10-31 23:59:38"
+    },
+    {
+      "plan": "starter",
+      "events": "15959",
+      "eventsWithPath": "15959",
+      "oldestEvent": "2025-11-01 03:26:36",
+      "newestEvent": "2026-10-31 23:48:31"
+    }
+  ],
+  "afterMaterialize": [
+    {
+      "plan": "enterprise",
+      "events": "855125",
+      "eventsWithPath": "24632",
+      "oldestEvent": "2025-11-01 00:01:14",
+      "newestEvent": "2026-10-31 23:58:36"
+    },
+    {
+      "plan": "free",
+      "events": "261",
+      "eventsWithPath": "59",
+      "oldestEvent": "2026-10-03 06:10:03",
+      "newestEvent": "2026-10-31 16:11:29"
+    },
+    {
+      "plan": "growth",
+      "events": "126853",
+      "eventsWithPath": "4863",
+      "oldestEvent": "2025-11-01 00:11:30",
+      "newestEvent": "2026-10-31 23:59:38"
+    },
+    {
+      "plan": "starter",
+      "events": "11259",
+      "eventsWithPath": "636",
+      "oldestEvent": "2026-05-06 00:04:44",
+      "newestEvent": "2026-10-31 23:48:31"
+    }
+  ]
+}

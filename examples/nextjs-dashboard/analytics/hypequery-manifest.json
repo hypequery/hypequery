@@ -1,0 +1,6 @@
+{
+  "dataset:events": {
+    "method": "POST",
+    "path": "/api/analytics/datasets/events/query"
+  }
+}

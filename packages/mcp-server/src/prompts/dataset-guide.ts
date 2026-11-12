@@ -32,7 +32,7 @@ ${dimensions.map((d) => `- ${d}`).join('\n')}
 ## Available Measures
 ${measures.map((m) => {
   const definition = catalog?.measures[m] ?? catalog?.derivedMeasures?.[m];
-  const range = definition?.requiresTimeRange ? ` (requires by and a bounded ISO time range on ${catalog?.timeKey})` : '';
+  const range = definition?.requiresTimeRange ? ` (requires grain and a bounded ISO time range on ${catalog?.timeKey})` : '';
   const grains = definition?.supportedGrains ? ` [grains: ${definition.supportedGrains.join(', ')}]` : '';
   return `- ${m}${range}${grains}`;
 }).join('\n')}

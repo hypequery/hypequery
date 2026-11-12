@@ -1,0 +1,42 @@
+[
+  {
+    "isoWeek": "2025-W51",
+    "isoWeekStart": "2025-12-15",
+    "events": "11929",
+    "activeUsers": "809",
+    "firstEventAt": "2025-12-15 00:03:42",
+    "lastEventAt": "2025-12-21 23:54:04"
+  },
+  {
+    "isoWeek": "2025-W52",
+    "isoWeekStart": "2025-12-22",
+    "events": "12055",
+    "activeUsers": "828",
+    "firstEventAt": "2025-12-22 00:02:03",
+    "lastEventAt": "2025-12-28 23:48:21"
+  },
+  {
+    "isoWeek": "2026-W01",
+    "isoWeekStart": "2025-12-29",
+    "events": "12420",
+    "activeUsers": "838",
+    "firstEventAt": "2025-12-29 00:01:59",
+    "lastEventAt": "2026-01-04 23:58:01"
+  },
+  {
+    "isoWeek": "2026-W02",
+    "isoWeekStart": "2026-01-05",
+    "events": "12924",
+    "activeUsers": "847",
+    "firstEventAt": "2026-01-05 00:00:19",
+    "lastEventAt": "2026-01-11 23:57:26"
+  },
+  {
+    "isoWeek": "2026-W03",
+    "isoWeekStart": "2026-01-12",
+    "events": "13011",
+    "activeUsers": "865",
+    "firstEventAt": "2026-01-12 00:01:09",
+    "lastEventAt": "2026-01-18 23:59:51"
+  }
+]

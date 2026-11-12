@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "hypequery-seed-analytics": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "--directory", "${workspaceFolder}", "server.py"],
+      "env": {
+        "TENANT_ID": "153",
+        "CLICKHOUSE_URL": "http://localhost:8123",
+        "CLICKHOUSE_PASSWORD": "hypequery"
+      }
+    }
+  }
+}

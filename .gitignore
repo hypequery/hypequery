@@ -45,3 +45,6 @@ dist-file-index.txt
 
 # Local browser qualification artifacts
 output/playwright/
+
+# scripts/examples/publish-templates.mjs output
+.template-export/

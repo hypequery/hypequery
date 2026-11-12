@@ -1,0 +1,22 @@
+{
+  "name": "@hypequery-recipes/async-inserts-node",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ingest from Node into ClickHouse three ways with hypequery: per-row inserts, client-side batches, and async_insert, measured by parts created and rows landed",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "npm run build && node dist/recipe.js",
+    "capture": "npm run build && node dist/recipe.js --write",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "usage-based-billing",
+  "kind": "example",
+  "title": "Usage-based billing on ClickHouse: metering, invoice previews and MRR",
+  "outcome": "Meter per-tenant usage in ClickHouse and turn it into Decimal-exact invoice previews, a usage-this-month API and MRR, from one TypeScript definition.",
+  "language": "typescript",
+  "stack": ["node", "hono", "clickhouse"],
+  "useCases": ["billing", "usage-metering", "saas-analytics", "multi-tenant"],
+  "packages": ["@hypequery/serve", "@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "analytics/billing.ts",
+  "env": [
+    { "name": "PORT", "description": "HTTP port (default 3000)", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "curl -s 'localhost:3000/api/billing/invoice-preview?period=2026-09' -H 'authorization: Bearer demo-relay-works'",
+  "related": ["multi-tenant-embedded-analytics", "materialized-view-rollups"],
+  "leadPages": ["/clickhouse-saas-analytics", "/clickhouse-api", "/clickhouse-typescript", "/clickhouse-multi-tenant-analytics", "/clickhouse-hono"],
+  "functionPages": ["sum", "sum-if", "to-date"],
+  "keywords": [
+    "clickhouse usage based billing",
+    "clickhouse metering",
+    "usage metering clickhouse",
+    "clickhouse mrr"
+  ],
+  "minVersion": "2.14.0"
+}

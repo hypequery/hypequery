@@ -1,0 +1,86 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "chdb-embedded-analytics",
+  "kind": "example",
+  "title": "Embedded ClickHouse analytics with chDB: typed datasets, a CLI and an API, no server",
+  "outcome": "Run a ClickHouse semantic layer inside your Python process with chDB: no Docker, no server, then point the same datasets at ClickHouse Cloud.",
+  "language": "python",
+  "stack": [
+    "python",
+    "chdb",
+    "clickhouse"
+  ],
+  "useCases": [
+    "embedded-analytics",
+    "semantic-layer",
+    "local-development"
+  ],
+  "packages": [
+    "hypequery"
+  ],
+  "keyFile": "analytics/backend.py",
+  "env": [
+    {
+      "name": "ANALYTICS_BACKEND",
+      "description": "chdb (default: embedded, no server) or clickhouse (the same datasets on a server, read from CLICKHOUSE_*)",
+      "required": false
+    },
+    {
+      "name": "CHDB_PATH",
+      "description": "chDB database directory (default ./analytics.chdb, built on first run)",
+      "required": false
+    },
+    {
+      "name": "HYPEQUERY_DEV_TOKEN",
+      "description": "Bearer token the demo API accepts. Defaults to local-dev-token; replace with real auth before deploying.",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "Only with ANALYTICS_BACKEND=clickhouse: ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "Only with ANALYTICS_BACKEND=clickhouse: ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "Only with ANALYTICS_BACKEND=clickhouse: ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Only with ANALYTICS_BACKEND=clickhouse: database holding events and tenants (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "uv sync",
+    "dev": "uv run python -m hypequery.serve.dev app:app",
+    "test": "uv run pytest -q"
+  },
+  "exampleRequest": "uv run python report.py --by tenant.plan",
+  "related": [
+    "fastapi-analytics-api",
+    "mcp-agent-analytics",
+    "p95-latency"
+  ],
+  "leadPages": [
+    "/clickhouse-python",
+    "/clickhouse-python-analytics"
+  ],
+  "functionPages": [
+    "quantile",
+    "multi-if"
+  ],
+  "keywords": [
+    "chdb example",
+    "clickhouse embedded analytics",
+    "embedded clickhouse",
+    "clickhouse local python",
+    "chdb vs duckdb"
+  ],
+  "minVersion": "0.1.0"
+}

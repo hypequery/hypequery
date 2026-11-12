@@ -9,7 +9,7 @@
     "lint": "eslint",
     "telemetry:schema": "tsx scripts/telemetry-schema.mjs",
     "telemetry:schema:check": "tsx scripts/telemetry-schema.mjs --check",
-    "test": "npm run telemetry:schema:check && tsx --test src/lib/telemetry/*.test.ts src/lib/changelog/*.test.ts",
+    "test": "npm run telemetry:schema:check && tsx --test src/lib/telemetry/*.test.ts src/lib/changelog/*.test.ts src/lib/*.test.ts",
     "check:functions": "tsx scripts/check-function-examples.mts"
   },
   "dependencies": {

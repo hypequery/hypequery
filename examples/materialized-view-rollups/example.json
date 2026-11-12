@@ -1,0 +1,70 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "materialized-view-rollups",
+  "kind": "example",
+  "title": "ClickHouse materialized view rollups: incremental vs refreshable",
+  "outcome": "Pre-aggregate a million events two ways, incremental and refreshable, and query both through one typed hypequery dataset.",
+  "language": "typescript",
+  "stack": [
+    "node",
+    "clickhouse"
+  ],
+  "useCases": [
+    "pre-aggregation",
+    "dashboards",
+    "time-series"
+  ],
+  "packages": [
+    "@hypequery/datasets",
+    "@hypequery/clickhouse"
+  ],
+  "keyFile": "src/datasets.ts",
+  "env": [
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "pnpm install",
+    "dev": "pnpm dev",
+    "test": "pnpm test"
+  },
+  "exampleRequest": "node dist/query.js --json",
+  "related": [],
+  "leadPages": [
+    "/clickhouse-typescript",
+    "/clickhouse-nodejs",
+    "/clickhouse-time-series",
+    "/clickhouse-semantic-layer"
+  ],
+  "functionPages": [
+    "to-date",
+    "uniq",
+    "quantile",
+    "count"
+  ],
+  "keywords": [
+    "clickhouse materialized view",
+    "clickhouse refreshable materialized view",
+    "clickhouse aggregatingmergetree",
+    "clickhouse materialized view typescript"
+  ],
+  "minVersion": "2.14.0"
+}

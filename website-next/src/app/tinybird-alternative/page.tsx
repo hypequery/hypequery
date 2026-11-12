@@ -49,6 +49,7 @@ api.start({ port: 3000 });
 export default function TinybirdAlternativePage() {
   return (
     <ClickhousePillarPage
+      leadPage="/tinybird-alternative"
       eyebrow="Tinybird Alternative"
       title="Looking for a Tinybird alternative?"
       description="Tinybird's pitch is real: point data at their ClickHouse, write SQL pipes, get APIs. What sends teams looking elsewhere is usually one of three things: the data has to live in their platform, you would be paying for a second ClickHouse-based platform next to the one you already run, or the analytics logic should live in your own application code with types from your own schema. hypequery plus your own ClickHouse covers all three."

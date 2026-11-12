@@ -1,0 +1,73 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "mcp-agent-analytics-python",
+  "kind": "example",
+  "title": "A governed ClickHouse MCP server in Python: agents query datasets, not SQL",
+  "outcome": "Give Claude Code, Cursor or Claude Desktop ClickHouse analytics from Python: four tools over published datasets, tenant fixed by env, no SQL.",
+  "language": "python",
+  "stack": [
+    "python",
+    "mcp"
+  ],
+  "useCases": [
+    "ai-agents",
+    "multi-tenant",
+    "semantic-layer"
+  ],
+  "packages": [
+    "hypequery"
+  ],
+  "keyFile": "server.py",
+  "env": [
+    {
+      "name": "TENANT_ID",
+      "description": "The tenant this server process may see (seed tenants: 153, 170, 146). Set by the MCP client's launch config, never by the agent.",
+      "required": true
+    },
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "uv sync",
+    "dev": "uv run agent.py",
+    "test": "uv run pytest -q"
+  },
+  "exampleRequest": "TENANT_ID=153 uv run agent.py --json",
+  "related": [
+    "mcp-agent-analytics",
+    "fastapi-analytics-api"
+  ],
+  "leadPages": [
+    "/clickhouse-python-mcp",
+    "/clickhouse-mcp"
+  ],
+  "functionPages": [
+    "count",
+    "uniq",
+    "quantile"
+  ],
+  "keywords": [
+    "clickhouse mcp python",
+    "clickhouse mcp server",
+    "python mcp server clickhouse"
+  ],
+  "minVersion": "0.1.0"
+}

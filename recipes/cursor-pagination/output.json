@@ -1,0 +1,708 @@
+{
+  "page1": [
+    {
+      "event_id": "825213",
+      "occurred_at": "2026-10-31 23:58:36",
+      "event_type": "api_call",
+      "user_id": 1889,
+      "path": "/api/v1/datasets"
+    },
+    {
+      "event_id": "777014",
+      "occurred_at": "2026-10-31 23:44:38",
+      "event_type": "page_view",
+      "user_id": 1891,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "935492",
+      "occurred_at": "2026-10-31 23:33:03",
+      "event_type": "login",
+      "user_id": 2031,
+      "path": "/login"
+    },
+    {
+      "event_id": "294756",
+      "occurred_at": "2026-10-31 23:27:04",
+      "event_type": "api_call",
+      "user_id": 2058,
+      "path": "/api/v1/query"
+    },
+    {
+      "event_id": "294478",
+      "occurred_at": "2026-10-31 23:07:33",
+      "event_type": "api_call",
+      "user_id": 1909,
+      "path": "/api/v1/export"
+    },
+    {
+      "event_id": "93102",
+      "occurred_at": "2026-10-31 22:32:44",
+      "event_type": "page_view",
+      "user_id": 1903,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "397022",
+      "occurred_at": "2026-10-31 22:26:59",
+      "event_type": "api_call",
+      "user_id": 1889,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "821664",
+      "occurred_at": "2026-10-31 22:20:03",
+      "event_type": "page_view",
+      "user_id": 2059,
+      "path": "/billing"
+    },
+    {
+      "event_id": "179828",
+      "occurred_at": "2026-10-31 22:19:17",
+      "event_type": "query_run",
+      "user_id": 1905,
+      "path": "/explore"
+    },
+    {
+      "event_id": "656327",
+      "occurred_at": "2026-10-31 22:10:11",
+      "event_type": "page_view",
+      "user_id": 1963,
+      "path": "/reports"
+    },
+    {
+      "event_id": "299529",
+      "occurred_at": "2026-10-31 21:48:27",
+      "event_type": "query_run",
+      "user_id": 2003,
+      "path": "/explore"
+    },
+    {
+      "event_id": "637913",
+      "occurred_at": "2026-10-31 21:21:46",
+      "event_type": "login",
+      "user_id": 1968,
+      "path": "/login"
+    },
+    {
+      "event_id": "780308",
+      "occurred_at": "2026-10-31 21:13:57",
+      "event_type": "page_view",
+      "user_id": 1891,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "968988",
+      "occurred_at": "2026-10-31 21:09:48",
+      "event_type": "query_run",
+      "user_id": 1972,
+      "path": "/explore"
+    },
+    {
+      "event_id": "127334",
+      "occurred_at": "2026-10-31 20:50:17",
+      "event_type": "export",
+      "user_id": 1972,
+      "path": "/export"
+    },
+    {
+      "event_id": "555402",
+      "occurred_at": "2026-10-31 20:49:16",
+      "event_type": "login",
+      "user_id": 1863,
+      "path": "/login"
+    },
+    {
+      "event_id": "82528",
+      "occurred_at": "2026-10-31 20:40:52",
+      "event_type": "query_run",
+      "user_id": 1905,
+      "path": "/explore"
+    },
+    {
+      "event_id": "980412",
+      "occurred_at": "2026-10-31 20:38:07",
+      "event_type": "query_run",
+      "user_id": 1979,
+      "path": "/explore"
+    },
+    {
+      "event_id": "21641",
+      "occurred_at": "2026-10-31 20:35:06",
+      "event_type": "page_view",
+      "user_id": 1984,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "489677",
+      "occurred_at": "2026-10-31 20:30:10",
+      "event_type": "page_view",
+      "user_id": 1963,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "774752",
+      "occurred_at": "2026-10-31 20:26:42",
+      "event_type": "page_view",
+      "user_id": 2023,
+      "path": "/settings"
+    },
+    {
+      "event_id": "908309",
+      "occurred_at": "2026-10-31 20:19:41",
+      "event_type": "api_call",
+      "user_id": 1885,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "669774",
+      "occurred_at": "2026-10-31 20:02:40",
+      "event_type": "query_run",
+      "user_id": 1945,
+      "path": "/explore"
+    },
+    {
+      "event_id": "829012",
+      "occurred_at": "2026-10-31 20:01:07",
+      "event_type": "page_view",
+      "user_id": 1889,
+      "path": "/billing"
+    },
+    {
+      "event_id": "716654",
+      "occurred_at": "2026-10-31 20:00:53",
+      "event_type": "query_run",
+      "user_id": 1949,
+      "path": "/explore"
+    },
+    {
+      "event_id": "738629",
+      "occurred_at": "2026-10-31 20:00:49",
+      "event_type": "page_view",
+      "user_id": 1848,
+      "path": "/explore"
+    },
+    {
+      "event_id": "901894",
+      "occurred_at": "2026-10-31 19:31:55",
+      "event_type": "page_view",
+      "user_id": 1978,
+      "path": "/reports"
+    },
+    {
+      "event_id": "704107",
+      "occurred_at": "2026-10-31 19:19:05",
+      "event_type": "api_call",
+      "user_id": 1879,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "966726",
+      "occurred_at": "2026-10-31 19:05:31",
+      "event_type": "login",
+      "user_id": 2008,
+      "path": "/login"
+    },
+    {
+      "event_id": "873359",
+      "occurred_at": "2026-10-31 19:05:15",
+      "event_type": "page_view",
+      "user_id": 1889,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "709106",
+      "occurred_at": "2026-10-31 19:00:05",
+      "event_type": "page_view",
+      "user_id": 1841,
+      "path": "/reports"
+    },
+    {
+      "event_id": "648913",
+      "occurred_at": "2026-10-31 18:58:48",
+      "event_type": "query_run",
+      "user_id": 2059,
+      "path": "/explore"
+    },
+    {
+      "event_id": "80483",
+      "occurred_at": "2026-10-31 18:56:34",
+      "event_type": "error",
+      "user_id": 2058,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "597547",
+      "occurred_at": "2026-10-31 18:40:29",
+      "event_type": "api_call",
+      "user_id": 1979,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "973335",
+      "occurred_at": "2026-10-31 18:38:36",
+      "event_type": "api_call",
+      "user_id": 1889,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "721142",
+      "occurred_at": "2026-10-31 18:21:54",
+      "event_type": "api_call",
+      "user_id": 2008,
+      "path": "/api/v1/export"
+    },
+    {
+      "event_id": "384713",
+      "occurred_at": "2026-10-31 18:17:22",
+      "event_type": "page_view",
+      "user_id": 2028,
+      "path": "/explore"
+    },
+    {
+      "event_id": "571022",
+      "occurred_at": "2026-10-31 18:16:00",
+      "event_type": "page_view",
+      "user_id": 1933,
+      "path": "/explore"
+    },
+    {
+      "event_id": "970250",
+      "occurred_at": "2026-10-31 18:14:56",
+      "event_type": "page_view",
+      "user_id": 1979,
+      "path": "/settings"
+    },
+    {
+      "event_id": "205863",
+      "occurred_at": "2026-10-31 17:56:37",
+      "event_type": "query_run",
+      "user_id": 2023,
+      "path": "/explore"
+    },
+    {
+      "event_id": "477621",
+      "occurred_at": "2026-10-31 17:54:03",
+      "event_type": "api_call",
+      "user_id": 1972,
+      "path": "/api/v1/export"
+    },
+    {
+      "event_id": "777899",
+      "occurred_at": "2026-10-31 17:48:18",
+      "event_type": "query_run",
+      "user_id": 1935,
+      "path": "/explore"
+    },
+    {
+      "event_id": "510795",
+      "occurred_at": "2026-10-31 17:46:47",
+      "event_type": "page_view",
+      "user_id": 1859,
+      "path": "/reports"
+    },
+    {
+      "event_id": "961248",
+      "occurred_at": "2026-10-31 17:38:34",
+      "event_type": "page_view",
+      "user_id": 1933,
+      "path": "/reports"
+    },
+    {
+      "event_id": "421069",
+      "occurred_at": "2026-10-31 17:36:47",
+      "event_type": "page_view",
+      "user_id": 2033,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "239439",
+      "occurred_at": "2026-10-31 17:25:42",
+      "event_type": "api_call",
+      "user_id": 1899,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "907866",
+      "occurred_at": "2026-10-31 17:22:43",
+      "event_type": "page_view",
+      "user_id": 1934,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "810745",
+      "occurred_at": "2026-10-31 16:55:06",
+      "event_type": "query_run",
+      "user_id": 1909,
+      "path": "/explore"
+    },
+    {
+      "event_id": "3037",
+      "occurred_at": "2026-10-31 16:49:18",
+      "event_type": "query_run",
+      "user_id": 1841,
+      "path": "/explore"
+    },
+    {
+      "event_id": "499194",
+      "occurred_at": "2026-10-31 16:49:06",
+      "event_type": "login",
+      "user_id": 2059,
+      "path": "/login"
+    }
+  ],
+  "cursor": "eyJvY2N1cnJlZEF0IjoiMjAyNi0xMC0zMSAxNjo0OTowNiIsImV2ZW50SWQiOiI0OTkxOTQifQ",
+  "page2": [
+    {
+      "event_id": "196645",
+      "occurred_at": "2026-10-31 16:46:30",
+      "event_type": "page_view",
+      "user_id": 1933,
+      "path": "/explore"
+    },
+    {
+      "event_id": "635639",
+      "occurred_at": "2026-10-31 16:44:31",
+      "event_type": "api_call",
+      "user_id": 2058,
+      "path": "/api/v1/query"
+    },
+    {
+      "event_id": "541872",
+      "occurred_at": "2026-10-31 16:44:07",
+      "event_type": "query_run",
+      "user_id": 2032,
+      "path": "/explore"
+    },
+    {
+      "event_id": "105753",
+      "occurred_at": "2026-10-31 16:42:46",
+      "event_type": "api_call",
+      "user_id": 1896,
+      "path": "/api/v1/datasets"
+    },
+    {
+      "event_id": "259012",
+      "occurred_at": "2026-10-31 16:40:25",
+      "event_type": "api_call",
+      "user_id": 1889,
+      "path": "/api/v1/datasets"
+    },
+    {
+      "event_id": "432446",
+      "occurred_at": "2026-10-31 16:37:14",
+      "event_type": "login",
+      "user_id": 2033,
+      "path": "/login"
+    },
+    {
+      "event_id": "407452",
+      "occurred_at": "2026-10-31 16:36:35",
+      "event_type": "page_view",
+      "user_id": 1879,
+      "path": "/explore"
+    },
+    {
+      "event_id": "430566",
+      "occurred_at": "2026-10-31 16:29:07",
+      "event_type": "page_view",
+      "user_id": 2008,
+      "path": "/settings"
+    },
+    {
+      "event_id": "87885",
+      "occurred_at": "2026-10-31 16:18:49",
+      "event_type": "query_run",
+      "user_id": 1936,
+      "path": "/explore"
+    },
+    {
+      "event_id": "915802",
+      "occurred_at": "2026-10-31 16:08:14",
+      "event_type": "api_call",
+      "user_id": 1891,
+      "path": "/api/v1/query"
+    },
+    {
+      "event_id": "253611",
+      "occurred_at": "2026-10-31 16:06:17",
+      "event_type": "page_view",
+      "user_id": 1842,
+      "path": "/reports"
+    },
+    {
+      "event_id": "73579",
+      "occurred_at": "2026-10-31 16:06:06",
+      "event_type": "page_view",
+      "user_id": 2003,
+      "path": "/team"
+    },
+    {
+      "event_id": "794247",
+      "occurred_at": "2026-10-31 15:56:09",
+      "event_type": "query_run",
+      "user_id": 1944,
+      "path": "/explore"
+    },
+    {
+      "event_id": "528414",
+      "occurred_at": "2026-10-31 15:48:16",
+      "event_type": "api_call",
+      "user_id": 2058,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "736289",
+      "occurred_at": "2026-10-31 15:46:39",
+      "event_type": "page_view",
+      "user_id": 1933,
+      "path": "/explore"
+    },
+    {
+      "event_id": "37820",
+      "occurred_at": "2026-10-31 15:29:45",
+      "event_type": "page_view",
+      "user_id": 2049,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "499559",
+      "occurred_at": "2026-10-31 15:25:23",
+      "event_type": "page_view",
+      "user_id": 1891,
+      "path": "/billing"
+    },
+    {
+      "event_id": "443249",
+      "occurred_at": "2026-10-31 15:21:51",
+      "event_type": "page_view",
+      "user_id": 1889,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "413561",
+      "occurred_at": "2026-10-31 15:04:21",
+      "event_type": "page_view",
+      "user_id": 1960,
+      "path": "/team"
+    },
+    {
+      "event_id": "625421",
+      "occurred_at": "2026-10-31 14:55:00",
+      "event_type": "api_call",
+      "user_id": 1905,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "498146",
+      "occurred_at": "2026-10-31 14:51:04",
+      "event_type": "api_call",
+      "user_id": 2049,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "141196",
+      "occurred_at": "2026-10-31 14:40:21",
+      "event_type": "api_call",
+      "user_id": 1889,
+      "path": "/api/v1/export"
+    },
+    {
+      "event_id": "607155",
+      "occurred_at": "2026-10-31 14:39:35",
+      "event_type": "api_call",
+      "user_id": 1963,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "349393",
+      "occurred_at": "2026-10-31 14:33:08",
+      "event_type": "page_view",
+      "user_id": 1935,
+      "path": "/billing"
+    },
+    {
+      "event_id": "246017",
+      "occurred_at": "2026-10-31 14:29:26",
+      "event_type": "api_call",
+      "user_id": 1879,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "185406",
+      "occurred_at": "2026-10-31 14:27:51",
+      "event_type": "api_call",
+      "user_id": 1978,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "797027",
+      "occurred_at": "2026-10-31 14:17:54",
+      "event_type": "api_call",
+      "user_id": 1909,
+      "path": "/api/v1/query"
+    },
+    {
+      "event_id": "749079",
+      "occurred_at": "2026-10-31 14:01:44",
+      "event_type": "page_view",
+      "user_id": 1838,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "472087",
+      "occurred_at": "2026-10-31 13:58:14",
+      "event_type": "api_call",
+      "user_id": 1949,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "734706",
+      "occurred_at": "2026-10-31 13:56:21",
+      "event_type": "api_call",
+      "user_id": 1905,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "949525",
+      "occurred_at": "2026-10-31 13:55:40",
+      "event_type": "api_call",
+      "user_id": 1831,
+      "path": "/api/v1/events"
+    },
+    {
+      "event_id": "575126",
+      "occurred_at": "2026-10-31 13:55:10",
+      "event_type": "export",
+      "user_id": 1903,
+      "path": "/export"
+    },
+    {
+      "event_id": "388478",
+      "occurred_at": "2026-10-31 13:50:10",
+      "event_type": "login",
+      "user_id": 2042,
+      "path": "/login"
+    },
+    {
+      "event_id": "433315",
+      "occurred_at": "2026-10-31 13:47:07",
+      "event_type": "api_call",
+      "user_id": 2028,
+      "path": "/api/v1/query"
+    },
+    {
+      "event_id": "387451",
+      "occurred_at": "2026-10-31 13:47:06",
+      "event_type": "page_view",
+      "user_id": 1903,
+      "path": "/explore"
+    },
+    {
+      "event_id": "228165",
+      "occurred_at": "2026-10-31 13:23:33",
+      "event_type": "api_call",
+      "user_id": 1828,
+      "path": "/api/v1/users"
+    },
+    {
+      "event_id": "249186",
+      "occurred_at": "2026-10-31 13:18:10",
+      "event_type": "page_view",
+      "user_id": 1957,
+      "path": "/settings"
+    },
+    {
+      "event_id": "767466",
+      "occurred_at": "2026-10-31 13:16:42",
+      "event_type": "page_view",
+      "user_id": 2032,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "81308",
+      "occurred_at": "2026-10-31 13:15:41",
+      "event_type": "page_view",
+      "user_id": 1933,
+      "path": "/settings"
+    },
+    {
+      "event_id": "116230",
+      "occurred_at": "2026-10-31 13:11:01",
+      "event_type": "page_view",
+      "user_id": 1905,
+      "path": "/billing"
+    },
+    {
+      "event_id": "284524",
+      "occurred_at": "2026-10-31 13:09:46",
+      "event_type": "page_view",
+      "user_id": 1905,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "66466",
+      "occurred_at": "2026-10-31 13:05:00",
+      "event_type": "page_view",
+      "user_id": 1970,
+      "path": "/explore"
+    },
+    {
+      "event_id": "665309",
+      "occurred_at": "2026-10-31 12:58:25",
+      "event_type": "page_view",
+      "user_id": 1848,
+      "path": "/explore"
+    },
+    {
+      "event_id": "815771",
+      "occurred_at": "2026-10-31 12:55:18",
+      "event_type": "query_run",
+      "user_id": 1831,
+      "path": "/explore"
+    },
+    {
+      "event_id": "507931",
+      "occurred_at": "2026-10-31 12:53:29",
+      "event_type": "query_run",
+      "user_id": 1933,
+      "path": "/explore"
+    },
+    {
+      "event_id": "500073",
+      "occurred_at": "2026-10-31 12:52:56",
+      "event_type": "page_view",
+      "user_id": 1842,
+      "path": "/billing"
+    },
+    {
+      "event_id": "590537",
+      "occurred_at": "2026-10-31 12:42:29",
+      "event_type": "page_view",
+      "user_id": 1841,
+      "path": "/dashboard"
+    },
+    {
+      "event_id": "602011",
+      "occurred_at": "2026-10-31 12:23:35",
+      "event_type": "error",
+      "user_id": 2033,
+      "path": "/alerts"
+    },
+    {
+      "event_id": "861576",
+      "occurred_at": "2026-10-31 12:17:18",
+      "event_type": "page_view",
+      "user_id": 2028,
+      "path": "/settings"
+    },
+    {
+      "event_id": "508131",
+      "occurred_at": "2026-10-31 12:14:23",
+      "event_type": "api_call",
+      "user_id": 2033,
+      "path": "/api/v1/users"
+    }
+  ],
+  "nextCursor": "eyJvY2N1cnJlZEF0IjoiMjAyNi0xMC0zMSAxMjoxNDoyMyIsImV2ZW50SWQiOiI1MDgxMzEifQ"
+}

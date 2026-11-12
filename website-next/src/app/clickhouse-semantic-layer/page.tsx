@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import CodeHighlight from '@/components/CodeHighlight';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
@@ -480,6 +481,7 @@ export default function ClickHouseSemanticLayerPage() {
           </div>
         </section>
 
+        <ExamplesBlock leadPage="/clickhouse-semantic-layer" />
         <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <SectionIntro eyebrow="Guides" title="Semantic layer guides and docs">
             <p>

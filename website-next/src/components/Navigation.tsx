@@ -22,6 +22,9 @@ export default function Navigation({ hasBanner = false }: { hasBanner?: boolean 
         </Link>
         <div className="flex items-center gap-3 sm:gap-8">
         <ProductMenu />
+        <Link href="/examples" className="nav-desktop-only text-[13.5px] font-medium text-text-muted transition hover:text-text">
+          Examples
+        </Link>
         <Link href="/docs" className="nav-desktop-only text-[13.5px] font-medium text-text-muted transition hover:text-text">
           Docs
         </Link>

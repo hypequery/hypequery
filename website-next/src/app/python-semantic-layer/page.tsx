@@ -73,6 +73,7 @@ scoped.execute(
 export default function PythonSemanticLayerPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/python-semantic-layer"
       eyebrow="Python semantic layer"
       title="A semantic layer you write in Python, not YAML"
       description="hypequery is an open-source semantic layer for ClickHouse that lives in your codebase. Define what revenue, buyers, and enterprise customers mean as Python code, then query those definitions from any part of your app, with tenant isolation enforced on every query."

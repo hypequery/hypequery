@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Embedded analytics, per tenant</title>
+  <style>
+    :root { color-scheme: light dark; --fg: #0b0b0b; --muted: #52514e; --bg: #fcfcfb; --card: #fff; --line: #e4e3df; --bar: #2a78d6; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #f0efec; --muted: #c3c2b7; --bg: #1a1a19; --card: #222221; --line: #383835; --bar: #3987e5; } }
+    body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 22px; margin: 0 0 4px; } .muted { color: var(--muted); margin: 0 0 16px; }
+    select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 16px 0; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+    .card h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .row { display: grid; grid-template-columns: 140px 1fr 70px; gap: 10px; align-items: center; font-size: 13px; padding: 3px 0; }
+    .track { height: 12px; background: var(--line); border-radius: 4px; overflow: hidden; } .fill { display: block; height: 100%; background: var(--bar); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+    pre { font-size: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; }
+    .state { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded analytics, scoped to one tenant</h1>
+    <p class="muted">Sign in as a demo user. The widget asks this server for a 15-minute analytics token, then queries hypequery with it. The tenant lives in the token, not in the request.</p>
+    <label>Signed in as <select id="user"></select></label>
+    <div class="grid" id="tiles"></div>
+    <div class="card"><h2>Events by type, last 30 days</h2><div id="types" class="state">Loading…</div></div>
+    <div class="card" style="margin-top:12px"><h2>What the browser can and cannot do</h2>
+      <p class="muted" style="margin:0 0 8px">The same token, asked to filter on <code>tenantId</code> explicitly:</p><pre id="forbidden">…</pre></div>
+  </main>
+  <script src="/embed.js"></script>
+</body>
+</html>

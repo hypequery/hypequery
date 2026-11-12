@@ -1,0 +1,75 @@
+[
+  {
+    "user_id": 112,
+    "paths": [
+      "/billing",
+      "/billing",
+      "/dashboard",
+      "/api/v1/query",
+      "/api/v1/export"
+    ],
+    "gapsSeconds": [
+      0,
+      25235,
+      6849,
+      8382,
+      21385
+    ],
+    "firstThree": [
+      "/billing",
+      "/billing",
+      "/dashboard"
+    ],
+    "events": "5"
+  },
+  {
+    "user_id": 113,
+    "paths": [
+      "/api/v1/users",
+      "/explore",
+      "/api/v1/datasets",
+      "/export",
+      "/dashboard"
+    ],
+    "gapsSeconds": [
+      0,
+      32308,
+      14164,
+      16274,
+      3312
+    ],
+    "firstThree": [
+      "/api/v1/users",
+      "/explore",
+      "/api/v1/datasets"
+    ],
+    "events": "5"
+  },
+  {
+    "user_id": 245,
+    "paths": [
+      "/api/v1/events",
+      "/login",
+      "/settings",
+      "/reports",
+      "/team",
+      "/api/v1/events",
+      "/billing"
+    ],
+    "gapsSeconds": [
+      0,
+      4329,
+      5507,
+      6677,
+      2201,
+      3856,
+      378
+    ],
+    "firstThree": [
+      "/api/v1/events",
+      "/login",
+      "/settings"
+    ],
+    "events": "7"
+  }
+]

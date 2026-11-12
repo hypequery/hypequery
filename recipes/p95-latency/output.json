@@ -1,0 +1,44 @@
+[
+  {
+    "eventType": "export",
+    "events": "1233",
+    "p50LatencyMs": "1128",
+    "p95LatencyMs": "2609.3999999999996",
+    "p99LatencyMs": "3451.280000000003"
+  },
+  {
+    "eventType": "query_run",
+    "events": "4851",
+    "p50LatencyMs": "514",
+    "p95LatencyMs": "1080",
+    "p99LatencyMs": "1405"
+  },
+  {
+    "eventType": "error",
+    "events": "984",
+    "p50LatencyMs": "244",
+    "p95LatencyMs": "513",
+    "p99LatencyMs": "681"
+  },
+  {
+    "eventType": "login",
+    "events": "2644",
+    "p50LatencyMs": "210",
+    "p95LatencyMs": "444.8499999999999",
+    "p99LatencyMs": "602.7100000000005"
+  },
+  {
+    "eventType": "api_call",
+    "events": "8073",
+    "p50LatencyMs": "152",
+    "p95LatencyMs": "324.39999999999964",
+    "p99LatencyMs": "431"
+  },
+  {
+    "eventType": "page_view",
+    "events": "14549",
+    "p50LatencyMs": "102",
+    "p95LatencyMs": "219",
+    "p99LatencyMs": "290"
+  }
+]

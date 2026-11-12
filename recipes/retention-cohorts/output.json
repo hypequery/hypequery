@@ -1,0 +1,247 @@
+[
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "0",
+    "cohortSize": "93",
+    "activeUsers": "51",
+    "retention": "0.5483870967741935"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "1",
+    "cohortSize": "93",
+    "activeUsers": "67",
+    "retention": "0.7204301075268817"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "2",
+    "cohortSize": "93",
+    "activeUsers": "55",
+    "retention": "0.5913978494623656"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "3",
+    "cohortSize": "93",
+    "activeUsers": "55",
+    "retention": "0.5913978494623656"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "4",
+    "cohortSize": "93",
+    "activeUsers": "54",
+    "retention": "0.5806451612903226"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "5",
+    "cohortSize": "93",
+    "activeUsers": "51",
+    "retention": "0.5483870967741935"
+  },
+  {
+    "cohortWeek": "2026-06-01",
+    "weeksSinceSignup": "6",
+    "cohortSize": "93",
+    "activeUsers": "51",
+    "retention": "0.5483870967741935"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "0",
+    "cohortSize": "88",
+    "activeUsers": "61",
+    "retention": "0.6931818181818182"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "1",
+    "cohortSize": "88",
+    "activeUsers": "56",
+    "retention": "0.6363636363636364"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "2",
+    "cohortSize": "88",
+    "activeUsers": "52",
+    "retention": "0.5909090909090909"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "3",
+    "cohortSize": "88",
+    "activeUsers": "51",
+    "retention": "0.5795454545454546"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "4",
+    "cohortSize": "88",
+    "activeUsers": "49",
+    "retention": "0.5568181818181818"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "5",
+    "cohortSize": "88",
+    "activeUsers": "48",
+    "retention": "0.5454545454545454"
+  },
+  {
+    "cohortWeek": "2026-06-08",
+    "weeksSinceSignup": "6",
+    "cohortSize": "88",
+    "activeUsers": "45",
+    "retention": "0.5113636363636364"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "0",
+    "cohortSize": "91",
+    "activeUsers": "61",
+    "retention": "0.6703296703296703"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "1",
+    "cohortSize": "91",
+    "activeUsers": "63",
+    "retention": "0.6923076923076923"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "2",
+    "cohortSize": "91",
+    "activeUsers": "62",
+    "retention": "0.6813186813186813"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "3",
+    "cohortSize": "91",
+    "activeUsers": "57",
+    "retention": "0.6263736263736264"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "4",
+    "cohortSize": "91",
+    "activeUsers": "56",
+    "retention": "0.6153846153846154"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "5",
+    "cohortSize": "91",
+    "activeUsers": "56",
+    "retention": "0.6153846153846154"
+  },
+  {
+    "cohortWeek": "2026-06-15",
+    "weeksSinceSignup": "6",
+    "cohortSize": "91",
+    "activeUsers": "51",
+    "retention": "0.5604395604395604"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "0",
+    "cohortSize": "72",
+    "activeUsers": "45",
+    "retention": "0.625"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "1",
+    "cohortSize": "72",
+    "activeUsers": "51",
+    "retention": "0.7083333333333334"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "2",
+    "cohortSize": "72",
+    "activeUsers": "40",
+    "retention": "0.5555555555555556"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "3",
+    "cohortSize": "72",
+    "activeUsers": "39",
+    "retention": "0.5416666666666666"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "4",
+    "cohortSize": "72",
+    "activeUsers": "36",
+    "retention": "0.5"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "5",
+    "cohortSize": "72",
+    "activeUsers": "36",
+    "retention": "0.5"
+  },
+  {
+    "cohortWeek": "2026-06-22",
+    "weeksSinceSignup": "6",
+    "cohortSize": "72",
+    "activeUsers": "36",
+    "retention": "0.5"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "0",
+    "cohortSize": "94",
+    "activeUsers": "61",
+    "retention": "0.648936170212766"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "1",
+    "cohortSize": "94",
+    "activeUsers": "66",
+    "retention": "0.7021276595744681"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "2",
+    "cohortSize": "94",
+    "activeUsers": "57",
+    "retention": "0.6063829787234043"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "3",
+    "cohortSize": "94",
+    "activeUsers": "56",
+    "retention": "0.5957446808510638"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "4",
+    "cohortSize": "94",
+    "activeUsers": "58",
+    "retention": "0.6170212765957447"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "5",
+    "cohortSize": "94",
+    "activeUsers": "56",
+    "retention": "0.5957446808510638"
+  },
+  {
+    "cohortWeek": "2026-06-29",
+    "weeksSinceSignup": "6",
+    "cohortSize": "94",
+    "activeUsers": "49",
+    "retention": "0.5212765957446809"
+  }
+]

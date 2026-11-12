@@ -108,9 +108,14 @@ export function ProductMenu() {
                 </Popover.Close>
               ))}
             </div>
-            <Popover.Close asChild>
-              <Link href="/docs" className="ml-auto shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-bg-alt focus-visible:bg-bg-alt focus-visible:outline-none">View all docs <span aria-hidden="true">→</span></Link>
-            </Popover.Close>
+            <div className="ml-auto flex items-center">
+              <Popover.Close asChild>
+                <Link href="/examples" className="shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold text-text-muted transition hover:bg-bg-alt hover:text-text focus-visible:bg-bg-alt focus-visible:outline-none">Browse examples</Link>
+              </Popover.Close>
+              <Popover.Close asChild>
+                <Link href="/docs" className="shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-bg-alt focus-visible:bg-bg-alt focus-visible:outline-none">View all docs <span aria-hidden="true">→</span></Link>
+              </Popover.Close>
+            </div>
           </div>
         </Popover.Content>
       </Popover.Portal>

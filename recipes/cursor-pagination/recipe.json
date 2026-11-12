@@ -1,0 +1,68 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "cursor-pagination",
+  "kind": "recipe",
+  "title": "Cursor pagination in ClickHouse: keyset vs LIMIT/OFFSET, measured",
+  "outcome": "Page a tenant's events newest first with a keyset cursor on (occurred_at, event_id) and see from EXPLAIN and query_log why it beats OFFSET on deep pages.",
+  "language": "typescript",
+  "stack": [
+    "node",
+    "clickhouse"
+  ],
+  "useCases": [
+    "api",
+    "pagination"
+  ],
+  "packages": [
+    "@hypequery/clickhouse"
+  ],
+  "keyFile": "src/pagination.ts",
+  "datasetFile": "src/schema.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "pnpm install",
+    "dev": "pnpm dev",
+    "test": "pnpm test"
+  },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": [
+    "multi-tenant-embedded-analytics",
+    "fastapi-analytics-api"
+  ],
+  "leadPages": [
+    "/clickhouse-query-builder",
+    "/clickhouse-api",
+    "/clickhouse-typescript"
+  ],
+  "functionPages": [],
+  "keywords": [
+    "clickhouse cursor pagination",
+    "clickhouse keyset pagination",
+    "clickhouse pagination",
+    "clickhouse limit offset performance"
+  ],
+  "minVersion": "2.14.0"
+}

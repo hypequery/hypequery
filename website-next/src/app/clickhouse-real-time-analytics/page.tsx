@@ -146,6 +146,7 @@ export async function GET(req: Request) {
 export default function ClickHouseRealTimeAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-real-time-analytics"
       eyebrow="ClickHouse Real-Time Analytics"
       title="Real-time ClickHouse analytics queries in TypeScript"
       description="ClickHouse is built for low-latency analytical reads. Getting that latency into a live TypeScript dashboard requires a query layer that keeps filters typed, keeps selected columns narrow, and works consistently across polling and streaming delivery patterns."

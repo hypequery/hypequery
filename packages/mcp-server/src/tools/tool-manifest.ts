@@ -149,6 +149,19 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
         required: ['name', 'target', 'fields'],
       },
     },
+    segments: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string' },
+          label: { type: 'string' },
+          description: { type: 'string' },
+        },
+        required: ['name'],
+      },
+    },
     limits: {
       type: 'object',
       additionalProperties: false,
