@@ -208,6 +208,15 @@ export async function mcpCommand(
         `Remove those options, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
       ]);
     }
+    const globalMiddlewares = source.globalMiddlewareCount?.() ?? 0;
+    if (tenantFromCredential && globalMiddlewares > 0) {
+      // A global middleware may refuse a verified caller over REST; MCP would not run it.
+      fail(`--http cannot apply the ${globalMiddlewares} global middleware(s) defineServe runs before every endpoint.`, [
+        'Callers are verified by defineServe auth, but defineServe({ middlewares }) and api.use() are not',
+        'run over MCP, so a caller could query data a middleware would refuse them over REST.',
+        `Remove those middlewares, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
     if (tenantFromCredential && options.tenant) {
       fail('--tenant cannot be combined with defineServe auth over --http; the credential names the tenant.');
     }
@@ -254,6 +263,12 @@ export async function mcpCommand(
         process.stderr.write(
           `hypequery MCP: every holder of ${MCP_SERVER_KEY_VARIABLE} can query ${names}, whatever their own `
           + 'access rules (auth, roles, scopes, middlewares, tenant) say; those are not applied over MCP.\n',
+        );
+      }
+      if (http.staticKey && globalMiddlewares > 0) {
+        process.stderr.write(
+          `hypequery MCP: the ${globalMiddlewares} global middleware(s) defineServe runs before every endpoint `
+          + `are not run over MCP; every holder of ${MCP_SERVER_KEY_VARIABLE} bypasses them.\n`,
         );
       }
       await (dependencies.serveHttp ?? runMcpHttpServer)({

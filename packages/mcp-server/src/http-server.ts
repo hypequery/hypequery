@@ -264,15 +264,23 @@ class HypequeryMCPHttpHandler implements MCPHttpHandler {
   }
 
   private async dispatch(session: Session, request: Request): Promise<Response> {
-    const { body, refusal } = await this.parsedBody(request);
-    if (refusal) return refusal;
+    // Active while the body is still uploading, so the idle sweep cannot close the session under it.
     session.active += 1;
     session.lastActivity = Date.now();
+    const release = () => {
+      session.active -= 1;
+      session.lastActivity = Date.now();
+    };
     let response: Response;
     try {
+      const { body, refusal } = await this.parsedBody(request);
+      if (refusal) {
+        release();
+        return refusal;
+      }
       response = await session.transport.handleRequest(request, body === undefined ? undefined : { parsedBody: body });
     } catch (error) {
-      session.active -= 1;
+      release();
       throw error;
     }
     return onBodyEnd(response, () => {

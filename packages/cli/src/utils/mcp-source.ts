@@ -22,6 +22,8 @@ export interface ServeMcpSource {
     readonly name: string;
     readonly rules: readonly string[];
   }[];
+  /** How many global middlewares REST runs before every endpoint; MCP does not run them. */
+  readonly globalMiddlewareCount?: () => number;
 }
 
 export function readServeMcpSource(value: unknown): ServeMcpSource | undefined {

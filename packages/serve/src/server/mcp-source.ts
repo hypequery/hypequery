@@ -35,6 +35,13 @@ export interface ServeMcpSource {
    * apply those, so a server that verifies callers must refuse to serve them.
    */
   readonly restricted?: readonly McpRestrictedEntry[];
+  /**
+   * How many global middlewares (`defineServe({ middlewares })` and `api.use()`) REST runs
+   * before every endpoint. The MCP transport does not run them, so a server that verifies
+   * callers must refuse to serve when any are configured. Read lazily: `api.use()` may run
+   * after `defineServe` returns.
+   */
+  readonly globalMiddlewareCount?: () => number;
 }
 
 /** The application's auth strategies and tenant extraction, as configured on `defineServe`. */
@@ -52,6 +59,7 @@ export function attachServeMcpSource(
       version: 1,
       datasets: Object.freeze({ ...source.datasets }),
       resolveAnalytics: source.resolveAnalytics,
+      ...(source.globalMiddlewareCount ? { globalMiddlewareCount: source.globalMiddlewareCount } : {}),
       ...(source.auth ? { auth: Object.freeze({ ...source.auth, strategies: Object.freeze([...source.auth.strategies]) }) } : {}),
       ...(source.restricted?.length
         ? { restricted: Object.freeze(source.restricted.map(entry => Object.freeze({ ...entry, rules: Object.freeze([...entry.rules]) }))) }

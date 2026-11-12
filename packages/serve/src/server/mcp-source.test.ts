@@ -60,6 +60,16 @@ describe('ServeMcpSource', () => {
     expect(Object.isFrozen(restricted)).toBe(true);
   });
 
+  it('reports global middlewares, including ones added by api.use() after defineServe', () => {
+    const middleware = async (_ctx: unknown, next: () => Promise<unknown>) => next();
+    const api = createAPI({ datasets: { orders: Orders }, middlewares: [middleware as never], queryBuilder });
+    const source = readServeMcpSource(api);
+    expect(source?.globalMiddlewareCount?.()).toBe(1);
+    api.use(middleware as never);
+    expect(source?.globalMiddlewareCount?.()).toBe(2);
+    expect(readServeMcpSource(createAPI({ datasets: { orders: Orders }, queryBuilder }))?.globalMiddlewareCount?.()).toBe(0);
+  });
+
   it('omits auth when the application configures none', () => {
     const source = readServeMcpSource(createAPI({ datasets: { orders: Orders }, queryBuilder }));
     expect(source).toBeDefined();

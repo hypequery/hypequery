@@ -15,7 +15,12 @@ import { mcpCommand } from './mcp.js';
 const mcpSourceSymbol = Symbol.for('hypequery.mcp-source.v1');
 const KEY = 'cli-static-key-0123456789';
 
-function apiWithDatasets(datasets: Record<string, unknown>, auth?: unknown, restricted?: unknown) {
+function apiWithDatasets(
+  datasets: Record<string, unknown>,
+  auth?: unknown,
+  restricted?: unknown,
+  globalMiddlewareCount?: () => number,
+) {
   const api = {};
   Object.defineProperty(api, mcpSourceSymbol, {
     value: {
@@ -24,6 +29,7 @@ function apiWithDatasets(datasets: Record<string, unknown>, auth?: unknown, rest
       resolveAnalytics: () => ({ query: () => [] }),
       ...(auth ? { auth } : {}),
       ...(restricted ? { restricted } : {}),
+      ...(globalMiddlewareCount ? { globalMiddlewareCount } : {}),
     },
     enumerable: false,
   });
@@ -114,6 +120,26 @@ describe('hypequery mcp --http', () => {
       '--http cannot apply the access rules these entries declare: finance (requiredRoles, requiredScopes), metric revenue (auth)',
     );
     expect(logger.indent).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_MCP_KEY'));
+  });
+
+  it('refuses to verify callers when defineServe has global middlewares MCP would skip', async () => {
+    const api = apiWithDatasets({ orders: { name: 'orders' } }, {
+      strategies: [async () => ({ userId: 'u1' })],
+    }, undefined, () => 2);
+    const serveHttp = vi.fn(async (_input: RunMcpHttpServerInput) => undefined);
+    await expect(mcpCommand(await entrypointFile(), { http: true }, {
+      loadApi: async () => api, loadMcp: async () => mcpPackage, serveHttp, env: {},
+    })).rejects.toThrow('process.exit:1');
+    expect(serveHttp).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      '--http cannot apply the 2 global middleware(s) defineServe runs before every endpoint.',
+    );
+  });
+
+  it('warns the static-key holders that global middlewares are not run over MCP', async () => {
+    const api = apiWithDatasets({ orders: { name: 'orders' } }, undefined, undefined, () => 1);
+    await serve({}, api, { HYPEQUERY_MCP_KEY: KEY });
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('every holder of HYPEQUERY_MCP_KEY bypasses them'));
   });
 
   it('serves those entries behind the one trusted key, which is a deliberate single principal', async () => {

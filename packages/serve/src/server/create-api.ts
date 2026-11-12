@@ -439,6 +439,8 @@ export const createAPI = <
     attachServeMcpSource(api, {
       datasets: mcpDatasets,
       ...(restricted.length > 0 ? { restricted } : {}),
+      // Read when MCP starts: `api.use()` may add global middlewares after defineServe.
+      globalMiddlewareCount: () => globalMiddlewares.length,
       ...(authStrategies.length > 0
         ? {
           auth: {

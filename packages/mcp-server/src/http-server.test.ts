@@ -249,6 +249,39 @@ describe('createMCPHttpHandler', () => {
     expect(handler.sessionCount).toBe(0);
   });
 
+  it('keeps a session whose request body is still uploading past the idle deadline', async () => {
+    vi.useFakeTimers();
+    const { handler } = staticHandler({ sessionIdleTimeoutMs: 1000 });
+    const opened = await handler.handle(post(initialize));
+    const sessionId = opened.headers.get('mcp-session-id')!;
+    await drain(opened);
+    let finish!: (chunk: string) => void;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        finish = (chunk) => {
+          controller.enqueue(new TextEncoder().encode(chunk));
+          controller.close();
+        };
+      },
+    });
+    const pending = handler.handle(new Request('http://mcp.example.test/mcp', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        authorization: `Bearer ${KEY}`,
+        'mcp-session-id': sessionId,
+        'mcp-protocol-version': '2025-06-18',
+      },
+      body,
+      duplex: 'half',
+    } as RequestInit));
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(handler.sessionCount).toBe(1);
+    finish(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }));
+    expect((await pending).status).toBe(202);
+  });
+
   it('hides unexpected authenticator errors', async () => {
     const { handler } = staticHandler({
       authenticate: () => {
