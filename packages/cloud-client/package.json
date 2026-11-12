@@ -1,0 +1,60 @@
+{
+  "name": "@hypequery/cloud-client",
+  "version": "0.0.0",
+  "description": "Typed client for hypequery Cloud's /v1 operations, generated from the operations spec",
+  "keywords": [
+    "hypequery",
+    "cloud",
+    "api-client",
+    "typescript"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "generate": "node codegen/generate.ts",
+    "generate:check": "node codegen/generate.ts --check",
+    "spec:check": "node codegen/spec.ts check",
+    "spec:update": "node codegen/spec.ts update",
+    "lint": "eslint \"src/**/*.ts\" \"codegen/**/*.ts\" \"type-tests/**/*.ts\"",
+    "test": "npm run test:types && npm run test:unit",
+    "test:unit": "vitest run",
+    "test:types": "tsc --project tsconfig.type-tests.json && tsc --project tsconfig.codegen.json",
+    "types": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/cloud-client"
+  },
+  "homepage": "https://hypequery.com",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

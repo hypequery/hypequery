@@ -1,6 +1,7 @@
 packages:
   - 'packages/cli'
   - 'packages/clickhouse'
+  - 'packages/cloud-client'
   - 'packages/react'
   - 'packages/datasets'
   - 'packages/deployment'
