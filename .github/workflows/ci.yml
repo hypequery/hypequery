@@ -182,6 +182,7 @@ jobs:
           cat <<'EOF' > .changeset/canary-release.md
           ---
           "@hypequery/clickhouse": patch
+          "@hypequery/cloud-client": patch
           "@hypequery/datasets": patch
           "@hypequery/deployment": patch
           "@hypequery/serve": patch
@@ -200,6 +201,8 @@ jobs:
               pnpm-lock.yaml \
               packages/clickhouse/package.json \
               packages/clickhouse/CHANGELOG.md \
+              packages/cloud-client/package.json \
+              packages/cloud-client/CHANGELOG.md \
               packages/datasets/package.json \
               packages/deployment/package.json \
               packages/deployment/CHANGELOG.md \
