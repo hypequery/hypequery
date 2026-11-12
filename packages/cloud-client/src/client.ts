@@ -102,7 +102,10 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
       headers: { ...options.headers, ...callOptions.headers },
     });
 
+    // The body read is guarded too: fetch resolves on headers, so a dropped
+    // connection can surface while the body downloads.
     let response: Response;
+    let body: Awaited<ReturnType<typeof readBody>>;
     try {
       response = await fetchImpl(request.url, {
         method: request.method,
@@ -110,6 +113,7 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
         ...(request.body === undefined ? {} : { body: request.body }),
         ...(callOptions.signal ? { signal: callOptions.signal } : {}),
       });
+      body = await readBody(response);
     } catch (error) {
       if (isAbort(error, callOptions.signal)) throw error;
       throw new CloudApiError({
@@ -123,7 +127,6 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
       });
     }
 
-    const body = await readBody(response);
     if (response.ok) {
       if (!body.ok) throw unexpected(operation, response, `${operation.name} returned a body that isn't JSON.`);
       return body.value;

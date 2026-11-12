@@ -209,6 +209,25 @@ describe('errors', () => {
     expect(error.cause).toBe(cause);
   });
 
+  it('wraps a connection drop while reading the body as NETWORK_ERROR', async () => {
+    const cause = new TypeError('terminated');
+    const { fetch } = mockFetch(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{"projects":'));
+              controller.error(cause);
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    const error = (await client(fetch).projects.list().catch((e: unknown) => e)) as CloudApiError;
+    expect(error).toBeInstanceOf(CloudApiError);
+    expect(error).toMatchObject({ code: 'NETWORK_ERROR', retryable: true });
+  });
+
   it('rethrows an abort unchanged', async () => {
     const controller = new AbortController();
     const fetch = (async (_url: string, init: RequestInit) => {

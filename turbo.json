@@ -23,6 +23,7 @@
         "src/**/*.json",
         "src/**/*.d.ts",
         "codegen/**/*.ts",
+        "**/__snapshots__/**",
         "test/**/*.ts",
         "test/**/*.tsx",
         "type-tests/**/*.ts",
