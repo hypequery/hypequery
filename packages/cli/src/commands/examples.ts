@@ -1,5 +1,8 @@
 import { emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { loadExamplesIndex, type ExamplesIndex, type LoadIndexOptions } from '../utils/examples/registry-index.js';
+import { countBucket } from '../utils/telemetry/buckets.js';
+import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
+import { EXAMPLE_KINDS } from '../utils/telemetry/domains.js';
 
 export interface ExamplesListOptions {
   json?: boolean;
@@ -28,11 +31,16 @@ export function formatExamplesTable(index: ExamplesIndex, kind?: string): string
 export async function examplesListCommand(options: ExamplesListOptions = {}, dependencies: ExamplesListDependencies = {}): Promise<void> {
   const write = dependencies.write ?? ((line: string) => console.log(line));
   const index = await loadExamplesIndex(dependencies);
-  if (options.kind && !['example', 'recipe', 'guide'].includes(options.kind)) {
+  if (options.kind && !(EXAMPLE_KINDS as readonly string[]).includes(options.kind)) {
     throw new Error(`Unknown --kind ${options.kind}; use example, recipe or guide.`);
   }
+  const entries = index.entries.filter((entry) => !options.kind || entry.kind === options.kind);
+  updateCommandTelemetry('examples', {
+    output: options.json ? 'json' : 'table',
+    entry_count_bucket: countBucket(entries.length),
+    ...(options.kind ? { kind_filter: options.kind as typeof EXAMPLE_KINDS[number] } : {}),
+  });
   if (options.json) {
-    const entries = index.entries.filter((entry) => !options.kind || entry.kind === options.kind);
     const result = { version: index.version, packageVersions: index.packageVersions, entries };
     // Under the global --json, stdout is reserved for the one result document.
     if (isJsonOutput()) emitResult(result);

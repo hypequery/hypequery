@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCommand } from './create.js';
 import type { ExamplesIndex } from '../utils/examples/registry-index.js';
 
+const telemetry = vi.hoisted(() => ({ metrics: {} as Record<string, unknown> }));
+vi.mock('../utils/telemetry/command-context.js', () => ({
+  updateCommandTelemetry: (command: string, metrics: Record<string, unknown>) => {
+    if (command === 'create') Object.assign(telemetry.metrics, metrics);
+  },
+}));
 vi.mock('../utils/logger.js', () => ({ logger: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn(), indent: vi.fn() } }));
 
 const temporary: string[] = [];
@@ -15,6 +21,7 @@ async function directory(): Promise<string> {
   return created;
 }
 afterEach(async () => {
+  telemetry.metrics = {};
   await Promise.all(temporary.splice(0).map((item) => rm(item, { recursive: true, force: true })));
 });
 
@@ -183,5 +190,74 @@ describe('hypequery create', () => {
       }),
     ).rejects.toThrow();
     expect(cleaned).toBe(true);
+  });
+
+  describe('telemetry', () => {
+    const deps = async () => {
+      const cwd = await directory();
+      const source = await fakeSource();
+      const published = { ...index, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard', language: 'typescript' as const }, index.entries[1]] };
+      return {
+        cwd,
+        fetchImpl: (async () => new Response(JSON.stringify(published), { status: 200 })) as unknown as typeof fetch,
+        source: 'https://example.test/examples.json',
+        npmFetch,
+        packageManager: 'pnpm' as const,
+        fetchSource: async () => ({ root: path.join(source), cleanup: async () => {} }),
+        write: () => {},
+      };
+    };
+
+    it('records the registry slug, kind, language and every stage of a successful scaffold', async () => {
+      const d = await deps();
+      // The fake checkout holds examples/demo; point the published entry at it.
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard', language: 'typescript' }] }), { status: 200 })) as unknown as typeof fetch;
+      await createCommand('nextjs-dashboard', { yes: true }, { ...d, runInstall: async () => {} });
+      expect(telemetry.metrics).toEqual({
+        stage_reached: 'completed', example_slug: 'nextjs-dashboard', example_kind: 'example', language: 'typescript',
+        interactive: false, seed: true, unpublished_pins: true, install_result: 'ok',
+      });
+    });
+
+    it('reports a failed install without failing the command', async () => {
+      const d = await deps();
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard' }] }), { status: 200 })) as unknown as typeof fetch;
+      const before = process.exitCode;
+      try {
+        await createCommand('nextjs-dashboard', { yes: true, seed: false }, { ...d, runInstall: async () => { throw new Error('boom'); } });
+      } finally {
+        process.exitCode = before;
+      }
+      expect(telemetry.metrics).toMatchObject({ stage_reached: 'completed', install_result: 'failed', seed: false, language: 'unknown' });
+      expect(telemetry.metrics).not.toHaveProperty('failed_stage');
+    });
+
+    it('counts a dist-tag fallback only for a dependency the scaffold rewrote', async () => {
+      const d = await deps();
+      // `@hypequery/react` is unpublished but no scaffolded package.json depends on it.
+      const versions = { '@hypequery/clickhouse': '2.14.0', '@hypequery/datasets': '0.12.0', '@hypequery/react': '9.9.9' };
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, packageVersions: versions, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard' }] }), { status: 200 })) as unknown as typeof fetch;
+      d.npmFetch = (async (url: string | URL | Request) => new Response('', { status: String(url).includes('9.9.9') ? 404 : 200 })) as unknown as typeof fetch;
+      await createCommand('nextjs-dashboard', { yes: true, install: false }, d);
+      expect(telemetry.metrics).toMatchObject({ unpublished_pins: false, install_result: 'skipped' });
+    });
+
+    it('reports a Python example install as skipped, since uv sync is left to the user', async () => {
+      const d = await deps();
+      const python = { ...index.entries[0], slug: 'mcp-agent-analytics-python', language: 'python' as const, run: { install: 'uv sync', dev: 'uv run agent.py', test: 'uv run pytest -q' } };
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [python] }), { status: 200 })) as unknown as typeof fetch;
+      await createCommand('mcp-agent-analytics-python', { yes: true }, { ...d, runInstall: async () => {} });
+      expect(telemetry.metrics).toMatchObject({ language: 'python', install_result: 'skipped', stage_reached: 'completed' });
+    });
+
+    it('never records a slug outside the registry, and names the stage that failed', async () => {
+      const d = await deps();
+      await expect(createCommand('my-private-thing', { yes: true }, d)).rejects.toThrow('Unknown example');
+      expect(telemetry.metrics).toEqual({ stage_reached: 'started', example_slug: 'other', interactive: false, failed_stage: 'resolved' });
+      telemetry.metrics = {};
+      // `demo` is in this index but not the public registry, so it is still `other`.
+      await expect(createCommand('demo', { yes: true, install: false }, { ...d, fetchImpl: indexFetch, fetchSource: async () => ({ root: path.join(d.cwd, 'missing'), cleanup: async () => {} }) })).rejects.toThrow();
+      expect(telemetry.metrics).toMatchObject({ example_slug: 'other', stage_reached: 'resolved', failed_stage: 'fetched' });
+    });
   });
 });

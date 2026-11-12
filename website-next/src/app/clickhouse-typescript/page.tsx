@@ -8,29 +8,85 @@ import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs',
+  title: 'ClickHouse TypeScript Client for ClickHouse Cloud',
   description:
-    'Use ClickHouse with TypeScript without hand-written interfaces. Generate schema types, build typed queries, and reuse them across APIs, jobs, and dashboards.',
+    'A TypeScript client for ClickHouse and ClickHouse Cloud. Connect over HTTPS, generate schema types from your Cloud service, and build typed queries and APIs.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-typescript'),
   },
   openGraph: {
-    images: ogImage('ClickHouse with TypeScript: Type-Safe Queries and APIs'),
+    images: ogImage('ClickHouse TypeScript Client for ClickHouse Cloud'),
     type: 'website',
     url: absoluteUrl('/clickhouse-typescript'),
-    title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
+    title: 'ClickHouse TypeScript Client for ClickHouse Cloud | hypequery',
     description:
-      'Build ClickHouse backends in TypeScript with generated schema types, typed queries, reusable analytics definitions, and cleaner delivery paths.',
+      'Connect to ClickHouse Cloud or self-hosted ClickHouse from TypeScript, with generated schema types, typed queries, and reusable analytics definitions.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
+    title: 'ClickHouse TypeScript Client for ClickHouse Cloud | hypequery',
     description:
-      'Use ClickHouse with TypeScript through generated schema types, typed queries, and reusable analytics APIs.',
+      'Use ClickHouse and ClickHouse Cloud with TypeScript through generated schema types, typed queries, and reusable analytics APIs.',
   },
 };
 
 const schemaCode = `npx hypequery generate --output analytics/schema.ts`;
+
+const cloudEnvCode = `# From the Connect dialog of your ClickHouse Cloud service
+CLICKHOUSE_URL=https://abc123xyz.eu-west-1.aws.clickhouse.cloud:8443
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=your-service-password
+CLICKHOUSE_DATABASE=default
+
+# Install the client and CLI in your project
+npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
+
+# Generates types from the tables in your Cloud service
+npx hypequery generate --output analytics/schema.ts`;
+
+const cloudClientCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema.js';
+
+export const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!, // https://<service>.<region>.<cloud>.clickhouse.cloud:8443
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+// Rows are typed from your Cloud schema, not hand-written interfaces
+const topPages = await db
+  .table('page_views')
+  .select(['path'])
+  .count('path', 'views')
+  .groupBy(['path'])
+  .orderBy('views', 'DESC')
+  .limit(10)
+  .execute();`;
+
+const cloudNotes = [
+  {
+    title: 'HTTPS on port 8443',
+    copy:
+      'ClickHouse Cloud serves the HTTP interface over TLS on port 8443. hypequery runs on @clickhouse/client underneath, so the same connection URL from the Cloud console works unchanged.',
+  },
+  {
+    title: 'Types from the service you deploy against',
+    copy:
+      'Point the CLI at a development or staging Cloud service and commit the generated schema file. Regenerate in CI when tables change, and the build fails where query code no longer matches.',
+  },
+  {
+    title: 'Idle services and cold starts',
+    copy:
+      'Cloud services can idle when no queries arrive. The first query after a pause can take longer while the service wakes, so set request timeouts with that in mind.',
+  },
+  {
+    title: 'Same code for self-hosted and local',
+    copy:
+      'Only the URL changes between ClickHouse Cloud, a self-hosted cluster, and a local Docker container. The query code, generated types, and API definitions stay the same.',
+  },
+];
 
 const queryCode = `const { query, serve } = initServe({
   context: () => ({ db }),
@@ -158,13 +214,13 @@ export default function ClickHouseTypeScriptPage() {
         <section className="border-b border-border">
           <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
             <p className={marketing.eyebrow}>
-              ClickHouse TypeScript
+              ClickHouse TypeScript client
             </p>
             <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
-              ClickHouse with TypeScript
+              A TypeScript client for ClickHouse and ClickHouse Cloud
             </h1>
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
-              The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
+              hypequery connects to ClickHouse Cloud, self-hosted ClickHouse, or a local container with the same code. The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
@@ -285,8 +341,41 @@ export default function ClickHouseTypeScriptPage() {
           </div>
         </section>
 
-        <section className={marketing.band}>
+        <section id="clickhouse-cloud" className={marketing.band}>
           <div className={`${marketing.container} py-14 sm:py-20`}>
+            <p className={marketing.eyebrow}>ClickHouse Cloud</p>
+            <h2 className={`mt-3 ${marketing.sectionTitle}`}>
+              Use ClickHouse Cloud from TypeScript
+            </h2>
+            <p className="mt-4 max-w-[760px] text-sm leading-6 text-text-muted sm:text-base">
+              The official <code className="font-mono text-text">@clickhouse/client</code> connects to ClickHouse Cloud and leaves the result types to you. hypequery uses that same client as its transport and adds the parts a ClickHouse Cloud TypeScript app needs next: types generated from the tables in your Cloud service, a typed query builder, and query definitions you can serve as HTTP endpoints. Copy the HTTPS URL and password from the <strong className="font-medium text-text">Connect</strong> dialog of your service, then:
+            </p>
+            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">1. Point the CLI at your Cloud service</p>
+                <CodeWindow code={cloudEnvCode} filename=".env + terminal" language="bash" className="mt-4" />
+              </div>
+              <div className={marketing.card}>
+                <p className="font-mono text-xs text-text-dim">2. Query it with generated types</p>
+                <CodeWindow code={cloudClientCode} filename="analytics/db.ts" className="mt-4" />
+              </div>
+            </div>
+            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {cloudNotes.map((note) => (
+                <div key={note.title} className={marketing.card}>
+                  <h3 className={marketing.cardTitle}>{note.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-text-muted">{note.copy}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-8 text-sm leading-6 text-text-muted">
+              Deciding between ClickHouse Cloud and a hosted API platform? Read <Link href="/compare/clickhouse-cloud-vs-tinybird" className="text-accent hover:opacity-70">ClickHouse Cloud vs Tinybird</Link>. Weighing the raw client? Read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-accent hover:opacity-70">hypequery vs @clickhouse/client</Link>.
+            </p>
+          </div>
+        </section>
+
+        <section className={`${marketing.container} py-14 sm:py-20`}>
+          <div>
             <p className="font-mono text-xs text-text-dim">Why teams search for this</p>
             <h2 className={`mt-3 ${marketing.sectionTitle}`}>
               Common ClickHouse TypeScript problems this page should solve
@@ -334,6 +423,14 @@ export default function ClickHouseTypeScriptPage() {
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-text-muted">
                   Start by introspecting the live schema. Generate TypeScript types from that schema. Build queries against those types. Then decide where the query needs to run: inline, behind an endpoint, or in a dashboard. That is the workflow hypequery makes easier.
+                </p>
+              </div>
+              <div className={marketing.card}>
+                <h3 className={marketing.cardTitle}>
+                  Does hypequery work with ClickHouse Cloud?
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-text-muted">
+                  Yes. Use the HTTPS URL on port 8443 from your service&apos;s Connect dialog as the host, with the service username and password. Schema generation, the query builder, and served endpoints all work the same as on self-hosted ClickHouse. See <a href="#clickhouse-cloud" className="text-accent hover:opacity-70">the ClickHouse Cloud setup above</a>.
                 </p>
               </div>
             </div>

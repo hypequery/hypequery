@@ -136,6 +136,20 @@ npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse`,
 claude mcp list`,
             filename: 'terminal',
             language: 'bash',
+            alternative: {
+              description:
+                'Using Claude Desktop? Open Settings → Developer → Edit Config, add this entry with the absolute path to your `mcp-config.mjs` (run `pwd` in the folder to get it), then fully quit and reopen Claude so it starts the server. If Node comes from a version manager such as nvm, set `command` to the path `which npx` prints.',
+              code: `{
+  "mcpServers": {
+    "clickhouse": {
+      "command": "npx",
+      "args": ["-y", "@hypequery/mcp", "--config", "/Users/you/clickhouse-mcp/mcp-config.mjs"]
+    }
+  }
+}`,
+              filename: 'claude_desktop_config.json',
+              language: 'json',
+            },
           },
           {
             title: 'Ask a question',

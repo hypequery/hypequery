@@ -46,8 +46,16 @@ type Quickstart = {
   eyebrow: string;
   title: string;
   description: string;
-  steps: Array<{ title: string; description: string; code: string; filename: string; language?: string }>;
+  steps: QuickstartStep[];
   footnote?: string;
+};
+
+type QuickstartSnippet = { description: string; code: string; filename: string; language?: string };
+
+type QuickstartStep = QuickstartSnippet & {
+  title: string;
+  /** Another way to do the same step (another client, say), shown under the main snippet. */
+  alternative?: QuickstartSnippet;
 };
 
 const EXTENSIONS: Record<Language, string> = { typescript: 'ts', python: 'py' };
@@ -291,6 +299,19 @@ export function ClickhousePillarPage({
                       language={step.language ?? language}
                       className="mt-4"
                     />
+                    {step.alternative ? (
+                      <>
+                        <p className="mt-5 text-sm leading-6 text-text-muted">
+                          <RichText text={step.alternative.description} />
+                        </p>
+                        <CodeWindow
+                          code={step.alternative.code}
+                          filename={step.alternative.filename}
+                          language={step.alternative.language ?? language}
+                          className="mt-4"
+                        />
+                      </>
+                    ) : null}
                   </li>
                 ))}
               </ol>

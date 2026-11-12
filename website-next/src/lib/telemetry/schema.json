@@ -890,6 +890,150 @@
             "optional": true
           }
         },
+        "examples": {
+          "kind_filter": {
+            "kind": "enum",
+            "description": "Which registry kinds are browsed?",
+            "values": [
+              "example",
+              "recipe",
+              "guide"
+            ],
+            "optional": true
+          },
+          "output": {
+            "kind": "enum",
+            "description": "Is the registry read by people or by tools?",
+            "values": [
+              "table",
+              "json"
+            ],
+            "optional": true
+          },
+          "entry_count_bucket": {
+            "kind": "enum",
+            "description": "How many registry entries are listed?",
+            "values": [
+              "0",
+              "1",
+              "2-5",
+              "6-20",
+              "21-100",
+              "101+"
+            ],
+            "optional": true
+          }
+        },
+        "create": {
+          "example_slug": {
+            "kind": "enum",
+            "description": "Which public registry entries are scaffolded? Input that names no registry entry becomes other.",
+            "values": [
+              "async-inserts-node",
+              "chdb-embedded-analytics",
+              "clickhouse-docker-compose",
+              "clickhouse-rest-api-openapi",
+              "clickhouse-vs-postgres-app-analytics",
+              "cursor-pagination",
+              "dictionary-lookups",
+              "django-analytics",
+              "fastapi-analytics-api",
+              "funnel-windowfunnel",
+              "grouparray-user-timelines",
+              "iso-week-bucketing",
+              "materialized-view-rollups",
+              "mcp-agent-analytics",
+              "mcp-agent-analytics-python",
+              "multi-tenant-embedded-analytics",
+              "multiif-bucketing",
+              "nextjs-dashboard",
+              "p95-latency",
+              "postgres-app-clickhouse-analytics",
+              "projection-for-dataset-queries",
+              "refreshable-materialized-views",
+              "replacingmergetree-upserts",
+              "retention-cohorts",
+              "sessionization",
+              "streamlit-dashboard",
+              "top-n-per-group-limit-by",
+              "ttl-data-retention",
+              "usage-based-billing",
+              "other"
+            ],
+            "optional": true
+          },
+          "example_kind": {
+            "kind": "enum",
+            "description": "Are examples, recipes or guides requested?",
+            "values": [
+              "example",
+              "recipe",
+              "guide"
+            ],
+            "optional": true
+          },
+          "language": {
+            "kind": "enum",
+            "description": "Which language are scaffolded examples written in?",
+            "values": [
+              "typescript",
+              "python",
+              "unknown"
+            ],
+            "optional": true
+          },
+          "stage_reached": {
+            "kind": "enum",
+            "description": "Where does scaffolding stop?",
+            "values": [
+              "started",
+              "resolved",
+              "fetched",
+              "pinned",
+              "installed",
+              "completed"
+            ],
+            "optional": true
+          },
+          "failed_stage": {
+            "kind": "enum",
+            "description": "Which scaffolding stage needs reliability work?",
+            "values": [
+              "started",
+              "resolved",
+              "fetched",
+              "pinned",
+              "installed",
+              "completed"
+            ],
+            "optional": true
+          },
+          "seed": {
+            "kind": "boolean",
+            "description": "Is the shared seed dataset copied?",
+            "optional": true
+          },
+          "install_result": {
+            "kind": "enum",
+            "description": "Does dependency installation succeed after scaffolding? Python examples, installed later with uv sync, report skipped.",
+            "values": [
+              "ok",
+              "failed",
+              "skipped"
+            ],
+            "optional": true
+          },
+          "unpublished_pins": {
+            "kind": "boolean",
+            "description": "Did a dependency of the scaffold fall back to a dist-tag because its recorded version is not on npm?",
+            "optional": true
+          },
+          "interactive": {
+            "kind": "boolean",
+            "description": "How much scaffolding is interactive?",
+            "optional": true
+          }
+        },
         "export:client-contract": {},
         "login": {},
         "logout": {},
@@ -904,8 +1048,6 @@
         "version": {},
         "telemetry": {},
         "skill": {},
-        "examples": {},
-        "create": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",

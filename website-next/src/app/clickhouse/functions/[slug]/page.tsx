@@ -130,6 +130,16 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             </h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-text-muted">{fn.tagline}</p>
 
+            {fn.seeAlso && (
+              <Link
+                href={fn.seeAlso.href}
+                className="mt-6 block max-w-3xl rounded-lg border border-accent/40 bg-bg-card px-5 py-4 shadow-card transition hover:border-accent"
+              >
+                <p className="text-sm font-semibold text-accent">{fn.seeAlso.label} →</p>
+                <p className="mt-1 text-sm leading-6 text-text-muted">{fn.seeAlso.copy}</p>
+              </Link>
+            )}
+
             <div className="mt-8 flex flex-wrap gap-4">
               {/* Signature */}
               <div className="rounded-lg border border-border bg-bg-card px-5 py-3 shadow-card">

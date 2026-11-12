@@ -1,0 +1,32 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "users",
+      "source": "users",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [],
+      "measures": [],
+      "filters": [],
+      "relationships": [],
+      "rowResolution": {
+        "kind": "final"
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/users/query"
+      }
+    }
+  ]
+}

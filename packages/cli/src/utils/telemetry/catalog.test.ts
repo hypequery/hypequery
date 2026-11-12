@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { COMMON_PROPERTIES, COMMAND_PROPERTIES, EVENT_CATALOG } from './catalog.js';
 import { renderTelemetryCatalog } from './catalog-docs.js';
-import { COMMAND_FLAGS, GLOBAL_FLAGS, VALUE_FLAGS } from './domains.js';
+import { COMMAND_FLAGS, EXAMPLE_SLUGS, GLOBAL_FLAGS, VALUE_FLAGS } from './domains.js';
 import { flagNames, knownCommand } from './flags.js';
 import { createTelemetryEvent, validateTelemetryEvent } from './validation.js';
 import { common, completed } from '../../../type-tests/fixtures.js';
@@ -29,6 +29,12 @@ describe('telemetry event contract', () => {
   it('keeps the generated public event reference synchronized', async () => {
     const page = await readFile(fileURLToPath(new URL('../../../../../website-next/docs/(typescript)/(reference)/telemetry.mdx', import.meta.url)), 'utf8');
     expect(page.split('{/* telemetry-catalog */}\n\n')[1]).toBe(renderTelemetryCatalog());
+  });
+
+  it('enumerates exactly the public examples registry slugs, plus other', async () => {
+    const registry = JSON.parse(await readFile(fileURLToPath(new URL('../../../../../website-next/src/data/examples-registry.json', import.meta.url)), 'utf8')) as { entries: Array<{ manifest: { slug: string } }> };
+    // A new registry entry must be added to EXAMPLE_SLUGS (then regenerate the telemetry docs and website schema).
+    expect([...EXAMPLE_SLUGS].sort()).toEqual([...registry.entries.map((entry) => entry.manifest.slug), 'other'].sort());
   });
 
   it('validates every event variant, including all optional fields and nested records', () => {

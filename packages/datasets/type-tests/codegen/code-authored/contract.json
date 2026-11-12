@@ -1,0 +1,805 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "account_notes",
+      "source": "crm.notes",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "account_id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "id"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [],
+      "filters": [
+        {
+          "name": "account_id",
+          "field": "account_id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "id",
+          "field": "id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "name": "account",
+          "kind": "belongsTo",
+          "target": "accounts",
+          "from": "account_id",
+          "to": "id",
+          "queryable": true
+        }
+      ],
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "analyst"
+          ],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/account_notes/query"
+      }
+    },
+    {
+      "name": "accounts",
+      "source": "crm.accounts",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "dimensions": [
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "created_at"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Created"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "name"
+          },
+          "filterable": true,
+          "groupable": true,
+          "examples": [
+            "Acme",
+            "Northwind"
+          ]
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "tenant_id"
+          },
+          "filterable": false,
+          "groupable": false
+        }
+      ],
+      "measures": [
+        {
+          "name": "accounts",
+          "aggregation": "countDistinct",
+          "field": "id",
+          "filters": [],
+          "label": "Accounts"
+        }
+      ],
+      "filters": [
+        {
+          "name": "createdAt",
+          "field": "createdAt",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "id",
+          "field": "id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "name",
+          "field": "name",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "name": "notes",
+          "kind": "hasMany",
+          "target": "account_notes",
+          "from": "id",
+          "to": "account_id",
+          "queryable": false
+        }
+      ],
+      "rowResolution": {
+        "kind": "final",
+        "engine": "replacing",
+        "deletedColumn": "is_deleted"
+      },
+      "owner": "data-team",
+      "freshness": {
+        "maxAgeSeconds": 3600
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "analyst"
+          ],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "required",
+          "mode": "auto-inject",
+          "column": "tenant_id"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/accounts/query"
+      }
+    },
+    {
+      "name": "daily_active_users",
+      "source": "events.daily_active_users",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "day",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "day"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "users",
+          "aggregation": "merge",
+          "field": "users_state",
+          "filters": [],
+          "stateFunction": "uniq"
+        }
+      ],
+      "filters": [
+        {
+          "name": "day",
+          "field": "day",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [],
+      "timeField": "day",
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "product"
+          ],
+          "scopes": [
+            "events:read"
+          ]
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/daily_active_users/query"
+      }
+    },
+    {
+      "name": "invoices",
+      "source": "billing.invoices",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "dimensions": [
+        {
+          "name": "account_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "account_id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "amount"
+          },
+          "filterable": true,
+          "groupable": true,
+          "format": "0,0",
+          "unit": "cents",
+          "currency": "EUR"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "email"
+          },
+          "filterable": true,
+          "groupable": true,
+          "sensitivity": "confidential"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "issuedAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "issued_at"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "month",
+          "type": "string",
+          "source": {
+            "kind": "sql-expression",
+            "dialect": "clickhouse",
+            "sql": "formatDateTime(issued_at, '%Y-%m')",
+            "output": {
+              "kind": "string"
+            },
+            "dependencies": [
+              "issued_at"
+            ]
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Month"
+        },
+        {
+          "name": "plan_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "plan_id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "plan_region",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "plan_region"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "status"
+          },
+          "filterable": true,
+          "groupable": true,
+          "description": "paid, open or void"
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "tenant_id"
+          },
+          "filterable": false,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "invoices",
+          "aggregation": "count",
+          "field": "id",
+          "filters": []
+        },
+        {
+          "name": "largest",
+          "aggregation": "max",
+          "field": "amount",
+          "filters": []
+        },
+        {
+          "name": "latestStatus",
+          "aggregation": "argMax",
+          "field": "status",
+          "filters": [],
+          "argField": "issuedAt"
+        },
+        {
+          "name": "median",
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [],
+          "level": 0.5
+        },
+        {
+          "name": "openOrPaid",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "operator": "in",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "right": {
+                "kind": "literal",
+                "value": {
+                  "$hypequery": {
+                    "type": "array",
+                    "version": 1,
+                    "values": [
+                      "open",
+                      "paid"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "p90",
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [],
+          "level": 0.9
+        },
+        {
+          "name": "revenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            }
+          ],
+          "label": "Revenue"
+        },
+        {
+          "name": "withEmail",
+          "aggregation": "count",
+          "field": "id",
+          "filters": [
+            {
+              "kind": "comparison",
+              "operator": "isNotNull",
+              "left": {
+                "kind": "reference",
+                "name": "email"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "derived",
+          "name": "averageInvoice",
+          "uses": [
+            {
+              "alias": "total",
+              "measure": "revenue"
+            },
+            {
+              "alias": "count",
+              "measure": "invoices"
+            }
+          ],
+          "expression": {
+            "kind": "call",
+            "function": "round",
+            "args": [
+              {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "total"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "count"
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "literal",
+                "value": 2
+              }
+            ]
+          },
+          "label": "Average invoice"
+        },
+        {
+          "kind": "derived",
+          "name": "unpaid",
+          "uses": [
+            {
+              "alias": "all",
+              "measure": "openOrPaid"
+            },
+            {
+              "alias": "paid",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "call",
+            "function": "coalesce",
+            "args": [
+              {
+                "kind": "binary",
+                "operator": "subtract",
+                "left": {
+                  "kind": "reference",
+                  "name": "all"
+                },
+                "right": {
+                  "kind": "reference",
+                  "name": "paid"
+                }
+              },
+              {
+                "kind": "literal",
+                "value": 0
+              }
+            ]
+          }
+        }
+      ],
+      "filters": [
+        {
+          "name": "amount",
+          "field": "amount",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ],
+          "label": "Amount"
+        },
+        {
+          "name": "issuedAt",
+          "field": "issuedAt",
+          "operators": [
+            "gte",
+            "lt",
+            "between"
+          ]
+        },
+        {
+          "name": "status",
+          "field": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "in",
+            "notIn"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "name": "account",
+          "kind": "belongsTo",
+          "target": "accounts",
+          "from": "account_id",
+          "to": "id",
+          "queryable": true
+        },
+        {
+          "name": "plan",
+          "kind": "belongsTo",
+          "target": "plans",
+          "from": "plan_id",
+          "to": "id",
+          "keys": [
+            {
+              "from": "plan_id",
+              "to": "id"
+            },
+            {
+              "from": "plan_region",
+              "to": "region"
+            }
+          ],
+          "queryable": true
+        }
+      ],
+      "timeField": "issuedAt",
+      "description": "Every invoice, including credit notes (they're negative).",
+      "defaults": {
+        "dimensions": [
+          "status"
+        ],
+        "timeGrain": "month"
+      },
+      "limits": {
+        "maxDimensions": 6,
+        "maxResultSize": 500
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "analyst"
+          ],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "required",
+          "mode": "auto-inject",
+          "column": "tenant_id"
+        },
+        "maxLimit": 500,
+        "path": "/api/analytics/datasets/invoices/query"
+      }
+    },
+    {
+      "name": "plans",
+      "source": "billing.plans",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "name"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Plan",
+          "synonyms": [
+            "package",
+            "tier"
+          ]
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "region"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "count",
+          "aggregation": "count",
+          "field": "id",
+          "filters": []
+        }
+      ],
+      "filters": [
+        {
+          "name": "id",
+          "field": "id",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "name",
+          "field": "name",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "region",
+          "field": "region",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [],
+      "description": "Price plans."
+    }
+  ]
+}

@@ -16,6 +16,22 @@ export const COMMANDS = [
   'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
+/**
+ * Public registry slugs (hypequery.com/examples). `create` records one only when
+ * it names a registry entry; any other input becomes `other`. Kept in sync with
+ * website-next/src/data/examples-registry.json by catalog.test.ts.
+ */
+export const EXAMPLE_SLUGS = [
+  'async-inserts-node', 'chdb-embedded-analytics', 'clickhouse-docker-compose', 'clickhouse-rest-api-openapi',
+  'clickhouse-vs-postgres-app-analytics', 'cursor-pagination', 'dictionary-lookups', 'django-analytics',
+  'fastapi-analytics-api', 'funnel-windowfunnel', 'grouparray-user-timelines', 'iso-week-bucketing',
+  'materialized-view-rollups', 'mcp-agent-analytics', 'mcp-agent-analytics-python', 'multi-tenant-embedded-analytics',
+  'multiif-bucketing', 'nextjs-dashboard', 'p95-latency', 'postgres-app-clickhouse-analytics',
+  'projection-for-dataset-queries', 'refreshable-materialized-views', 'replacingmergetree-upserts', 'retention-cohorts',
+  'sessionization', 'streamlit-dashboard', 'top-n-per-group-limit-by', 'ttl-data-retention', 'usage-based-billing',
+  'other',
+] as const;
+export const EXAMPLE_KINDS = ['example', 'recipe', 'guide'] as const;
 
 /** Canonical long names, including negated flags. Values and aliases never leave the CLI. */
 export const COMMAND_FLAGS = {

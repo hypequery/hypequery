@@ -41,6 +41,12 @@ export interface MCPErrorDetails {
    * with the same `code` apart without parsing the message.
    */
   reason?: string;
+  /** The next action, in one sentence: what the agent should do to recover. */
+  hint?: string;
+  /** A page that explains this failure and how to fix it. */
+  docsUrl?: string;
+  /** The host's request id, so a person can find this call in its logs. */
+  requestId?: string;
 }
 
 /** Optional host details an `MCPToolError` carries into its envelope. */
@@ -51,6 +57,9 @@ export interface MCPToolErrorOptions {
   retryAfterSeconds?: number;
   relist?: boolean;
   reason?: string;
+  hint?: string;
+  docsUrl?: string;
+  requestId?: string;
 }
 
 function defaultErrorMetadata(code: MCPToolErrorCode): Omit<MCPErrorDetails, 'code' | 'message'> {
@@ -86,6 +95,9 @@ export class MCPToolError extends Error {
   readonly retryAfterSeconds?: number;
   readonly relist?: boolean;
   readonly reason?: string;
+  readonly hint?: string;
+  readonly docsUrl?: string;
+  readonly requestId?: string;
 
   constructor(
     code: MCPToolErrorCode,
@@ -107,6 +119,9 @@ export class MCPToolError extends Error {
     }
     if (options.relist !== undefined) this.relist = options.relist;
     if (options.reason !== undefined) this.reason = options.reason;
+    if (options.hint !== undefined) this.hint = options.hint;
+    if (options.docsUrl !== undefined) this.docsUrl = options.docsUrl;
+    if (options.requestId !== undefined) this.requestId = options.requestId;
   }
 }
 
@@ -152,6 +167,9 @@ export function classifyMCPToolError(error: unknown): MCPErrorDetails {
       ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
       ...(error.relist === undefined ? {} : { relist: error.relist }),
       ...(error.reason === undefined ? {} : { reason: error.reason }),
+      ...(error.hint === undefined ? {} : { hint: error.hint }),
+      ...(error.docsUrl === undefined ? {} : { docsUrl: error.docsUrl }),
+      ...(error.requestId === undefined ? {} : { requestId: error.requestId }),
     };
   }
 
