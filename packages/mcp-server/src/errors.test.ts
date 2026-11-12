@@ -45,6 +45,28 @@ describe('stable MCP tool errors', () => {
       .toMatchObject({ category: 'stale_contract', retryable: true });
   });
 
+  it('carries a host hint, docs link and request id into the envelope', () => {
+    expect(classifyMCPToolError(new MCPToolError('MCP_UNAUTHORIZED', 'Sign in again.', {
+      hint: 'Reconnect the MCP client to sign in again.',
+      docsUrl: 'https://hypequery.com/docs/errors/mcp-unauthorized',
+      requestId: 'req_123',
+    }))).toEqual({
+      code: 'MCP_UNAUTHORIZED',
+      category: 'unauthorized',
+      message: 'Sign in again.',
+      retryable: false,
+      correctable: false,
+      hint: 'Reconnect the MCP client to sign in again.',
+      docsUrl: 'https://hypequery.com/docs/errors/mcp-unauthorized',
+      requestId: 'req_123',
+    });
+  });
+
+  it('omits the optional host fields when the host sets none', () => {
+    expect(Object.keys(classifyMCPToolError(new MCPToolError('MCP_NOT_FOUND', 'Missing'))))
+      .toEqual(['code', 'category', 'message', 'retryable', 'correctable']);
+  });
+
   it('redacts unclassified execution details', () => {
     const classified = classifyMCPToolError(new Error(
       'DB::Exception: SELECT password FROM private_table',

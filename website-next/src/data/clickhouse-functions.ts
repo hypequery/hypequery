@@ -30,6 +30,8 @@ export type ClickHouseFunctionDef = {
   docsUrl?: string;
   /** ISO date the page was last checked against ClickHouse. Shown on the page and as dateModified. */
   updated?: string;
+  /** A callout under the tagline that sends readers searching for a sibling function to its page. */
+  seeAlso?: { href: string; label: string; copy: string };
 };
 
 /**
@@ -951,7 +953,7 @@ const dau = await db
     tagline: 'Sum a numeric column. Integer sums widen to Int64 or UInt64, which matters in TypeScript.',
     metaTitle: 'ClickHouse sum(): result types, NULLs, overflow and TypeScript',
     metaDescription:
-      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps silently on UInt64 overflow. What that means for typed TypeScript results.',
+      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps on overflow. Looking for conditional totals? Use sumIf().',
     signature: 'sum(column)',
     description:
       'Returns the sum of the non-NULL values in a numeric column. Integer inputs widen to Int64 or UInt64, floats to Float64 and decimals to Decimal(38, S).',
@@ -1058,6 +1060,11 @@ for row in result.data:
     tsType: 'string (Int64/UInt64) or number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/sum',
     updated: '2026-11-08',
+    seeAlso: {
+      href: '/clickhouse/functions/sum-if',
+      label: 'ClickHouse sumIf()',
+      copy: 'Summing only the rows that match a condition? sumIf(amount, status = \'paid\') does it in one scan. The sumIf page covers the -If combinator: countIf, avgIf and quantileIf.',
+    },
   },
 
   {

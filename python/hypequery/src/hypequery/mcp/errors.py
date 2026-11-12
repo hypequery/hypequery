@@ -42,6 +42,12 @@ class McpErrorDetails(TypedDict):
     relist: NotRequired[bool]
     #: The host's own stable code for this failure; `code` stays the portable class.
     reason: NotRequired[str]
+    #: The next action, in one sentence: what the agent should do to recover.
+    hint: NotRequired[str]
+    #: A page that explains this failure and how to fix it.
+    docsUrl: NotRequired[str]
+    #: The host's request id, so a person can find this call in its logs.
+    requestId: NotRequired[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +88,9 @@ class McpToolError(Exception):
         retry_after_seconds: float | None = None,
         relist: bool | None = None,
         reason: str | None = None,
+        hint: str | None = None,
+        docs_url: str | None = None,
+        request_id: str | None = None,
     ) -> None:
         super().__init__(message)
         defaults = _DEFAULTS[code]
@@ -99,6 +108,9 @@ class McpToolError(Exception):
         self.retry_after_seconds = retry_after_seconds
         self.relist = relist
         self.reason = reason
+        self.hint = hint
+        self.docs_url = docs_url
+        self.request_id = request_id
 
 
 def stale_contract() -> McpToolError:
@@ -130,6 +142,12 @@ def classify_mcp_tool_error(error: BaseException) -> McpErrorDetails:
             details["relist"] = error.relist
         if error.reason is not None:
             details["reason"] = error.reason
+        if error.hint is not None:
+            details["hint"] = error.hint
+        if error.docs_url is not None:
+            details["docsUrl"] = error.docs_url
+        if error.request_id is not None:
+            details["requestId"] = error.request_id
         return details
     return {
         "code": "MCP_EXECUTION_FAILED",

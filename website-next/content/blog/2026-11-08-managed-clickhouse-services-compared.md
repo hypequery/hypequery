@@ -153,7 +153,7 @@ On Kubernetes, two Apache-2.0 operators do much of the work. The [Altinity Kuber
 
 ## A note on hypequery
 
-hypequery is an open-source TypeScript and Python code layer that runs inside your application and doesn't host ClickHouse. It connects to any of the services above that accept standard ClickHouse connections, so changing hosts doesn't mean rewriting queries. See the [quick start](/docs/quick-start) or [ClickHouse with TypeScript](/clickhouse-typescript).
+hypequery is an open-source TypeScript and Python code layer that runs inside your application and doesn't host ClickHouse. It connects to any of the services above that accept standard ClickHouse connections, so changing hosts doesn't mean rewriting queries. See the [quick start](/docs/quick-start), or the [TypeScript client for ClickHouse Cloud](/clickhouse-typescript#clickhouse-cloud) guide for connecting to ClickHouse Cloud.
 
 ## Related
 

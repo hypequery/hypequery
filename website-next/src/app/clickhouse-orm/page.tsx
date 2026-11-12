@@ -183,6 +183,16 @@ export default function ClickHouseOrmPage() {
           description: 'TypeORM has no ClickHouse driver. How teams run TypeORM on Postgres next to a ClickHouse query layer.',
         },
         {
+          href: '/compare/hypequery-vs-raw-sql',
+          title: 'hypequery vs raw SQL strings',
+          description: 'When a hand-written SQL string is the right call, and when schema drift makes a typed builder worth it.',
+        },
+        {
+          href: '/compare/hypequery-vs-clickhouse-connect',
+          title: 'hypequery vs clickhouse-connect',
+          description: 'The Python side: the official driver for raw SQL and inserts, hypequery for shared, typed measures.',
+        },
+        {
           href: '/blog/query-builder-vs-orm-clickhouse',
           title: 'Query builder vs ORM for ClickHouse',
           description: 'Why a query builder fits ClickHouse analytics better than a transactional ORM.',
