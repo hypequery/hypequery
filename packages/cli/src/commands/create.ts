@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import prompts from 'prompts';
 import { logger } from '../utils/logger.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { canPrompt } from '../utils/machine-output/output-mode.js';
 import { isPromptCancelled, PromptCancelledError } from '../utils/prompts.js';
 import { findIndexEntry, loadExamplesIndex, type LoadIndexOptions } from '../utils/examples/registry-index.js';
 import { fetchSourceWithGit, type SourceFetcher } from '../utils/examples/fetch-source.js';
@@ -67,17 +69,35 @@ async function defaultRunInstall(manager: PackageManager, cwd: string): Promise<
  * `./<slug>/seed`. No account, no prompts with -y, non-zero exit on failure,
  * and it always ends with a `Next:` block.
  */
-export async function createCommand(slug: string, options: CreateOptions = {}, dependencies: CreateDependencies = {}): Promise<void> {
+/** `hypequery create --json`. `directory` is absolute. */
+export interface CreateResult {
+  readonly slug: string;
+  readonly kind: string;
+  readonly directory: string;
+  readonly packageManager: PackageManager;
+  readonly install: 'ok' | 'skipped';
+  readonly seed: boolean;
+  readonly unpublished: readonly string[];
+  readonly next: { readonly install: string; readonly dev?: string; readonly test?: string };
+  readonly url: string;
+}
+
+export async function createCommand(slug: string, options: CreateOptions = {}, dependencies: CreateDependencies = {}): Promise<CreateResult> {
   let attempted: CreateStage = 'resolved';
+  let completed = false;
   const progress = {
     attempt(stage: CreateStage) { attempted = stage; },
-    reach(stage: CreateStage) { updateCommandTelemetry('create', { stage_reached: stage }); },
+    reach(stage: CreateStage) {
+      if (stage === 'completed') completed = true;
+      updateCommandTelemetry('create', { stage_reached: stage });
+    },
   };
   updateCommandTelemetry('create', { stage_reached: 'started' });
   try {
-    await scaffold(slug, options, dependencies, progress);
+    return await scaffold(slug, options, dependencies, progress);
   } catch (error) {
-    if (!isPromptCancelled(error)) updateCommandTelemetry('create', { failed_stage: attempted });
+    // A failed install after the scaffold completed is reported as install_result.
+    if (!isPromptCancelled(error) && !completed) updateCommandTelemetry('create', { failed_stage: attempted });
     throw error;
   }
 }
@@ -87,10 +107,10 @@ async function scaffold(
   options: CreateOptions,
   dependencies: CreateDependencies,
   progress: { attempt(stage: CreateStage): void; reach(stage: CreateStage): void },
-): Promise<void> {
+): Promise<CreateResult> {
   const write = dependencies.write ?? ((line: string) => console.log(line));
   const cwd = dependencies.cwd ?? process.cwd();
-  const interactive = !options.yes && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
+  const interactive = !options.yes && canPrompt() && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
 
   const index = await loadExamplesIndex(dependencies);
   const entry = findIndexEntry(index, slug);
@@ -105,10 +125,10 @@ async function scaffold(
   });
   if (!entry) {
     const slugs = index.entries.filter((e) => e.kind !== 'guide').map((e) => e.slug);
-    throw new Error(`Unknown example "${slug}". Available: ${slugs.join(', ')}. Run \`hypequery examples list\` for details.`);
+    throw new CliError('NOT_FOUND', `Unknown example "${slug}". Available: ${slugs.join(', ')}. Run \`hypequery examples list\` for details.`);
   }
   if (entry.kind === 'guide') {
-    throw new Error(`"${slug}" is a guide, not a scaffold. Read it at ${entry.url} (Markdown: ${entry.markdown}).`);
+    throw new CliError('INVALID_INPUT', `"${slug}" is a guide, not a scaffold. Read it at ${entry.url} (Markdown: ${entry.markdown}).`);
   }
 
   let targetDir = path.resolve(cwd, options.dir ?? slug);
@@ -118,7 +138,9 @@ async function scaffold(
     targetDir = path.resolve(cwd, String(answer.dir));
   }
   if (!(await isEmptyDirectory(targetDir))) {
-    throw new Error(`${path.relative(cwd, targetDir) || '.'} already exists and is not empty. Choose another directory with --dir.`);
+    throw new CliError('CONFLICT', `${path.relative(cwd, targetDir) || '.'} already exists and is not empty. Choose another directory with --dir.`, {
+      hint: 'Choose another directory with --dir <path>.',
+    });
   }
 
   const includeSeed = options.seed !== false;
@@ -202,7 +224,24 @@ async function scaffold(
     }),
   );
   progress.reach('completed');
+  const directory = path.relative(cwd, targetDir) || '.';
   // The scaffold is usable, but a script that asked for an install must not
   // read a failed one as success.
-  if (installFailed) process.exitCode = 1;
+  if (installFailed) {
+    throw new CliError('COMMAND_FAILED', `Created ${directory}, but installing its dependencies failed.`, {
+      reported: true,
+      hint: `The project is in place; run \`${run.install}\` in ${directory}.`,
+    });
+  }
+  return {
+    slug: entry.slug,
+    kind: entry.kind,
+    directory: targetDir,
+    packageManager: manager,
+    install: installed ? 'ok' : 'skipped',
+    seed: includeSeed && existsSync(path.join(targetDir, 'seed')),
+    unpublished,
+    next: run,
+    url: entry.url,
+  };
 }

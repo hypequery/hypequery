@@ -59,8 +59,8 @@ describe('hypequery skill install', () => {
 
   it('--check exits 1 when a skill is missing or edited, without writing', async () => {
     const cwd = await directory();
-    await skillCommand('install', { check: true, agent: 'claude' }, { cwd });
-    expect(process.exitCode).toBe(1);
+    await expect(skillCommand('install', { check: true, agent: 'claude' }, { cwd }))
+      .rejects.toMatchObject({ code: 'OUT_OF_DATE', exitCode: 1 });
     expect(await readdir(cwd)).toEqual([]);
   });
 

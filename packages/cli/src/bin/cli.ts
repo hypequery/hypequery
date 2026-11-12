@@ -10,6 +10,9 @@ import type { Command } from 'commander';
 import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
+import { toCliError } from '../utils/machine-output/classify-error.js';
+import { cliErrorEnvelope } from '../utils/machine-output/cli-error.js';
+import { jsonDocument } from '../utils/machine-output/output-mode.js';
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
 
 async function loadEnv() {
@@ -100,8 +103,16 @@ async function main() {
       const suggestion = suggestedCommand(error, registered);
       if (suggestion) lifecycle.update('unknown', { suggested_command: suggestion });
     }
-    const exit = error instanceof CommandExit ? error
-      : new CommandExit(commander.exitCode ?? 1, 'failure', telemetryErrorCode(error));
+    let exit: CommandExit;
+    if (error instanceof CommandExit) {
+      exit = error;
+    } else {
+      // Commander rejected the arguments before the command ran (runCommand
+      // reports everything after that), so --json gets its envelope here.
+      const cliError = toCliError(error);
+      if (args.includes('--json')) process.stdout.write(jsonDocument(cliErrorEnvelope(cliError)));
+      exit = new CommandExit(cliError.exitCode, 'failure', telemetryErrorCode(error));
+    }
     await finishAndExit(exit.exitCode, exit.outcome, exit.errorCode);
   }
 }

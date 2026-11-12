@@ -28,3 +28,14 @@ export function printHostedEndpoints(endpoints: HostedEndpoints, mcpConfig: bool
     for (const line of mcpClientConfiguration(endpoints.mcp.url).split('\n')) logger.indent(line);
   }
 }
+
+/** Hosted endpoints in a `--json` document; `mcpConfig` only when asked for. */
+export function hostedEndpointsDocument(endpoints: HostedEndpoints | undefined, mcpConfig: boolean) {
+  if (!endpoints) return null;
+  return {
+    active: endpoints.active,
+    rest: endpoints.rest,
+    mcp: endpoints.mcp,
+    ...(mcpConfig ? { mcpConfig: JSON.parse(mcpClientConfiguration(endpoints.mcp.url)) as unknown } : {}),
+  };
+}

@@ -127,7 +127,7 @@ describe('hypequery mcp', () => {
         public: { name: 'public' },
       }),
       start,
-    })).rejects.toThrow('process.exit:1');
+    })).rejects.toMatchObject({ name: 'CliError' });
 
     expect(start).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith(
@@ -154,7 +154,7 @@ describe('hypequery mcp', () => {
 
     await expect(mcpCommand(file, { selfTest: true }, {
       loadApi: async () => ({ handler: () => undefined }),
-    })).rejects.toThrow('process.exit:1');
+    })).rejects.toMatchObject({ name: 'CliError' });
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('does not register any datasets'),
@@ -166,7 +166,7 @@ describe('hypequery mcp', () => {
     const api = { [mcpSourceSymbol]: { version: 1, datasets: {}, resolveAnalytics } };
     await expect(mcpCommand(await entrypointFile(), { selfTest }, {
       loadApi: async () => api,
-    })).rejects.toThrow('process.exit:1');
+    })).rejects.toMatchObject({ name: 'CliError' });
     expect(resolveAnalytics).not.toHaveBeenCalled();
   });
 
@@ -210,7 +210,7 @@ describe('hypequery mcp', () => {
           code: 'ERR_MODULE_NOT_FOUND',
         });
       },
-    })).rejects.toThrow('process.exit:1');
+    })).rejects.toMatchObject({ name: 'CliError' });
 
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('@hypequery/mcp is not installed'));
     expect(logger.indent).toHaveBeenCalledWith('npm install @hypequery/mcp');
@@ -223,7 +223,7 @@ describe('hypequery mcp', () => {
   ] as const)('refuses conflicting HTTP mode inputs before importing code (%s)', async (file, options) => {
     const loadApi = vi.fn();
     const loadMcp = vi.fn();
-    await expect(mcpCommand(file, { ...options, clientContractUrl: 'https://backend.test/client-contract' }, { loadApi, loadMcp })).rejects.toThrow('process.exit:1');
+    await expect(mcpCommand(file, { ...options, clientContractUrl: 'https://backend.test/client-contract' }, { loadApi, loadMcp })).rejects.toMatchObject({ name: 'CliError' });
     expect(loadApi).not.toHaveBeenCalled();
     expect(loadMcp).not.toHaveBeenCalled();
   });
@@ -272,7 +272,7 @@ describe('hypequery mcp', () => {
       await expect(mcpCommand(undefined, { selfTest: true, url }, {
         env: { HYPEQUERY_API_KEY: 'hq_key' },
         checkRemote: async () => ({ ok: false as const, reason: 'the API key was refused (401).' }),
-      })).rejects.toThrow('process.exit:1');
+      })).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.error).toHaveBeenCalledWith(
         'Hosted MCP check failed: the API key was refused (401).',
@@ -283,14 +283,14 @@ describe('hypequery mcp', () => {
       const checkRemote = vi.fn();
 
       await expect(mcpCommand(undefined, { selfTest: true, url }, { env: {}, checkRemote }))
-        .rejects.toThrow('process.exit:1');
+        .rejects.toMatchObject({ name: 'CliError' });
 
       expect(checkRemote).not.toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_API_KEY'));
     });
 
     it('refuses --url without --self-test', async () => {
-      await expect(mcpCommand(undefined, { url }, {})).rejects.toThrow('process.exit:1');
+      await expect(mcpCommand(undefined, { url }, {})).rejects.toMatchObject({ name: 'CliError' });
     });
   });
 });

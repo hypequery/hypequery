@@ -14,6 +14,9 @@ import {
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
 import { logger } from '../utils/logger.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { cloudHttpError } from '../utils/machine-output/classify-error.js';
+import { isUnattended } from '../utils/machine-output/output-mode.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -98,7 +101,9 @@ async function callbackServer(state: string, timeoutMs: number) {
     // legitimate login. A matching Cloud error still ends the transaction.
     if (valid) settle?.(authorizationCode as string);
     else if (stateMatches && authorizationError) {
-      reject?.(new Error('Cloud authorization was not completed.'));
+      reject?.(new CliError('UNAUTHENTICATED', 'Cloud authorization was not completed.', {
+        hint: 'Run `hypequery login` again and approve the request in the browser.',
+      }));
     }
   });
   server.listen(0, '127.0.0.1');
@@ -108,7 +113,9 @@ async function callbackServer(state: string, timeoutMs: number) {
   });
   const address = server.address() as AddressInfo;
   const timer = setTimeout(() => {
-    reject?.(new Error('CLI authorization timed out. Run `hypequery login` again.'));
+    reject?.(new CliError('UNAUTHENTICATED', 'CLI authorization timed out. Run `hypequery login` again.', {
+      hint: 'Run `hypequery login` again and approve the request in the browser within 5 minutes.',
+    }));
   }, timeoutMs);
   timer.unref();
   return {
@@ -133,7 +140,7 @@ async function boundedJsonResponse(response: Response): Promise<unknown> {
       total += value.byteLength;
       if (total > MAX_TOKEN_RESPONSE_BYTES) {
         await reader.cancel().catch(() => undefined);
-        throw new Error('Cloud returned an oversized CLI token response.');
+        throw new CliError('UNAVAILABLE', 'Cloud returned an oversized CLI token response.');
       }
       chunks.push(value);
     }
@@ -159,7 +166,7 @@ function tokenResponse(
   now: number,
 ): StoredCloudCredential {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    throw new Error('Cloud returned an invalid CLI token response.');
+    throw new CliError('UNAVAILABLE', 'Cloud returned an invalid CLI token response.');
   }
   const value = input as Record<string, unknown>;
   if (
@@ -172,11 +179,11 @@ function tokenResponse(
     || typeof value.deployment_endpoint !== 'string'
     || value.deployment_target === undefined
   ) {
-    throw new Error('Cloud returned an invalid CLI token response.');
+    throw new CliError('UNAVAILABLE', 'Cloud returned an invalid CLI token response.');
   }
   const expiresAt = Date.parse(value.expires_at);
   if (expiresAt <= now || expiresAt > now + MAX_TOKEN_LIFETIME_MS) {
-    throw new Error('Cloud returned an invalid CLI token expiration.');
+    throw new CliError('UNAVAILABLE', 'Cloud returned an invalid CLI token expiration.');
   }
   const deploymentEndpoint = normalizeCloudDeploymentEndpoint(
     value.deployment_endpoint,
@@ -186,7 +193,7 @@ function tokenResponse(
   try {
     target = validateProtocolDeploymentReleaseTarget(value.deployment_target);
   } catch {
-    throw new Error('Cloud returned an invalid CLI deployment target.');
+    throw new CliError('UNAVAILABLE', 'Cloud returned an invalid CLI deployment target.');
   }
   return {
     cloudUrl: origin,
@@ -216,10 +223,19 @@ export async function loginCommand(
         environment: options.environment,
       }).environment;
     } catch {
-      throw new Error(
+      throw new CliError(
+        'INVALID_INPUT',
         'Invalid deployment environment. Use letters, numbers, dots, underscores, colons, or hyphens.',
+        { issues: [{ path: '--environment', message: 'Use letters, numbers, dots, underscores, colons, or hyphens.' }] },
       );
     }
+  }
+  if (isUnattended()) {
+    // Browser sign-in needs a person; with --no-input or in CI it would only
+    // wait out the timeout.
+    throw new CliError('UNAUTHENTICATED', '`hypequery login` signs in through a browser, which needs a person, but this run is unattended (--no-input or CI).', {
+      hint: 'Set HYPEQUERY_API_TOKEN (with --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT) for unattended runs, or run `hypequery login` interactively.',
+    });
   }
   const callback = await callbackServer(state, dependencies.timeoutMs ?? LOGIN_TIMEOUT_MS);
   const authorizeUrl = new URL('/cli/authorize', origin);
@@ -252,7 +268,10 @@ export async function loginCommand(
     });
     if (!response.ok) {
       await response.body?.cancel().catch(() => undefined);
-      throw new Error('Cloud rejected the CLI authorization code. Run `hypequery login` again.');
+      throw cloudHttpError(
+        response.status === 400 ? 401 : response.status,
+        'Cloud rejected the CLI authorization code. Run `hypequery login` again.',
+      );
     }
     const body = await boundedJsonResponse(response);
     const credential = tokenResponse(
@@ -270,6 +289,13 @@ export async function loginCommand(
       );
     }
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
+    return {
+      loggedIn: true,
+      cloudUrl: credential.cloudUrl,
+      deploymentEndpoint: credential.deploymentEndpoint,
+      target: credential.target ?? null,
+      expiresAt: credential.expiresAt,
+    };
   } finally {
     callback.close();
   }
@@ -290,8 +316,9 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   }
   if (!credential && !unreadable) {
     logger.info('You are not logged in to Hypequery Cloud.');
-    return;
+    return { loggedOut: true, revoked: false, wasLoggedIn: false };
   }
+  let revoked = false;
   if (credential) {
     try {
       const request = dependencies.fetch ?? fetch;
@@ -305,10 +332,12 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
       });
       await response.body?.cancel().catch(() => undefined);
       if (!response.ok) throw new Error(`Cloud returned HTTP ${response.status}.`);
+      revoked = true;
     } catch {
       logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');
     }
   }
   await remove();
   logger.success('Logged out of Hypequery Cloud');
+  return { loggedOut: true, revoked, wasLoggedIn: true };
 }

@@ -13,6 +13,7 @@ import {
   type VerifiedDeploymentBundle,
 } from './deployment-bundle.js';
 import { logger } from './logger.js';
+import { parseCloudErrorBody, type CloudErrorDetails } from './machine-output/cloud-error-body.js';
 import type { DeploymentSubmissionResponse as BaseDeploymentSubmissionResponse } from '@hypequery/deployment';
 import { parseDraftDeploymentResult, validateDraftDeploymentOptions, type DraftDeploymentResult } from './draft-deployment.js';
 
@@ -37,12 +38,15 @@ export type DeploymentUploadErrorCode =
 export class DeploymentUploadError extends Error {
   readonly code: DeploymentUploadErrorCode;
   readonly status?: number;
+  /** Cloud's error envelope fields, when a rejection carried one. */
+  readonly cloud?: CloudErrorDetails;
 
-  constructor(code: DeploymentUploadErrorCode, message: string, status?: number) {
+  constructor(code: DeploymentUploadErrorCode, message: string, status?: number, cloud?: CloudErrorDetails) {
     super(`${code}: ${message}`);
     this.name = 'DeploymentUploadError';
     this.code = code;
     if (status !== undefined) this.status = status;
+    if (cloud && Object.keys(cloud).length > 0) this.cloud = cloud;
   }
 }
 
@@ -535,6 +539,7 @@ export function createHttpDeploymentUploadTransport(
           'HQ_UPLOAD_REJECTED',
           rejectedMessage(response, body),
           response.status,
+          parseCloudErrorBody(body),
         );
       }
       let input: unknown;

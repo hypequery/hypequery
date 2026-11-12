@@ -90,6 +90,10 @@ Generated output is bounded to 16 MiB. TypeScript describes structural inputs;
 the Python endpoint still validates timezones, selection dependencies, query
 budgets and authorization on every request.
 
+## Scripts and coding agents
+
+Every command takes `--json` (one JSON document on stdout, logs on stderr) and `--no-input`, and never prompts without a terminal or in CI: it fails with exit code 1 and names the flag to pass. Exit codes are fixed: `0` ok, `1` user-correctable, `2` auth, `3` plan, `4` transient (retry), `5` internal, `130` interrupted. Failures print `{ "error": { "code", "message", "hint", "docsUrl", "category", "retryable", "correctable", "exitCode" } }`. See [Scripts, CI and coding agents](https://hypequery.com/docs/reference/api/cli#scripts-ci-and-coding-agents).
+
 ## Why use the CLI
 
 - Get correct ClickHouse runtime types instead of guessing interfaces.

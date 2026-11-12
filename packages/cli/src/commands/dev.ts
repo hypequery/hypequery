@@ -1,5 +1,8 @@
 import { loadServeDev } from '../utils/load-serve-dev.js';
-import { exitWith, finishAndExit } from '../utils/command-exit.js';
+import { finishAndExit } from '../utils/command-exit.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { toCliError } from '../utils/machine-output/classify-error.js';
+import { isJsonOutput } from '../utils/machine-output/output-mode.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { DevSession } from '../utils/telemetry/dev-session.js';
 import { setCommandTelemetryError } from '../utils/telemetry/command-context.js';
@@ -58,7 +61,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   if (!queriesFile) {
     displayQueriesFileNotFoundError('dev');
-    exitWith(1, 'failure', 'entrypoint_not_found');
+    throw new CliError('NOT_FOUND', 'Could not find a hypequery API file.', {
+      reported: true,
+      telemetry: 'entrypoint_not_found',
+      hint: 'Pass the file explicitly: hypequery dev ./path/to/api.ts (or --path <dir>), or run `hypequery init`.',
+    });
   }
 
   logger.info(`Found: ${path.relative(process.cwd(), queriesFile)}`);
@@ -66,6 +73,8 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   telemetry.start(queriesFile, file, options);
 
   let currentServer: any = null;
+  let ready: DevReadyResult | undefined;
+  let startFailure: unknown;
   let lifecycleOperation: Promise<void> = Promise.resolve();
   let shutdownRequested = false;
   const shouldWatch = options.watch !== false; // Default to true
@@ -138,6 +147,16 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const baseUrl = `http://${hostname}:${port}`;
 
       const routePaths = resolveDevRoutePaths(api);
+      ready = {
+        url: baseUrl,
+        hostname,
+        port,
+        entrypoint: path.resolve(queriesFile),
+        docsUrl: `${baseUrl}${routePaths.docs}`,
+        openapiUrl: `${baseUrl}${routePaths.openapi}`,
+        queries: queryCount,
+        watching: shouldWatch,
+      };
 
       const boxLines = [
         `Docs:     ${baseUrl}${routePaths.docs}`,
@@ -205,9 +224,17 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       }
       logger.newline();
 
-      if (!shouldWatch) {
+      startFailure = error;
+      // Without watching, or with --json (an agent cannot wait for an edit),
+      // a failed start ends the command.
+      if (!shouldWatch || (isJsonOutput() && !ready)) {
         setCommandTelemetryError(code);
-        exitWith(1, 'failure', code);
+        const failure = toCliError(error);
+        throw new CliError(failure.code === 'COMMAND_FAILED' ? 'LOAD_FAILED' : failure.code, `Failed to start the dev server: ${failure.message}`, {
+          reported: true,
+          telemetry: code,
+          cause: error,
+        });
       }
       return false;
     }
@@ -282,4 +309,18 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
   }
+  // `--json` prints this once the server is listening; the process keeps running.
+  return ready ?? { url: null, watching: shouldWatch, error: startFailure instanceof Error ? startFailure.message : null };
+}
+
+/** `hypequery dev --json`: printed once the server is listening. */
+export interface DevReadyResult {
+  readonly url: string;
+  readonly hostname: string;
+  readonly port: number;
+  readonly entrypoint: string;
+  readonly docsUrl: string;
+  readonly openapiUrl: string;
+  readonly queries: number;
+  readonly watching: boolean;
 }

@@ -5,6 +5,9 @@ import {
   validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
+import type { CliError } from './machine-output/cli-error.js';
+import { cloudHttpError } from './machine-output/classify-error.js';
+import { parseCloudErrorBody, type CloudErrorDetails } from './machine-output/cloud-error-body.js';
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const MAX_RESPONSE_BYTES = Math.ceil(
@@ -204,19 +207,15 @@ function parseResponse(
   });
 }
 
-async function errorMessage(response: Response) {
+async function failedResponse(response: Response): Promise<CliError> {
+  let cloud: CloudErrorDetails = {};
   try {
-    const input = await response.json() as {
-      error?: { code?: unknown; message?: unknown };
-    };
-    const code = typeof input.error?.code === 'string' ? `${input.error.code}: ` : '';
-    const message = typeof input.error?.message === 'string'
-      ? input.error.message
-      : response.statusText;
-    return `${code}${message}`;
+    cloud = parseCloudErrorBody(await response.text());
   } catch {
-    return response.statusText;
+    // The status stays authoritative when the body cannot be read.
   }
+  const detail = `${cloud.code ? `${cloud.code}: ` : ''}${cloud.message ?? response.statusText}`;
+  return cloudHttpError(response.status, `Could not read the live deployment (${response.status}): ${detail}`, cloud);
 }
 
 export async function fetchLiveDeployment(input: {
@@ -244,11 +243,7 @@ export async function fetchLiveDeployment(input: {
     signal: AbortSignal.timeout(30_000),
   });
   if (input.resource === 'state' && response.status === 404) return undefined;
-  if (!response.ok) {
-    throw new Error(
-      `Could not read the live deployment (${response.status}): ${await errorMessage(response)}`,
-    );
-  }
+  if (!response.ok) throw await failedResponse(response);
   const contentLength = Number(response.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
     throw new Error('Cloud returned an oversized live deployment response.');

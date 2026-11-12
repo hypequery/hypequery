@@ -1,5 +1,5 @@
-import { exitWith } from '../utils/command-exit.js';
-import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { toDatabaseCliError } from '../utils/machine-output/classify-error.js';
 import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
@@ -22,7 +22,14 @@ export interface GenerateOptions {
   commandName?: string;
 }
 
-export async function generateCommand(options: GenerateOptions = {}) {
+/** `hypequery generate --json` / `generate:types --json`. `output` is absolute. */
+export interface GenerateResult {
+  readonly output: string;
+  readonly database: string;
+  readonly tables: readonly string[];
+}
+
+export async function generateCommand(options: GenerateOptions = {}): Promise<GenerateResult> {
   const command = options.commandName === 'hypequery generate:types' ? 'generate:types' : 'generate';
   const metrics = new TypeGenerationMetrics();
   updateCommandTelemetry(command, { custom_output: !!(options.output || options.path), tables_filter_used: !!options.tables, chdb_path_given: !!options.chdbPath });
@@ -57,7 +64,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
   updateCommandTelemetry(command, { database: dbType === 'clickhouse' || dbType === 'chdb' || dbType === 'bigquery' ? dbType : 'unknown', chdb_path_given: !!chdbPath });
 
   if (dbType === 'chdb' && !requestedDbType) {
-    throw new Error(
+    throw new CliError('INPUT_REQUIRED',
       'chDB generation must be explicit. Re-run with --database chdb and add --chdb-path <dir> for persistent storage.',
     );
   }
@@ -120,7 +127,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
     logger.header('Types regenerated successfully!');
     logger.newline();
-
+    return { output: outputPath, database: dbType, tables: generatedTables };
   } catch (error) {
     updateCommandTelemetry(command, metrics.snapshot());
     activeSpinner.fail(failureMessage);
@@ -186,6 +193,6 @@ export async function generateCommand(options: GenerateOptions = {}) {
     }
 
     logger.newline();
-    exitWith(1, 'failure', telemetryErrorCode(error));
+    throw toDatabaseCliError(error);
   }
 }

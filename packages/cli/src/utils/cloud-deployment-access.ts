@@ -1,3 +1,4 @@
+import { CliError } from './machine-output/cli-error.js';
 import {
   loadCloudCredential,
   type StoredCloudCredential,
@@ -18,7 +19,7 @@ function requiredConfiguration(
   value: string | undefined,
   message: string,
 ): string {
-  if (value === undefined || value.length === 0) throw new Error(message);
+  if (value === undefined || value.length === 0) throw new CliError('UNAUTHENTICATED', message);
   return value;
 }
 
@@ -33,19 +34,19 @@ export async function resolveDeploymentCredential(
   const hasExplicitEndpoint = Boolean(deploymentEndpoint);
   const hasExplicitToken = Boolean(token);
   if (hasExplicitEndpoint !== hasExplicitToken) {
-    throw new Error(
-      hasExplicitEndpoint
-        ? 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.'
-        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.\n\n'
+    throw hasExplicitEndpoint
+      ? new CliError('UNAUTHENTICATED', 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.')
+      : new CliError('INPUT_REQUIRED', 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.\n\n'
           + 'If you meant to use `hypequery login`, unset HYPEQUERY_API_TOKEN — '
-          + 'the CLI also reads it from a project .env file.',
-    );
+          + 'the CLI also reads it from a project .env file.', {
+        hint: 'Pass --endpoint <url> or set HYPEQUERY_DEPLOYMENT_ENDPOINT, or unset HYPEQUERY_API_TOKEN to use `hypequery login`.',
+      });
   }
   if (!hasExplicitEndpoint) {
     const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
     if (credential) {
       if (Date.parse(credential.expiresAt) <= Date.now()) {
-        throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
+        throw new CliError('UNAUTHENTICATED', 'The stored Cloud credential has expired. Run `hypequery login` again.');
       }
       deploymentEndpoint = credential.deploymentEndpoint;
       token = credential.token;

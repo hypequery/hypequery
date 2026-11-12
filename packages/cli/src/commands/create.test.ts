@@ -147,7 +147,7 @@ describe('hypequery create', () => {
     const out: string[] = [];
     const before = process.exitCode;
     try {
-      await createCommand('demo', { yes: true, seed: false }, {
+      await expect(createCommand('demo', { yes: true, seed: false }, {
         cwd,
         fetchImpl: indexFetch,
         source: 'https://example.test/examples.json',
@@ -158,8 +158,7 @@ describe('hypequery create', () => {
           throw new Error('registry unreachable');
         },
         write: (line) => out.push(line),
-      });
-      expect(process.exitCode).toBe(1);
+      })).rejects.toMatchObject({ code: 'COMMAND_FAILED', exitCode: 1, reported: true });
     } finally {
       process.exitCode = before;
     }
@@ -224,7 +223,8 @@ describe('hypequery create', () => {
       d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard' }] }), { status: 200 })) as unknown as typeof fetch;
       const before = process.exitCode;
       try {
-        await createCommand('nextjs-dashboard', { yes: true, seed: false }, { ...d, runInstall: async () => { throw new Error('boom'); } });
+        await expect(createCommand('nextjs-dashboard', { yes: true, seed: false }, { ...d, runInstall: async () => { throw new Error('boom'); } }))
+          .rejects.toMatchObject({ code: 'COMMAND_FAILED' });
       } finally {
         process.exitCode = before;
       }

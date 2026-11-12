@@ -98,8 +98,10 @@ describe('generate datasets command', () => {
       await lifecycle.begin('generate:datasets');
       mockReadGeneratedFile.mockResolvedValue(contents);
       mockGenerateDatasets.mockResolvedValue({ tables: [], warnings: [{ kind: 'tenant-column-missing', table: 'PRIVATE_TABLE', column: 'PRIVATE_COLUMN', message: 'PRIVATE_WARNING' }], contents: 'generated datasets\n' });
-      await withCommandTelemetry(lifecycle, () => generateDatasetsCommand({ check: true, tables: 'PRIVATE_TABLE', excludeTables: 'PRIVATE_EXCLUDED', tenantColumn: 'PRIVATE_TENANT' }));
-      await lifecycle.finish(new CommandExit(process.exitCode ? 1 : 0, outcome, process.exitCode ? 'unknown' : undefined));
+      const failure = await withCommandTelemetry(lifecycle, () => generateDatasetsCommand({ check: true, tables: 'PRIVATE_TABLE', excludeTables: 'PRIVATE_EXCLUDED', tenantColumn: 'PRIVATE_TENANT' }))
+        .then(() => undefined, (error: { code?: string; telemetry?: string }) => error);
+      expect(failure?.code).toBe(outcome === 'failure' ? 'OUT_OF_DATE' : undefined);
+      await lifecycle.finish(new CommandExit(failure ? 1 : 0, outcome, failure ? 'unknown' : undefined));
       const event = record.mock.calls[0][0];
       expect(validateTelemetryEvent(event)).toBe(true);
       expect(event.properties).toMatchObject({ mode: 'check', check_result: result, outcome, datasets_generated_bucket: '0', tenant_column_used: true, tables_filter_used: true, exclude_filter_used: true, warning_counts: { 'tenant-column-missing': '1', 'tenant-key-candidate': '0' } });
@@ -243,24 +245,22 @@ describe('generate datasets command', () => {
       Object.assign(new Error('Refusing to overwrite existing file'), { code: 'EEXIST' }),
     );
 
-    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+    await expect(generateDatasetsCommand({ output: 'analytics/datasets.ts' })).rejects.toMatchObject({ code: 'CONFLICT', exitCode: 1 });
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'Refusing to overwrite existing dataset definitions: analytics/datasets.ts',
     );
-    expect(process.exitCode).toBe(1);
   });
 
   it('refuses to replace an existing customized file by default', async () => {
     mockReadGeneratedFile.mockResolvedValue('customized datasets\n');
 
-    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+    await expect(generateDatasetsCommand({ output: 'analytics/datasets.ts' })).rejects.toMatchObject({ code: 'CONFLICT', exitCode: 1 });
 
     expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'Refusing to overwrite existing dataset definitions: analytics/datasets.ts',
     );
-    expect(process.exitCode).toBe(1);
   });
 
   it('atomically replaces a changed file with --force', async () => {
@@ -289,13 +289,13 @@ describe('generate datasets command', () => {
   it('supports a non-writing CI check', async () => {
     mockReadGeneratedFile.mockResolvedValue('old datasets\n');
 
-    await generateDatasetsCommand({ output: 'analytics/datasets.ts', check: true });
+    await expect(generateDatasetsCommand({ output: 'analytics/datasets.ts', check: true }))
+      .rejects.toMatchObject({ code: 'OUT_OF_DATE', exitCode: 1, reported: true });
 
     expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
     expect(mockLogger.error).toHaveBeenCalledWith(
       'Generated dataset definitions are out of date: analytics/datasets.ts',
     );
-    expect(process.exitCode).toBe(1);
   });
 
   it('passes a non-writing CI check when definitions are current', async () => {
@@ -313,7 +313,8 @@ describe('generate datasets command', () => {
   it('prints a non-writing diff and exits non-zero when regeneration differs', async () => {
     mockReadGeneratedFile.mockResolvedValue('old datasets\n');
 
-    await generateDatasetsCommand({ output: 'analytics/datasets.ts', diff: true });
+    await expect(generateDatasetsCommand({ output: 'analytics/datasets.ts', diff: true }))
+      .rejects.toMatchObject({ code: 'OUT_OF_DATE', issues: [{ path: 'analytics/datasets.ts' }] });
 
     expect(mockFormatGeneratedFileDiff).toHaveBeenCalledWith(
       'old datasets\n',
@@ -322,16 +323,13 @@ describe('generate datasets command', () => {
     );
     expect(mockLogger.raw).toHaveBeenCalledWith('--- datasets.ts\n+++ datasets.ts (generated)');
     expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
-    expect(process.exitCode).toBe(1);
   });
 
   it('rejects force combined with non-writing modes', async () => {
-    await generateDatasetsCommand({ force: true, check: true });
-
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      '--force cannot be combined with --check or --diff.',
-    );
+    await expect(generateDatasetsCommand({ force: true, check: true })).rejects.toMatchObject({
+      code: 'USAGE',
+      message: '--force cannot be combined with --check or --diff.',
+    });
     expect(mockGenerateDatasets).not.toHaveBeenCalled();
-    expect(process.exitCode).toBe(1);
   });
 });

@@ -53,8 +53,8 @@ describe('offline client generation', () => {
   it('checks without writes, refuses replacement and preserves mode on force', async () => {
     const { input, output, directory } = await project();
     const missing = path.join(directory, 'absent', 'client.ts');
-    await generateClientCommand(input, { output: missing, check: true });
-    expect(process.exitCode).toBe(1);
+    await expect(generateClientCommand(input, { output: missing, check: true }))
+      .rejects.toMatchObject({ code: 'OUT_OF_DATE', exitCode: 1 });
     await expect(stat(path.dirname(missing))).rejects.toMatchObject({ code: 'ENOENT' });
     process.exitCode = 0;
     await generateClientCommand(input, { output });
@@ -64,9 +64,8 @@ describe('offline client generation', () => {
     await writeFile(output, handEdited);
     await chmod(output, 0o600);
     await expect(generateClientCommand(input, { output })).rejects.toThrow('Refusing');
-    await generateClientCommand(input, { output, check: true });
+    await expect(generateClientCommand(input, { output, check: true })).rejects.toMatchObject({ code: 'OUT_OF_DATE' });
     expect(await readFile(output, 'utf8')).toBe(handEdited);
-    expect(process.exitCode).toBe(1);
     await generateClientCommand(input, { output, force: true });
     expect((await stat(output)).mode & 0o777).toBe(0o600);
   });

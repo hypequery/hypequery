@@ -6,6 +6,7 @@ import path from 'node:path';
 import { build } from 'esbuild';
 import { loadEnvFiles } from './load-env-files.js';
 import { findProjectRoot } from './project-root.js';
+import { CliError } from './machine-output/cli-error.js';
 
 if (typeof process.setMaxListeners === 'function') {
   process.setMaxListeners(0);
@@ -23,7 +24,7 @@ export async function loadApiModule(modulePath: string) {
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('File not found:')) {
       const relativePath = path.relative(process.cwd(), resolved);
-      throw new Error(
+      throw new CliError('NOT_FOUND',
         `File not found: ${relativePath}\n\n` +
         `Make sure the file exists and the path is correct.\n` +
         `You can specify a different file with:\n` +
@@ -40,7 +41,7 @@ export async function loadApiModule(modulePath: string) {
     const relativePath = path.relative(process.cwd(), resolved);
     const availableExports = Object.keys(mod).filter(key => key !== '__esModule');
 
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Invalid API module: ${relativePath}\n\n` +
       `The module must export a hypequery API as 'api'.\n\n` +
       (availableExports.length > 0
@@ -82,7 +83,7 @@ export async function loadModule(modulePath: string) {
     await access(resolved);
   } catch {
     const relativePath = path.relative(process.cwd(), resolved);
-    throw new Error(`File not found: ${relativePath}`);
+    throw new CliError('NOT_FOUND', `File not found: ${relativePath}`);
   }
 
   // The CLI loaded the launch directory's env files at startup. An entry in
@@ -104,7 +105,7 @@ export async function loadModule(modulePath: string) {
       : await import(/* @vite-ignore */ moduleUrl);
   } catch (error: any) {
     const relativePath = path.relative(process.cwd(), resolved);
-    throw new Error(
+    throw new CliError('LOAD_FAILED',
       `Failed to load module: ${relativePath}\n\n` +
       `Error: ${error.message}\n\n` +
       (error.code === 'ERR_MODULE_NOT_FOUND'
@@ -251,7 +252,7 @@ async function bundleTypeScriptModule(entryPath: string) {
 
     return `${pathToFileURL(tempFile).href}?t=${timestamp}`;
   } catch (error: any) {
-    throw new Error(
+    throw new CliError('LOAD_FAILED',
       `Failed to compile ${relativePath} with esbuild.\n` +
       `Original error: ${error?.message ?? error}`
     );

@@ -24,7 +24,9 @@ import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import {
   fetchHostedEndpoints,
 } from '../utils/hosted-endpoints.js';
-import { printHostedEndpoints } from '../utils/hosted-endpoints-output.js';
+import { hostedEndpointsDocument, printHostedEndpoints } from '../utils/hosted-endpoints-output.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { mergeCommandResult } from '../utils/machine-output/command-result.js';
 import {
   buildDeploymentCommand,
   prepareDeploymentReleaseCommand,
@@ -80,7 +82,7 @@ async function readReleaseFile(releasePath: string): Promise<unknown> {
   try {
     handle = await open(releasePath, constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error('Release JSON must be a regular file.');
+    if (!stat.isFile()) throw new CliError('INVALID_INPUT', 'Release JSON must be a regular file.');
     if (stat.size > MAX_RELEASE_FILE_BYTES) {
       throw new Error('Release JSON exceeds 16384 bytes.');
     }
@@ -106,7 +108,8 @@ async function readReleaseFile(releasePath: string): Promise<unknown> {
     }
   }
   if (fileFailure) {
-    throw new Error(
+    throw new CliError(
+      (fileFailure.error as { code?: unknown })?.code === 'ENOENT' ? 'NOT_FOUND' : 'INVALID_INPUT',
       `Cannot read deployment release file: ${releasePath}\n\n`
       + (fileFailure.error instanceof Error
         ? fileFailure.error.message
@@ -116,7 +119,8 @@ async function readReleaseFile(releasePath: string): Promise<unknown> {
   try {
     return JSON.parse(utf8Decoder.decode(bytes));
   } catch (error) {
-    throw new Error(
+    throw new CliError(
+      'INVALID_INPUT',
       `Invalid deployment release JSON: ${releasePath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -127,7 +131,7 @@ function requiredConfiguration(
   value: string | undefined,
   message: string,
 ): string {
-  if (value === undefined || value.length === 0) throw new Error(message);
+  if (value === undefined || value.length === 0) throw new CliError('INPUT_REQUIRED', message);
   return value;
 }
 
@@ -137,7 +141,7 @@ export async function submitDeploymentCommand(
   dependencies: SubmitDeploymentDependencies = {},
 ): Promise<DeploymentSubmissionResponse> {
   if (!bundlePath) {
-    throw new Error(
+    throw new CliError('USAGE',
       'Missing deployment bundle path.\n\n'
       + 'Usage: hypequery deployment:submit analytics/hypequery-deployment '
       + '--release analytics/hypequery-deployment.release.json',
@@ -157,7 +161,7 @@ export async function submitDeploymentCommand(
   try {
     bundle = await verifyDeploymentBundle(bundlePath);
   } catch (error) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Cannot push an invalid deployment bundle: ${bundlePath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -167,7 +171,7 @@ export async function submitDeploymentCommand(
   try {
     release = prepareProtocolDeploymentReleaseEnvelope(releaseInput);
   } catch (error) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Invalid deployment release: ${releasePath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -187,9 +191,11 @@ export async function submitDeploymentCommand(
   if (live?.active?.restored
     && live.active.releaseIdentity !== release.identity
     && !options.replaceRestored) {
-    throw new Error(
+    throw new CliError(
+      'CONFIRMATION_REQUIRED',
       'The live deployment is a restored release. '
       + 'Run the command again with --replace-restored to replace it intentionally.',
+      { hint: 'Re-run with --replace-restored to replace the restored live release intentionally.' },
     );
   }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
@@ -212,6 +218,7 @@ export async function submitDeploymentCommand(
     logger.info(`Staging endpoint: ${result.draft.stagingUrl}`);
     logger.info(`Release identity: ${result.releaseIdentity}`);
     logger.info('Review and publish this draft in Cloud when ready.');
+    mergeCommandResult({ submission: result, endpoints: null });
     return result;
   }
   logger.success(
@@ -228,6 +235,7 @@ export async function submitDeploymentCommand(
     target: release.release.target,
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
+  mergeCommandResult({ submission: result, endpoints: hostedEndpointsDocument(endpoints, options.mcpConfig === true) });
   return result;
 }
 
@@ -242,7 +250,8 @@ async function rejectBundleDirectorySource(sourcePath: string): Promise<void> {
   } catch {
     return;
   }
-  throw new Error(
+  throw new CliError(
+    'INVALID_INPUT',
     `Cannot deploy a prebuilt bundle directory: ${sourcePath}\n\n`
     + '`hypequery deploy` takes a Cloud publication module, for example '
     + '`hypequery deploy analytics/cloud.ts`.\n'
@@ -258,7 +267,8 @@ export async function deployCommand(
 ): Promise<DeploymentSubmissionResponse> {
   validateDraftDeploymentOptions(options);
   if (!sourcePath) {
-    throw new Error(
+    throw new CliError(
+      'USAGE',
       'Missing Cloud publication module path.\n\n'
       + 'Usage: hypequery deploy analytics/cloud.ts',
     );
@@ -299,11 +309,12 @@ export async function deployCommand(
   }, dependencies);
   // A draft isn't live, so the client keeps matching Production.
   if (options.client !== undefined && options.draft !== undefined) {
+    mergeCommandResult({ client: { output: options.client, regenerated: false, reason: 'draft' } });
     logger.info(`${options.client} was not regenerated: drafts are not live, so the client keeps matching the live release.`);
   }
   if (options.client !== undefined && options.draft === undefined) {
     try {
-      await (dependencies.generateClient ?? generateClientCommand)(undefined, {
+      const client = await (dependencies.generateClient ?? generateClientCommand)(undefined, {
         cloud: true,
         output: options.client,
         force: true,
@@ -311,7 +322,16 @@ export async function deployCommand(
         project: options.project,
         environment: options.environment,
       }, dependencies);
+      mergeCommandResult({ client: { output: client?.output ?? options.client, regenerated: true } });
     } catch (error) {
+      mergeCommandResult({
+        client: {
+          output: options.client,
+          regenerated: false,
+          reason: 'failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
       // The release is live either way; say how to catch the client up.
       logger.warn(
         `Deployed, but ${options.client} was not regenerated: `

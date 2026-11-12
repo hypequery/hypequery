@@ -1,5 +1,6 @@
-import { exitWith } from '../utils/command-exit.js';
-import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { toDatabaseCliError } from '../utils/machine-output/classify-error.js';
+import { isJsonOutput } from '../utils/machine-output/output-mode.js';
 /**
  * Generate Datasets Command
  *
@@ -42,10 +43,22 @@ function toImportSpecifier(relativePath: string): string {
   return normalized.startsWith('.') ? normalized : `./${normalized}`;
 }
 
-function refuseOverwrite(relativeOutput: string): void {
+function refuseOverwrite(relativeOutput: string): never {
   logger.warn(`Refusing to overwrite existing dataset definitions: ${relativeOutput}`);
   logger.info('Run again with --diff to inspect changes or --force to replace the file.');
-  process.exitCode = 1;
+  throw new CliError('CONFLICT', `Refusing to overwrite existing dataset definitions: ${relativeOutput}`, {
+    reported: true,
+    hint: 'Run again with --diff to inspect changes or --force to replace the file.',
+    issues: [{ path: relativeOutput, message: 'exists and differs from the generated definitions' }],
+  });
+}
+
+/** `hypequery generate:datasets --json`. `output` is absolute. */
+export interface GenerateDatasetsResult {
+  readonly status: 'up_to_date' | 'unchanged' | 'created' | 'updated';
+  readonly output: string;
+  readonly tables: readonly string[];
+  readonly warnings: readonly unknown[];
 }
 
 function parseTableList(value: string | undefined): string[] | undefined {
@@ -57,7 +70,7 @@ function parseTableList(value: string | undefined): string[] | undefined {
   return parsed && parsed.length > 0 ? parsed : undefined;
 }
 
-export async function generateDatasetsCommand(options: GenerateDatasetsOptions = {}) {
+export async function generateDatasetsCommand(options: GenerateDatasetsOptions = {}): Promise<GenerateDatasetsResult> {
   updateCommandTelemetry('generate:datasets', { mode: options.check ? 'check' : options.diff ? 'diff' : 'write', force: !!options.force,
     tenant_column_used: !!options.tenantColumn, tables_filter_used: !!options.tables, exclude_filter_used: !!options.excludeTables });
   // Determine output path
@@ -77,10 +90,8 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
   const excludedTables = parseTableList(options.excludeTables);
 
   if (options.force && (options.check || options.diff)) {
-    logger.error('--force cannot be combined with --check or --diff.');
     setCommandTelemetryError('validation_failed');
-    process.exitCode = 1;
-    return;
+    throw new CliError('USAGE', '--force cannot be combined with --check or --diff.');
   }
 
   logger.newline();
@@ -122,6 +133,12 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     updateCommandTelemetry('generate:datasets', { datasets_generated_bucket: countBucket(generated.tables.length), warning_counts: warningBuckets(generated.warnings) });
 
     const relativeOutput = path.relative(process.cwd(), outputPath);
+    const result = (status: GenerateDatasetsResult['status']): GenerateDatasetsResult => ({
+      status,
+      output: outputPath,
+      tables: generated.tables,
+      warnings: generated.warnings ?? [],
+    });
     const currentContents = await readGeneratedFile(outputPath);
     const contentsMatch = currentContents === generated.contents;
     if (options.check) {
@@ -137,25 +154,33 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
           : `Unchanged ${relativeOutput}`,
       );
       if (options.check || options.diff) {
-        return;
+        return result('up_to_date');
       }
     } else if (options.diff) {
       setCommandTelemetryError('output_out_of_date');
-      logger.raw(formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput));
+      const diff = formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput);
+      // The diff is the human output; --json carries it in the envelope instead.
+      if (!isJsonOutput()) logger.raw(diff);
       logger.error(`Generated dataset definitions differ: ${relativeOutput}`);
-      process.exitCode = 1;
-      return;
+      throw new CliError('OUT_OF_DATE', `Generated dataset definitions differ: ${relativeOutput}`, {
+        reported: true,
+        telemetry: 'output_out_of_date',
+        hint: 'Review the diff, then run the command with --force to write the new definitions.',
+        issues: [{ path: relativeOutput, message: diff }],
+      });
     } else if (options.check) {
-      logger.error(
-        currentContents === undefined
-          ? `Dataset definitions are missing: ${relativeOutput}`
-          : `Generated dataset definitions are out of date: ${relativeOutput}`,
-      );
-      process.exitCode = 1;
-      return;
+      const message = currentContents === undefined
+        ? `Dataset definitions are missing: ${relativeOutput}`
+        : `Generated dataset definitions are out of date: ${relativeOutput}`;
+      logger.error(message);
+      throw new CliError('OUT_OF_DATE', message, {
+        reported: true,
+        telemetry: currentContents === undefined ? 'output_missing' : 'output_out_of_date',
+        hint: 'Run the command with --diff to inspect the changes, then with --force to write them.',
+        issues: [{ path: relativeOutput, message: currentContents === undefined ? 'missing' : 'out of date' }],
+      });
     } else if (currentContents !== undefined && !options.force) {
       refuseOverwrite(relativeOutput);
-      return;
     } else {
       try {
         // Without --force this is an exclusive create, so a file written
@@ -166,7 +191,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
           refuseOverwrite(relativeOutput);
-          return;
         }
         throw error;
       }
@@ -200,8 +224,9 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     );
     logger.indent('const result = await analytics.execute(rowCount);');
     logger.newline();
-
+    return result(contentsMatch ? 'unchanged' : currentContents === undefined ? 'created' : 'updated');
   } catch (error) {
+    if (error instanceof CliError && error.reported) throw error;
     spinner.fail('Failed to generate datasets');
     logger.newline();
 
@@ -231,6 +256,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     }
 
     logger.newline();
-    exitWith(1, 'failure', telemetryErrorCode(error));
+    throw toDatabaseCliError(error);
   }
 }

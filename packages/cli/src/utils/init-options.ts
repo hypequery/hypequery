@@ -1,3 +1,4 @@
+import { CliError } from './machine-output/cli-error.js';
 import type { InitOptions } from '../commands/init.js';
 import type { InitStyle } from './prompts.js';
 import type { AuthTemplateMode } from '../templates/queries.js';
@@ -12,7 +13,9 @@ export function normalizeInitDatabase(database: InitOptions['database']): InitDa
   if (database === 'chdb') {
     return 'chdb';
   }
-  throw new Error(`Unsupported database "${database}". Use "clickhouse" or "chdb".`);
+  throw new CliError('INVALID_INPUT', `Unsupported database "${database}". Use "clickhouse" or "chdb".`, {
+    issues: [{ path: '--database', message: 'Use clickhouse or chdb.' }],
+  });
 }
 
 export function normalizeInitStyle(style: InitOptions['style']): InitStyle {
@@ -26,7 +29,9 @@ export function normalizeAuthMode(auth: InitOptions['auth']): AuthTemplateMode {
   if (auth === 'context') {
     return 'context';
   }
-  throw new Error(`Unsupported auth mode "${auth}". Use "none" or "context".`);
+  throw new CliError('INVALID_INPUT', `Unsupported auth mode "${auth}". Use "none" or "context".`, {
+    issues: [{ path: '--auth', message: 'Use none or context.' }],
+  });
 }
 
 export function parseTableList(value: string | undefined): string[] | undefined {

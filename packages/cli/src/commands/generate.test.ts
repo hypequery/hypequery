@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as findFiles from '../utils/find-files.js';
 import * as detectDb from '../utils/detect-database.js';
-import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+import { mockProcessExit } from '../test-utils.js';
 import ora from 'ora';
 import { common } from '../../type-tests/fixtures.js';
 import { validateTelemetryEvent } from '../utils/telemetry/validation.js';
@@ -223,7 +223,7 @@ describe('generate command', () => {
       const error = new Error('connect ECONNREFUSED 127.0.0.1:9000');
       vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
@@ -238,7 +238,7 @@ describe('generate command', () => {
       );
       vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(mockSpinner.succeed).not.toHaveBeenCalledWith('Connected to ClickHouse');
       expect(logger.error).toHaveBeenCalledWith('connect ECONNREFUSED 127.0.0.1:9');
@@ -249,7 +249,7 @@ describe('generate command', () => {
       process.env.CLICKHOUSE_URL = 'https://admin:secret@clickhouse.example.com:8443/analytics?token=secret';
       vi.mocked(detectDb.getTableCount).mockRejectedValue(new Error('connect ECONNREFUSED'));
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.indent).toHaveBeenCalledWith(
         'CLICKHOUSE_URL=https://clickhouse.example.com:8443/analytics',
@@ -260,7 +260,7 @@ describe('generate command', () => {
     it('handles table generation errors', async () => {
       mockGenerateTypes.mockRejectedValue(new Error('Failed to write file'));
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
       expect(logger.error).toHaveBeenCalledWith('Failed to write file');
@@ -269,7 +269,7 @@ describe('generate command', () => {
     it('handles write permission errors', async () => {
       mockGenerateTypes.mockRejectedValue(new Error('EACCES: permission denied'));
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.error).toHaveBeenCalledWith('EACCES: permission denied');
     });
@@ -278,7 +278,7 @@ describe('generate command', () => {
       const error = new Error('connect ECONNREFUSED');
       vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.info).toHaveBeenCalledWith(
         'Docs: https://hypequery.com/docs/troubleshooting#connection-errors'
@@ -289,7 +289,7 @@ describe('generate command', () => {
       const error = new Error('Connection timeout');
       vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.error).toHaveBeenCalledWith('Connection timeout');
     });
@@ -298,7 +298,7 @@ describe('generate command', () => {
       const error = new Error('Authentication failed: invalid credentials');
       vi.mocked(detectDb.getTableCount).mockRejectedValue(error);
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.error).toHaveBeenCalledWith('Authentication failed: invalid credentials');
     });
@@ -307,7 +307,7 @@ describe('generate command', () => {
       // @ts-expect-error testing non-error rejection
       vi.mocked(detectDb.getTableCount).mockRejectedValue('string error');
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
 
       expect(logger.error).toHaveBeenCalledWith('string error');
     });
@@ -319,7 +319,7 @@ describe('generate command', () => {
 
       vi.mocked(detectDb.detectDatabase).mockResolvedValue('bigquery');
 
-      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+      await expect(generateCommand({})).rejects.toMatchObject({ name: 'CliError' });
       expect(logger.error).toHaveBeenCalledWith('unsupported');
     });
   });
@@ -387,7 +387,7 @@ describe('generate command', () => {
         new Error('The embedded driver needs the `chdb` package.'),
       );
 
-      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+      await expect(generateCommand({ database: 'chdb' })).rejects.toMatchObject({ name: 'CliError' });
 
       // The install error must surface as the connection failure — the
       // spinner must not report a successful connection with 0 tables first.
@@ -403,7 +403,7 @@ describe('generate command', () => {
       mockEnsureChdbInstalled.mockResolvedValue(undefined);
       mockGenerateTypes.mockRejectedValue(new Error('Failed to inspect schema'));
 
-      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+      await expect(generateCommand({ database: 'chdb' })).rejects.toMatchObject({ name: 'CliError' });
 
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to embedded chDB');
       expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');

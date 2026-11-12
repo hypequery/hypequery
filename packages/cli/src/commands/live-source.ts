@@ -13,6 +13,8 @@ import {
   type LiveDeployment,
 } from '../utils/live-deployment.js';
 import { logger } from '../utils/logger.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
+import { mergeCommandResult } from '../utils/machine-output/command-result.js';
 
 export interface LiveSourceOptions {
   readonly endpoint?: string;
@@ -41,8 +43,10 @@ async function liveSource(
   const access = await resolveDeploymentCredential(options.endpoint, dependencies);
   if (access.storedCredential
     && access.storedCredential.scope !== CLOUD_SOURCE_SCOPE) {
-    throw new Error(
+    throw new CliError(
+      'FORBIDDEN',
       'The stored CLI credential cannot read deployed source. Run `hypequery login` again.',
+      { hint: 'Run `hypequery login` again to get a credential that can read deployed source.' },
     );
   }
   const target = deploymentTargetFromOptions(options, access.storedCredential);
@@ -53,7 +57,9 @@ async function liveSource(
     resource: 'source',
   });
   if (!live?.active?.source) {
-    throw new Error('The live deployment does not include a source snapshot.');
+    throw new CliError('NOT_FOUND', 'The live deployment does not include a source snapshot.', {
+      hint: 'Deploy with source (the default; without --no-source), then run the command again.',
+    });
   }
   return live as LiveDeployment & {
     readonly active: NonNullable<LiveDeployment['active']>;
@@ -92,7 +98,9 @@ export async function pullCommand(
       ),
   );
   if (destination === path.parse(destination).root || await exists(destination)) {
-    throw new Error(`Refusing to overwrite an existing pull destination: ${destination}`);
+    throw new CliError('CONFLICT', `Refusing to overwrite an existing pull destination: ${destination}`, {
+      hint: 'Pass --output <directory> with a new directory.',
+    });
   }
   const parent = path.dirname(destination);
   await mkdir(parent, { recursive: true });
@@ -115,6 +123,12 @@ export async function pullCommand(
   logger.success(`Live source pulled to ${destination}`);
   logger.info(`Release identity: ${active.releaseIdentity}`);
   logger.info(`Entrypoint: ${source.entrypoint}`);
+  mergeCommandResult({
+    destination,
+    releaseIdentity: active.releaseIdentity,
+    entrypoint: source.entrypoint,
+    files: source.files.map(file => file.path),
+  });
   return destination;
 }
 
@@ -147,5 +161,13 @@ export async function diffCommand(
       logger.info(`${difference.status} ${difference.path}`);
     }
   }
+  mergeCommandResult({
+    releaseIdentity: active.releaseIdentity,
+    matches: differences.length === 0,
+    differences: differences.map(difference => ({
+      status: difference.status === 'A' ? 'added' : difference.status === 'D' ? 'deleted' : 'modified',
+      path: difference.path,
+    })),
+  });
   return Object.freeze(differences);
 }

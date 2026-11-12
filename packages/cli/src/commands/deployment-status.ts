@@ -4,7 +4,7 @@ import {
 } from '../utils/cloud-deployment-access.js';
 import { deploymentTargetFromOptions } from '../utils/deployment-target.js';
 import { fetchHostedEndpoints } from '../utils/hosted-endpoints.js';
-import { printHostedEndpoints } from '../utils/hosted-endpoints-output.js';
+import { printHostedEndpoints, hostedEndpointsDocument } from '../utils/hosted-endpoints-output.js';
 import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import { logger } from '../utils/logger.js';
 
@@ -24,7 +24,7 @@ export interface DeploymentStatusDependencies extends CloudDeploymentAccessDepen
 export async function deploymentStatusCommand(
   options: DeploymentStatusOptions = {},
   dependencies: DeploymentStatusDependencies = {},
-): Promise<void> {
+): Promise<DeploymentStatusResult> {
   const access = await resolveDeploymentCredential(options.endpoint, dependencies);
   const target = deploymentTargetFromOptions(options, access.storedCredential);
   const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
@@ -49,4 +49,18 @@ export async function deploymentStatusCommand(
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
   else logger.warn('Cloud did not return hosted endpoint details.');
+  return {
+    target,
+    live: live?.active
+      ? { releaseIdentity: live.active.releaseIdentity, activatedAt: live.active.activatedAt, restored: live.active.restored === true }
+      : null,
+    endpoints: hostedEndpointsDocument(endpoints, options.mcpConfig === true),
+  };
+}
+
+/** `hypequery deployment:status --json`. `endpoints` is null when Cloud did not say. */
+export interface DeploymentStatusResult {
+  readonly target: { readonly project: string; readonly environment: string };
+  readonly live: { readonly releaseIdentity: string; readonly activatedAt: string; readonly restored: boolean } | null;
+  readonly endpoints: ReturnType<typeof hostedEndpointsDocument>;
 }

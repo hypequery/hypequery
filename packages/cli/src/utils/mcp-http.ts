@@ -5,6 +5,8 @@ import { runMcpUntilSignal } from './mcp-lifecycle.js';
 import { MCP_API_KEY_VARIABLE } from './hosted-endpoints.js';
 import { logger } from './logger.js';
 import type { McpSession } from './telemetry/mcp-session.js';
+import { CliError } from './machine-output/cli-error.js';
+import { mergeCommandResult } from './machine-output/command-result.js';
 
 interface HttpMcpDependencies {
   loadMcp?: () => Promise<unknown>;
@@ -35,17 +37,18 @@ export async function runHttpMcp(url: string, selfTest: boolean, dependencies: H
     } catch {
       if (signal?.aborted) throw signal.reason;
       // Do not echo a URL, credential, backend response or user-installed peer's error.
-      throw new Error('Could not initialize the HTTP MCP bridge. Check the discovery URL, backend access and client-contract compatibility.');
+      throw new CliError('UNAVAILABLE', 'Could not initialize the HTTP MCP bridge. Check the discovery URL, backend access and client-contract compatibility.');
     }
   };
   if (selfTest) {
     const executor = await create();
     let tools: Awaited<ReturnType<MCPToolExecutor['listTools']>>;
     try { tools = await executor.listTools(); }
-    catch { throw new Error('HTTP MCP discovery check failed. Check backend access and reconnect after contract changes.'); }
+    catch { throw new CliError('UNAVAILABLE', 'HTTP MCP discovery check failed. Check backend access and reconnect after contract changes.'); }
     logger.success('Authorized HTTP client contract is ready for MCP.');
     logger.info(`Tools: ${tools.tools.length}`);
     logger.info('No query tool was called. Python resolves the principal and tenant.');
+    mergeCommandResult({ ok: true, mode: 'http', url, tools: tools.tools.length });
     return;
   }
   await runMcpUntilSignal(async signal => {

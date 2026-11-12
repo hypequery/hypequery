@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { CliError } from '../machine-output/cli-error.js';
 
 /** One entry of https://hypequery.com/examples.json (see website-next/src/app/examples.json). */
 export interface ExamplesIndexEntry {
@@ -56,7 +57,7 @@ export async function loadExamplesIndex(options: LoadIndexOptions = {}): Promise
     const fetchImpl = options.fetchImpl ?? fetch;
     const response = await fetchImpl(source, { headers: { accept: 'application/json', 'user-agent': 'hypequery-cli' } });
     if (!response.ok) {
-      throw new Error(`Could not load the examples index from ${source} (HTTP ${response.status}). Check your network, or set HYPEQUERY_EXAMPLES_INDEX to a file.`);
+      throw new CliError('UNAVAILABLE', `Could not load the examples index from ${source} (HTTP ${response.status}). Check your network, or set HYPEQUERY_EXAMPLES_INDEX to a file.`);
     }
     text = await response.text();
   } else {

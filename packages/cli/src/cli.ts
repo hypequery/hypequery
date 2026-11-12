@@ -38,11 +38,11 @@ import {
   type LiveSourceOptions,
   type PullOptions,
 } from './commands/live-source.js';
-import { isPromptCancelled } from './utils/prompts.js';
 import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
-import { telemetryErrorCode } from './utils/telemetry/error-code.js';
+import { runCommand } from './utils/machine-output/run-command.js';
+import { CliError } from './utils/machine-output/cli-error.js';
 
 const program = new Command();
 
@@ -63,7 +63,7 @@ program
   .command('telemetry [action]')
   .description('Show or change anonymous usage telemetry settings (status|enable|disable)')
   .action(runCommand(async (action: string | undefined) => {
-    await telemetryCommand(action, { telemetry: program.opts().telemetry });
+    return telemetryCommand(action, { telemetry: program.opts().telemetry });
   }));
 
 program
@@ -73,9 +73,9 @@ program
   .option('--kind <kind>', 'Only example, recipe or guide')
   .action(runCommand(async (action: string | undefined, options: ExamplesListOptions) => {
     if (action !== undefined && action !== 'list') {
-      throw new Error(`Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
+      throw new CliError('USAGE', `Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
     }
-    await examplesListCommand(options);
+    return examplesListCommand(options);
   }));
 
 program
@@ -87,7 +87,7 @@ program
   .option('--no-seed', 'Skip copying the shared seed dataset into ./<slug>/seed')
   .option('--tag <dist-tag>', 'Dist-tag for @hypequery/* packages whose recorded version is not on npm (default: latest)')
   .action(runCommand(async (slug: string, options: CreateOptions) => {
-    await createCommand(slug, options);
+    return createCommand(slug, options);
   }));
 
 program
@@ -96,14 +96,14 @@ program
   .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
   .option('--environment <environment>', 'Stable deployment target')
   .action(runCommand(async (options: LoginOptions) => {
-    await loginCommand(options);
+    return loginCommand(options);
   }));
 
 program
   .command('logout')
   .description('Revoke and remove the local Hypequery Cloud credential')
   .action(runCommand(async () => {
-    await logoutCommand();
+    return logoutCommand();
   }));
 
 program
@@ -114,7 +114,7 @@ program
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
   .action(runCommand(async (options: PullOptions) => {
-    await pullCommand(options);
+    return pullCommand(options);
   }));
 
 program
@@ -124,28 +124,8 @@ program
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
   .action(runCommand(async (source: string | undefined, options: LiveSourceOptions) => {
-    await diffCommand(source, options);
+    return diffCommand(source, options);
   }));
-
-function runCommand<TArgs extends unknown[]>(
-  action: (...args: TArgs) => Promise<void>,
-): (...args: TArgs) => Promise<void> {
-  return async (...args) => {
-    try {
-      await action(...args);
-    } catch (error) {
-      if (error instanceof CommandExit) throw error;
-      // Ctrl+C at a prompt is a deliberate abort, not a failure: report it as
-      // the interrupt it is instead of dumping an error and exiting 1.
-      if (isPromptCancelled(error)) {
-        console.log('\nCancelled.');
-        throw new CommandExit(130, 'cancelled', 'prompt_cancelled');
-      }
-      console.error(error instanceof Error ? error.message : error);
-      throw new CommandExit(1, 'failure', telemetryErrorCode(error));
-    }
-  };
-}
 
 function addTypeGenerationOptions(command: Command) {
   return command
@@ -174,7 +154,7 @@ program
   .option('--force', 'Overwrite existing files')
   .option('--skip-connection', 'Skip database connectivity test')
   .action(runCommand(async (options: Record<string, unknown>) => {
-    await initCommand(normalizeInitOptions(options));
+    return initCommand(normalizeInitOptions(options));
   }));
 
 // Dev command
@@ -192,8 +172,8 @@ program
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('-q, --quiet', 'Suppress startup messages')
   .action(runCommand(async (file: string | undefined, options: DevOptions) => {
-    await devCommand(file, options);
-  }));
+    return devCommand(file, options);
+  }, { longRunning: true }));
 
 program
   .command('mcp [file]')
@@ -204,8 +184,8 @@ program
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
-    await mcpCommand(file, options);
-  }));
+    return mcpCommand(file, options);
+  }, { ownsStdout: true }));
 
 program
   .command('skill [action]')
@@ -215,18 +195,18 @@ program
   .option('--force', 'Replace skills that were edited or are out of date')
   .option('--check', 'Exit 1 if a skill is missing or out of date, without writing')
   .action(runCommand(async (action: string | undefined, options: SkillOptions) => {
-    await skillCommand(action, options);
+    return skillCommand(action, options);
   }));
 
 // Generate command
 addTypeGenerationOptions(program.command('generate'))
   .action(runCommand(async (options: GenerateOptions) => {
-    await generateCommand(options);
+    return generateCommand(options);
   }));
 
 addTypeGenerationOptions(program.command('generate:types'))
   .action(runCommand(async (options: GenerateOptions) => {
-    await generateCommand({ ...options, commandName: 'hypequery generate:types' });
+    return generateCommand({ ...options, commandName: 'hypequery generate:types' });
   }));
 
 program
@@ -244,7 +224,7 @@ program
   .option('--check', 'Exit with an error when the output file is missing or out of date')
   .option('--diff', 'Print generated changes without writing them')
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
-    await generateDatasetsCommand(options);
+    return generateDatasetsCommand(options);
   }));
 
 program
@@ -258,7 +238,7 @@ program
   .option('--environment <environment>', 'With --cloud: target environment identifier (advanced override)')
   .option('--endpoint <url>', 'With --cloud: HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
   .action(runCommand(async (contract: string | undefined, options: GenerateClientOptions) => {
-    await generateClientCommand(contract, options);
+    return generateClientCommand(contract, options);
   }));
 
 program
@@ -266,7 +246,7 @@ program
   .description('Generate a static React hook manifest from a hypequery API module')
   .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-manifest.json)')
   .action(runCommand(async (api: string, options: GenerateManifestOptions) => {
-    await generateManifestCommand(api, options);
+    return generateManifestCommand(api, options);
   }));
 
 program
@@ -277,7 +257,7 @@ program
   .option('--check', 'Check for drift without writing')
   .option('--force', 'Replace an existing contract file')
   .action(runCommand(async (api: string, options: ExportClientContractOptions) => {
-    await exportClientContractCommand(api, options);
+    return exportClientContractCommand(api, options);
   }));
 
 program
@@ -286,14 +266,14 @@ program
   .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
   .option('--no-source', 'Exclude project source files from the deployment bundle')
   .action(runCommand(async (cloud: string, options: BuildDeploymentOptions) => {
-    await buildDeploymentCommand(cloud, options);
+    return buildDeploymentCommand(cloud, options);
   }));
 
 program
   .command('deployment:validate <artifact>')
   .description('Verify a deployment bundle or validate a deployment contract JSON file')
   .action(runCommand(async (artifact: string) => {
-    await validateDeploymentCommand(artifact);
+    return validateDeploymentCommand(artifact);
   }));
 
 program
@@ -303,7 +283,7 @@ program
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('-o, --output <path>', 'Release JSON path (default: beside the bundle)')
   .action(runCommand(async (bundle: string, options: PrepareDeploymentReleaseOptions) => {
-    await prepareDeploymentReleaseCommand(bundle, options);
+    return prepareDeploymentReleaseCommand(bundle, options);
   }));
 
 program
@@ -320,7 +300,7 @@ program
     'Intentionally replace a restored live release',
   )
   .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
-    await submitDeploymentCommand(bundle, options);
+    return submitDeploymentCommand(bundle, options);
   }));
 
 program
@@ -331,7 +311,7 @@ program
   .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
   .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
   .action(runCommand(async (options: DeploymentStatusOptions) => {
-    await deploymentStatusCommand(options);
+    return deploymentStatusCommand(options);
   }));
 
 program
@@ -354,8 +334,16 @@ program
   .option('--mcp-config', 'Also print MCP client configuration for the hosted endpoint')
   .option('--client <path>', 'Regenerate this typed client file from the new live release')
   .action(runCommand(async (source: string, options: DeployOptions) => {
-    await deployCommand(source, options);
+    return deployCommand(source, options);
   }));
+
+// Machine-output flags, on every command (decision 0019, AG-07).
+for (const command of program.commands) {
+  if (!command.options.some(option => option.long === '--json')) {
+    command.option('--json', 'Print one JSON document on stdout (logs go to stderr); failures print a JSON error envelope');
+  }
+  command.option('--no-input', 'Never prompt: fail with exit code 1 and name the flag to pass instead');
+}
 
 // Help command
 program

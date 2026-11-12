@@ -4,7 +4,7 @@ import * as findFiles from '../utils/find-files.js';
 import * as loadApi from '../utils/load-api.js';
 import * as detectDb from '../utils/detect-database.js';
 import { logger } from '../utils/logger.js';
-import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+import { mockProcessExit } from '../test-utils.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
 import { TelemetryInvocation } from '../utils/telemetry/invocation.js';
 import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
@@ -116,7 +116,7 @@ describe('dev command', () => {
     mockLoadServeDev.mockRejectedValueOnce(
       new Error('hypequery dev needs @hypequery/serve. Install it: npm install @hypequery/serve'),
     );
-    await expect(devCommand(undefined, { watch: false })).rejects.toThrow(ProcessExitError);
+    await expect(devCommand(undefined, { watch: false })).rejects.toMatchObject({ name: 'CliError' });
     expect(loadApi.loadApiModule).not.toHaveBeenCalled();
     expect(vi.mocked(logger.info).mock.calls.flat().join('\n')).toContain('npm install @hypequery/serve');
   });
@@ -369,14 +369,12 @@ describe('dev command', () => {
       try {
         await devCommand(undefined, { watch: false });
       } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
-        expect((error as ProcessExitError).code).toBe(1);
+        expect(error).toMatchObject({ name: 'CliError', code: 'NOT_FOUND', exitCode: 1 });
       }
 
       expect(logger.error).toHaveBeenCalledWith('Could not find hypequery API file');
       expect(logger.info).toHaveBeenCalledWith('Expected one of:');
       expect(logger.indent).toHaveBeenCalledWith('• analytics/api.ts');
-      expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
     });
 
     it('should handle table count retrieval failure silently', async () => {
@@ -395,7 +393,7 @@ describe('dev command', () => {
       try {
         await devCommand(undefined, { watch: false });
       } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
+        expect(error).toMatchObject({ name: 'CliError', exitCode: 1 });
       }
 
       expect(logger.error).toHaveBeenCalledWith('Failed to start server');
@@ -408,7 +406,7 @@ describe('dev command', () => {
       try {
         await devCommand(undefined, { watch: false });
       } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
+        expect(error).toMatchObject({ name: 'CliError', exitCode: 1 });
       }
 
       expect(logger.error).toHaveBeenCalledWith('Failed to start server');

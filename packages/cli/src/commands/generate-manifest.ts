@@ -4,6 +4,7 @@ import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
 import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { manifestMetrics } from '../utils/telemetry/generation-metrics.js';
+import { CliError } from '../utils/machine-output/cli-error.js';
 
 export interface GenerateManifestOptions {
   output?: string;
@@ -15,7 +16,7 @@ export async function generateManifestCommand(
 ) {
   updateCommandTelemetry('generate:manifest', { custom_output: options.output !== undefined });
   if (!apiPath) {
-    throw new Error(
+    throw new CliError('USAGE',
       'Missing API module path.\n\n' +
       'Usage: hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json',
     );
@@ -25,7 +26,7 @@ export async function generateManifestCommand(
   const api = await loadApiModule(apiPath);
 
   if (!api || typeof api.manifest !== 'function') {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Invalid API module: ${apiPath}\n\n` +
       `The exported API must provide a manifest() method. ` +
       `Export the value returned by createAPI() or initServe(...).serve(...).`,
@@ -38,4 +39,8 @@ export async function generateManifestCommand(
   await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
   logger.success(`Manifest written to ${outputPath}`);
+  return {
+    output: path.resolve(outputPath),
+    routes: manifest && typeof manifest === 'object' ? Object.keys(manifest as object).sort() : [],
+  };
 }

@@ -1,5 +1,4 @@
 import { runHttpMcp } from '../utils/mcp-http.js';
-import { exitWith } from '../utils/command-exit.js';
 import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
 import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
 import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
@@ -14,6 +13,8 @@ import { McpSession } from '../utils/telemetry/mcp-session.js';
 import { countBucket } from '../utils/telemetry/buckets.js';
 import { entryType } from '../utils/telemetry/session-config.js';
 import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
+import { CliError, type CliErrorCode } from '../utils/machine-output/cli-error.js';
+import { mergeCommandResult } from '../utils/machine-output/command-result.js';
 
 export interface McpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
@@ -41,31 +42,36 @@ export interface McpDependencies {
   env?: Readonly<Record<string, string | undefined>>;
 }
 
-function fail(message: string, hints: readonly string[] = []): never {
+function fail(code: CliErrorCode, message: string, hints: readonly string[] = []): never {
   logger.error(message);
   if (hints.length > 0) {
     logger.newline();
     for (const hint of hints) logger.indent(hint);
   }
   logger.newline();
-  exitWith(1, 'failure', 'validation_failed');
+  throw new CliError(code, message, {
+    reported: true,
+    telemetry: 'validation_failed',
+    ...(hints.length > 0 ? { hint: hints.join(' ') } : {}),
+  });
 }
 
 /** `--self-test --url`: initialize and list tools against a hosted endpoint. */
 async function remoteSelfTest(url: string, dependencies: McpDependencies): Promise<void> {
   const key = (dependencies.env ?? process.env)[MCP_API_KEY_VARIABLE]?.trim();
   if (!key) {
-    fail(`Set ${MCP_API_KEY_VARIABLE} to a runtime API key to check a hosted endpoint.`, [
+    fail('INPUT_REQUIRED', `Set ${MCP_API_KEY_VARIABLE} to a runtime API key to check a hosted endpoint.`, [
       'Create one in Cloud under Keys. It is read from the environment so it never',
       'appears in your shell history.',
     ]);
   }
   const result = await (dependencies.checkRemote ?? checkRemoteMcp)({ url, key });
-  if (!result.ok) fail(`Hosted MCP check failed: ${result.reason}`);
+  if (!result.ok) fail('UNAVAILABLE', `Hosted MCP check failed: ${result.reason}`);
   logger.success(`Connected to ${result.server ?? 'the hosted MCP endpoint'}`);
   logger.info(`Tools: ${result.tools}`);
   logger.newline();
   logger.info('The hosted endpoint is ready for MCP clients. No tool was called.');
+  mergeCommandResult({ ok: true, mode: 'hosted', url, server: result.server ?? null, tools: result.tools });
 }
 
 function entrypointNotFound(): never {
@@ -82,7 +88,11 @@ function entrypointNotFound(): never {
   logger.info('Or specify the file explicitly:');
   logger.indent('hypequery mcp ./path/to/api.ts');
   logger.newline();
-  exitWith(1, 'failure', 'entrypoint_not_found');
+  throw new CliError('NOT_FOUND', 'Could not find a hypequery API file to serve over MCP.', {
+    reported: true,
+    telemetry: 'entrypoint_not_found',
+    hint: 'Pass the file explicitly: hypequery mcp ./path/to/api.ts (or --path <dir>).',
+  });
 }
 
 function noDatasets(file: string): never {
@@ -91,7 +101,11 @@ function noDatasets(file: string): never {
   logger.info('MCP exposes datasets and named metrics, so add them to defineServe:');
   logger.indent('defineServe({ queryBuilder: db, datasets: { orders: Orders } })');
   logger.newline();
-  exitWith(1, 'failure', 'no_datasets');
+  throw new CliError('INVALID_INPUT', `${path.relative(process.cwd(), file)} does not register any datasets.`, {
+    reported: true,
+    telemetry: 'no_datasets',
+    hint: 'Register datasets with defineServe({ queryBuilder: db, datasets: { orders: Orders } }).',
+  });
 }
 
 async function resolveEntrypoint(file: string | undefined, options: McpOptions): Promise<string> {
@@ -114,16 +128,18 @@ export async function mcpCommand(
 ): Promise<void> {
   const telemetry = new McpSession();
   updateCommandTelemetry('mcp', { mode: options.selfTest ? 'self_test' : 'serve', hosted: !!options.url, tenant_used: !!options.tenant, http_backend: !!options.clientContractUrl });
-  if (options.clientContractUrl !== undefined && (file !== undefined || options.path !== undefined || options.tenant !== undefined || options.url !== undefined)) {
-    fail('--client-contract-url cannot be combined with a file, --path, --tenant or --url.');
-  }
-  if (options.url && !options.selfTest) {
-    fail('--url is only used with --self-test.', [
-      'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
-    ]);
-  }
+  // Before any validation: stdout is the MCP protocol stream, so even an
+  // argument error's blank lines must not reach it.
   const restoreConsole = routeConsoleOutputToStderr();
   try {
+    if (options.clientContractUrl !== undefined && (file !== undefined || options.path !== undefined || options.tenant !== undefined || options.url !== undefined)) {
+      fail('USAGE', '--client-contract-url cannot be combined with a file, --path, --tenant or --url.');
+    }
+    if (options.url && !options.selfTest) {
+      fail('USAGE', '--url is only used with --self-test.', [
+        'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
+      ]);
+    }
     if (options.clientContractUrl !== undefined) {
       await runHttpMcp(options.clientContractUrl, !!options.selfTest, dependencies, telemetry);
       return;
@@ -152,7 +168,11 @@ export async function mcpCommand(
       logger.info('MCP has no request to resolve a tenant from, so it must be given one:');
       logger.indent('hypequery mcp --tenant acme');
       logger.newline();
-      exitWith(1, 'failure', 'tenant_required');
+      throw new CliError('INPUT_REQUIRED', `--tenant is required for tenant-scoped datasets: ${scoped.join(', ')}`, {
+        reported: true,
+        telemetry: 'tenant_required',
+        hint: 'Pass --tenant <id> with the trusted tenant to scope every query to.',
+      });
     }
 
     const analytics = source.resolveAnalytics();
@@ -163,7 +183,7 @@ export async function mcpCommand(
       try {
         await (dependencies.loadMcp ?? (() => loadMcpPackage(entrypoint)))();
       } catch {
-        fail('@hypequery/mcp is not installed, so this project cannot be served over MCP.', [
+        fail('NOT_INSTALLED', '@hypequery/mcp is not installed, so this project cannot be served over MCP.', [
           'npm install @hypequery/mcp',
         ]);
       }
@@ -174,6 +194,13 @@ export async function mcpCommand(
         : 'Trusted tenant: none (no dataset is tenant-scoped)');
       logger.newline();
       logger.info('The entrypoint is ready to serve over MCP.');
+      mergeCommandResult({
+        ok: true,
+        mode: 'local',
+        entrypoint: path.resolve(entrypoint),
+        datasets: names,
+        tenant: options.tenant ?? null,
+      });
       return;
     }
 
