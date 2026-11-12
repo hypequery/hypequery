@@ -1,7 +1,7 @@
-// The three hub pages every related page links up to: the nav, the footer,
+// The hub pages every related page links up to: the nav, the footer,
 // blog posts and pillar pages all read their labels from here.
 
-export type HubKey = 'clickhouse' | 'semanticLayer' | 'embeddedAnalytics';
+export type HubKey = 'clickhouse' | 'semanticLayer' | 'semanticLayers' | 'embeddedAnalytics';
 
 export type Hub = {
   href: string;
@@ -20,6 +20,13 @@ export const hubs: Record<HubKey, Hub> = {
     label: 'ClickHouse semantic layer',
     description: 'Define metrics, dimensions and tenant rules once, in code.',
   },
+  // Vendor-neutral: what a semantic layer is and how dbt, Snowflake, Databricks and OSI compare.
+  // Blog posts tagged "semantic layer" still file under the ClickHouse page above.
+  semanticLayers: {
+    href: '/semantic-layer',
+    label: 'Semantic layers compared',
+    description: 'What a semantic layer is; dbt MetricFlow, Snowflake, Databricks and OSI compared.',
+  },
   embeddedAnalytics: {
     href: '/embedded-analytics',
     label: 'Embedded analytics',
@@ -28,4 +35,4 @@ export const hubs: Record<HubKey, Hub> = {
 };
 
 /** Nav and footer order. */
-export const hubList: Hub[] = [hubs.clickhouse, hubs.semanticLayer, hubs.embeddedAnalytics];
+export const hubList: Hub[] = [hubs.clickhouse, hubs.semanticLayer, hubs.semanticLayers, hubs.embeddedAnalytics];

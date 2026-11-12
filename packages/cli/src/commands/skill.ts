@@ -4,6 +4,7 @@ import { AGENT_SKILLS } from '../templates/skills.generated.js';
 import { readGeneratedFile, writeGeneratedFileAtomically } from '../utils/generated-file.js';
 import { logger } from '../utils/logger.js';
 import { setCommandTelemetryError } from '../utils/telemetry/command-context.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface SkillOptions {
   agent?: string;
@@ -62,6 +63,7 @@ export async function skillCommand(
   const targets = skillTargets(options, dependencies);
   const stale: string[] = [];
   const conflicts: string[] = [];
+  const installed: string[] = [];
   for (const target of targets) {
     const current = await readGeneratedFile(target.file);
     if (current === target.content) continue;
@@ -70,7 +72,8 @@ export async function skillCommand(
       continue;
     }
     await writeGeneratedFileAtomically(target.file, target.content, { overwrite: current !== undefined });
-    logger.success(`Installed ${path.relative(base(options.scope, dependencies), target.file)}`);
+    installed.push(path.relative(base(options.scope, dependencies), target.file));
+    logger.success(`Installed ${installed.at(-1)}`);
   }
   if (options.check && stale.length > 0) {
     setCommandTelemetryError('output_out_of_date');
@@ -82,4 +85,5 @@ export async function skillCommand(
     throw new Error(`Refusing to overwrite edited skills: ${conflicts.join(', ')}. Use --force to replace them.`);
   }
   logger.success(options.check ? 'hypequery skills are up to date.' : 'hypequery skills are installed.');
+  emitResult({ installed, upToDate: true });
 }

@@ -30,6 +30,7 @@ import {
   prepareDeploymentReleaseCommand,
 } from './deployment.js';
 import { generateClientCommand } from './generate-client.js';
+import { emitResult } from '../utils/machine-output.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
@@ -212,6 +213,13 @@ export async function submitDeploymentCommand(
     logger.info(`Staging endpoint: ${result.draft.stagingUrl}`);
     logger.info(`Release identity: ${result.releaseIdentity}`);
     logger.info('Review and publish this draft in Cloud when ready.');
+    emitResult({
+      status: result.status,
+      releaseIdentity: result.releaseIdentity,
+      bundleIdentity: result.bundleIdentity,
+      target: release.release.target,
+      draft: result.draft,
+    });
     return result;
   }
   logger.success(
@@ -228,6 +236,13 @@ export async function submitDeploymentCommand(
     target: release.release.target,
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
+  emitResult({
+    status: result.status,
+    releaseIdentity: result.releaseIdentity,
+    bundleIdentity: result.bundleIdentity,
+    target: release.release.target,
+    endpoints: endpoints ?? null,
+  });
   return result;
 }
 

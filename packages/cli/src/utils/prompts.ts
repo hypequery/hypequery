@@ -1,5 +1,7 @@
 import prompts from 'prompts';
+import { CliError } from './cli-error.js';
 import { logger } from './logger.js';
+import { isJsonOutput } from './machine-output.js';
 
 /**
  * Raised when the user aborts a prompt with Ctrl+C or Esc.
@@ -16,6 +18,19 @@ export function isPromptCancelled(error: unknown): error is PromptCancelledError
 }
 
 /**
+ * Prompts need a person at a terminal. Without one (a pipe, CI, a coding agent,
+ * or `--json`) the CLI refuses instead of waiting for an answer nobody can give.
+ */
+export function assertCanPrompt(stdin: { isTTY?: boolean } = process.stdin): void {
+  if (stdin.isTTY === true && !isJsonOutput()) return;
+  // Text mode prints only the message, so it carries the next action too.
+  throw new CliError('INPUT_REQUIRED', 'This step needs an answer, and there is no terminal to ask in. '
+    + 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.', {
+    hint: 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.',
+  });
+}
+
+/**
  * Ask a question and turn an aborted prompt into a thrown PromptCancelledError.
  *
  * `prompts` only reports cancellation through the `onCancel` callback passed as
@@ -26,6 +41,7 @@ export function isPromptCancelled(error: unknown): error is PromptCancelledError
 async function ask<T extends string = string>(
   questions: prompts.PromptObject<T> | Array<prompts.PromptObject<T>>,
 ): Promise<prompts.Answers<T>> {
+  assertCanPrompt();
   let cancelled = false;
 
   const answers = await prompts(questions, {

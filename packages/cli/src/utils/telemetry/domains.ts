@@ -55,11 +55,11 @@ export const COMMAND_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope', '--force', '--check'],
-  examples: ['--json', '--kind'],
+  examples: ['--kind'],
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
-export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
+export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--help', '--version'] as const;
 /** Options that consume the next argument as their value; that value is never a flag. */
 export const VALUE_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],

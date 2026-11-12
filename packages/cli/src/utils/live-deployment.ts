@@ -1,3 +1,4 @@
+import { cloudHttpError } from './cli-error.js';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {
@@ -245,7 +246,8 @@ export async function fetchLiveDeployment(input: {
   });
   if (input.resource === 'state' && response.status === 404) return undefined;
   if (!response.ok) {
-    throw new Error(
+    throw cloudHttpError(
+      response.status,
       `Could not read the live deployment (${response.status}): ${await errorMessage(response)}`,
     );
   }

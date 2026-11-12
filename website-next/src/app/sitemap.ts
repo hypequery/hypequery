@@ -4,6 +4,7 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { entryHref, registryEntries } from '@/lib/examples';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
@@ -15,6 +16,7 @@ const staticRoutes = [
   '/clickhouse',
   '/clickhouse/functions',
   '/embedded-analytics',
+  ...semanticLayerPages.map((page) => page.href),
   '/',
   '/blog',
   '/changelog',

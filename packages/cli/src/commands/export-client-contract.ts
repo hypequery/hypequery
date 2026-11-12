@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { canonicalClientContract } from '../utils/client-contract-canonical.js';
 import { checkClientOutputPath, describeClientContractError, readClientOutput } from '../utils/client-contract-file.js';
 import { writeGeneratedFileAtomically } from '../utils/generated-file.js';
+import { emitJsonText, isJsonOutput } from '../utils/machine-output.js';
 import { withStdoutToStderr } from '../utils/stdout-to-stderr.js';
 
 export interface ExportClientContractOptions {
@@ -59,7 +60,9 @@ export async function exportClientContractCommand(
     );
   }
   if (options.stdout) {
-    process.stdout.write(canonical);
+    // Under --json the contract is the command's one result document.
+    if (isJsonOutput()) emitJsonText(canonical);
+    else process.stdout.write(canonical);
     return;
   }
 

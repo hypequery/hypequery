@@ -14,6 +14,7 @@ import {
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
 import { logger } from '../utils/logger.js';
+import { emitResult } from '../utils/machine-output.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -270,6 +271,7 @@ export async function loginCommand(
       );
     }
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
+    emitResult({ signedIn: true, target: credential.target ?? null, expiresAt: credential.expiresAt });
   } finally {
     callback.close();
   }
@@ -290,6 +292,7 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   }
   if (!credential && !unreadable) {
     logger.info('You are not logged in to Hypequery Cloud.');
+    emitResult({ signedIn: false, revoked: false });
     return;
   }
   if (credential) {
@@ -311,4 +314,5 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   }
   await remove();
   logger.success('Logged out of Hypequery Cloud');
+  emitResult({ signedIn: false });
 }
