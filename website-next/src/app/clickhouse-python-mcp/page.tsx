@@ -52,8 +52,10 @@ hypequery mcp app:api --self-test
 # Print the entry for Claude Desktop or Cursor
 hypequery mcp app:api --print-config
 
-# Or serve it at a URL for your team, behind a shared key
-HYPEQUERY_MCP_KEY=$(openssl rand -hex 32) hypequery mcp app:api --http`;
+# Or serve it at a URL for your team, behind a shared key.
+# Keep the key: clients send it as "Authorization: Bearer <key>".
+export HYPEQUERY_MCP_KEY=$(openssl rand -hex 32)
+hypequery mcp app:api --http`;
 
 export default function ClickHousePythonMcpPage() {
   return (
