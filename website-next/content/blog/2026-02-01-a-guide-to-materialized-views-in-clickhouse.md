@@ -2,9 +2,9 @@
 title: "ClickHouse Materialized Views: How They Work, With Examples"
 description: "A ClickHouse materialized view is an insert trigger: it runs its SELECT on each block of inserted rows and writes the result to a target table. How incremental and refreshable views differ, how to create and backfill one, which engine to use, and the mistakes that cause wrong numbers."
 seoTitle: "ClickHouse Materialized Views: How They Work, With Examples"
-seoDescription: "A ClickHouse materialized view runs its SELECT on each insert and writes to a target table. Incremental vs refreshable, TO tables, backfills and engines."
+seoDescription: "A ClickHouse materialized view runs its SELECT on each insert and writes to a target table. Incremental vs refreshable, how to refresh, backfills, engines."
 pubDate: 2026-01-11
-updatedAt: 2026-11-08
+updatedAt: 2026-11-12
 heroImage: ""
 slug: a-guide-to-materialized-views-in-clickhouse
 status: published
@@ -35,6 +35,10 @@ No. It only processes rows inserted after it is created. You backfill the existi
 
 Incremental views keep a target up to date within seconds and suit single-table aggregations. Refreshable views rerun the full query on a schedule and suit joins and dimension changes. See [refreshable materialized views](/blog/clickhouse-refreshable-materialized-views).
 
+### How do I refresh a materialized view?
+
+A refreshable view reruns on its schedule, or now with `SYSTEM REFRESH VIEW name`. An incremental view has no refresh command: it is already current for every insert, and to recompute it you truncate the target and reload it with `INSERT ... SELECT`. Both are covered in [how to refresh a materialized view](#how-to-refresh-a-materialized-view).
+
 ### Materialized view or projection?
 
 A projection stores another sort order or a pre-aggregation inside the same table's parts and is picked automatically by the optimizer. A materialized view writes to a separate table and can transform, filter or join. See [projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views).
@@ -43,9 +47,9 @@ A projection stores another sort order or a pre-aggregation inside the same tabl
 
 A normal view stores only the query and runs it at read time; a materialized view stores data. See [view vs materialized view](/blog/clickhouse-view-vs-materialized-view).
 
-## How an incremental materialized view works
+## Incremental materialized views: how they work
 
-An incremental view processes each inserted block on its own. Insert 10,000 rows and the view's `SELECT` runs over those 10,000 rows, then the result is inserted into the target table:
+An incremental materialized view is the default kind: any `CREATE MATERIALIZED VIEW` without a `REFRESH` clause. It processes each inserted block on its own. Insert 10,000 rows and the view's `SELECT` runs over those 10,000 rows, then the result is inserted into the target table:
 
 ```text
 INSERT INTO events (one block of rows)
@@ -155,6 +159,30 @@ WHERE name = 'materialized_views_populate_atomically';
 
 No row means your version predates the fix. The `TO` table plus cutoff backfill works on every version, and the [create and backfill guide](/blog/clickhouse-create-materialized-view-to-table-backfill) covers backfilling large tables in slices.
 
+## Refreshable materialized views
+
+A refreshable materialized view adds a `REFRESH` clause. Instead of reacting to inserts, it reruns its whole `SELECT` on a schedule and swaps the result into the target table atomically, so readers never see a half-written table:
+
+```sql
+CREATE MATERIALIZED VIEW revenue_by_region_mv
+REFRESH EVERY 1 HOUR
+TO revenue_by_region AS
+SELECT c.region AS region, sum(o.amount) AS revenue
+FROM orders AS o
+JOIN customers AS c ON o.customer_id = c.id
+GROUP BY region;
+```
+
+What to know before using one:
+
+- **Schedule.** `REFRESH EVERY 1 HOUR` runs on fixed boundaries (the top of each hour). `REFRESH AFTER 10 MINUTE` waits 10 minutes after the previous refresh finishes. Both run once as soon as the view is created.
+- **Replace or append.** By default each refresh replaces the target's contents. Add `APPEND` (`REFRESH AFTER 10 MINUTE APPEND TO snapshots`) to insert the new rows next to the old ones, which suits periodic snapshots.
+- **Database engine.** Replace mode needs an Atomic or Replicated database. Atomic is the default for new databases.
+- **No setting needed.** On ClickHouse 26.6, `allow_experimental_refreshable_materialized_view` is obsolete and does nothing.
+- **Cost.** Every refresh reads everything the query reads, so keep the query bounded (a date filter, or a small source) or refresh less often.
+
+`DEPENDS ON` chains one refreshable view after another, and `RANDOMIZE FOR` spreads refresh times out. The [refreshable views guide](/blog/clickhouse-refreshable-materialized-views) covers both.
+
 ## Incremental vs refreshable materialized views
 
 Use an incremental view when the target must be current within seconds and the logic depends only on the inserted rows. Use a refreshable view when the result depends on other tables that change, or when the query is too heavy to run on every insert.
@@ -183,6 +211,59 @@ GROUP BY hour, category;
 ```
 
 When we changed a category in `dims` and ran `SYSTEM REFRESH VIEW hourly_report_mv`, the report showed the new category. An incremental view with the same join would have kept the old one. The [refreshable views guide](/blog/clickhouse-refreshable-materialized-views) covers `APPEND`, `DEPENDS ON` and `system.view_refreshes`.
+
+## How to refresh a materialized view
+
+What "refresh" means depends on the kind of view.
+
+### Refresh a refreshable view now
+
+`SYSTEM REFRESH VIEW` starts a refresh immediately, outside the schedule. `SYSTEM WAIT VIEW` blocks until it finishes, which is useful in scripts and tests:
+
+```sql
+SYSTEM REFRESH VIEW revenue_by_region_mv;
+SYSTEM WAIT VIEW revenue_by_region_mv;
+```
+
+In our check, we moved a customer from `us` to `apac` in the `customers` table. `revenue_by_region` still showed `us` until we ran `SYSTEM REFRESH VIEW`, and showed `apac` right after.
+
+The other commands you need for a refreshable view:
+
+```sql
+-- Pause and resume scheduled refreshes
+SYSTEM STOP VIEW revenue_by_region_mv;
+SYSTEM START VIEW revenue_by_region_mv;
+
+-- Change the schedule without recreating the view
+ALTER TABLE revenue_by_region_mv MODIFY REFRESH EVERY 30 MINUTE;
+
+-- Status, last success and next run
+SELECT view, status, last_success_time, next_refresh_time, exception
+FROM system.view_refreshes;
+```
+
+`status` reads `Scheduled` between runs, `Running` during one and `Disabled` after `SYSTEM STOP VIEW`.
+
+### Refresh an incremental view
+
+An incremental view has no refresh command, because it updates on every insert. Running `SYSTEM REFRESH VIEW` on one fails with "Refreshable view ... doesn't exist", and `ALTER TABLE ... MODIFY REFRESH` fails with "Alter of type 'MODIFY_REFRESH' is not supported". You need a recompute when the target has drifted from the source: a retried insert counted twice, a bug in the view's query, or a source correction the view never saw.
+
+If you can pause inserts into the source table, truncate the target and reload it with the view's own query:
+
+```sql
+TRUNCATE TABLE app_daily;
+
+INSERT INTO app_daily
+SELECT toDate(timestamp) AS day, app, count() AS events, sum(bytes) AS bytes
+FROM events
+GROUP BY day, app;
+```
+
+In our check, a target that had drifted to 1,860 events per app went back to 1,500, matching the source, and the view kept writing new inserts afterwards. Rows inserted between the `TRUNCATE` and the end of the `INSERT ... SELECT` can be counted twice, which is why inserts should be paused. If they can't be, build a new target table and view with the [cutoff backfill](#backfill-existing-data), then move readers to the new table.
+
+To change what the view computes, `ALTER TABLE app_daily_mv MODIFY QUERY SELECT ...` replaces its query. The new query applies only to future inserts, so recompute the existing rows as above.
+
+If the target needs recomputing often, the logic probably belongs in a refreshable view.
 
 ## Which engine to use for the target table
 
@@ -475,7 +556,7 @@ Skip the view when the raw query is already fast enough for how often it runs. C
 
 ## Related
 
-- [Refreshable materialized views in ClickHouse](/blog/clickhouse-refreshable-materialized-views)
+- [Refreshable materialized views in ClickHouse](/blog/clickhouse-refreshable-materialized-views): `REFRESH EVERY`, `APPEND`, `DEPENDS ON` and monitoring
 - [Create a materialized view with a TO table and backfill it](/blog/clickhouse-create-materialized-view-to-table-backfill)
 - [Projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views)
 - [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)

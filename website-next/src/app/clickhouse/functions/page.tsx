@@ -58,6 +58,39 @@ const clusterColor: Record<string, string> = {
   array: 'text-violet-300',
 };
 
+const beyondFunctionsLinks = [
+  {
+    href: '/compare/hypequery-vs-raw-sql',
+    title: 'Raw SQL strings vs a typed builder',
+    description: 'When to keep a function call in a SQL string, and when a schema-checked query catches renamed columns.',
+  },
+  {
+    href: '/compare/hypequery-vs-clickhouse-connect',
+    title: 'Python: hypequery vs clickhouse-connect',
+    description: 'Run these functions from Python with the official driver, or as shared, typed measures.',
+  },
+  {
+    href: '/docs/nextjs',
+    title: 'Serve queries from Next.js',
+    description: 'Mount typed ClickHouse queries in a Next.js App Router project.',
+  },
+  {
+    href: '/docs/fetch',
+    title: 'Serve queries from any Fetch runtime',
+    description: 'Hono, Cloudflare Workers, Bun, Deno, React Router and SvelteKit.',
+  },
+  {
+    href: '/docs/embedded-runtime',
+    title: 'Embedded runtime',
+    description: 'Run query definitions inside your own application process, with no separate server.',
+  },
+  {
+    href: '/compare/cube-vs-tinybird-vs-hypequery',
+    title: 'Cube vs Tinybird vs hypequery',
+    description: 'Three ways to put an API layer between ClickHouse and your application.',
+  },
+] as const;
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
@@ -165,6 +198,24 @@ export default function ClickHouseFunctionsIndexPage() {
             </section>
           );
         })}
+
+        {/* Beyond single functions */}
+        <section className="mx-auto max-w-7xl px-4 pb-14 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Beyond single functions</p>
+          <h2 className="mt-3 text-2xl font-semibold text-white">Put these functions into typed queries and APIs</h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {beyondFunctionsLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group border border-slate-700 bg-slate-900/70 p-5 transition hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
+              >
+                <p className="text-base font-semibold text-white">{link.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{link.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* CTA */}
         <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6">

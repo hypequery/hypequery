@@ -232,6 +232,21 @@ const guideLinks: HubLink[] = [
     description: 'A semantic layer with no Cube server, Redis cache or YAML to run.',
   },
   {
+    href: '/compare/cube-vs-tinybird-vs-hypequery',
+    title: 'Cube vs Tinybird vs hypequery',
+    description: 'A semantic layer platform, a managed analytics service and a library in your codebase, side by side.',
+  },
+  {
+    href: '/compare/hypequery-vs-propel',
+    title: 'hypequery vs Propel',
+    description: "Propel's domain now points to a parking page. Where its semantic layer and API users can move.",
+  },
+  {
+    href: '/docs/embedded-runtime',
+    title: 'Embedded runtime',
+    description: 'Run dataset and metric definitions inside your own backend process, with no separate server.',
+  },
+  {
     href: '/compare/hypequery-vs-dbt',
     title: 'hypequery vs dbt',
     description: 'Scheduled transformations in dbt compared with request-time serving from your app.',
