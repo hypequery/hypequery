@@ -1,5 +1,6 @@
 import { absoluteUrl } from '@/lib/site';
-import { entryHref, packageVersions, registryEntries, REPO_TREE_URL } from '@/lib/examples';
+import { entryHref, registryEntries, REPO_TREE_URL } from '@/lib/examples';
+import { readPackageVersions } from '@/lib/package-versions';
 
 // Static, regenerated at build time.
 export const revalidate = false;
@@ -13,7 +14,7 @@ export function GET() {
   const body = {
     version: 1,
     source: { repository: 'hypequery/hypequery', ref: 'main' },
-    packageVersions,
+    packageVersions: readPackageVersions(),
     entries: registryEntries.map(({ manifest, dir }) => ({
       slug: manifest.slug,
       kind: manifest.kind,

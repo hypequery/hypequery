@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildRegistry, expandSqlIncludes, languageForFile, renderRegistry } from './registry.js';
+import { buildRegistry, expandSqlIncludes, languageForFile, readPackageVersions, renderRegistry } from './registry.js';
 import { validExample, validGuide, validRecipe } from './manifest.test.js';
 
 const roots: string[] = [];
@@ -48,7 +48,8 @@ describe('buildRegistry', () => {
     });
 
     expect(registry.version).toBe(1);
-    expect(registry.packageVersions).toEqual({ '@hypequery/clickhouse': '9.9.9' });
+    expect(registry).not.toHaveProperty('packageVersions');
+    expect(readPackageVersions(root)).toEqual({ '@hypequery/clickhouse': '9.9.9' });
     expect(registry.entries.map((e) => e.manifest.slug)).toEqual(['nextjs-dashboard', 'p95-latency']);
     const [example, recipe] = registry.entries;
     expect(example.readme).toBe('# Dash\n\nBody');
