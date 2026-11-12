@@ -283,8 +283,8 @@ Allowed `flags_used`: `--yes`, `--dir`, `--no-install`, `--no-seed`, `--tag`, `-
 | `stage_reached` | Optional | `started`, `resolved`, `fetched`, `pinned`, `installed`, `completed` | Where does scaffolding stop? |
 | `failed_stage` | Optional | `started`, `resolved`, `fetched`, `pinned`, `installed`, `completed` | Which scaffolding stage needs reliability work? |
 | `seed` | Optional | `true`, `false` | Is the shared seed dataset copied? |
-| `install_result` | Optional | `ok`, `failed`, `skipped` | Does dependency installation succeed after scaffolding? |
-| `unpublished_pins` | Optional | `true`, `false` | Did any recorded package version fall back to a dist-tag? |
+| `install_result` | Optional | `ok`, `failed`, `skipped` | Does dependency installation succeed after scaffolding? Python examples, installed later with uv sync, report skipped. |
+| `unpublished_pins` | Optional | `true`, `false` | Did a dependency of the scaffold fall back to a dist-tag because its recorded version is not on npm? |
 | `interactive` | Optional | `true`, `false` | How much scaffolding is interactive? |
 
 #### `cli_command_completed`: `export:client-contract`

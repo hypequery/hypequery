@@ -141,6 +141,32 @@ describe('hypequery create', () => {
     expect(out.join('\n')).not.toContain('docker compose');
   });
 
+  it('keeps the scaffold but exits non-zero when the requested install fails', async () => {
+    const cwd = await directory();
+    const source = await fakeSource();
+    const out: string[] = [];
+    const before = process.exitCode;
+    try {
+      await createCommand('demo', { yes: true, seed: false }, {
+        cwd,
+        fetchImpl: indexFetch,
+        source: 'https://example.test/examples.json',
+        npmFetch,
+        packageManager: 'pnpm',
+        fetchSource: async () => ({ root: source, cleanup: async () => {} }),
+        runInstall: async () => {
+          throw new Error('registry unreachable');
+        },
+        write: (line) => out.push(line),
+      });
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = before;
+    }
+    expect((await readdir(path.join(cwd, 'demo'))).sort()).toEqual(['README.md', 'package.json', 'src']);
+    expect(out.join('\n')).toContain('  pnpm install\n  pnpm dev');
+  });
+
   it('fails clearly for unknown slugs, guides, and non-empty targets', async () => {
     const cwd = await directory();
     const deps = { cwd, fetchImpl: indexFetch, source: 'https://example.test/examples.json', npmFetch, packageManager: 'pnpm' as const, runInstall: async () => {} };
@@ -196,9 +222,32 @@ describe('hypequery create', () => {
     it('reports a failed install without failing the command', async () => {
       const d = await deps();
       d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard' }] }), { status: 200 })) as unknown as typeof fetch;
-      await createCommand('nextjs-dashboard', { yes: true, seed: false }, { ...d, runInstall: async () => { throw new Error('boom'); } });
+      const before = process.exitCode;
+      try {
+        await createCommand('nextjs-dashboard', { yes: true, seed: false }, { ...d, runInstall: async () => { throw new Error('boom'); } });
+      } finally {
+        process.exitCode = before;
+      }
       expect(telemetry.metrics).toMatchObject({ stage_reached: 'completed', install_result: 'failed', seed: false, language: 'unknown' });
       expect(telemetry.metrics).not.toHaveProperty('failed_stage');
+    });
+
+    it('counts a dist-tag fallback only for a dependency the scaffold rewrote', async () => {
+      const d = await deps();
+      // `@hypequery/react` is unpublished but no scaffolded package.json depends on it.
+      const versions = { '@hypequery/clickhouse': '2.14.0', '@hypequery/datasets': '0.12.0', '@hypequery/react': '9.9.9' };
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, packageVersions: versions, entries: [{ ...index.entries[0], slug: 'nextjs-dashboard' }] }), { status: 200 })) as unknown as typeof fetch;
+      d.npmFetch = (async (url: string | URL | Request) => new Response('', { status: String(url).includes('9.9.9') ? 404 : 200 })) as unknown as typeof fetch;
+      await createCommand('nextjs-dashboard', { yes: true, install: false }, d);
+      expect(telemetry.metrics).toMatchObject({ unpublished_pins: false, install_result: 'skipped' });
+    });
+
+    it('reports a Python example install as skipped, since uv sync is left to the user', async () => {
+      const d = await deps();
+      const python = { ...index.entries[0], slug: 'mcp-agent-analytics-python', language: 'python' as const, run: { install: 'uv sync', dev: 'uv run agent.py', test: 'uv run pytest -q' } };
+      d.fetchImpl = (async () => new Response(JSON.stringify({ ...index, entries: [python] }), { status: 200 })) as unknown as typeof fetch;
+      await createCommand('mcp-agent-analytics-python', { yes: true }, { ...d, runInstall: async () => {} });
+      expect(telemetry.metrics).toMatchObject({ language: 'python', install_result: 'skipped', stage_reached: 'completed' });
     });
 
     it('never records a slug outside the registry, and names the stage that failed', async () => {

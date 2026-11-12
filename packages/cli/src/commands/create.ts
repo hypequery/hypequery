@@ -145,14 +145,15 @@ async function scaffold(
   const npmPackages = Object.keys(index.packageVersions).filter((name) => name.startsWith('@hypequery/'));
   const { pins, unpublished } = await resolvePins(npmPackages, index.packageVersions, dependencies.npmFetch);
   const changes = await rewritePackageJson(targetDir, pins, tag);
-  if (includeSeed && existsSync(path.join(targetDir, 'seed', 'package.json'))) {
-    await rewritePackageJson(path.join(targetDir, 'seed'), pins, tag);
-  }
+  const seedChanges = includeSeed && existsSync(path.join(targetDir, 'seed', 'package.json'))
+    ? await rewritePackageJson(path.join(targetDir, 'seed'), pins, tag)
+    : [];
   await rewriteReadme(targetDir);
   if (await rewritePyproject(targetDir)) {
     logger.indent('pyproject.toml: hypequery now resolves from PyPI');
   }
-  updateCommandTelemetry('create', { unpublished_pins: unpublished.length > 0 });
+  // Only a dependency this scaffold actually rewrote to the dist-tag counts as a fallback.
+  updateCommandTelemetry('create', { unpublished_pins: [...changes, ...seedChanges].some((change) => unpublished.includes(change.name)) });
   progress.reach('pinned');
   for (const change of changes) {
     logger.indent(`${change.name}: ${change.from} -> ${change.to}`);
@@ -167,20 +168,26 @@ async function scaffold(
     const answer = await prompts({ type: 'confirm', name: 'install', message: `Run ${manager} install now?`, initial: true });
     shouldInstall = answer.install === true;
   }
+  // Python examples carry a dependency-free package.json for CI; their real
+  // install (`uv sync`) is left to the user, so the CLI's install is not it.
+  const run = entry.run ?? { install: 'pnpm install', dev: 'pnpm dev', test: 'pnpm test' };
+  const nodeInstallIsTheInstall = /^(pnpm|npm|yarn|bun)\b/.test(run.install);
   let installed = false;
+  let installFailed = false;
   if (shouldInstall) {
-    progress.attempt('installed');
+    if (nodeInstallIsTheInstall) progress.attempt('installed');
     logger.info(`Installing dependencies with ${manager}...`);
     try {
       await (dependencies.runInstall ?? defaultRunInstall)(manager, targetDir);
       installed = true;
-      progress.reach('installed');
+      if (nodeInstallIsTheInstall) progress.reach('installed');
     } catch (error) {
-      logger.warn(`Install failed: ${error instanceof Error ? error.message : String(error)}. Run it yourself from the Next block.`);
+      installFailed = true;
+      logger.warn(`Install failed: ${error instanceof Error ? error.message : String(error)}. The project is in place; run the install from the Next block.`);
     }
   }
 
-  updateCommandTelemetry('create', { install_result: !shouldInstall ? 'skipped' : installed ? 'ok' : 'failed' });
+  updateCommandTelemetry('create', { install_result: !shouldInstall || !nodeInstallIsTheInstall ? 'skipped' : installed ? 'ok' : 'failed' });
   progress.attempt('completed');
   logger.success(`Created ${path.relative(cwd, targetDir) || '.'} from ${entry.title}`);
   write(
@@ -190,9 +197,12 @@ async function scaffold(
       packageManager: manager,
       installed,
       hasSeed: includeSeed && existsSync(path.join(targetDir, 'seed')),
-      run: entry.run ?? { install: 'pnpm install', dev: 'pnpm dev', test: 'pnpm test' },
+      run,
       url: entry.url,
     }),
   );
   progress.reach('completed');
+  // The scaffold is usable, but a script that asked for an install must not
+  // read a failed one as success.
+  if (installFailed) process.exitCode = 1;
 }

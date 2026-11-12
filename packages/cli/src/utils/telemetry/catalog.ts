@@ -110,8 +110,8 @@ export const COMMAND_PROPERTIES = {
     stage_reached: optional(enumeration('Where does scaffolding stop?', createStages)),
     failed_stage: optional(enumeration('Which scaffolding stage needs reliability work?', createStages)),
     seed: optional(boolean('Is the shared seed dataset copied?')),
-    install_result: optional(enumeration('Does dependency installation succeed after scaffolding?', ['ok', 'failed', 'skipped'])),
-    unpublished_pins: optional(boolean('Did any recorded package version fall back to a dist-tag?')),
+    install_result: optional(enumeration('Does dependency installation succeed after scaffolding? Python examples, installed later with uv sync, report skipped.', ['ok', 'failed', 'skipped'])),
+    unpublished_pins: optional(boolean('Did a dependency of the scaffold fall back to a dist-tag because its recorded version is not on npm?')),
     interactive: optional(boolean('How much scaffolding is interactive?')),
   },
   // Other commands report only the common completion fields until they are

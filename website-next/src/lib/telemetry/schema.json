@@ -1015,7 +1015,7 @@
           },
           "install_result": {
             "kind": "enum",
-            "description": "Does dependency installation succeed after scaffolding?",
+            "description": "Does dependency installation succeed after scaffolding? Python examples, installed later with uv sync, report skipped.",
             "values": [
               "ok",
               "failed",
@@ -1025,7 +1025,7 @@
           },
           "unpublished_pins": {
             "kind": "boolean",
-            "description": "Did any recorded package version fall back to a dist-tag?",
+            "description": "Did a dependency of the scaffold fall back to a dist-tag because its recorded version is not on npm?",
             "optional": true
           },
           "interactive": {
