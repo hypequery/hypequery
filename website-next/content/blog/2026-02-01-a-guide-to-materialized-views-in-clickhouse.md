@@ -164,6 +164,15 @@ No row means your version predates the fix. The `TO` table plus cutoff backfill 
 A refreshable materialized view adds a `REFRESH` clause. Instead of reacting to inserts, it reruns its whole `SELECT` on a schedule and swaps the result into the target table atomically, so readers never see a half-written table:
 
 ```sql
+CREATE TABLE customers (id UInt64, region String)
+ENGINE = MergeTree ORDER BY id;
+
+CREATE TABLE orders (order_id UInt64, customer_id UInt64, amount Decimal(18, 2))
+ENGINE = MergeTree ORDER BY order_id;
+
+CREATE TABLE revenue_by_region (region String, revenue Decimal(38, 2))
+ENGINE = MergeTree ORDER BY region;
+
 CREATE MATERIALIZED VIEW revenue_by_region_mv
 REFRESH EVERY 1 HOUR
 TO revenue_by_region AS
@@ -248,20 +257,21 @@ FROM system.view_refreshes;
 
 An incremental view has no refresh command, because it updates on every insert. Running `SYSTEM REFRESH VIEW` on one fails with "Refreshable view ... doesn't exist", and `ALTER TABLE ... MODIFY REFRESH` fails with "Alter of type 'MODIFY_REFRESH' is not supported". You need a recompute when the target has drifted from the source: a retried insert counted twice, a bug in the view's query, or a source correction the view never saw.
 
-If you can pause inserts into the source table, truncate the target and reload it with the view's own query:
+If you can pause inserts into the source table, truncate the target and reload it with the view's own query. For the `events_daily` view from [the TO table example](#create-a-materialized-view-with-a-to-table), that means the same `-State` functions:
 
 ```sql
-TRUNCATE TABLE app_daily;
+TRUNCATE TABLE events_daily;
 
-INSERT INTO app_daily
-SELECT toDate(timestamp) AS day, app, count() AS events, sum(bytes) AS bytes
+INSERT INTO events_daily
+SELECT toDate(timestamp) AS day, app, countState() AS events,
+       uniqState(user_id) AS unique_users, sumState(bytes) AS total_bytes
 FROM events
 GROUP BY day, app;
 ```
 
 In our check, a target that had drifted to 1,860 events per app went back to 1,500, matching the source, and the view kept writing new inserts afterwards. Rows inserted between the `TRUNCATE` and the end of the `INSERT ... SELECT` can be counted twice, which is why inserts should be paused. If they can't be, build a new target table and view with the [cutoff backfill](#backfill-existing-data), then move readers to the new table.
 
-To change what the view computes, `ALTER TABLE app_daily_mv MODIFY QUERY SELECT ...` replaces its query. The new query applies only to future inserts, so recompute the existing rows as above.
+To change what the view computes, `ALTER TABLE events_daily_mv MODIFY QUERY SELECT ...` replaces its query. The new query applies only to future inserts, so recompute the existing rows as above.
 
 If the target needs recomputing often, the logic probably belongs in a refreshable view.
 
