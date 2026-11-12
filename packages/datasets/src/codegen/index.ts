@@ -49,7 +49,11 @@ export function generateDatasetSource(
   // Code can only produce members in name order (see `canonicalMemberOrder`).
   const validated = canonicalMemberOrder(validateProtocolDeploymentContract(contract));
   const importSource = options.importSource ?? '@hypequery/datasets';
-  const header = (options.header ?? DEFAULT_HEADER).map(line => `// ${line}`.trimEnd()).join('\n');
+  // A line break in a header line would end its comment, so each piece gets its own `//`.
+  const header = (options.header ?? DEFAULT_HEADER)
+    .flatMap(line => line.split(/\r\n|[\n\r\u2028\u2029]/))
+    .map(line => `// ${line}`.trimEnd())
+    .join('\n');
   const datasets = validated.datasets;
   if (!datasets.some(dataset => dataset.endpoint !== undefined)) {
     throw new ContractExportError(

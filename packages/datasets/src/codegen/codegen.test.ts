@@ -117,21 +117,44 @@ describe('generateDatasetSource round trip', () => {
 
     // The committed files are only written at the end of a `-u` run, so the
     // contract is built from a copy that differs from them only in its import.
-    const runnable = generateDatasetSource(contract, { importSource: sourceIndex, header });
-    const copy = path.join(scratch, name);
-    rmSync(copy, { recursive: true, force: true });
-    mkdirSync(copy, { recursive: true });
-    for (const [file, contents] of Object.entries(runnable.files)) writeFileSync(path.join(copy, file), contents);
-    const built = (await import(pathToFileURL(path.join(copy, 'cloud.ts')).href)) as {
-      cloud: ProtocolDeploymentContract;
-    };
-    const expected = canonicalMemberOrder(contract);
-    expect(prepareProtocolDeploymentContract(built.cloud).identity)
-      .toBe(prepareProtocolDeploymentContract(expected).identity);
-    expect(built.cloud).toEqual(expected);
-    expect(generateDatasetSource(built.cloud, { importSource, header }).files).toEqual(generated.files);
+    const built = await buildFromGenerated(name, contract);
+    expect(generateDatasetSource(built, { importSource, header }).files).toEqual(generated.files);
   });
 });
+
+/**
+ * Runs the code generated for `contract` and checks it builds the canonical
+ * contract with the same identity; returns what it built.
+ */
+async function buildFromGenerated(
+  name: string,
+  contract: ProtocolDeploymentContract,
+): Promise<ProtocolDeploymentContract> {
+  const runnable = generateDatasetSource(contract, { importSource: sourceIndex, header });
+  const copy = path.join(scratch, name);
+  rmSync(copy, { recursive: true, force: true });
+  mkdirSync(copy, { recursive: true });
+  for (const [file, contents] of Object.entries(runnable.files)) writeFileSync(path.join(copy, file), contents);
+  const built = (await import(pathToFileURL(path.join(copy, 'cloud.ts')).href)) as {
+    cloud: ProtocolDeploymentContract;
+  };
+  const expected = canonicalMemberOrder(contract);
+  expect(prepareProtocolDeploymentContract(built.cloud).identity)
+    .toBe(prepareProtocolDeploymentContract(expected).identity);
+  expect(built.cloud).toEqual(expected);
+  return built.cloud;
+}
+
+/** The code-authored contract with `change` applied to its `invoices` dataset. */
+function changedInvoices(
+  change: (dataset: ProtocolDeploymentDataset) => unknown,
+): ProtocolDeploymentContract {
+  const contract = codeAuthoredContract();
+  return validateProtocolDeploymentContract({
+    ...contract,
+    datasets: contract.datasets.map(dataset => (dataset.name === 'invoices' ? change(dataset) : dataset)),
+  });
+}
 
 describe('generateDatasetSource', () => {
   it('imports from @hypequery/datasets and names datasets as generate:datasets does', () => {
@@ -173,6 +196,41 @@ describe('generateDatasetSource', () => {
       })),
     });
     expect(generateDatasetSource(reversed).files).toEqual(generateDatasetSource(contract).files);
+  });
+
+  it('reads formula inputs from `inputs` when one is named like a helper', async () => {
+    const contract = changedInvoices(dataset => JSON.parse(
+      JSON.stringify(dataset).replaceAll('"alias":"total"', '"alias":"divide"').replaceAll('"name":"total"', '"name":"divide"'),
+    ));
+    const { files } = generateDatasetSource(contract);
+    expect(files['datasets.ts']).toContain(
+      "formula: (inputs) => round(divide(inputs['divide'], nullIfZero(inputs['count'])), 2)",
+    );
+    await buildFromGenerated('helper-named-input', contract);
+  });
+
+  it('round-trips metadata and SQL dependencies listed in any order', async () => {
+    const contract = changedInvoices(dataset => ({
+      ...dataset,
+      synonyms: ['sales', 'billing'],
+      dimensions: dataset.dimensions.map(item => (
+        item.source.kind === 'sql-expression'
+          ? { ...item, examples: ['2024-02', '2024-01'], source: {
+            ...item.source,
+            sql: "concat(status, formatDateTime(issued_at, '%Y-%m'))",
+            dependencies: ['status', 'issued_at'],
+          } }
+          : item
+      )),
+    }));
+    const built = await buildFromGenerated('unsorted-lists', contract);
+    const invoices = built.datasets.find(dataset => dataset.name === 'invoices') as ProtocolDeploymentDataset;
+    expect(invoices.synonyms).toEqual(['billing', 'sales']);
+  });
+
+  it('keeps every header line a comment', () => {
+    const { files } = generateDatasetSource(codeAuthoredContract(), { header: ['one\nexport const x = 1;'] });
+    expect(files['datasets.ts'].startsWith('// one\n// export const x = 1;\n\n')).toBe(true);
   });
 
   it('needs at least one published dataset', () => {

@@ -5,17 +5,25 @@
  * is what lets exported code be compared byte for byte.
  */
 
-/** Source text to place as-is, such as `dimension.string()` or a formula. */
-export interface Code {
-  readonly __code: string;
+/**
+ * Source text to place as-is, such as `dimension.string()` or a formula. A
+ * class rather than a tagged object, so no plain object (say, a dimensions
+ * map with a member named like the tag) can pass for one.
+ */
+export class Code {
+  readonly text: string;
+
+  constructor(text: string) {
+    this.text = text;
+  }
 }
 
 export function code(text: string): Code {
-  return { __code: text };
+  return new Code(text);
 }
 
 function isCode(value: unknown): value is Code {
-  return typeof value === 'object' && value !== null && '__code' in value;
+  return value instanceof Code;
 }
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -51,9 +59,14 @@ export function stringLiteral(value: string): string {
   return `${out}${quote}`;
 }
 
-/** An object key: bare when it is an identifier (`__proto__` is always quoted). */
+/**
+ * An object key: bare when it is an identifier. `__proto__` is computed
+ * (`['__proto__']`): bare or quoted, it would set the object's prototype
+ * instead of creating a property.
+ */
 export function propertyKey(key: string): string {
-  return IDENTIFIER.test(key) && key !== '__proto__' ? key : stringLiteral(key);
+  if (key === '__proto__') return `[${stringLiteral(key)}]`;
+  return IDENTIFIER.test(key) ? key : stringLiteral(key);
 }
 
 const LINE = 100;
@@ -64,7 +77,7 @@ const LINE = 100;
  * multi-line value; otherwise one entry per line.
  */
 export function literal(value: unknown, indent = ''): string {
-  if (isCode(value)) return value.__code;
+  if (isCode(value)) return value.text;
   if (value === null) return 'null';
   if (typeof value === 'string') return stringLiteral(value);
   if (typeof value === 'boolean') return String(value);
@@ -87,7 +100,7 @@ export function literal(value: unknown, indent = ''): string {
     if (entries.length === 0) return '{}';
     // `{ datasets }` rather than `{ datasets: datasets }`.
     const items = entries.map(([key, item]) => (
-      isCode(item) && item.__code === key && IDENTIFIER.test(key)
+      isCode(item) && item.text === key && IDENTIFIER.test(key) && key !== '__proto__'
         ? key
         : `${propertyKey(key)}: ${literal(item, inner)}`
     ));

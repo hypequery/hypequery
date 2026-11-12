@@ -12,6 +12,8 @@ import { isBindingName, literal } from './utils/source-writer.js';
  */
 
 const BINARY = new Set(['add', 'subtract', 'multiply', 'divide']);
+/** Every helper a formula can call: an input destructured under one of these names would hide it. */
+const HELPERS = new Set([...BINARY, 'nullIfZero', 'floor', 'ceil', 'round', 'coalesce']);
 
 export interface FormulaSource {
   readonly code: string;
@@ -27,7 +29,9 @@ export function formulaSource(
   const helpers = new Set<string>();
   const known = new Set(aliases);
   const referenced = new Set<string>();
-  const destructure = aliases.every(isBindingName);
+  // `({ revenue, orders }) => …` where every input can be a binding that hides
+  // no helper; otherwise `(inputs) => divide(inputs.divide, …)`.
+  const destructure = aliases.every(alias => isBindingName(alias) && !HELPERS.has(alias));
 
   const reference = (name: string): string => {
     if (!known.has(name)) return literal(name);

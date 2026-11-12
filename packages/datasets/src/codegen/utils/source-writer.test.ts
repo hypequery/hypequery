@@ -18,7 +18,11 @@ describe('source writer', () => {
 
   it('writes short values on one line, keys bare where possible, and shorthand properties', () => {
     expect(literal({ a: 1, 'b-c': [true, null], __proto__x: 'y' })).toBe("{ a: 1, 'b-c': [true, null], __proto__x: 'y' }");
-    expect(literal(JSON.parse('{"__proto__": 1}'))).toBe("{ '__proto__': 1 }");
+    // Bare or quoted, `__proto__` would set the prototype rather than a property.
+    expect(literal(JSON.parse('{"__proto__": 1}'))).toBe("{ ['__proto__']: 1 }");
+    expect(Object.keys(new Function(`return ${literal(JSON.parse('{"__proto__": 1}'))}`)())).toEqual(['__proto__']);
+    // A member named like a marker is still an ordinary key.
+    expect(literal({ __code: 'x', __text: code('y') })).toBe("{ __code: 'x', __text: y }");
     expect(literal({ datasets: code('datasets'), other: code('X') })).toBe('{ datasets, other: X }');
     expect(literal({ skipped: undefined, kept: 0 })).toBe('{ kept: 0 }');
     expect(() => literal(Number.NaN)).toThrow();

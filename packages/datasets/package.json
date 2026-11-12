@@ -42,6 +42,9 @@
   },
   "typesVersions": {
     "*": {
+      "codegen": [
+        "./dist/codegen/index.d.ts"
+      ],
       "internal": [
         "./dist/internal.d.ts"
       ],
