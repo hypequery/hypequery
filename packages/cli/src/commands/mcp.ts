@@ -2,7 +2,7 @@ import { runHttpMcp } from '../utils/mcp-http.js';
 import { exitWith } from '../utils/command-exit.js';
 import { runMcpUntilSignal, type CloseableMcpServer } from '../utils/mcp-lifecycle.js';
 import { routeConsoleOutputToStderr } from '../utils/mcp-console.js';
-import { readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
+import { datasetsWithoutTenantKey, readServeMcpSource, tenantScopedDatasets, type ServeMcpSource } from '../utils/mcp-source.js';
 import path from 'node:path';
 import { findApiFileForPath, findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
@@ -16,8 +16,17 @@ import { entryType } from '../utils/telemetry/session-config.js';
 import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
 import { CliError } from '../utils/cli-error.js';
 import { emitResult } from '../utils/machine-output.js';
+import {
+  httpServerPackage,
+  mcpHttpSettings,
+  McpHttpUsageError,
+  MCP_SERVER_KEY_VARIABLE,
+  runMcpHttpServer,
+  type McpHttpOptions,
+  type McpHttpSettings,
+} from '../utils/mcp-http-server.js';
 
-export interface McpOptions {
+export interface McpOptions extends McpHttpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
   path?: string;
   /** Trusted tenant applied to every tenant-scoped dataset. */
@@ -41,6 +50,37 @@ export interface McpDependencies {
   loadMcp?: () => Promise<unknown>;
   checkRemote?: (input: { url: string; key: string }) => Promise<RemoteMcpCheck>;
   env?: Readonly<Record<string, string | undefined>>;
+  /** Serves `--http`; injected in tests. */
+  serveHttp?: typeof runMcpHttpServer;
+}
+
+const HTTP_ONLY_FLAGS: readonly (keyof McpHttpOptions)[] = [
+  'port', 'host', 'allowedHosts', 'allowedOrigins', 'resource', 'authorizationServers', 'requiredScopes',
+];
+
+/** Validate `--http` flags up front, so a bad combination fails before anything loads. */
+function httpSettings(options: McpOptions, dependencies: McpDependencies): McpHttpSettings | undefined {
+  if (!options.http) {
+    const stray = HTTP_ONLY_FLAGS.filter(flag => options[flag] !== undefined);
+    if (stray.length > 0) fail(`--${stray[0].replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)} is only used with --http.`);
+    return undefined;
+  }
+  if (options.selfTest || options.url) fail('--http serves MCP; it cannot be combined with --self-test or --url.');
+  try {
+    return mcpHttpSettings(options, dependencies.env ?? process.env);
+  } catch (error) {
+    if (error instanceof McpHttpUsageError) fail(error.message, error.hints);
+    throw error;
+  }
+}
+
+async function loadHttpServer(load: () => Promise<unknown>): Promise<ReturnType<typeof httpServerPackage>> {
+  try {
+    return httpServerPackage(await load());
+  } catch (error) {
+    if (error instanceof McpHttpUsageError) fail(error.message, error.hints);
+    fail('@hypequery/mcp is not installed, so this project cannot be served over MCP.', ['npm install @hypequery/mcp']);
+  }
 }
 
 function fail(message: string, hints: readonly string[] = []): never {
@@ -131,9 +171,14 @@ export async function mcpCommand(
       'MCP clients connect to the hosted endpoint directly; this command serves a local project.',
     ]);
   }
+  const http = httpSettings(options, dependencies);
   const restoreConsole = routeConsoleOutputToStderr();
   try {
     if (options.clientContractUrl !== undefined) {
+      if (http) {
+        await serveBridgeOverHttp(options.clientContractUrl, http, dependencies, telemetry);
+        return;
+      }
       await runHttpMcp(options.clientContractUrl, !!options.selfTest, dependencies, telemetry);
       return;
     }
@@ -154,7 +199,47 @@ export async function mcpCommand(
 
     const scoped = tenantScopedDatasets(datasets);
     updateCommandTelemetry('mcp', { dataset_count_bucket: countBucket(names.length), tenant_dataset_count_bucket: countBucket(scoped.length) });
-    if (scoped.length > 0 && !options.tenant) {
+    // Over HTTP with the application's own auth, each caller's tenant comes from its credential.
+    const tenantFromCredential = !!http && !http.staticKey && !!source.auth;
+    if (http && !http.staticKey && !source.auth) {
+      fail(`--http needs a credential check: set ${MCP_SERVER_KEY_VARIABLE}, or configure auth in defineServe.`, [
+        `${MCP_SERVER_KEY_VARIABLE} is one shared key for one principal; defineServe auth (for example`,
+        'createJwtStrategy) verifies each caller and assigns its tenant like the REST API.',
+      ]);
+    }
+    if (tenantFromCredential && (source.restricted?.length ?? 0) > 0) {
+      // Callers are told apart by their credentials, so a rule that decides who may query a
+      // dataset must hold here too. This path applies only the global auth and tenant.
+      const listed = source.restricted!.map(entry => `${entry.kind === 'metric' ? 'metric ' : ''}${entry.name} (${entry.rules.join(', ')})`);
+      fail(`--http cannot apply the access rules these entries declare: ${listed.join(', ')}`, [
+        'Callers are verified by defineServe auth, but each entry\'s own auth, roles, scopes,',
+        'middlewares and tenant override are not applied, so a caller could query data REST would refuse them.',
+        `Remove those options, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
+    const globalMiddlewares = source.globalMiddlewareCount?.() ?? 0;
+    if (tenantFromCredential && globalMiddlewares > 0) {
+      // A global middleware may refuse a verified caller over REST; MCP would not run it.
+      fail(`--http cannot apply the ${globalMiddlewares} global middleware(s) defineServe runs before every endpoint.`, [
+        'Callers are verified by defineServe auth, but defineServe({ middlewares }) and api.use() are not',
+        'run over MCP, so a caller could query data a middleware would refuse them over REST.',
+        `Remove those middlewares, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
+    const untenanted = tenantFromCredential && source.auth?.tenant ? datasetsWithoutTenantKey(datasets) : [];
+    if (untenanted.length > 0) {
+      // REST refuses a caller that has a tenant on a dataset with no tenantKey, since no tenant
+      // filter can be added to it. MCP would return every row, so refuse to serve it.
+      fail(`--http cannot tenant-scope these datasets, which have no tenantKey: ${untenanted.join(', ')}`, [
+        'defineServe assigns each caller a tenant, and REST refuses to run a dataset without a tenantKey for',
+        'a caller that has one. Over MCP the query would not be filtered to the caller\'s tenant.',
+        `Add a tenantKey to those datasets, or serve one trusted principal: ${MCP_SERVER_KEY_VARIABLE}=<key> hypequery mcp --http`,
+      ]);
+    }
+    if (tenantFromCredential && options.tenant) {
+      fail('--tenant cannot be combined with defineServe auth over --http; the credential names the tenant.');
+    }
+    if (scoped.length > 0 && !options.tenant && !tenantFromCredential) {
       // Fail closed rather than serving a tenant-scoped dataset unscoped.
       logger.error(`--tenant is required for tenant-scoped datasets: ${scoped.join(', ')}`);
       logger.newline();
@@ -187,6 +272,42 @@ export async function mcpCommand(
       return;
     }
 
+    if (http) {
+      const mcp = await loadHttpServer(dependencies.loadMcp ?? (() => loadMcpPackage(entrypoint)));
+      const authenticate = http.staticKey
+        ? mcp.createMCPStaticKeyAuthenticator({ key: http.staticKey, ...(options.tenant ? { tenantId: options.tenant } : {}) })
+        : requireTenantFor(scoped, mcp, createServeAuthenticator(mcp, source.auth!, http.oauth?.resource));
+      if (http.staticKey && (source.restricted?.length ?? 0) > 0) {
+        // One shared key is one principal, so a rule that tells callers apart cannot apply.
+        const names = source.restricted!.map(entry => `${entry.kind === 'metric' ? 'metric ' : ''}${entry.name}`).join(', ');
+        process.stderr.write(
+          `hypequery MCP: every holder of ${MCP_SERVER_KEY_VARIABLE} can query ${names}, whatever their own `
+          + 'access rules (auth, roles, scopes, middlewares, tenant) say; those are not applied over MCP.\n',
+        );
+      }
+      if (http.staticKey && globalMiddlewares > 0) {
+        process.stderr.write(
+          `hypequery MCP: the ${globalMiddlewares} global middleware(s) defineServe runs before every endpoint `
+          + `are not run over MCP; every holder of ${MCP_SERVER_KEY_VARIABLE} bypasses them.\n`,
+        );
+      }
+      await (dependencies.serveHttp ?? runMcpHttpServer)({
+        mcp,
+        settings: http,
+        authenticate,
+        createExecutor: principal => mcp.createMCPExecutor({
+          datasets: datasets as Parameters<typeof mcp.createMCPExecutor>[0]['datasets'],
+          analytics: analytics as Parameters<typeof mcp.createMCPExecutor>[0]['analytics'],
+          ...(principal.tenantId ? { tenantId: principal.tenantId } : {}),
+        }),
+        instrument: executor => telemetry.instrument(executor),
+        describe: `hypequery MCP serving ${names.length} dataset(s) over HTTP: ${names.join(', ')}`,
+        onStarted: () => telemetry.start({ entry_type: entryType(entrypoint, file), mode: 'serve', dataset_count_bucket: countBucket(names.length)!,
+          tenant_used: !!options.tenant || tenantFromCredential, tenant_dataset_count_bucket: countBucket(scoped.length)! }),
+      });
+      return;
+    }
+
     const start = dependencies.start ?? ((config) => defaultStart(entrypoint, config, telemetry));
     await runMcpUntilSignal(async () => {
       const server = await start({
@@ -205,6 +326,81 @@ export async function mcpCommand(
 }
 
 type McpPackage = typeof import('@hypequery/mcp');
+
+/**
+ * Tenant-scoped datasets must never run unscoped: a verified caller whose
+ * credential names no tenant is refused before a session opens.
+ */
+function requireTenantFor(
+  scoped: readonly string[],
+  mcp: Pick<McpPackage, 'MCPHttpAuthError'>,
+  authenticate: import('@hypequery/mcp').MCPHttpAuthenticator,
+): import('@hypequery/mcp').MCPHttpAuthenticator {
+  if (scoped.length === 0) return authenticate;
+  return async (request) => {
+    const principal = await authenticate(request);
+    if (principal && !principal.tenantId) {
+      throw new mcp.MCPHttpAuthError('insufficient_scope', 'The credential names no tenant.');
+    }
+    return principal;
+  };
+}
+
+/**
+ * Verify callers with the application's own auth. With OAuth, a JWT strategy that would also accept
+ * tokens issued for another API is refused, so only tokens naming this resource open a session.
+ */
+function createServeAuthenticator(
+  mcp: Pick<McpPackage, 'createMCPServeAuthenticator'>,
+  auth: NonNullable<ServeMcpSource['auth']>,
+  resource: string | undefined,
+): import('@hypequery/mcp').MCPHttpAuthenticator {
+  type Options = Parameters<typeof mcp.createMCPServeAuthenticator>[0];
+  try {
+    return mcp.createMCPServeAuthenticator({
+      strategies: auth.strategies as Options['strategies'],
+      ...(auth.tenant ? { tenant: auth.tenant as Options['tenant'] } : {}),
+      ...(resource ? { audience: resource } : {}),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) fail(error.message.replace(/^createMCPServeAuthenticator: /, ''), [
+      'Set the audience of createJwtStrategy to the --resource URL, and no other.',
+    ]);
+    throw error;
+  }
+}
+
+/** `--client-contract-url --http`: one backend principal, so only the static key may call. */
+async function serveBridgeOverHttp(
+  url: string,
+  http: McpHttpSettings,
+  dependencies: McpDependencies,
+  telemetry: McpSession,
+): Promise<void> {
+  if (!http.staticKey) {
+    fail(`--client-contract-url --http serves one backend principal; set ${MCP_SERVER_KEY_VARIABLE} for its callers.`, [
+      'The backend credential stays HYPEQUERY_API_KEY and is never forwarded from callers.',
+    ]);
+  }
+  const mcp = await loadHttpServer(dependencies.loadMcp ?? (() => import('@hypequery/mcp')));
+  const full = mcp as unknown as McpPackage;
+  if (typeof full.createMCPHttpExecutor !== 'function') {
+    fail('Upgrade @hypequery/mcp in this project to a version with createMCPHttpExecutor support.');
+  }
+  const key = (dependencies.env ?? process.env)[MCP_API_KEY_VARIABLE]?.trim();
+  await (dependencies.serveHttp ?? runMcpHttpServer)({
+    mcp,
+    settings: http,
+    authenticate: mcp.createMCPStaticKeyAuthenticator({ key: http.staticKey }),
+    createExecutor: (_principal, signal) => full.createMCPHttpExecutor(
+      { url, ...(key ? { headers: { authorization: `Bearer ${key}` } } : {}) },
+      signal,
+    ),
+    instrument: executor => telemetry.instrument(executor),
+    describe: 'hypequery MCP serving an authorized HTTP client contract over HTTP.',
+    onStarted: () => telemetry.start({ mode: 'serve', tenant_used: false, http_backend: true }),
+  });
+}
 
 /**
  * Prefers the project's own `@hypequery/mcp`, so `npx -y @hypequery/cli mcp`

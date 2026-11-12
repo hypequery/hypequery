@@ -231,7 +231,7 @@ def _add_mcp(
 ) -> argparse.ArgumentParser:
     mcp = commands.add_parser(
         "mcp",
-        help="serve an API's datasets to AI agents over MCP stdio (requires the mcp extra)",
+        help="serve an API's datasets to AI agents over MCP stdio or HTTP (requires the mcp extra)",
         description="Serve the four hypequery MCP tools over stdio, from an Api in this "
         "process (module:attribute) or from a served API's client contract "
         "(--client-contract-url). The API authenticates and scopes every call; "
@@ -265,6 +265,28 @@ def _add_mcp(
         "--print-config",
         action="store_true",
         help="print an mcpServers entry for Claude, Cursor or another MCP client and exit",
+    )
+    http = mcp.add_argument_group(
+        "Streamable HTTP",
+        "Serve over HTTP instead of stdio. Callers send HYPEQUERY_MCP_KEY as a bearer "
+        "token, or, without it, are authenticated by the Api's own auth.",
+    )
+    http.add_argument("--http", action="store_true", help="serve over Streamable HTTP")
+    http.add_argument("--port", type=int, help="port to listen on (default: 3333)")
+    http.add_argument("--host", help="interface to bind (default: 127.0.0.1)")
+    http.add_argument(
+        "--allowed-hosts", help="comma-separated Host names to answer (default: loopback)"
+    )
+    http.add_argument("--allowed-origins", help="comma-separated browser origins allowed to call")
+    http.add_argument(
+        "--resource", help="OAuth resource URL; tokens must name it as their audience"
+    )
+    http.add_argument(
+        "--authorization-servers",
+        help="with --resource: comma-separated authorization server issuer URLs",
+    )
+    http.add_argument(
+        "--required-scopes", help="with --resource: comma-separated scopes every caller must hold"
     )
     return mcp
 
@@ -307,6 +329,20 @@ def _validate_mcp(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("use either an app or --client-contract-url")
     if args.self_test and args.print_config:
         parser.error("--self-test cannot be combined with --print-config")
+    if args.http and (args.self_test or args.print_config):
+        parser.error("--http serves MCP; it cannot be combined with --self-test or --print-config")
+    http_only = (
+        "port",
+        "host",
+        "allowed_hosts",
+        "allowed_origins",
+        "resource",
+        "authorization_servers",
+        "required_scopes",
+    )
+    stray = [name for name in http_only if getattr(args, name) is not None]
+    if stray and not args.http:
+        parser.error(f"--{stray[0].replace('_', '-')} is only used with --http")
 
 
 def _add_skill(

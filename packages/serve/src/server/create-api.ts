@@ -34,6 +34,7 @@ import {
   buildSemanticContractSource,
 } from "../semantic/datasets/index.js";
 import { attachServeMcpSource } from "./mcp-source.js";
+import { collectMcpRestrictions } from "../semantic/datasets/utils/mcp-restrictions.js";
 import { exportClientContract, resolveClientMountPath } from "./client-contract.js";
 import { createClientEndpointBinding, type ClientEndpointBinding } from "../semantic/datasets/utils/client-endpoint-binding.js";
 import { endpointClientProfile } from "../semantic/datasets/utils/client-endpoint-profile.js";
@@ -434,8 +435,22 @@ export const createAPI = <
   // same semantic model as this entrypoint rather than a second MCP config.
   if (config.datasets) {
     const mcpDatasets = buildSemanticContractSource(config.datasets, config.metrics);
+    const restricted = collectMcpRestrictions(config.datasets, config.metrics);
     attachServeMcpSource(api, {
       datasets: mcpDatasets,
+      ...(restricted.length > 0 ? { restricted } : {}),
+      // Read when MCP starts: `api.use()` may add global middlewares after defineServe.
+      globalMiddlewareCount: () => globalMiddlewares.length,
+      ...(authStrategies.length > 0
+        ? {
+          auth: {
+            strategies: authStrategies as AuthStrategy<AuthContext>[],
+            ...(globalTenantConfig
+              ? { tenant: { extract: globalTenantConfig.extract as (auth: AuthContext) => string | null | undefined } }
+              : {}),
+          },
+        }
+        : {}),
       resolveAnalytics: () => {
         if (!resolvedQueryBuilder) {
           throw new Error(

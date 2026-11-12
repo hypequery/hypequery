@@ -76,6 +76,22 @@ export function text(input: unknown, path: string): string {
   if (textEncoder.encode(input).byteLength > 4096) clientError('HQ_CLIENT_SHAPE', path);
   return input;
 }
+/** At most this many synonyms or examples per field, the deployment contract's metadata ceiling. */
+export const CLIENT_ANNOTATION_LIST_ITEMS = 100;
+/** A non-empty, duplicate-free list of annotation text, in producer order. */
+export function textList(input: unknown, path: string): string[] {
+  if (!Array.isArray(input)) clientError('HQ_CLIENT_SHAPE', path);
+  if (input.length > CLIENT_ANNOTATION_LIST_ITEMS) clientError('HQ_CLIENT_LIMIT', path);
+  if (input.length === 0) clientError('HQ_CLIENT_SHAPE', path);
+  const result = input.map((item, index) => text(item, pointer(path, index)));
+  if (new Set(result).size !== result.length) clientError('HQ_CLIENT_DUPLICATE', path);
+  return result;
+}
+/** An ISO 4217-shaped code: three uppercase ASCII letters. */
+export function currency(input: unknown, path: string): string {
+  if (typeof input !== 'string' || !/^[A-Z]{3}$/.test(input)) clientError('HQ_CLIENT_SHAPE', path);
+  return input;
+}
 export function timezone(input: unknown, path: string): string {
   if (typeof input !== 'string' || !CLIENT_TIMEZONE_NAMES.has(input)) clientError('HQ_CLIENT_SHAPE', path);
   return input;

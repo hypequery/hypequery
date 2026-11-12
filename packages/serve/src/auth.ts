@@ -1,3 +1,4 @@
+import { attachJwtAudience } from "./utils/jwt-audience.js";
 import type {
   AuthContext,
   AuthContextWithRoles,
@@ -301,7 +302,7 @@ export function createJwtStrategy<TAuth extends AuthContext>(
       });
   }
 
-  return async ({ request }) => {
+  const strategy: AuthStrategy<AuthContext | TAuth> = async ({ request }) => {
     const raw = getHeader(request, headerName);
     if (typeof raw !== "string" || !raw.startsWith(prefix)) {
       if (options.optional) return null;
@@ -325,6 +326,7 @@ export function createJwtStrategy<TAuth extends AuthContext>(
 
     return mapClaims(payload, request);
   };
+  return attachJwtAudience(strategy, options.audience);
 }
 
 export interface AnalyticsTokenIssuerOptions {

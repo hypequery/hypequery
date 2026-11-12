@@ -1,14 +1,19 @@
 ---
-title: Configuration
-description: Configure the hypequery MCP server with datasets and a dataset client.
+title: Config file
+description: Run the hypequery MCP server from a config file, for TypeScript datasets that aren't served by a Serve API.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-The CLI loads a config file with dynamic `import()`. The config must export:
+<Callout type="info">
+  If your datasets are in a Serve API (`serve({ datasets })`) or a Python API, use `hypequery mcp` instead: see the
+  [Quickstart](/docs/mcp/quickstart). This page is for TypeScript datasets with no Serve API.
+</Callout>
 
-- `datasets`: a registry of dataset names to dataset instances
+`@hypequery/mcp` can run from a config file that it loads with dynamic `import()`. The file must export:
+
+- `datasets`: the datasets agents may query, built with `publishDatasets`
 - `analytics`: a dataset client created with `createDatasetClient`
 
 ## Minimal config
@@ -17,7 +22,7 @@ The CLI loads a config file with dynamic `import()`. The config must export:
 ```javascript
 // mcp-config.mjs
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient } from '@hypequery/datasets';
+import { createDatasetClient, publishDatasets } from '@hypequery/datasets';
 import { Users } from './datasets/users.js';
 
 const db = createQueryBuilder({
@@ -27,9 +32,7 @@ const db = createQueryBuilder({
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-export const datasets = {
-  users: Users,
-};
+export const datasets = publishDatasets().publish(Users).build();
 
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
@@ -39,9 +42,13 @@ Run it:
 
 <CodeBlock>
 ```bash
-npx hypequery-mcp --config ./mcp-config.mjs
+npx @hypequery/mcp --config ./mcp-config.mjs
 ```
 </CodeBlock>
+
+It doesn't read `.env`: set the `CLICKHOUSE_*` variables in your shell, or in the client config's `env` (see
+[Clients](/docs/mcp/clients#config-file-server)). It runs over stdio only and can't take a tenant, so it can't serve
+datasets with a `tenantKey`. For either of those, put the datasets in a Serve API and use `hypequery mcp`.
 
 ## Publish multiple datasets
 

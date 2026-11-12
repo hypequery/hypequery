@@ -6,12 +6,34 @@ description: Connect hypequery MCP to Claude Desktop, Cursor, and other MCP clie
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-hypequery MCP runs over stdio, so your MCP client launches the server. There are two ways to launch it:
+This page covers servers your MCP client launches on your machine, over stdio. To connect a client to a server running
+somewhere else, see [Remote MCP over HTTP: Connect a client](/docs/mcp/remote#connect-a-client). New to hypequery MCP?
+The [Quickstart](/docs/mcp/quickstart) gets Claude or Cursor querying a public dataset in five minutes.
+
+There are two ways for a client to launch the server:
 
 - **`hypequery mcp`** serves the datasets in your Serve API file. The command must run from your project directory,
   so the client config changes into it first.
-- **`@hypequery/mcp --config`** runs the [standalone server](/docs/mcp/overview#standalone-server) with a dedicated
+- **`@hypequery/mcp --config`** runs the [config-file server](/docs/mcp/configuration) with a dedicated
   config file.
+
+## Claude Code with `hypequery mcp`
+
+From your project folder:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery -- sh -c "cd '$PWD' && npx hypequery mcp"
+```
+</CodeBlock>
+
+For a Python API, with the project's virtual environment active:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery -- "$(command -v python)" -m hypequery mcp app:api --project "$PWD"
+```
+</CodeBlock>
 
 ## Claude Desktop with `hypequery mcp`
 
@@ -72,11 +94,12 @@ hypequery mcp app:api --print-config
 `env` appears when a credential is configured; replace the placeholder with the key, or keep it in clients that
 expand environment variables. The ClickHouse settings come from the project's `.env`, as for `hypequery dev`.
 
-## Standalone server
+## Config-file server [#config-file-server]
 
 ### Claude Desktop
 
-To run the standalone server instead, point the client at your config file:
+For the [config-file server](/docs/mcp/configuration), point the client at your config file. It doesn't read `.env`, so
+the ClickHouse settings go in `env`:
 
 <CodeBlock>
 ```json
@@ -143,7 +166,7 @@ npx hypequery mcp --self-test
 ```
 </CodeBlock>
 
-For the standalone server, run it from a terminal:
+For the config-file server, run it from a terminal:
 
 <CodeBlock>
 ```bash

@@ -1,4 +1,4 @@
-import { validateProtocolClientContract, type ClientDimension, type ClientFieldAnnotation, type ProtocolClientEndpoint } from '@hypequery/protocol';
+import { validateProtocolClientContract, type ClientDimension, type ClientAnnotationText, type ProtocolClientEndpoint } from '@hypequery/protocol';
 import { docComment } from './doc-comments.js';
 import { clientInputType, literal } from './input-types.js';
 
@@ -28,7 +28,7 @@ function endpointType(endpoint: ProtocolClientEndpoint): string {
 }
 
 /** A metric documents itself through its sole measure; a dataset through its group text. */
-function endpointDoc(endpoint: ProtocolClientEndpoint): ClientFieldAnnotation | undefined {
+function endpointDoc(endpoint: ProtocolClientEndpoint): ClientAnnotationText | undefined {
   const metric = endpoint.kind === 'metric' ? endpoint.annotations?.fields?.[Object.keys(endpoint.measures)[0]] : undefined;
   return metric ?? endpoint.annotations;
 }

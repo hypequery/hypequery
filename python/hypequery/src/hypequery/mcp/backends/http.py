@@ -21,6 +21,7 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import anyio
 
+from ...protocol import CLIENT_CONTRACT_FEATURES, CLIENT_CONTRACT_FEATURES_HEADER
 from ...serve.core.utils.http_deadline import (
     Deadline,
     DeadlineHTTPHandler,
@@ -155,6 +156,9 @@ class HttpContractBackend:
         if body is not None:
             encoded = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             headers["content-type"] = "application/json"
+        else:
+            # Discovery: this executor validates field metadata, so it asks for it.
+            headers[CLIENT_CONTRACT_FEATURES_HEADER] = CLIENT_CONTRACT_FEATURES
         if schema_hash is not None:
             headers["x-hypequery-client-schema"] = schema_hash
         return await anyio.to_thread.run_sync(

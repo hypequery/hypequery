@@ -121,6 +121,12 @@ class JwtStrategy:
         self._imported: dict[tuple[int, str], tuple[Mapping[str, Any], PyJWK]] = {}
 
     @property
+    def audiences(self) -> tuple[str, ...]:
+        """The `aud` values a token must carry one of; empty when the audience is not checked."""
+
+        return self._audiences
+
+    @property
     def jwks_url(self) -> str | None:
         return self._keys.url if isinstance(self._keys, RemoteJwks) else None
 

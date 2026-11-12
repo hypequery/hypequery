@@ -6,13 +6,13 @@ from typing import Literal, TypeAlias, TypedDict, Unpack
 
 from pydantic import ValidationInfo, field_validator
 
-from ._base import DefinitionModel
 from .validation import validate_non_empty, validate_qualified_identifier
+from .vocabulary import FieldVocabulary
 
 DimensionType: TypeAlias = Literal["string", "number", "boolean", "timestamp"]
 
 
-class Dimension(DefinitionModel):
+class Dimension(FieldVocabulary):
     """A logical dimension over a physical column or trusted expression."""
 
     field_type: DimensionType
@@ -49,6 +49,11 @@ def _create_dimension(
     dependencies: tuple[str, ...] | None = None,
     filterable: bool | None = None,
     groupable: bool | None = None,
+    synonyms: tuple[str, ...] | None = None,
+    examples: tuple[str, ...] | None = None,
+    format: str | None = None,  # noqa: A002 - the TypeScript option name
+    unit: str | None = None,
+    currency: str | None = None,
 ) -> Dimension:
     """Define a typed dataset dimension."""
 
@@ -61,6 +66,11 @@ def _create_dimension(
         dependencies=dependencies,
         filterable=filterable,
         groupable=groupable,
+        synonyms=synonyms,
+        examples=examples,
+        format=format,
+        unit=unit,
+        currency=currency,
     )
 
 
@@ -72,6 +82,11 @@ class _DimensionOptions(TypedDict, total=False):
     dependencies: tuple[str, ...] | None
     filterable: bool | None
     groupable: bool | None
+    synonyms: tuple[str, ...] | None
+    examples: tuple[str, ...] | None
+    format: str | None
+    unit: str | None
+    currency: str | None
 
 
 class _DimensionHelpers:

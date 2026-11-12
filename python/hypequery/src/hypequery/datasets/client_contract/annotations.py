@@ -22,9 +22,22 @@ def annotation_text(value: str | None) -> str | None:
     return None if not folded or is_js_blank(folded) else folded
 
 
+def annotation_list(values: tuple[str, ...] | None) -> list[str] | None:
+    """Folded, non-blank, first-occurrence items; omitted when none remain."""
+    if values is None:
+        return None
+    items = dict.fromkeys(text for value in values if (text := annotation_text(value)) is not None)
+    return list(items) or None
+
+
 def field_annotation(
     definition: Dimension | Measure | DerivedMeasure | WindowMeasure | ShiftMeasure,
 ) -> ClientFieldAnnotation | None:
+    """Label, description and vocabulary; contracts drop the vocabulary for older consumers.
+
+    Window and shift measures carry a label and description only: they declare no
+    synonyms, examples, format, unit or currency.
+    """
     node: ClientFieldAnnotation = {}
     label = annotation_text(definition.label)
     description = annotation_text(definition.description)
@@ -32,6 +45,21 @@ def field_annotation(
         node["label"] = label
     if description is not None:
         node["description"] = description
+    if isinstance(definition, Dimension | Measure | DerivedMeasure):
+        synonyms = annotation_list(definition.synonyms)
+        examples = annotation_list(definition.examples)
+        display_format = annotation_text(definition.format)
+        unit = annotation_text(definition.unit)
+        if synonyms is not None:
+            node["synonyms"] = synonyms
+        if examples is not None:
+            node["examples"] = examples
+        if display_format is not None:
+            node["format"] = display_format
+        if unit is not None:
+            node["unit"] = unit
+        if definition.currency is not None:
+            node["currency"] = definition.currency
     return node or None
 
 

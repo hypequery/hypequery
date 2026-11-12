@@ -416,3 +416,20 @@ def test_formulas_refuse_a_shift_of_a_merge_that_may_not_be_a_number() -> None:
             previous=measure.shift("stored", 1, "day"),
             ratio=measure.derived(divide("previous", "revenue")),
         )
+
+
+def test_window_and_shift_measures_annotate_with_label_and_description_only() -> None:
+    """Client contracts advertise vocabulary only for fields that declare it."""
+    from hypequery.datasets.client_contract.annotations import field_annotation
+
+    window = measure.trailing(
+        "revenue", 7, "day", label="Rolling revenue", description="  Last\n 7 days  "
+    )
+    shift = measure.shift("revenue", 7, "day", label="Revenue a week ago")
+
+    assert field_annotation(window) == {
+        "label": "Rolling revenue",
+        "description": "Last 7 days",
+    }
+    assert field_annotation(shift) == {"label": "Revenue a week ago"}
+    assert field_annotation(measure.cumulative("revenue")) is None

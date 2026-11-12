@@ -43,8 +43,19 @@ class ClientQueryLimits(TypedDict):
 
 
 class ClientFieldAnnotation(TypedDict, total=False):
+    """Field presentation metadata: text plus the deployment's agent-facing vocabulary.
+
+    Producers emit synonyms, examples, format, unit and currency only to a
+    consumer that asks for field metadata (``CLIENT_CONTRACT_FIELD_METADATA_FEATURE``).
+    """
+
     label: str
     description: str
+    synonyms: list[str]
+    examples: list[str]
+    format: str
+    unit: str
+    currency: str
 
 
 class ClientEndpointAnnotations(TypedDict, total=False):

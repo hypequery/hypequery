@@ -273,6 +273,13 @@
             "--self-test",
             "--url",
             "--client-contract-url",
+            "--http",
+            "--host",
+            "--allowed-hosts",
+            "--allowed-origins",
+            "--resource",
+            "--authorization-servers",
+            "--required-scopes",
             "--output",
             "--tenant-column",
             "--check",
@@ -1719,7 +1726,15 @@
       "--tenant",
       "--self-test",
       "--url",
-      "--client-contract-url"
+      "--client-contract-url",
+      "--http",
+      "--port",
+      "--host",
+      "--allowed-hosts",
+      "--allowed-origins",
+      "--resource",
+      "--authorization-servers",
+      "--required-scopes"
     ],
     "generate": [
       "--output",
@@ -2085,7 +2100,13 @@
               "--tenant",
               "--no-telemetry",
               "--help",
-              "--version"
+              "--version",
+              "--http",
+              "--allowed-hosts",
+              "--allowed-origins",
+              "--resource",
+              "--authorization-servers",
+              "--required-scopes"
             ]
           },
           "outcome": {
@@ -2255,7 +2276,15 @@
         "--header",
         "--project",
         "--self-test",
-        "--print-config"
+        "--print-config",
+        "--http",
+        "--port",
+        "--hostname",
+        "--allowed-hosts",
+        "--allowed-origins",
+        "--resource",
+        "--authorization-servers",
+        "--required-scopes"
       ],
       "skill": [
         "--agent",

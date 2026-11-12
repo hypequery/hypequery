@@ -75,6 +75,14 @@ class McpOptions:
     project: str | None
     self_test: bool
     print_config: bool
+    http: bool = False
+    port: int | None = None
+    host: str | None = None
+    allowed_hosts: str | None = None
+    allowed_origins: str | None = None
+    resource: str | None = None
+    authorization_servers: str | None = None
+    required_scopes: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +168,14 @@ def command_options(args: argparse.Namespace) -> CommandOptions:
             project=args.project,
             self_test=args.self_test,
             print_config=args.print_config,
+            http=args.http,
+            port=args.port,
+            host=args.host,
+            allowed_hosts=args.allowed_hosts,
+            allowed_origins=args.allowed_origins,
+            resource=args.resource,
+            authorization_servers=args.authorization_servers,
+            required_scopes=args.required_scopes,
         )
     if args.command == "skill":
         return SkillOptions(agent=args.agent, scope=args.scope, force=args.force, check=args.check)
