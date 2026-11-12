@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -91,7 +91,13 @@ export async function rewritePyproject(dir: string): Promise<boolean> {
   const file = path.join(dir, 'pyproject.toml');
   if (!existsSync(file)) return false;
   const result = stripUvSources(await readFile(file, 'utf8'));
-  if (result.changed) await writeFile(file, result.text);
+  if (result.changed) {
+    await writeFile(file, result.text);
+    // The monorepo lock pins `hypequery` to the editable workspace copy. Kept,
+    // uv would re-resolve to that locked version from PyPI even when it predates
+    // an extra the example needs, so let uv lock fresh against PyPI instead.
+    await rm(path.join(dir, 'uv.lock'), { force: true });
+  }
   return result.changed;
 }
 
