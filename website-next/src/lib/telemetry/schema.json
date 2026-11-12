@@ -293,7 +293,6 @@
             "--release",
             "--agent",
             "--scope",
-            "--json",
             "--kind",
             "--yes",
             "--dir",
@@ -301,6 +300,7 @@
             "--no-seed",
             "--tag",
             "--no-telemetry",
+            "--json",
             "--help",
             "--version"
           ]
@@ -1677,7 +1677,6 @@
       "--check"
     ],
     "examples": [
-      "--json",
       "--kind"
     ],
     "create": [
@@ -1694,6 +1693,7 @@
   },
   "GLOBAL_FLAGS": [
     "--no-telemetry",
+    "--json",
     "--help",
     "--version"
   ],

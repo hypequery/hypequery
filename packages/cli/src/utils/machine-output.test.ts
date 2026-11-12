@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CliError } from './cli-error.js';
-import { EXIT_CODES, exitClassFor } from './exit-codes.js';
+import { EXIT_CODES, exitClassFor, exitClassForCode } from './exit-codes.js';
+import { telemetryErrorCode } from './telemetry/error-code.js';
+import { DeploymentUploadError } from './deployment-upload.js';
 import {
   disableJsonOutput,
+  childProcessStdio,
   emitDefaultResult,
+  emitJsonText,
   emitResult,
   enableJsonOutput,
   errorEnvelope,
@@ -36,6 +40,20 @@ describe('machine output', () => {
     expect(out).toHaveLength(1);
     expect(JSON.parse(out[0])).toEqual({ releaseIdentity: 'abc' });
     expect(stderr).toHaveBeenCalledWith('human progress');
+  });
+
+  it('prints preserialized JSON once, ending in a newline', () => {
+    const out: string[] = [];
+    enableJsonOutput((text) => out.push(text));
+    emitJsonText('{"a":1}');
+    emitDefaultResult();
+    expect(out).toEqual(['{"a":1}\n']);
+  });
+
+  it('sends child process output to stderr only in --json mode', () => {
+    expect(childProcessStdio()).toBe('inherit');
+    enableJsonOutput(() => undefined);
+    expect(childProcessStdio()).toEqual(['ignore', 2, 2]);
   });
 
   it('builds the error envelope from a CliError', () => {
@@ -71,6 +89,23 @@ describe('exit classes', () => {
     expect(exitClassFor('auth_failed')).toBe('auth');
     expect(exitClassFor('connection_failed')).toBe('transient');
     expect(exitClassFor('cloud_network_error')).toBe('transient');
+  });
+
+  it('maps numeric exit codes back to their class', () => {
+    expect(exitClassForCode(2)).toBe('auth');
+    expect(exitClassForCode(4)).toBe('transient');
+    expect(exitClassForCode(1)).toBe('correctable');
+    expect(exitClassForCode(42)).toBe('correctable');
+  });
+
+  it('treats upload network failures and timeouts as transient', () => {
+    expect(exitClassFor(telemetryErrorCode(new DeploymentUploadError('HQ_UPLOAD_NETWORK', 'request failed')))).toBe('transient');
+    expect(exitClassFor(telemetryErrorCode(new DeploymentUploadError('HQ_UPLOAD_REJECTED', 'refused', 503)))).toBe('transient');
+    expect(exitClassFor(telemetryErrorCode(new DeploymentUploadError('HQ_UPLOAD_REJECTED', 'refused', 401)))).toBe('auth');
+    expect(telemetryErrorCode(new DeploymentUploadError('HQ_UPLOAD_REJECTED', 'bad bundle', 422))).toBe('cloud_rejected');
+    const timeout = new Error('The operation was aborted due to timeout');
+    timeout.name = 'TimeoutError';
+    expect(exitClassFor(telemetryErrorCode(timeout))).toBe('transient');
   });
 
   it('keeps unclassified failures correctable and programming errors internal', () => {

@@ -1,3 +1,4 @@
+import type { StdioOptions } from 'node:child_process';
 import { isCliError } from './cli-error.js';
 import { EXIT_CODES, type ExitClass } from './exit-codes.js';
 
@@ -68,12 +69,36 @@ export function emitResult(result: object): void {
   writeStdout(`${JSON.stringify(result, null, 2)}\n`);
 }
 
+/**
+ * Print a result that is already serialized JSON, byte for byte. For commands
+ * whose output format is fixed, such as `export:client-contract --stdout`.
+ */
+export function emitJsonText(text: string): void {
+  if (!enabled || emitted) return;
+  emitted = true;
+  writeStdout(text.endsWith('\n') ? text : `${text}\n`);
+}
+
+/**
+ * Stdio for child processes such as package managers. Their output bypasses the
+ * console, so in `--json` mode it goes to stderr, and they never get a terminal
+ * to prompt on.
+ */
+export function childProcessStdio(): StdioOptions {
+  return enabled ? ['ignore', 2, 2] : 'inherit';
+}
+
 /** Print the default result for a command that has no structured result yet. */
 export function emitDefaultResult(): void {
   emitResult({ ok: true });
 }
 
-export function errorEnvelope(error: unknown, exitClass: ExitClass, code: string): ErrorEnvelope {
+export function errorEnvelope(
+  error: unknown,
+  exitClass: ExitClass,
+  code: string,
+  exitCode: number = EXIT_CODES[exitClass],
+): ErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   return {
     error: {
@@ -83,7 +108,7 @@ export function errorEnvelope(error: unknown, exitClass: ExitClass, code: string
       category: CATEGORY[exitClass],
       retryable: isCliError(error) ? error.retryable : exitClass === 'transient',
       correctable: exitClass === 'correctable',
-      exitCode: EXIT_CODES[exitClass],
+      exitCode,
     },
   };
 }

@@ -43,7 +43,7 @@ import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
 import { isCliError } from './utils/cli-error.js';
-import { EXIT_CODES, exitClassFor } from './utils/exit-codes.js';
+import { EXIT_CODES, exitClassFor, exitClassForCode } from './utils/exit-codes.js';
 import {
   emitDefaultResult,
   emitError,
@@ -148,7 +148,7 @@ function runCommand<TArgs extends unknown[]>(
     try {
       await action(...args);
     } catch (error) {
-      if (error instanceof CommandExit) throw error;
+      if (error instanceof CommandExit) throw settleCommandExit(error);
       // Ctrl+C at a prompt is a deliberate abort, not a failure: report it as
       // the interrupt it is instead of dumping an error and exiting 1.
       if (isPromptCancelled(error)) {
@@ -165,15 +165,50 @@ function runCommand<TArgs extends unknown[]>(
     // Commands that report failure through process.exitCode print their reasons
     // to stderr; stdout still gets one JSON document.
     if (process.exitCode) {
+      const exitCode = Number(process.exitCode);
       emitError(errorEnvelope(
         new Error('The command failed; its reasons are on stderr.'),
-        'correctable',
+        exitClassForCode(exitCode),
         'COMMAND_FAILED',
+        exitCode,
       ));
       return;
     }
     emitDefaultResult();
   };
+}
+
+/**
+ * Commands that end through `exitWith` (a caught failure, a `--check` miss)
+ * still get the fixed exit code for their failure class, and in `--json` mode
+ * stdout still gets one JSON document. Deliberate cancellations keep their code.
+ */
+function settleCommandExit(exit: CommandExit): CommandExit {
+  if (exit.exitCode === 0) {
+    if (isJsonOutput()) emitDefaultResult();
+    return exit;
+  }
+  const code = exit.errorCode && exit.errorCode !== 'unknown' ? exit.errorCode.toUpperCase() : 'COMMAND_FAILED';
+  if (exit.outcome !== 'failure') {
+    if (isJsonOutput()) {
+      emitError(errorEnvelope(new Error('The command was cancelled.'), 'correctable', code, exit.exitCode));
+    }
+    return exit;
+  }
+  // Only the generic exit 1 is reclassified; a command that chose another code keeps it.
+  const exitClass = exit.exitCode === EXIT_CODES.correctable ? exitClassFor(exit.errorCode ?? 'unknown') : exitClassForCode(exit.exitCode);
+  const settled = exit.exitCode === EXIT_CODES.correctable
+    ? new CommandExit(EXIT_CODES[exitClass], exit.outcome, exit.errorCode)
+    : exit;
+  if (isJsonOutput()) {
+    emitError(errorEnvelope(
+      new Error('The command failed; its reasons are on stderr.'),
+      exitClass,
+      code,
+      settled.exitCode,
+    ));
+  }
+  return settled;
 }
 
 function addTypeGenerationOptions(command: Command) {

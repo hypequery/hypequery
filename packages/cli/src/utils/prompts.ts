@@ -23,7 +23,9 @@ export function isPromptCancelled(error: unknown): error is PromptCancelledError
  */
 export function assertCanPrompt(stdin: { isTTY?: boolean } = process.stdin): void {
   if (stdin.isTTY === true && !isJsonOutput()) return;
-  throw new CliError('INPUT_REQUIRED', 'This step needs an answer, and there is no terminal to ask in.', {
+  // Text mode prints only the message, so it carries the next action too.
+  throw new CliError('INPUT_REQUIRED', 'This step needs an answer, and there is no terminal to ask in. '
+    + 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.', {
     hint: 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.',
   });
 }

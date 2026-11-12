@@ -1,4 +1,4 @@
-import { isJsonOutput } from '../utils/machine-output.js';
+import { childProcessStdio, isJsonOutput } from '../utils/machine-output.js';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -51,7 +51,7 @@ const INSTALL_ARGS: Record<PackageManager, string[]> = {
 
 async function defaultRunInstall(manager: PackageManager, cwd: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(manager, INSTALL_ARGS[manager], { cwd, stdio: 'inherit' });
+    const child = spawn(manager, INSTALL_ARGS[manager], { cwd, stdio: childProcessStdio() });
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${manager} install exited with code ${code}`))));
   });

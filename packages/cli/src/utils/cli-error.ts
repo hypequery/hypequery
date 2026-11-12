@@ -12,8 +12,9 @@ export interface CliErrorOptions {
 
 /**
  * A failure the CLI reports with a stable code and the next action. `--json`
- * prints it as the shared error envelope; text mode prints the message and the
- * hint. `code` is SCREAMING_SNAKE_CASE and never changes once released.
+ * prints it as the shared error envelope, with `hint` as its own field; text
+ * mode prints only the message, so the message must name the next action too.
+ * `code` is SCREAMING_SNAKE_CASE and never changes once released.
  */
 export class CliError extends Error {
   readonly hint?: string;

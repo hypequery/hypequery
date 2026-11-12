@@ -41,3 +41,10 @@ export function exitClassFor(code: typeof ERROR_CODES[number], error?: unknown):
 function isProgrammingError(error: unknown) {
   return error instanceof TypeError || error instanceof ReferenceError || error instanceof RangeError;
 }
+
+/** The exit class a numeric exit code stands for; unknown codes count as correctable. */
+export function exitClassForCode(exitCode: number): ExitClass {
+  const match = (Object.entries(EXIT_CODES) as Array<[keyof typeof EXIT_CODES, number]>)
+    .find(([name, code]) => code === exitCode && name !== 'ok' && name !== 'interrupted');
+  return (match?.[0] as ExitClass | undefined) ?? 'correctable';
+}

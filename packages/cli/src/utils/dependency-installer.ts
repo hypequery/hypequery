@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { childProcessStdio } from './machine-output.js';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
@@ -230,7 +231,7 @@ export async function installScaffoldDependencies(
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command, args, {
         cwd: process.cwd(),
-        stdio: 'inherit',
+        stdio: childProcessStdio(),
       });
       child.on('error', reject);
       child.on('close', code => {

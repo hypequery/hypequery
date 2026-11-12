@@ -1,3 +1,4 @@
+import { emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { loadExamplesIndex, type ExamplesIndex, type LoadIndexOptions } from '../utils/examples/registry-index.js';
 
 export interface ExamplesListOptions {
@@ -32,7 +33,10 @@ export async function examplesListCommand(options: ExamplesListOptions = {}, dep
   }
   if (options.json) {
     const entries = index.entries.filter((entry) => !options.kind || entry.kind === options.kind);
-    write(JSON.stringify({ version: index.version, packageVersions: index.packageVersions, entries }, null, 2));
+    const result = { version: index.version, packageVersions: index.packageVersions, entries };
+    // Under the global --json, stdout is reserved for the one result document.
+    if (isJsonOutput()) emitResult(result);
+    else write(JSON.stringify(result, null, 2));
     return;
   }
   write(formatExamplesTable(index, options.kind));
