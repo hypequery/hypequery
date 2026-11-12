@@ -1,0 +1,23 @@
+[project]
+name = "mcp-agent-analytics-python"
+version = "0.1.0"
+description = "A governed ClickHouse MCP server in Python: agents query published, tenant-scoped hypequery datasets and never see SQL"
+requires-python = ">=3.11"
+dependencies = [
+  "hypequery[clickhouse,mcp]>=0.1.0b3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+]
+
+# Inside the hypequery monorepo the example runs against the workspace copy
+# of the Python package, like the TypeScript examples use `workspace:*`.
+# `hypequery create` and the nightly @latest run remove this table so the
+# published PyPI release is installed instead.
+[tool.uv.sources]
+hypequery = { path = "../../python/hypequery", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

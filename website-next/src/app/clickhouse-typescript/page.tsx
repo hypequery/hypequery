@@ -4,6 +4,7 @@ import { marketing } from '@/components/ui/marketing';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -105,9 +106,9 @@ const comparisonLinks = [
     description: 'Drizzle ORM has no ClickHouse driver. What to use instead, and where each tool fits.',
   },
   {
-    href: '/blog/clickhouse-testing-typescript',
-    title: 'How to Test ClickHouse Queries in TypeScript',
-    description: 'Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.',
+    href: '/blog/add-clickhouse-analytics-nodejs-backend#testing-clickhouse-queries',
+    title: 'How to test ClickHouse queries in TypeScript',
+    description: 'Type checks in CI, SQL assertions, and integration tests against chDB or a ClickHouse container.',
   },
   {
     href: '/blog/clickhouse-final-replacingmergetree-typescript',
@@ -122,6 +123,11 @@ const comparisonLinks = [
 ];
 
 const ecosystemLinks = [
+  {
+    href: '/clickhouse',
+    title: 'ClickHouse with TypeScript and Python',
+    description: 'The hub for every ClickHouse client, framework, SQL guide and function page on this site.',
+  },
   {
     href: '/clickhouse-nextjs',
     title: 'ClickHouse Next.js',
@@ -354,7 +360,7 @@ export default function ClickHouseTypeScriptPage() {
               </Link>
             ))}
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-4">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {ecosystemLinks.map((item) => (
               <Link
                 key={item.href}
@@ -367,6 +373,8 @@ export default function ClickHouseTypeScriptPage() {
             ))}
           </div>
         </section>
+
+        <ExamplesBlock leadPage="/clickhouse-typescript" />
 
         <section className={`${marketing.container} pb-20`}>
           <div className="rounded-xl border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">

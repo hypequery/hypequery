@@ -22,6 +22,43 @@ describe('QueryBuilder - Aggregations', () => {
     expect(sql).toBe('SELECT COUNT(id) AS id_count FROM test_table');
   });
 
+  // ClickHouse rejects an aggregate or window expression in GROUP BY.
+  it('does not group by a window expression over an aggregate', () => {
+    const sql = builder
+      .select(['category', rawAs<string, 'rnk'>('rank() OVER (ORDER BY sum(price) DESC)', 'rnk')])
+      .sum('price', 'total')
+      .toSQL();
+    expect(sql).toBe(
+      'SELECT category, rank() OVER (ORDER BY sum(price) DESC) AS rnk, SUM(price) AS total FROM test_table GROUP BY category'
+    );
+  });
+
+  it('does not group by an expression that wraps an aggregate', () => {
+    const sql = builder
+      .select(['category', rawAs<number, 'avg_price'>('round(avg(price), 2)', 'avg_price')])
+      .count('id', 'n')
+      .toSQL();
+    expect(sql).toBe(
+      'SELECT category, round(avg(price), 2) AS avg_price, COUNT(id) AS n FROM test_table GROUP BY category'
+    );
+  });
+
+  it('ignores aggregate names inside comments when inferring GROUP BY', () => {
+    const sql = builder
+      .select([rawAs<string, 'category_key'>('category /* sum(price) */', 'category_key')])
+      .sum('price', 'total')
+      .toSQL();
+    expect(sql).toBe('SELECT category /* sum(price) */ AS category_key, SUM(price) AS total FROM test_table GROUP BY category_key');
+  });
+
+  it('still groups by a plain computed expression', () => {
+    const sql = builder
+      .select([rawAs<string, 'day'>('toDate(created_at)', 'day')])
+      .sum('price', 'total')
+      .toSQL();
+    expect(sql).toBe('SELECT toDate(created_at) AS day, SUM(price) AS total FROM test_table GROUP BY day');
+  });
+
   it('should combine multiple aggregations', () => {
     const sql = builder
       .select(['name'])

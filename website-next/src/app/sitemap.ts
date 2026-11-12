@@ -4,18 +4,25 @@ import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
 import { comparePages } from '@/data/compare-pages';
+import { entryHref, registryEntries } from '@/lib/examples';
+import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 
-const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
+const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.slug), ...retiredBlogSlugs]);
 
 // Pages marked noindex (/clickhouse-express, -hono, -trpc, -graphql) stay out of the sitemap.
 const staticRoutes = [
+  '/clickhouse',
   '/clickhouse/functions',
+  '/embedded-analytics',
   '/',
   '/blog',
   '/changelog',
   ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`),
   '/compare',
+  '/examples',
+  '/recipes',
+  '/guides',
   '/clickhouse-js',
   '/clickhouse-nodejs',
   '/clickhouse-dashboard',
@@ -90,5 +97,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: fn.updated ? new Date(fn.updated) : undefined,
     }));
 
-  return [...staticEntries, ...functionEntries, ...docsEntries, ...blogEntries];
+  const exampleEntries: MetadataRoute.Sitemap = registryEntries.map((entry) => ({
+    url: absoluteUrl(entryHref(entry)).toString(),
+  }));
+
+  return [...staticEntries, ...functionEntries, ...exampleEntries, ...docsEntries, ...blogEntries];
 }

@@ -66,6 +66,7 @@ add_dataset_endpoint(
 export default function ClickHousePythonMultiTenantPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-python-multi-tenant"
       eyebrow="Python multi-tenancy"
       title="Multi-tenant ClickHouse analytics in Python, without a filter to forget"
       description="Declare the tenant column once on the dataset. Every query from your jobs, FastAPI endpoints, and agents runs inside one customer's data, and a query without a trusted tenant fails instead of returning everyone's rows."
@@ -152,6 +153,7 @@ export default function ClickHousePythonMultiTenantPage() {
         { href: '/clickhouse-multi-tenant-analytics', title: 'Multi-tenant analytics in TypeScript', description: 'The same model on the TypeScript side.' },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },

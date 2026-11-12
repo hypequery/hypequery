@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import CodeWindow from '@/components/CodeWindow';
 import { RichText } from '@/components/RichText';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
@@ -62,7 +63,47 @@ type Section = {
   paragraphs?: string[];
   bullets?: string[];
   codePanel?: CodePanel;
+  /** Extra panels stacked under `codePanel` in the same column. */
+  codePanels?: CodePanel[];
 };
+
+function CodePanelCard({ panel, eyebrow, language }: { panel: CodePanel; eyebrow: string; language: Language }) {
+  return (
+    <div className={marketing.card}>
+      <p className="font-mono text-xs text-text-dim">
+        {panel.eyebrow}
+      </p>
+      <h3 className={`mt-3 ${marketing.cardTitle}`}>
+        <RichText text={panel.title} />
+      </h3>
+      <CodeWindow
+        code={panel.code}
+        filename={panelFilename(panel, eyebrow, language)}
+        language={panel.language ?? language}
+        className="mt-4"
+      />
+      <p className="mt-4 text-sm leading-6 text-text-muted">
+        <RichText text={panel.description} />
+      </p>
+    </div>
+  );
+}
+
+/** One card for a lone `codePanel` (the original layout); a stacked column when `codePanels` adds more. */
+function SectionPanels({ section, language }: { section: Section; language: Language }) {
+  const panels = [...(section.codePanel ? [section.codePanel] : []), ...(section.codePanels ?? [])];
+  if (panels.length === 0) return null;
+  if (!section.codePanels?.length) {
+    return <CodePanelCard panel={panels[0]} eyebrow={section.eyebrow} language={language} />;
+  }
+  return (
+    <div className="min-w-0 space-y-6">
+      {panels.map((panel) => (
+        <CodePanelCard key={panel.title} panel={panel} eyebrow={section.eyebrow} language={language} />
+      ))}
+    </div>
+  );
+}
 
 type ReadingLink = {
   href: string;
@@ -84,7 +125,30 @@ type ComparisonTable = {
   footnote?: string;
 };
 
+/** A table with any number of columns, for comparing several tools at once. */
+type ComparisonMatrix = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  columns: Array<{ label: string; highlight?: boolean }>;
+  rows: Array<{ label: string; cells: string[] }>;
+  footnote?: string;
+};
+
+type SectionHeading = {
+  eyebrow: string;
+  title: string;
+  description?: string;
+};
+
+type SourceLink = {
+  href: string;
+  label: string;
+};
+
 export type ClickhousePillarPageProps = {
+  /** The page's own path, e.g. "/clickhouse-nextjs"; examples tagged with it render a block here. */
+  leadPage?: string;
   eyebrow: string;
   title: string;
   description: string;
@@ -94,10 +158,18 @@ export type ClickhousePillarPageProps = {
   language?: Language;
   stats?: Stat[];
   quickstart?: Quickstart;
+  /** Shown right after the hero, before the problem cards. */
+  comparisonMatrix?: ComparisonMatrix;
+  /** A heading above the problem cards; without it they render as before. */
+  problemsHeading?: SectionHeading;
   problems: Card[];
   solutionSection: Section;
   implementationSection: Section;
+  /** Further sections in the implementation layout, after `implementationSection`. */
+  additionalSections?: Section[];
   comparisonTable?: ComparisonTable;
+  /** External references, listed after the question cards. */
+  sources?: SourceLink[];
   /** Honest list of situations where the other tool is the better choice. */
   chooseAlternative?: {
     title: string;
@@ -118,6 +190,7 @@ export type ClickhousePillarPageProps = {
 };
 
 export function ClickhousePillarPage({
+  leadPage,
   eyebrow,
   title,
   description,
@@ -126,10 +199,14 @@ export function ClickhousePillarPage({
   language = 'typescript',
   stats,
   quickstart,
+  comparisonMatrix,
+  problemsHeading,
   problems,
   solutionSection,
   implementationSection,
+  additionalSections,
   comparisonTable,
+  sources,
   chooseAlternative,
   searchIntentCards,
   faq,
@@ -226,14 +303,70 @@ export function ClickhousePillarPage({
           </section>
         ) : null}
 
+        {comparisonMatrix ? (
+          <section className={`${marketing.container} pt-14 sm:pt-20`}>
+            <p className={marketing.eyebrow}>{comparisonMatrix.eyebrow}</p>
+            <h2 className={`mt-3 ${marketing.sectionTitle}`}>{comparisonMatrix.title}</h2>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted sm:text-base"><RichText text={comparisonMatrix.description} /></p>
+            <div className="mt-8 overflow-x-auto rounded-xl border border-border bg-bg-card shadow-card">
+              <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-bg-alt/60">
+                    <th className="w-[16%] px-5 py-4" aria-label="Dimension" />
+                    {comparisonMatrix.columns.map((column) => (
+                      <th
+                        key={column.label}
+                        scope="col"
+                        className={`px-5 py-4 font-mono text-xs font-medium ${column.highlight ? 'bg-accent-soft text-accent' : 'text-text-dim'}`}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonMatrix.rows.map((row) => (
+                    <tr key={row.label} className="border-b border-border last:border-b-0">
+                      <th scope="row" className="px-5 py-4 align-top text-sm font-medium text-text"><RichText text={row.label} /></th>
+                      {row.cells.map((cell, index) => (
+                        <td
+                          key={comparisonMatrix.columns[index]?.label ?? index}
+                          className={`px-5 py-4 align-top text-sm leading-6 ${comparisonMatrix.columns[index]?.highlight ? 'bg-accent-soft text-text' : 'text-text-muted'}`}
+                        >
+                          <RichText text={cell} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {comparisonMatrix.footnote ? (
+              <p className="mt-4 text-xs leading-5 text-text-dim"><RichText text={comparisonMatrix.footnote} /></p>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className={`${marketing.container} py-14 sm:py-20`}>
+          {problemsHeading ? (
+            <div className="mb-10">
+              <p className={marketing.eyebrow}>{problemsHeading.eyebrow}</p>
+              <h2 className={`mt-3 ${marketing.sectionTitle}`}>{problemsHeading.title}</h2>
+              {problemsHeading.description ? (
+                <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted sm:text-base"><RichText text={problemsHeading.description} /></p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid gap-6 lg:grid-cols-3">
-            {problems.map((problem) => (
-              <div key={problem.title} className={marketing.card}>
-                <h2 className={marketing.cardTitle}><RichText text={problem.title} /></h2>
-                <p className="mt-3 text-sm leading-6 text-text-muted"><RichText text={problem.copy} /></p>
-              </div>
-            ))}
+            {problems.map((problem) => {
+              const CardHeading = problemsHeading ? 'h3' : 'h2';
+              return (
+                <div key={problem.title} className={marketing.card}>
+                  <CardHeading className={marketing.cardTitle}><RichText text={problem.title} /></CardHeading>
+                  <p className="mt-3 text-sm leading-6 text-text-muted"><RichText text={problem.copy} /></p>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -264,25 +397,7 @@ export function ClickhousePillarPage({
                   </ul>
                 ) : null}
               </div>
-              {solutionSection.codePanel ? (
-                <div className={marketing.card}>
-                  <p className="font-mono text-xs text-text-dim">
-                    {solutionSection.codePanel.eyebrow}
-                  </p>
-                  <h3 className={`mt-3 ${marketing.cardTitle}`}>
-                    <RichText text={solutionSection.codePanel.title} />
-                  </h3>
-                  <CodeWindow
-                    code={solutionSection.codePanel.code}
-                    filename={panelFilename(solutionSection.codePanel, solutionSection.eyebrow, language)}
-                    language={solutionSection.codePanel.language ?? language}
-                    className="mt-4"
-                  />
-                  <p className="mt-4 text-sm leading-6 text-text-muted">
-                    <RichText text={solutionSection.codePanel.description} />
-                  </p>
-                </div>
-              ) : null}
+              <SectionPanels section={solutionSection} language={language} />
             </div>
           </div>
         </section>
@@ -313,27 +428,39 @@ export function ClickhousePillarPage({
                 </ul>
               ) : null}
             </div>
-            {implementationSection.codePanel ? (
-              <div className={marketing.card}>
-                <p className="font-mono text-xs text-text-dim">
-                  {implementationSection.codePanel.eyebrow}
-                </p>
-                <h3 className={`mt-3 ${marketing.cardTitle}`}>
-                  <RichText text={implementationSection.codePanel.title} />
-                </h3>
-                <CodeWindow
-                  code={implementationSection.codePanel.code}
-                  filename={panelFilename(implementationSection.codePanel, implementationSection.eyebrow, language)}
-                  language={implementationSection.codePanel.language ?? language}
-                  className="mt-4"
-                />
-                <p className="mt-4 text-sm leading-6 text-text-muted">
-                  <RichText text={implementationSection.codePanel.description} />
-                </p>
-              </div>
-            ) : null}
+            <SectionPanels section={implementationSection} language={language} />
           </div>
         </section>
+
+        {additionalSections?.map((section, index) => (
+          <section key={section.title} className={index % 2 === 0 ? marketing.band : undefined}>
+            <div className={`${marketing.container} py-14 sm:py-20`}>
+              <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr]">
+                <div>
+                  <p className={marketing.eyebrow}>{section.eyebrow}</p>
+                  <h2 className={`mt-3 ${marketing.sectionTitle}`}>{section.title}</h2>
+                  <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base"><RichText text={section.description} /></p>
+                  {section.paragraphs?.map((paragraph) => (
+                    <p key={paragraph} className="mt-4 text-sm leading-6 text-text-muted">
+                      <RichText text={paragraph} />
+                    </p>
+                  ))}
+                  {section.bullets ? (
+                    <ul className="mt-7 space-y-3 text-sm text-text">
+                      {section.bullets.map((bullet) => (
+                        <li key={bullet} className="flex gap-3">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                          <span><RichText text={bullet} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <SectionPanels section={section} language={language} />
+              </div>
+            </div>
+          </section>
+        ))}
 
         {comparisonTable ? (
           <section className={`${marketing.container} pb-14 sm:pb-20`}>
@@ -406,9 +533,29 @@ export function ClickhousePillarPage({
                 </div>
               ))}
             </div>
+            {sources && sources.length > 0 ? (
+              <div className="mt-10">
+                <p className="font-mono text-xs text-text-dim">Sources</p>
+                <ul className="mt-3 space-y-2 text-sm text-text-muted">
+                  {sources.map((source) => (
+                    <li key={source.href}>
+                      <a
+                        href={source.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-border-strong underline-offset-4 transition hover:text-accent hover:decoration-accent"
+                      >
+                        {source.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </section>
 
+        {leadPage && <ExamplesBlock leadPage={leadPage} />}
         {faq && faq.length > 0 ? (
           <section className={`${marketing.container} pt-14 sm:pt-20`}>
             <p className={marketing.eyebrow}>FAQ</p>

@@ -1,0 +1,216 @@
+name: Examples
+
+# Every registry entry (examples/*, recipes/*) is smoke-tested against the
+# shared seed dataset. PRs test against the workspace packages; the nightly run
+# swaps them for the published @latest so a release regression surfaces here
+# before a user hits it with `npx @hypequery/cli create`.
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'python/hypequery/**'
+      - 'examples/**'
+      - 'recipes/**'
+      - 'guides/**'
+      - 'scripts/examples/**'
+      - '.github/workflows/examples.yml'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'python/hypequery/**'
+      - 'examples/**'
+      - 'recipes/**'
+      - 'guides/**'
+      - 'scripts/examples/**'
+      - '.github/workflows/examples.yml'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Where @hypequery/* packages come from'
+        type: choice
+        options: [workspace, latest]
+        default: workspace
+
+concurrency:
+  group: examples-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # "latest" on the nightly schedule, otherwise the workflow_dispatch choice,
+  # otherwise the workspace.
+  HYPEQUERY_SOURCE: ${{ github.event_name == 'schedule' && 'latest' || inputs.source || 'workspace' }}
+  CLICKHOUSE_URL: http://localhost:8123
+  CLICKHOUSE_USERNAME: default
+  CLICKHOUSE_PASSWORD: hypequery
+  CLICKHOUSE_DATABASE: hypequery_examples
+
+jobs:
+  discover:
+    name: Discover registry entries
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.ls.outputs.entries }}
+      count: ${{ steps.ls.outputs.count }}
+      guide_sql_count: ${{ steps.guides.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      - name: Test the discovery scripts
+        run: node --test "scripts/examples/*.test.mjs"
+      - id: ls
+        name: List examples and recipes
+        run: |
+          entries=$(node scripts/examples/discover.mjs)
+          echo "entries=$entries" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$entries" | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).length))')" >> "$GITHUB_OUTPUT"
+          echo "Registry entries: $entries"
+      - id: guides
+        name: Count guide SQL files
+        run: |
+          count=$( [ -d guides ] && find guides -name '*.sql' | wc -l || echo 0 )
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Guide SQL files: $count"
+
+  seed:
+    name: Seed dataset reproduces checksums
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start ClickHouse
+        run: docker compose -f examples/_seed/docker-compose.yml up -d --wait
+      - name: Lint and type-check the seed tooling
+        run: pnpm --filter @hypequery-examples/seed lint && pnpm --filter @hypequery-examples/seed types
+      - name: Seed unit tests
+        run: pnpm --filter @hypequery-examples/seed test
+      - name: Load the seed and verify checksums
+        run: pnpm seed
+      - name: Validate manifests
+        run: pnpm examples:validate
+
+  # No `name`: GitHub appends the matrix values, so each job reads
+  # `smoke (examples/<slug>, example, <slug>, true)`.
+  smoke:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.entries) }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require a manifest and a package.json
+        if: matrix.hasManifest != true || matrix.package == null
+        run: |
+          echo "::error::${{ matrix.dir }} needs example.json / recipe.json and a package.json with a name, or a _ prefix to exclude it."
+          exit 1
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Start ClickHouse
+        run: docker compose -f examples/_seed/docker-compose.yml up -d --wait
+      # Python examples (language: python) are uv projects; their `test`
+      # script runs `uv sync && uv run pytest`.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      # Workspace mode: the PR's own packages, built from source.
+      - name: Install workspace
+        if: env.HYPEQUERY_SOURCE == 'workspace'
+        run: pnpm install --frozen-lockfile
+      - name: Build the example's workspace dependencies
+        if: env.HYPEQUERY_SOURCE == 'workspace'
+        # `<package>^...` selects dependencies only; the ./dir form would also
+        # build the example itself, which its own `test` script does.
+        run: pnpm turbo run build --filter='${{ matrix.package }}^...'
+      - name: Relink workspace binaries
+        if: env.HYPEQUERY_SOURCE == 'workspace'
+        # pnpm only creates a bin shim (e.g. `hypequery` from @hypequery/cli)
+        # if the target file exists at install time; the first install ran
+        # before the build, so link again now that dist/ exists.
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      # Latest mode: what a user gets from `npx @hypequery/cli create <slug>` today.
+      # use-published.mjs reuses the CLI's scaffold rewrites, so build the CLI.
+      - name: Build the CLI's scaffold helpers
+        if: env.HYPEQUERY_SOURCE == 'latest'
+        run: pnpm install --frozen-lockfile --filter '@hypequery/cli...' && pnpm turbo run build --filter='@hypequery/cli'
+      - name: Point the example at published packages
+        if: env.HYPEQUERY_SOURCE == 'latest'
+        run: node scripts/examples/use-published.mjs ${{ matrix.dir }} --tag latest
+      - name: Install the seed tooling
+        if: env.HYPEQUERY_SOURCE == 'latest'
+        run: pnpm install --frozen-lockfile --filter @hypequery-examples/seed
+      - name: Install the example standalone
+        if: env.HYPEQUERY_SOURCE == 'latest'
+        working-directory: ${{ matrix.dir }}
+        run: pnpm install --ignore-workspace --no-frozen-lockfile
+
+      - name: Load the seed
+        run: pnpm seed
+      - name: Smoke test
+        working-directory: ${{ matrix.dir }}
+        run: |
+          echo "Testing ${{ matrix.dir }} against @hypequery/* from: $HYPEQUERY_SOURCE"
+          if [ "$HYPEQUERY_SOURCE" = "latest" ]; then
+            pnpm --ignore-workspace run test
+          else
+            pnpm run test
+          fi
+
+  guides:
+    name: Guide SQL runs on the seed
+    needs: discover
+    if: needs.discover.outputs.guide_sql_count != '0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @hypequery-examples/seed
+      - name: Start ClickHouse
+        run: docker compose -f examples/_seed/docker-compose.yml up -d --wait
+      - name: Load the seed
+        run: pnpm seed
+      - name: Run every guides/**/*.sql
+        run: find guides -name '*.sql' | sort | xargs node examples/_seed/dist/bin/run-sql.js
+
+  # Single status to mark as required: green only when every job above that
+  # ran is green, and skipped matrix/guide jobs do not count as failures.
+  examples-ok:
+    name: Examples OK
+    needs: [discover, seed, smoke, guides]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream jobs
+        run: |
+          echo "discover: ${{ needs.discover.result }}"
+          echo "seed:     ${{ needs.seed.result }}"
+          echo "smoke:    ${{ needs.smoke.result }}"
+          echo "guides:   ${{ needs.guides.result }}"
+          for result in "${{ needs.discover.result }}" "${{ needs.seed.result }}" "${{ needs.smoke.result }}" "${{ needs.guides.result }}"; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::a required examples job ended with: $result"; exit 1 ;;
+            esac
+          done

@@ -77,6 +77,8 @@ npx hypequery dev
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
 | `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio or Streamable HTTP (`--http`), or check an endpoint with `--self-test` |
 | `hypequery skill install` | Install hypequery's agent skills for Claude Code, Cursor and Codex |
+| `hypequery examples list` | List the runnable examples, recipes and guides at hypequery.com/examples |
+| `hypequery create <slug>` | Scaffold an example or recipe into `./<slug>`, pinned to published versions |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
 | `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
@@ -554,6 +556,47 @@ npx hypequery skill install
 
 Re-running is safe: up-to-date skills are left alone, and an edited skill is never replaced without `--force`. The
 Python CLI has the same command: `hypequery skill install`.
+
+## `hypequery examples list`
+
+Lists every entry of the [examples registry](/examples): runnable examples, recipes and guides, each tested in CI against one seeded ClickHouse dataset. The registry index is fetched from `https://hypequery.com/examples.json`.
+
+```bash
+npx hypequery examples list
+npx hypequery examples list --json --kind recipe
+```
+
+| Option | Description |
+| --- | --- |
+| `--json` | Print the index as JSON (slug, kind, title, outcome, packages, run commands, pinned package versions) |
+| `--kind <kind>` | Only `example`, `recipe` or `guide` |
+
+## `hypequery create <slug>`
+
+Scaffolds an example or recipe from the registry into `./<slug>`. It needs `git` and network access, nothing else: no account, no prompts with `-y`, a non-zero exit on failure, and it always ends with a `Next:` block naming the commands to run.
+
+```bash
+npx @hypequery/cli create nextjs-dashboard -y
+cd nextjs-dashboard
+pnpm dev
+```
+
+What it does:
+
+1. Fetches `examples/<slug>` (and the shared seed, `examples/_seed`) from the hypequery repository with a blobless sparse checkout.
+2. Rewrites the example's `workspace:*` dependencies to the exact `@hypequery/*` versions the example was last tested with. A version that is not on npm yet falls back to `--tag` (default `latest`).
+3. Copies the seed into `./<slug>/seed` so `docker compose -f seed/docker-compose.yml up -d --wait` and `pnpm seed` give you the same million-row dataset the pages show.
+4. Installs dependencies with the package manager that ran it (`npx` → npm, `pnpm dlx` → pnpm, and so on).
+
+| Option | Description |
+| --- | --- |
+| `-y, --yes` | Accept defaults and never prompt |
+| `--dir <path>` | Target directory (default `./<slug>`; must be empty) |
+| `--no-install` | Skip the dependency install |
+| `--no-seed` | Skip copying the shared seed dataset |
+| `--tag <dist-tag>` | Dist-tag for `@hypequery/*` packages whose recorded version is not on npm (default `latest`) |
+
+Set `HYPEQUERY_EXAMPLES_INDEX` to a URL or a local file to scaffold from another index, for example a branch of the repository.
 
 ## Environment variables
 

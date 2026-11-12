@@ -1,0 +1,34 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "iso-week-bucketing",
+  "kind": "recipe",
+  "title": "ISO weeks in ClickHouse: toMonday buckets and %G-W%V labels across the year boundary",
+  "outcome": "Bucket events into Monday-to-Sunday ISO weeks with labels like 2026-W01, and see where toStartOfWeek, %Y and toWeek go wrong at new year.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["time-series", "product-analytics"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "src/dataset.ts",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["retention-cohorts", "p95-latency"],
+  "leadPages": ["/clickhouse-time-series", "/clickhouse-product-analytics", "/clickhouse-typescript"],
+  "functionPages": ["to-start-of-week", "format-date-time"],
+  "keywords": [
+    "clickhouse formatdatetime %G %V iso week",
+    "clickhouse iso week",
+    "clickhouse tostartofweek",
+    "clickhouse tostartofweek monday",
+    "clickhouse formatdatetime week"
+  ],
+  "minVersion": "2.14.0"
+}

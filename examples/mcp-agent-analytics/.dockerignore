@@ -1,0 +1,7 @@
+node_modules
+dist
+test
+seed
+*.tsbuildinfo
+.cursor
+.mcp.json

@@ -166,6 +166,33 @@ describe("defineServe", () => {
     expect(response.headers?.["cache-control"]).toBe("no-store");
   });
 
+  it("serves the OpenAPI document and docs page when a tenant is required", async () => {
+    const api = defineServe({
+      tenant: {
+        extract: (auth) => auth.tenantId,
+      },
+      queries: {
+        tenantMetric: {
+          query: async ({ ctx }) => ({ tenantId: ctx.tenantId }),
+        },
+      },
+    });
+
+    api.route("/tenant-metric", api.queries.tenantMetric);
+    // Signed in, but without a tenant.
+    api.useAuth(async () => ({ userId: "user-1" }));
+
+    // They describe the API and read no tenant data.
+    const openapi = await api.handler(createRequest({ path: "/openapi.json" }));
+    expect(openapi.status).toBe(200);
+    const docs = await api.handler(createRequest({ path: "/docs" }));
+    expect(docs.status).toBe(200);
+
+    // Data endpoints still require a tenant.
+    const data = await api.handler(createRequest({ path: "/tenant-metric" }));
+    expect(data.status).toBe(403);
+  });
+
   it("keeps explicit public caching for unauthenticated tenant-independent responses", async () => {
     const api = defineServe({
       queries: {

@@ -64,6 +64,7 @@ analytics.execute(
 export default function ClickHousePandasPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-pandas"
       eyebrow="ClickHouse pandas"
       title="Get governed ClickHouse metrics into pandas, by name"
       description="Notebooks are where numbers drift. hypequery lets analysts query the same measures and dimensions your product and dashboards use, so a DataFrame of “revenue by month” matches what customers see."
@@ -143,6 +144,7 @@ export default function ClickHousePandasPage() {
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Reuse results across notebook runs.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
         { href: '/clickhouse-sqlalchemy', label: 'ClickHouse with SQLAlchemy' },

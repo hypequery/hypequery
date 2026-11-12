@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/deployment",
-  "version": "0.11.2",
+  "version": "0.12.0",
   "description": "Verified deployment intake, activation, and semantic invocation for Hypequery analytics",
   "keywords": [
     "hypequery",
@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@hypequery/datasets": "workspace:*",
-    "@types/node": "^22.5.0",
+    "@types/node": "^26.6.6",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   },

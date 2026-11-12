@@ -1,4 +1,5 @@
 import { escapeValue } from '../utils.js';
+import { dateToSqlText } from './date-literal.js';
 import { parseParameterType, parseTupleField } from './parameter-type.js';
 import { isPlainRecord } from './record-guards.js';
 
@@ -38,7 +39,9 @@ function serializeValue(value: unknown, type: string): string {
     if (!entries) return invalidValue(type);
     return `{${entries.map(([key, item]) => `${serializeValue(key, args[0]!)}:${serializeValue(item, args[1]!)}`).join(',')}}`;
   }
-  if (typeof value === 'object' && !(value instanceof Date)) return invalidValue(type);
+  // Elements are parsed as text inside CAST, where an ISO string is read correctly.
+  if (value instanceof Date) return dateToSqlText(value);
+  if (typeof value === 'object') return invalidValue(type);
   // UInt64 values and object-map keys may be strings; text readers for numeric
   // types expect unquoted numbers. Validate before including them in the text.
   if (typeof value === 'string' && /^(?:U?Int\d+|Float\d+|Decimal\d*)$/.test(name)) {

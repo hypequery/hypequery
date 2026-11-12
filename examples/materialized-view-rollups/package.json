@@ -1,0 +1,24 @@
+{
+  "name": "@hypequery-examples/materialized-view-rollups",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Incremental and refreshable ClickHouse materialized views side by side, queried through a hypequery dataset",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "setup": "npm run build && node dist/setup.js",
+    "query": "npm run build && node dist/query.js",
+    "dev": "npm run setup && node dist/query.js",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

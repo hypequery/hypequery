@@ -21,6 +21,7 @@ const errorEnvelopeSchema = {
             'MCP_REQUEST_CANCELLED',
             'MCP_QUERY_TIMEOUT',
             'MCP_RESULT_TOO_LARGE',
+            'MCP_CATALOG_TOO_LARGE',
             'MCP_RATE_LIMITED',
             'MCP_EXECUTION_FAILED',
           ],

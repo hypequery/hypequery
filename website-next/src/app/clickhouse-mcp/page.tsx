@@ -100,6 +100,7 @@ export const analytics = createDatasetClient({ queryBuilder: db });`;
 export default function ClickHouseMcpPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-mcp"
       eyebrow="ClickHouse MCP"
       title="Give AI agents trusted ClickHouse analytics — not a database console"
       description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."
@@ -265,13 +266,9 @@ claude mcp list`,
           title: 'AI tool generation',
           description: 'Generate tool schemas from the same semantic catalog.',
         },
-        {
-          href: '/blog/clickhouse-mcp-typescript',
-          title: 'ClickHouse MCP: Give Your AI Agent Type-Safe Access to Analytics Data',
-          description: 'Build a ClickHouse MCP server around named analytics queries instead of raw SQL so tenant scope and response shapes stay under control.',
-        },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

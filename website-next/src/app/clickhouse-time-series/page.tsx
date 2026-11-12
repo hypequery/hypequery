@@ -161,6 +161,7 @@ export const api = serve({
 export default function ClickHouseTimeSeriesPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-time-series"
       eyebrow="ClickHouse Time Series"
       title="Typed time-series queries on ClickHouse in TypeScript"
       description="Time-series queries are the most common ClickHouse use case and the most common source of subtle TypeScript bugs — because ClickHouse DateTime columns return as strings and ClickHouse date functions are specific to ClickHouse SQL. hypequery gives TypeScript teams a composable, type-safe path to time-series analytics."
@@ -274,9 +275,9 @@ export default function ClickHouseTimeSeriesPage() {
           description: 'Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
         },
         {
-          href: '/blog/clickhouse-sampling-typescript',
-          title: 'ClickHouse Sampling for Fast Prototyping in TypeScript',
-          description: 'How the ClickHouse SAMPLE clause works: SAMPLE BY table setup, scaling results, OFFSET slices, and the TypeScript options — approximate aggregates with hypequery or raw SAMPLE queries with @clickhouse/client.',
+          href: '/blog/add-clickhouse-analytics-nodejs-backend#sampling-for-fast-prototyping',
+          title: 'ClickHouse SAMPLE for fast prototyping',
+          description: 'How SAMPLE BY works, scaling results with _sample_factor, and approximate aggregates from TypeScript.',
         },
       ]}
       relatedPillars={[

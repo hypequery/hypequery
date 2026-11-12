@@ -80,6 +80,7 @@ export const api = serve({
 export default function ClickHouseJSPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-js"
       eyebrow="ClickHouse JS"
       title="The JavaScript query builder built for ClickHouse"
       description="The raw ClickHouse client gets rows back. hypequery keeps that connection and adds schema-generated types and composable query code, so the rest of your app isn't built on casts and copied SQL."
@@ -189,6 +190,7 @@ export default function ClickHouseJSPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

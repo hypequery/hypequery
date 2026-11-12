@@ -13,7 +13,7 @@ export function ArticleIntroCta({ language }: { language: Language }) {
 
   return (
     <p className="not-prose mt-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-sm leading-6 text-text-muted">
-      <span className="font-semibold text-text">hypequery</span> is the analytics layer for ClickHouse: typed
+      <span className="font-semibold text-text">hypequery</span> is an embedded analytics toolkit for ClickHouse: typed
       queries and shared metrics, defined once in your codebase.{' '}
       <Link
         href={quickStart.href}

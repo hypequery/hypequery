@@ -48,6 +48,7 @@ const queryCode = `const accountRevenue = query({
 export default function ClickHouseMultiTenantAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-multi-tenant-analytics"
       eyebrow="ClickHouse Multi-Tenant Analytics"
       title="Build multi-tenant ClickHouse analytics without trusting every query author"
       description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, AI agents, and internal tooling."
@@ -161,17 +162,13 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           description: 'Move from tenant isolation specifics to the wider analytics-layer pattern.',
         },
         {
-          href: '/blog/multi-tenant-analytics-clickhouse-typescript',
-          title: 'How to Build Multi-Tenant Analytics with ClickHouse and TypeScript',
-          description: 'Build multi-tenant analytics on ClickHouse with TypeScript. Enforce tenant isolation in application code with tenant-scoped contexts, dataset tenant keys, and defense-in-depth row policies.',
-        },
-        {
-          href: '/blog/clickhouse-row-level-security-typescript',
-          title: 'How to Implement Row-Level Security in ClickHouse with TypeScript',
-          description: 'ClickHouse does not have native RLS like Postgres. Learn the three patterns for tenant isolation in ClickHouse with TypeScript — column filtering, user profiles, and context injection.',
+          href: '/blog/embedded-analytics-clickhouse-multi-tenant-dashboards',
+          title: 'Embedded Analytics with ClickHouse: Multi-Tenant Dashboards',
+          description: 'Shared tables, row policies vs app-side tenant scoping, tenant injection in a typed API, dataset tenant keys, quotas and offboarding.',
         },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

@@ -268,28 +268,30 @@ describe('ClickHouse Type Parsing - Edge Cases', () => {
   });
 
   describe('SimpleAggregateFunction Types', () => {
-    it('handles SimpleAggregateFunction(sum, Float64)', () => {
-      const result = clickhouseToTsType('SimpleAggregateFunction(sum, Float64)');
-      // These are used in AggregatingMergeTree tables
-      expect(result).toBeTruthy(); // Should return something
+    // Values are plain values of the declared type.
+    it('types SimpleAggregateFunction(sum, Float64) as a number', () => {
+      expect(clickhouseToTsType('SimpleAggregateFunction(sum, Float64)')).toBe('number');
     });
 
-    it('handles SimpleAggregateFunction(max, DateTime)', () => {
-      const result = clickhouseToTsType('SimpleAggregateFunction(max, DateTime)');
-      expect(result).toBeTruthy();
+    it('types SimpleAggregateFunction(max, DateTime) as a string', () => {
+      expect(clickhouseToTsType('SimpleAggregateFunction(max, DateTime)')).toBe('string');
+    });
+
+    it('keeps 64-bit integers as strings and handles nested arguments', () => {
+      expect(clickhouseToTsType('SimpleAggregateFunction(sum, UInt64)')).toBe('string');
+      expect(clickhouseToTsType('SimpleAggregateFunction(max, Decimal(10, 2))')).toBe('number');
+      expect(clickhouseToTsType('SimpleAggregateFunction(anyLast, Nullable(Int32))')).toBe('number | null');
     });
   });
 
   describe('AggregateFunction Types', () => {
-    it('handles AggregateFunction(uniq, String)', () => {
-      const result = clickhouseToTsType('AggregateFunction(uniq, String)');
-      // These are used in AggregatingMergeTree tables
-      expect(result).toBeTruthy();
+    // A partial state selected directly arrives as an opaque binary string.
+    it('types AggregateFunction(uniq, String) as a string', () => {
+      expect(clickhouseToTsType('AggregateFunction(uniq, String)')).toBe('string');
     });
 
-    it('handles AggregateFunction(quantile(0.95), Float64)', () => {
-      const result = clickhouseToTsType('AggregateFunction(quantile(0.95), Float64)');
-      expect(result).toBeTruthy();
+    it('types AggregateFunction(quantile(0.95), Float64) as a string', () => {
+      expect(clickhouseToTsType('AggregateFunction(quantile(0.95), Float64)')).toBe('string');
     });
   });
 

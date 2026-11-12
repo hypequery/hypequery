@@ -8,7 +8,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const title = 'hypequery documentation';
 const description =
-  'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents.';
+  'Embedded analytics on ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents.';
 
 export const metadata: Metadata = {
   title,

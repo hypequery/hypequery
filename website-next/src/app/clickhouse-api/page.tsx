@@ -70,6 +70,7 @@ const serveCode = `const api = serve({
 export default function ClickHouseApiPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-api"
       eyebrow="ClickHouse API"
       title="Build a ClickHouse API from typed query definitions"
       description="The hard part of building a ClickHouse API is not opening an HTTP port. It is keeping request validation, auth, response shapes, and query logic from turning into four separate layers of code. hypequery keeps those concerns attached to the same query definition."
@@ -172,13 +173,9 @@ export default function ClickHouseApiPage() {
           title: 'ClickHouse Next.js',
           description: 'Use the same typed query contracts inside App Router handlers and server-side application code.',
         },
-        {
-          href: '/blog/typed-rest-api-clickhouse',
-          title: 'How to Expose ClickHouse Queries as a Typed REST API',
-          description: 'Build a ClickHouse REST API in TypeScript. Define a query once with zod-validated input, serve it over HTTP with generated OpenAPI docs, attach auth, and call it in-process — step by step with @hypequery/serve.',
-        },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },

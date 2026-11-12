@@ -102,6 +102,7 @@ export function ActiveUsersChart() {
 export default function ClickHouseTrpcPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-trpc"
       eyebrow="ClickHouse tRPC"
       title="Use hypequery ClickHouse queries as tRPC procedures"
       description="tRPC gives you end-to-end type safety from server to React client. hypequery gives you end-to-end type safety from ClickHouse schema to TypeScript. Combining them means your analytics procedures are typed all the way from the database column definition to the component that renders the chart."

@@ -1,0 +1,2 @@
+DROP VIEW IF EXISTS replacingmergetree_upserts_tenants_latest;
+DROP TABLE IF EXISTS replacingmergetree_upserts_tenants;

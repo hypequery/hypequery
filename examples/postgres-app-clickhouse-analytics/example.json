@@ -1,0 +1,35 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "postgres-app-clickhouse-analytics",
+  "kind": "example",
+  "title": "Add ClickHouse analytics to a Postgres + Drizzle app",
+  "outcome": "Keep accounts in Postgres with Drizzle, serve usage from ClickHouse with hypequery, and join the two by account id in one API route.",
+  "language": "typescript",
+  "stack": ["node", "hono", "drizzle", "postgres", "clickhouse"],
+  "useCases": ["saas-analytics", "usage-analytics", "postgres-to-clickhouse"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "src/accounts.ts",
+  "env": [
+    { "name": "DATABASE_URL", "description": "Postgres connection string. Unset: PGlite runs Postgres in-process and seeds itself on start.", "required": false },
+    { "name": "PORT", "description": "HTTP port (default 3000)", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "curl -s 'localhost:3000/api/accounts?plan=enterprise'",
+  "related": ["multi-tenant-embedded-analytics", "materialized-view-rollups", "nextjs-dashboard"],
+  "leadPages": ["/clickhouse-orm", "/clickhouse-nodejs", "/clickhouse-typescript", "/clickhouse-hono"],
+  "functionPages": [],
+  "keywords": [
+    "clickhouse postgres",
+    "clickhouse vs postgres",
+    "postgres to clickhouse",
+    "drizzle clickhouse",
+    "prisma clickhouse",
+    "typeorm clickhouse",
+    "clickhouse orm"
+  ],
+  "minVersion": "2.14.0"
+}

@@ -69,6 +69,7 @@ const orders = await db
 export default function ClickHouseOrmPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-orm"
       eyebrow="ClickHouse ORM"
       title="The closest thing to an ORM for ClickHouse"
       description="Most teams searching for an ORM for ClickHouse are not looking for relations or migrations. They want generated types, query composition, and a way to reuse analytics logic without hand-maintaining interfaces. Prisma, Drizzle, and TypeORM were built for transactional databases. hypequery is built for ClickHouse."
@@ -193,6 +194,7 @@ export default function ClickHouseOrmPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-sqlalchemy', label: 'ClickHouse SQLAlchemy' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },

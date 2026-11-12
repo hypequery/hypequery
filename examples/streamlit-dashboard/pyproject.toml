@@ -1,0 +1,25 @@
+[project]
+name = "streamlit-dashboard"
+version = "0.1.0"
+description = "A Streamlit dashboard over ClickHouse that reads only governed hypequery datasets, with pandas export"
+requires-python = ">=3.11"
+dependencies = [
+  "hypequery[clickhouse,pandas]>=0.1.0b3",
+  "streamlit>=1.40",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+]
+
+# Inside the hypequery monorepo the example runs against the workspace copy
+# of the Python package, like the TypeScript examples use `workspace:*`.
+# `hypequery create` and the nightly @latest run remove this table so the
+# published PyPI release is installed instead.
+[tool.uv.sources]
+hypequery = { path = "../../python/hypequery", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

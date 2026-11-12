@@ -30,24 +30,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | The analytics layer for ClickHouse",
+    default: "hypequery | Embedded analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.",
+  description: "hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | The analytics layer for ClickHouse',
-    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.',
+    title: 'hypequery | Embedded analytics on ClickHouse',
+    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | The analytics layer for ClickHouse',
-    description: 'The analytics layer for ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents, in your own backend. A hosted option, hypequery cloud, is coming soon.',
+    title: 'hypequery | Embedded analytics on ClickHouse',
+    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
   },
   manifest: "/site.webmanifest",
   icons: {

@@ -54,6 +54,7 @@ npx hypequery mcp --client-contract-url … --self-test`;
 export default function ClickHousePythonMcpPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-python-mcp"
       eyebrow="Python MCP"
       title="Give AI agents your Python ClickHouse datasets, not a SQL console"
       description="Define datasets in Python and serve them with FastAPI. The hypequery MCP bridge exposes exactly the endpoints an API key may call, so Claude and Cursor query governed measures while SQL, credentials, and the tenant stay in your backend."
@@ -129,6 +130,8 @@ export default function ClickHousePythonMcpPage() {
         { href: '/docs/mcp/safety', title: 'MCP safety model', description: 'Credentials, limits, and tenant isolation.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
+        { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },

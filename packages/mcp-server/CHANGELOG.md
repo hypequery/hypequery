@@ -1,5 +1,26 @@
 # @hypequery/mcp
 
+## 0.12.0
+
+### Minor Changes
+
+- a649997: Hosted error details on MCP tool errors: `MCPToolError` and its published error envelope carry optional `retryAfterSeconds`, `relist` and `reason` (a host's own stable code), and a new `MCP_RATE_LIMITED` code (category `budget`, retryable). `mcpToolErrorFromSemanticFailure` maps a semantic data-plane failure to the MCP error an agent receives, and `createMCPErrorResponse` is exported so hosts build tool errors exactly as the local server does.
+
+### Patch Changes
+
+- 148b262: Describe the package as a ClickHouse MCP server in its npm description, keywords and README, with a link to the five-minute quickstart.
+- 75648f9: Add `mcpName` (`io.github.hypequery/hypequery`) to the package manifest and a `server.json`, so the server can be published to the official MCP Registry. The build and the release version step write the package version into `server.json`, since the registry verifies `mcpName` against the npm release it names. No runtime change.
+- Updated dependencies [8d02067]
+- Updated dependencies [872713e]
+- Updated dependencies [b99de97]
+- Updated dependencies [3bb485c]
+- Updated dependencies [4c7cc13]
+- Updated dependencies [d8829e6]
+- Updated dependencies [5537990]
+- Updated dependencies [ae3a5fd]
+  - @hypequery/datasets@0.30.0
+  - @hypequery/protocol@0.25.0
+
 ## 0.11.3
 
 ### Patch Changes

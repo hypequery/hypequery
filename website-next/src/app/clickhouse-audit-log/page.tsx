@@ -181,6 +181,7 @@ function decodeCursor(cursor: string): [string, string] {
 export default function ClickHouseAuditLogPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-audit-log"
       eyebrow="ClickHouse Audit Log"
       title="Query ClickHouse audit logs with TypeScript and full type safety"
       description="ClickHouse is well-suited for append-only audit log storage at scale. The challenge is building the TypeScript query layer around it — typed filters, strict tenant isolation, and paginated HTTP endpoints — without writing it from scratch for every project."

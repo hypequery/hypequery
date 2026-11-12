@@ -1,0 +1,33 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "retention-cohorts",
+  "kind": "recipe",
+  "title": "Weekly retention cohorts in ClickHouse with a typed dataset",
+  "outcome": "Turn signup cohorts and weekly activity into a retention dataset: cohort size, active users and retention ratio, sliceable by cohort and week offset.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["product-analytics", "retention"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "src/recipe.ts",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["p95-latency", "nextjs-dashboard"],
+  "leadPages": ["/clickhouse-product-analytics", "/clickhouse-saas-analytics", "/clickhouse-typescript"],
+  "functionPages": ["to-start-of-week", "uniq", "count"],
+  "keywords": [
+    "clickhouse retention cohort",
+    "clickhouse cohort analysis",
+    "clickhouse retention query",
+    "clickhouse weekly cohorts typescript"
+  ],
+  "minVersion": "2.14.0"
+}

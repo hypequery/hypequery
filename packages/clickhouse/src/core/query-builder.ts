@@ -46,6 +46,13 @@ import { executeWithCache } from './cache/cache-manager.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
 import { InsertBuilder, type InsertQB } from './insert-builder.js';
 import { SUBQUERY_SOURCE_TABLE, type InitialInsertState } from './types/builder-state.js';
+import type {
+  AvgResult,
+  ColumnValueResult,
+  QuantileColumnResult,
+  SampleStatisticResult,
+  SumColumnResult,
+} from './types/aggregate-types.js';
 import { normalizeJoinArguments } from './utils/join-keys.js';
 import { normalizeFilterApplication } from './utils/filter-application.js';
 import { assertSafeIdentifier } from './utils/insert-identifiers.js';
@@ -688,8 +695,8 @@ export class QueryBuilder<
   sum<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_sum`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'sum', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SumColumnResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, SumColumnResult<State, Column>>(column, alias, 'sum', (col, finalAlias) =>
       this.aggregations.sum(col, finalAlias)
     );
   }
@@ -706,8 +713,8 @@ export class QueryBuilder<
   avg<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_avg`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'avg', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, AvgResult>>> {
+    return this.applyAggregation<Column, Alias, AvgResult>(column, alias, 'avg', (col, finalAlias) =>
       this.aggregations.avg(col, finalAlias)
     );
   }
@@ -715,8 +722,8 @@ export class QueryBuilder<
   min<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_min`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'min', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'min', (col, finalAlias) =>
       this.aggregations.min(col, finalAlias)
     );
   }
@@ -724,8 +731,8 @@ export class QueryBuilder<
   max<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_max`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'max', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'max', (col, finalAlias) =>
       this.aggregations.max(col, finalAlias)
     );
   }
@@ -744,8 +751,8 @@ export class QueryBuilder<
     column: Column,
     argColumn: SelectableColumn<State>,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMax', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'argMax', (col, finalAlias) =>
       this.aggregations.argMax(col, String(argColumn), finalAlias)
     );
   }
@@ -755,8 +762,8 @@ export class QueryBuilder<
     column: Column,
     argColumn: SelectableColumn<State>,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMin', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, ColumnValueResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, ColumnValueResult<State, Column>>(column, alias, 'argMin', (col, finalAlias) =>
       this.aggregations.argMin(col, String(argColumn), finalAlias)
     );
   }
@@ -766,8 +773,8 @@ export class QueryBuilder<
     column: Column,
     level: number,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'quantile', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, QuantileColumnResult<State, Column>>>> {
+    return this.applyAggregation<Column, Alias, QuantileColumnResult<State, Column>>(column, alias, 'quantile', (col, finalAlias) =>
       this.aggregations.quantile(col, level, finalAlias)
     );
   }
@@ -776,8 +783,8 @@ export class QueryBuilder<
   stddev<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_stddev`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'stddev', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SampleStatisticResult>>> {
+    return this.applyAggregation<Column, Alias, SampleStatisticResult>(column, alias, 'stddev', (col, finalAlias) =>
       this.aggregations.stddev(col, finalAlias)
     );
   }
@@ -822,22 +829,23 @@ export class QueryBuilder<
   variance<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_variance`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'variance', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, SampleStatisticResult>>> {
+    return this.applyAggregation<Column, Alias, SampleStatisticResult>(column, alias, 'variance', (col, finalAlias) =>
       this.aggregations.variance(col, finalAlias)
     );
   }
 
-  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
+  /** `Value` is the TypeScript type of the aggregate in each result row. */
+  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string, Value = string>(
     column: Column,
     alias: Alias | undefined,
     suffix: string,
-    updater: (column: string, alias: Alias) => SelectQueryNode<AppendToOutput<State, Record<Alias, string>>['output'], Schema>
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    updater: (column: string, alias: Alias) => SelectQueryNode<AppendToOutput<State, Record<Alias, Value>>['output'], Schema>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, Value>>> {
     const columnName = String(column);
     const finalAlias = (alias || `${columnName}_${suffix}`) as Alias;
 
-    type NextState = AppendToOutput<State, Record<Alias, string>>;
+    type NextState = AppendToOutput<State, Record<Alias, Value>>;
     const nextState = this.buildSelectState<NextState['output']>({} as NextState['output']) as NextState;
 
     const nextConfig = updater(columnName, finalAlias);

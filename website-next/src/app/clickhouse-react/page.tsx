@@ -52,6 +52,7 @@ const componentCode = `export function RevenueChart() {
 export default function ClickHouseReactPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-react"
       eyebrow="ClickHouse React"
       title="Use ClickHouse in React with typed hooks instead of custom fetch glue"
       description="Your query already lives on the backend. hypequery's typed hooks let components use it directly, without rebuilding request helpers, cache logic, and response types for every chart."
@@ -160,12 +161,13 @@ export default function ClickHouseReactPage() {
           description: 'Pair React hooks with App Router and server-side execution.',
         },
         {
-          href: '/blog/turn-your-clickhouse-schema-into-a-type-safe-analytics-layer-in-5-minutes',
-          title: 'Turn your ClickHouse schema into a type-safe analytics layer',
-          description: 'See the full path from schema generation to hooks.',
+          href: '/blog/building-dashboards-clickhouse-hypequery-nextjs',
+          title: 'How to Build a ClickHouse Dashboard with React and Next.js',
+          description: 'From generated schema types to typed hooks with polling, in a Next.js dashboard.',
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },

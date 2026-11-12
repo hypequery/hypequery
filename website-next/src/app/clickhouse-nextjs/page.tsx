@@ -51,6 +51,7 @@ export default async function RevenuePage() {
 export default function ClickHouseNextJsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-nextjs"
       eyebrow="ClickHouse Next.js"
       title="Build ClickHouse analytics into Next.js without duplicating query logic"
       description="In the App Router, some analytics run in server components and some are fetched from the browser. hypequery gives both paths one query definition, so they never invent different versions of the same number."
@@ -160,6 +161,7 @@ export default function ClickHouseNextJsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },

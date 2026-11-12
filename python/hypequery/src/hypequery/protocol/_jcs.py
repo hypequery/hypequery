@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import struct
+import sys
 from fractions import Fraction
 
 from .errors import value_error
@@ -37,12 +38,40 @@ def _round_ties_to_even(value: Fraction) -> int:
     return quotient if quotient % 2 == 0 else quotient + 1
 
 
+#: CPython's ``repr`` gives the shortest correctly rounded round-trip digits on
+#: every platform it supports ("short"); "legacy" builds fall back to the exact path.
+_SHORT_FLOAT_REPR = sys.float_repr_style == "short"
+
+
 def _shortest_decimal(value: float) -> tuple[str, int]:
+    """Return the ECMAScript shortest significand and its base-10 exponent."""
+
+    return _repr_decimal(value) if _SHORT_FLOAT_REPR else _exact_shortest_decimal(value)
+
+
+def _repr_decimal(value: float) -> tuple[str, int]:
+    """The digits and exponent of ``repr(value)``, for positive finite *value*.
+
+    ``repr`` selects the same digits as ECMA-262 Number::toString (the
+    shortest that round-trips, closest to the exact value, ties to even), and
+    is far faster than `_exact_shortest_decimal`. Tests check the two agree.
+    """
+
+    mantissa, _, exponent_text = repr(value).partition("e")
+    whole, _, fraction = mantissa.partition(".")
+    digits = (whole + fraction).lstrip("0")
+    significand = digits.rstrip("0")
+    exponent = (int(exponent_text) if exponent_text else 0) - len(fraction)
+    return significand, exponent + len(digits) - len(significand)
+
+
+def _exact_shortest_decimal(value: float) -> tuple[str, int]:
     """Return the ECMAScript shortest significand and its base-10 exponent.
 
     This is an exact-integer implementation of ECMA-262 Number::toString's
-    shortest-round-trip selection rule. It deliberately does not use Python's
-    ``repr``, ``str``, ``format``, or JSON encoder for float formatting.
+    shortest-round-trip selection rule. It does not use Python's ``repr``,
+    ``str``, ``format``, or JSON encoder, and is the reference `_repr_decimal`
+    is tested against.
     """
 
     exact = Fraction(*value.as_integer_ratio())

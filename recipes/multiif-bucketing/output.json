@@ -1,0 +1,37 @@
+[
+  {
+    "latencyBucketOrder": 1,
+    "latencyBucket": "< 100 ms",
+    "requests": "8396",
+    "serverErrors": "7",
+    "serverErrorRate": "0.0008337303477846593"
+  },
+  {
+    "latencyBucketOrder": 2,
+    "latencyBucket": "100-250 ms",
+    "requests": "15219",
+    "serverErrors": "397",
+    "serverErrorRate": "0.026085813785399828"
+  },
+  {
+    "latencyBucketOrder": 3,
+    "latencyBucket": "250-500 ms",
+    "requests": "4835",
+    "serverErrors": "335",
+    "serverErrorRate": "0.06928645294725956"
+  },
+  {
+    "latencyBucketOrder": 4,
+    "latencyBucket": "500 ms-1 s",
+    "requests": "2798",
+    "serverErrors": "49",
+    "serverErrorRate": "0.017512508934953538"
+  },
+  {
+    "latencyBucketOrder": 5,
+    "latencyBucket": ">= 1 s",
+    "requests": "1086",
+    "serverErrors": "0",
+    "serverErrorRate": "0"
+  }
+]

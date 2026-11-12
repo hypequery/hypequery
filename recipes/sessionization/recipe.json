@@ -1,0 +1,33 @@
+{
+  "$schema": "https://hypequery.com/schemas/recipe.schema.json",
+  "slug": "sessionization",
+  "kind": "recipe",
+  "title": "Sessionization in ClickHouse with lagInFrame and a typed dataset",
+  "outcome": "Split events into 30-minute inactivity sessions per user with lagInFrame and a running sum, then count sessions and average their length with a dataset.",
+  "language": "typescript",
+  "stack": ["node", "clickhouse"],
+  "useCases": ["product-analytics", "sessions"],
+  "packages": ["@hypequery/datasets", "@hypequery/clickhouse"],
+  "keyFile": "src/recipe.ts",
+  "datasetFile": "src/dataset.ts",
+  "expectedSqlFile": "expected.sql",
+  "outputFile": "output.json",
+  "env": [
+    { "name": "CLICKHOUSE_URL", "description": "ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "node dist/recipe.js --json",
+  "related": ["funnel-windowfunnel", "retention-cohorts", "materialized-view-rollups"],
+  "leadPages": ["/clickhouse-product-analytics", "/clickhouse-time-series", "/clickhouse-typescript"],
+  "functionPages": ["sum", "group-array"],
+  "keywords": [
+    "clickhouse sessionization",
+    "clickhouse sessions window function",
+    "clickhouse laginframe",
+    "clickhouse session duration"
+  ],
+  "minVersion": "2.14.0"
+}

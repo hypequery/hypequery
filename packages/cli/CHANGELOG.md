@@ -1,5 +1,30 @@
 # @hypequery/cli
 
+## 1.29.0
+
+### Minor Changes
+
+- 2d4f9aa: Add `hypequery skill install`: writes hypequery's agent skills (`hypequery-datasets`, `hypequery-query`) where Claude Code (`.claude/skills/`), Cursor and Codex (`.agents/skills/`) load them. `--agent`, `--scope project|user`, `--check` for CI and `--force`; re-runs are idempotent and edited skills are never replaced without `--force`.
+- 524bcf5: Running `hypequery` with no command in an interactive terminal now starts `hypequery init` instead of printing help, so `npx hypequery` takes new users straight into setup. A one-line hint points to `hypequery --help` for the full command list. When the CLI is not attached to a terminal (scripts, CI, piped input), the bare command still prints help and exits with code 1, so nothing waits on a prompt.
+- fbe9482: `generate:datasets` and `init --style datasets` now read each table's engine from `system.tables`, so scaffolded datasets no longer count rows ClickHouse hasn't merged yet. ReplacingMergeTree tables get `rowResolution: { kind: 'final', engine: 'replacing' }` (with `deletedColumn` when the engine has one), and CollapsingMergeTree / VersionedCollapsingMergeTree tables get the matching `signColumn` resolution. Version, sign and deleted columns are no longer summed or averaged. Pre-aggregated tables drop the row-count measure: `AggregateFunction` columns become `measure.merge(...)` measures (parametric states such as `quantile(0.9)` are noted and skipped), `SimpleAggregateFunction(sum|min|max, …)` columns use that function, and SummingMergeTree tables sum only their summing columns (without a list, numeric columns outside the sorting key). If the engines can't be read, tables are scaffolded as before.
+- ae3a5fd: Add `hypequery export:client-contract <api-file>`. It writes the client contract of a TypeScript serve API (`client-contract.json` by default) for `hypequery generate:client`, with `--output`, `--stdout`, `--check` and `--force`, matching Python's `hypequery export client-contract`. Like Python, it refuses a contract with no endpoints.
+
+### Patch Changes
+
+- 89cb73f: Report ClickHouse connection failures accurately:
+
+  - `generate`, `generate:datasets`, and `dev` no longer report "Connected to ClickHouse" with 0 tables when the database is unreachable or rejects the credentials. They now show the real error.
+  - A refused connection now shows its message and troubleshooting hints instead of an empty error.
+  - The ClickHouse client's raw stack-trace logging is off, so commands show only their own error output.
+  - `hypequery dev` showed Docs and OpenAPI URLs without the base path for `createAPI` entries (for example `/docs` instead of `/api/analytics/docs`). It now shows the routes the API actually serves.
+
+- 141f0b6: `hypequery --help` now describes the CLI as "Type-safe embedded analytics on ClickHouse", matching the website and README.
+- 8af2969: Telemetry now attributes an invocation that Commander rejects for a bad option or argument (for example `hypequery dev --bogus`) to the command that was requested, instead of reporting it as `unknown`. Mistyped commands are still `unknown`, now with an optional `suggested_command` taken from the CLI's own "Did you mean" suggestion; the raw input is never recorded.
+- c320820: Type generation now gives parameterized views their columns. ClickHouse describes such a view as having no columns, so the generated type was empty. The generator now describes a call to the view with each parameter's default value, and adds a comment that lists the parameters. Each table is now described once instead of twice. `SimpleAggregateFunction(fn, T)` columns are typed by `T` in the generated record interfaces.
+- Updated dependencies [d8829e6]
+  - @hypequery/protocol@0.25.0
+  - @hypequery/deployment@0.12.0
+
 ## 1.28.0
 
 ### Minor Changes

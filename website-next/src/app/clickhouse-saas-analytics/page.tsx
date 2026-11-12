@@ -72,6 +72,7 @@ function AnalyticsDashboard() {
 export default function ClickHouseSaasAnalyticsPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-saas-analytics"
       eyebrow="ClickHouse SaaS Analytics"
       title="Embed customer-facing analytics in your SaaS product with ClickHouse"
       description="Once analytics is part of your product, you need tenant scoping that's hard to bypass, a stable API for the UI, and one definition behind dashboards, exports, support views, and AI agents. hypequery gives you that in the codebase you already have."
@@ -185,9 +186,9 @@ export default function ClickHouseSaasAnalyticsPage() {
           description: 'Integrating ClickHouse analytics into Next.js App Router handlers and server components.',
         },
         {
-          href: '/blog/saas-analytics-api-clickhouse-typescript',
-          title: 'How to Build a SaaS Analytics API with ClickHouse and TypeScript',
-          description: 'Build a SaaS analytics API on ClickHouse with TypeScript: generated schema types, a typed query builder, metrics defined once, zod-validated REST routes with OpenAPI docs, and React hooks that share the same type contract.',
+          href: '/blog/embedded-analytics-clickhouse-multi-tenant-dashboards',
+          title: 'Embedded Analytics with ClickHouse: Multi-Tenant Dashboards',
+          description: 'Tenant-scoped queries, datasets and metrics served as one typed API with OpenAPI docs and React hooks.',
         },
         {
           href: '/blog/usage-based-billing-clickhouse-typescript',
@@ -196,6 +197,7 @@ export default function ClickHouseSaasAnalyticsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/embedded-analytics', label: 'Embedded analytics' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },

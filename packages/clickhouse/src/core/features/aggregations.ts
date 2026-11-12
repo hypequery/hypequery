@@ -1,14 +1,13 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import type { SelectQueryNode, SelectionNode } from '../../types/index.js';
+import { isAggregateOrWindowExpression } from '../utils/aggregate-detection.js';
 
 export class AggregationFeature<
   Schema extends SchemaDefinition<Schema>,
   State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>, any, any>
 > {
   private static readonly TRAILING_ALIAS_PATTERN = /\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$/i;
-  private static readonly LEADING_AGGREGATE_CALL_PATTERN =
-    /^(COUNT|SUM|AVG|MIN|MAX|argMax|argMin|quantile|stddevSamp|varSamp|uniq|[A-Za-z][A-Za-z0-9]*Merge)\s*\(/i;
 
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
@@ -16,9 +15,12 @@ export class AggregationFeature<
     return selection.replace(AggregationFeature.TRAILING_ALIAS_PATTERN, '').trim();
   }
 
+  /**
+   * An aggregate anywhere in the expression (`round(avg(x), 2)`) or a window
+   * function makes it invalid as a GROUP BY key, not only a leading call.
+   */
   private isAggregateSelection(selection: string) {
-    const expressionWithoutAlias = this.stripTrailingAlias(selection);
-    return AggregationFeature.LEADING_AGGREGATE_CALL_PATTERN.test(expressionWithoutAlias);
+    return isAggregateOrWindowExpression(this.stripTrailingAlias(selection));
   }
 
   private createAggregateSelection(selection: string): SelectionNode {

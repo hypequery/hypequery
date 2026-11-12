@@ -55,6 +55,7 @@ analytics = create_dataset_client(
 export default function ClickHouseSqlAlchemyPage() {
   return (
     <ClickhousePillarPage
+      leadPage="/clickhouse-sqlalchemy"
       eyebrow="ClickHouse SQLAlchemy"
       title="SQLAlchemy writes queries. hypequery defines your metrics."
       description="If you use SQLAlchemy with ClickHouse, you already have a good way to build SQL. What you don’t have is one shared definition of revenue, scoped to the right customer. hypequery adds that layer next to SQLAlchemy, not instead of it."
@@ -129,6 +130,7 @@ export default function ClickHouseSqlAlchemyPage() {
         { href: '/compare/hypequery-vs-clickhouse-connect', title: 'hypequery vs clickhouse-connect', description: 'Driver or semantic layer: what each one is for.' },
       ]}
       relatedPillars={[
+        { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
         { href: '/clickhouse-django', label: 'ClickHouse with Django' },

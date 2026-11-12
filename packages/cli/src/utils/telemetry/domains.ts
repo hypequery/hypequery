@@ -13,7 +13,7 @@ export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
-  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'unknown',
+  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 
@@ -39,6 +39,8 @@ export const COMMAND_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope', '--force', '--check'],
+  examples: ['--json', '--kind'],
+  create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
 export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
@@ -64,10 +66,12 @@ export const VALUE_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope'],
+  examples: ['--kind'],
+  create: ['--dir', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];
-export const SHORT_FLAGS = { '-o': '--output', '-p': '--port', '-h': '--hostname', '-q': '--quiet', '-V': '--version' } as const;
+export const SHORT_FLAGS = { '-o': '--output', '-p': '--port', '-h': '--hostname', '-q': '--quiet', '-y': '--yes', '-V': '--version' } as const;
 export const HYPEQUERY_PACKAGES = ['@hypequery/clickhouse', '@hypequery/datasets', '@hypequery/serve', '@hypequery/react', '@hypequery/cli', '@hypequery/mcp', '@hypequery/protocol', '@hypequery/protocol-conformance', '@hypequery/deployment'] as const;
 export const WARNING_CODES = ['tenant-key-candidate', 'tenant-column-missing'] as const;
 export const TYPE_FAMILIES = ['AggregateFunction', 'SimpleAggregateFunction', 'Variant', 'Dynamic', 'Object', 'JSON', 'Nested', 'Tuple', 'Map', 'Array', 'Nullable', 'LowCardinality', 'Decimal', 'Enum', 'DateTime', 'DateTime64', 'unknown'] as const;

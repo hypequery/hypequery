@@ -1,0 +1,27 @@
+{
+  "name": "@hypequery-examples/usage-based-billing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Usage metering and invoice previews on ClickHouse: per-tenant billable usage, plan quotas and overage pricing in code, Decimal-safe totals, and MRR over time",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "npm run build && node dist/src/index.js",
+    "start": "node dist/src/index.js",
+    "invoices": "npm run build && node dist/src/run-invoices.js",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*",
+    "@hypequery/serve": "workspace:*",
+    "hono": "^4.13.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

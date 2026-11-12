@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Accounts: Postgres + ClickHouse</title>
+  <style>
+    body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem; color: #111; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 6px 10px; border-bottom: 1px solid #e5e5e5; text-align: left; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    th small { color: #888; font-weight: normal; }
+    .low { color: #b42318; } .high { color: #067647; }
+  </style>
+</head>
+<body>
+  <h1>Accounts</h1>
+  <p>
+    Plan <select id="plan"><option value="">all</option><option>enterprise</option><option>growth</option><option>starter</option><option>free</option></select>
+    &nbsp;Usage since 2026-10-01 (last 30 days of the seed)
+  </p>
+  <table>
+    <thead><tr>
+      <th>Account <small>Postgres</small></th><th>Plan <small>Postgres</small></th><th>Owner <small>Postgres</small></th>
+      <th>Renews <small>Postgres</small></th><th class="num">Seats <small>Postgres</small></th>
+      <th class="num">Active users <small>ClickHouse</small></th><th class="num">Events <small>ClickHouse</small></th>
+      <th class="num">Seat use <small>joined</small></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <script>
+    const plan = document.getElementById('plan');
+    const fmt = new Intl.NumberFormat();
+    const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    async function load() {
+      const res = await fetch('/api/accounts?plan=' + encodeURIComponent(plan.value));
+      const { data } = await res.json();
+      document.getElementById('rows').innerHTML = data.map((a) => {
+        const cls = a.seatUtilization < 0.25 ? 'low' : a.seatUtilization > 0.9 ? 'high' : '';
+        return `<tr><td>${esc(a.name)}</td><td>${esc(a.plan)}</td><td>${esc(a.owner)}</td><td>${esc(a.renewsOn)}</td>` +
+          `<td class="num">${a.seats}</td><td class="num">${fmt.format(a.activeUsers)}</td>` +
+          `<td class="num">${fmt.format(a.events)}</td><td class="num ${cls}">${Math.round(a.seatUtilization * 100)}%</td></tr>`;
+      }).join('');
+    }
+    plan.addEventListener('change', load);
+    load();
+  </script>
+</body>
+</html>

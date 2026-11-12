@@ -1,0 +1,77 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "django-analytics",
+  "kind": "example",
+  "title": "Django analytics on ClickHouse: ORM for app data, typed datasets for metrics",
+  "outcome": "Keep your Django models in SQLite or Postgres and serve ClickHouse analytics from typed hypequery datasets, scoped to request.user's organization.",
+  "language": "python",
+  "stack": [
+    "python",
+    "django",
+    "clickhouse"
+  ],
+  "useCases": [
+    "analytics-api",
+    "multi-tenant",
+    "saas-analytics"
+  ],
+  "packages": [
+    "hypequery"
+  ],
+  "keyFile": "analytics/views.py",
+  "env": [
+    {
+      "name": "CLICKHOUSE_URL",
+      "description": "ClickHouse HTTP endpoint (default http://localhost:8123)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_USERNAME",
+      "description": "ClickHouse user (default: default)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_PASSWORD",
+      "description": "ClickHouse password (default: hypequery, the seed's password)",
+      "required": false
+    },
+    {
+      "name": "CLICKHOUSE_DATABASE",
+      "description": "Database holding the seed tables (default hypequery_examples)",
+      "required": false
+    },
+    {
+      "name": "DJANGO_SECRET_KEY",
+      "description": "Django's SECRET_KEY. The demo has an insecure default; set your own.",
+      "required": false
+    }
+  ],
+  "run": {
+    "install": "uv sync && uv run python manage.py migrate",
+    "dev": "uv run python manage.py runserver 8000",
+    "test": "uv run pytest -q"
+  },
+  "exampleRequest": "curl -s -H 'X-Demo-User: ada' localhost:8000/api/overview",
+  "related": [
+    "fastapi-analytics-api",
+    "streamlit-dashboard",
+    "p95-latency"
+  ],
+  "leadPages": [
+    "/clickhouse-django",
+    "/clickhouse-python",
+    "/clickhouse-python-multi-tenant"
+  ],
+  "functionPages": [
+    "quantile",
+    "to-start-of-week"
+  ],
+  "keywords": [
+    "clickhouse django",
+    "django clickhouse analytics",
+    "clickhouse python",
+    "clickhouse python client",
+    "clickhouse-connect python"
+  ],
+  "minVersion": "0.1.0"
+}

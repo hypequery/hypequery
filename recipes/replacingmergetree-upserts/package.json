@@ -1,0 +1,25 @@
+{
+  "name": "@hypequery-recipes/replacingmergetree-upserts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upserts and deletes in ClickHouse with ReplacingMergeTree: version and is_deleted columns, FINAL vs argMax, and a typed hypequery dataset that reads FINAL, pinned before and after OPTIMIZE",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "setup": "npm run build && node dist/setup.js",
+    "teardown": "npm run build && node dist/setup.js --teardown",
+    "dev": "npm run setup && node dist/recipe.js",
+    "capture": "npm run setup && node dist/recipe.js --write",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.24.1",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
