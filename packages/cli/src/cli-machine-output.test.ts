@@ -9,8 +9,10 @@ vi.mock('./utils/examples/registry-index.js', async (importOriginal) => ({
   })),
 }));
 vi.mock('./commands/generate.js', () => ({ generateCommand: vi.fn() }));
+vi.mock('./commands/mcp.js', () => ({ mcpCommand: vi.fn() }));
 
 import { generateCommand } from './commands/generate.js';
+import { mcpCommand } from './commands/mcp.js';
 import { program } from './cli.js';
 import { CommandExit } from './utils/command-exit.js';
 import { disableJsonOutput, enableJsonOutput } from './utils/machine-output.js';
@@ -58,6 +60,19 @@ describe('--json through the CLI', () => {
     vi.mocked(generateCommand).mockRejectedValueOnce(new CommandExit(0, 'cancelled'));
     await expect(program.parseAsync(['--json', 'generate'], { from: 'user' }))
       .rejects.toMatchObject({ exitCode: 0, outcome: 'cancelled' });
+    expect(stdout.map((text) => JSON.parse(text))).toEqual([{ ok: true }]);
+  });
+
+  it('refuses to serve MCP under --json but allows --self-test', async () => {
+    await expect(program.parseAsync(['--json', 'mcp'], { from: 'user' })).rejects.toMatchObject({ exitCode: 1 });
+    expect(mcpCommand).not.toHaveBeenCalled();
+    expect(JSON.parse(stdout[0]).error.code).toBe('JSON_NOT_SUPPORTED');
+
+    disableJsonOutput();
+    enableJsonOutput((text) => stdout.push(text));
+    stdout.length = 0;
+    await program.parseAsync(['--json', 'mcp', '--self-test'], { from: 'user' });
+    expect(mcpCommand).toHaveBeenCalledWith(undefined, expect.objectContaining({ selfTest: true }));
     expect(stdout.map((text) => JSON.parse(text))).toEqual([{ ok: true }]);
   });
 });

@@ -35,3 +35,25 @@ export class CliError extends Error {
 export function isCliError(error: unknown): error is CliError {
   return error instanceof CliError;
 }
+
+/**
+ * A failed Cloud HTTP request, classified by status: 401/403 is auth (sign in
+ * again), 408/429/5xx is transient (retry), anything else is for the caller to
+ * correct. The message is the caller's, unchanged.
+ */
+export function cloudHttpError(status: number, message: string): CliError {
+  if (status === 401 || status === 403) {
+    return new CliError('CLOUD_UNAUTHORIZED', message, {
+      hint: 'Run `hypequery login`, or check HYPEQUERY_API_TOKEN.',
+      exitClass: 'auth',
+    });
+  }
+  if (status === 408 || status === 429 || status >= 500) {
+    return new CliError('CLOUD_UNAVAILABLE', message, {
+      hint: 'Retry in a moment.',
+      exitClass: 'transient',
+      telemetryCode: 'cloud_network_error',
+    });
+  }
+  return new CliError('CLOUD_REQUEST_FAILED', message, { telemetryCode: 'cloud_rejected' });
+}

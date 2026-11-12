@@ -42,7 +42,7 @@ import { isPromptCancelled } from './utils/prompts.js';
 import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
-import { isCliError } from './utils/cli-error.js';
+import { CliError, isCliError } from './utils/cli-error.js';
 import { EXIT_CODES, exitClassFor, exitClassForCode } from './utils/exit-codes.js';
 import {
   emitDefaultResult,
@@ -268,6 +268,13 @@ program
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
+    // Serving MCP owns stdout for the protocol, so it has no single JSON result.
+    if (isJsonOutput() && !options.selfTest) {
+      throw new CliError('JSON_NOT_SUPPORTED', '`hypequery mcp` serves MCP over stdout, so it cannot also print a --json result. '
+        + 'Drop --json, or add --self-test to check the entrypoint.', {
+        hint: 'Drop --json, or add --self-test.',
+      });
+    }
     await mcpCommand(file, options);
   }));
 

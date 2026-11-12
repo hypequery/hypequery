@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CliError } from './cli-error.js';
+import { CliError, cloudHttpError } from './cli-error.js';
 import { EXIT_CODES, exitClassFor, exitClassForCode } from './exit-codes.js';
 import { telemetryErrorCode } from './telemetry/error-code.js';
 import { DeploymentUploadError } from './deployment-upload.js';
@@ -106,6 +106,19 @@ describe('exit classes', () => {
     const timeout = new Error('The operation was aborted due to timeout');
     timeout.name = 'TimeoutError';
     expect(exitClassFor(telemetryErrorCode(timeout))).toBe('transient');
+  });
+
+  it('classifies Cloud read failures by HTTP status', () => {
+    const classOf = (status: number) => {
+      const error = cloudHttpError(status, 'Cloud said no.');
+      return [error.code, error.exitClass, error.retryable, error.message];
+    };
+    expect(classOf(401)).toEqual(['CLOUD_UNAUTHORIZED', 'auth', false, 'Cloud said no.']);
+    expect(classOf(403)[1]).toBe('auth');
+    expect(classOf(429)).toEqual(['CLOUD_UNAVAILABLE', 'transient', true, 'Cloud said no.']);
+    expect(classOf(503)[1]).toBe('transient');
+    expect(classOf(400)).toEqual(['CLOUD_REQUEST_FAILED', 'correctable', false, 'Cloud said no.']);
+    expect(telemetryErrorCode(cloudHttpError(503, 'x'))).toBe('cloud_network_error');
   });
 
   it('keeps unclassified failures correctable and programming errors internal', () => {
