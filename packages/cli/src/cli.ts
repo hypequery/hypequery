@@ -276,9 +276,13 @@ program
   .option('--authorization-servers <urls>', 'With --resource: comma-separated authorization server issuer URLs')
   .option('--required-scopes <scopes>', 'With --resource: comma-separated scopes every caller must hold')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
-    // Serving MCP owns stdout for the protocol, so it has no single JSON result.
+    // Serving MCP owns stdout for the protocol (stdio) or runs until stopped
+    // (--http), so it has no single JSON result.
     if (isJsonOutput() && !options.selfTest) {
-      throw new CliError('JSON_NOT_SUPPORTED', '`hypequery mcp` serves MCP over stdout, so it cannot also print a --json result. '
+      const serving = options.http
+        ? '`hypequery mcp --http` serves until stopped'
+        : '`hypequery mcp` serves MCP over stdout';
+      throw new CliError('JSON_NOT_SUPPORTED', `${serving}, so it cannot also print a --json result. `
         + 'Drop --json, or add --self-test to check the entrypoint.', {
         hint: 'Drop --json, or add --self-test.',
       });

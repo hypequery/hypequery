@@ -71,6 +71,15 @@ describe('--json through the CLI', () => {
     disableJsonOutput();
     enableJsonOutput((text) => stdout.push(text));
     stdout.length = 0;
+    await expect(program.parseAsync(['--json', 'mcp', '--http'], { from: 'user' })).rejects.toMatchObject({ exitCode: 1 });
+    expect(mcpCommand).not.toHaveBeenCalled();
+    const httpError = JSON.parse(stdout[0]).error;
+    expect(httpError.code).toBe('JSON_NOT_SUPPORTED');
+    expect(httpError.message).toContain('mcp --http');
+
+    disableJsonOutput();
+    enableJsonOutput((text) => stdout.push(text));
+    stdout.length = 0;
     await program.parseAsync(['--json', 'mcp', '--self-test'], { from: 'user' });
     expect(mcpCommand).toHaveBeenCalledWith(undefined, expect.objectContaining({ selfTest: true }));
     expect(stdout.map((text) => JSON.parse(text))).toEqual([{ ok: true }]);
