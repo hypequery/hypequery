@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { program } from '../cli.js';
+import { CliError } from '../utils/cli-error.js';
+import { emitError, enableJsonOutput, errorEnvelope, flushJsonOutput } from '../utils/machine-output.js';
 import { loadEnvFiles } from '../utils/load-env-files.js';
 import { CommandExit, finishAndExit, installCommandExitFinalizer } from '../utils/command-exit.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
@@ -49,6 +51,8 @@ async function main() {
       // settings write release its lock first (bounded).
       await settleTelemetrySettings();
       await cleanupLoadedApiArtifacts();
+      // process.exit() follows; let the --json document leave the pipe first.
+      await flushJsonOutput();
     })();
     return finishing;
   };
@@ -102,6 +106,20 @@ async function main() {
     }
     const exit = error instanceof CommandExit ? error
       : new CommandExit(commander.exitCode ?? 1, 'failure', telemetryErrorCode(error));
+    // Commander rejected the arguments before any command ran, so --json was
+    // never enabled; the caller still gets one envelope on stdout.
+    if (!(error instanceof CommandExit) && args.includes('--json')) {
+      enableJsonOutput();
+      emitError(errorEnvelope(
+        new CliError('USAGE', error instanceof Error ? error.message.replace(/^error: /, '') : String(error), {
+          hint: 'Run the command with --help to see its arguments and options.',
+          telemetryCode: telemetryErrorCode(error),
+        }),
+        'correctable',
+        'USAGE',
+        exit.exitCode,
+      ));
+    }
     await finishAndExit(exit.exitCode, exit.outcome, exit.errorCode);
   }
 }

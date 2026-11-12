@@ -301,6 +301,7 @@
             "--tag",
             "--no-telemetry",
             "--json",
+            "--no-input",
             "--help",
             "--version"
           ]
@@ -1836,6 +1837,7 @@
   "GLOBAL_FLAGS": [
     "--no-telemetry",
     "--json",
+    "--no-input",
     "--help",
     "--version"
   ],

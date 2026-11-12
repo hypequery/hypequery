@@ -1,6 +1,10 @@
+import chalk from 'chalk';
 import type { StdioOptions } from 'node:child_process';
-import { isCliError } from './cli-error.js';
+import { DEFAULT_CATEGORY, isCliError, type CliErrorCategory, type CliInputIssue } from './cli-error.js';
 import { EXIT_CODES, type ExitClass } from './exit-codes.js';
+
+/** The CLI reference section that documents every exit code and error code. */
+export const CLI_ERRORS_DOCS_URL = 'https://hypequery.com/docs/reference/api/cli#exit-codes-and-errors';
 
 /**
  * `--json`: stdout carries exactly one JSON document, the command's result or
@@ -11,27 +15,37 @@ export interface ErrorEnvelope {
   readonly error: {
     readonly code: string;
     readonly message: string;
-    readonly hint?: string;
-    readonly category: 'correctable_input' | 'unauthorized' | 'plan' | 'unavailable' | 'internal';
+    readonly hint: string;
+    readonly docsUrl: string;
+    /** Decision 0003's categories, as in Cloud's `/v1` and MCP errors. */
+    readonly category: CliErrorCategory;
     readonly retryable: boolean;
     readonly correctable: boolean;
     readonly exitCode: number;
+    readonly requestId?: string;
+    readonly issues?: readonly CliInputIssue[];
   };
 }
 
-type Writer = (text: string) => void;
+type Writer = (text: string) => void | Promise<void>;
 
 let enabled = false;
 let emitted = false;
-let writeStdout: Writer = (text) => { process.stdout.write(text); };
+const processStdout: Writer = (text) => new Promise<void>((resolve) => {
+  process.stdout.write(text, () => resolve());
+});
+let writeStdout: Writer = processStdout;
+let pendingWrite: Promise<void> = Promise.resolve();
 let restoreConsole: (() => void) | undefined;
+let suppressed = 0;
 
-const CATEGORY: Record<ExitClass, ErrorEnvelope['error']['category']> = {
-  correctable: 'correctable_input',
-  auth: 'unauthorized',
-  plan: 'plan',
-  transient: 'unavailable',
-  internal: 'internal',
+/** The next action when a failure carries no more specific hint. */
+const DEFAULT_HINT: Record<ExitClass, string> = {
+  correctable: 'Correct what the message names and run the command again.',
+  auth: 'Run `hypequery login`, or set HYPEQUERY_API_TOKEN with --endpoint.',
+  plan: 'Upgrade the organisation\'s plan in hypequery Cloud, or ask for less.',
+  transient: 'Retry in a moment.',
+  internal: 'This is a hypequery bug; report it at https://github.com/hypequery/hypequery/issues.',
 };
 
 /** Route human output to stderr so stdout stays machine-readable. */
@@ -45,10 +59,15 @@ export function enableJsonOutput(stdout: Writer = writeStdout): void {
   console.log = (...args: unknown[]) => console.error(...args);
   console.info = (...args: unknown[]) => console.error(...args);
   console.debug = (...args: unknown[]) => console.error(...args);
+  // Logs on stderr are for agents as much as people: no colour escapes, for
+  // the whole process (dev keeps logging after its ready document).
+  const colourLevel = chalk.level;
+  chalk.level = 0;
   restoreConsole = () => {
     console.log = log;
     console.info = info;
     console.debug = debug;
+    chalk.level = colourLevel;
   };
 }
 
@@ -58,7 +77,8 @@ export function disableJsonOutput(): void {
   restoreConsole = undefined;
   enabled = false;
   emitted = false;
-  writeStdout = (text) => { process.stdout.write(text); };
+  writeStdout = processStdout;
+  pendingWrite = Promise.resolve();
 }
 
 export function isJsonOutput(): boolean {
@@ -67,9 +87,22 @@ export function isJsonOutput(): boolean {
 
 /** Print the command's result. In text mode this is a no-op: the command already logged. */
 export function emitResult(result: object): void {
-  if (!enabled || emitted) return;
+  if (!enabled || emitted || suppressed > 0) return;
   emitted = true;
-  writeStdout(`${JSON.stringify(result, null, 2)}\n`);
+  write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+function write(text: string): void {
+  pendingWrite = Promise.resolve(writeStdout(text)).catch(() => undefined);
+}
+
+/**
+ * Resolves once the JSON document has been handed to the OS. The executable
+ * awaits it before `process.exit()`, which would otherwise drop a large
+ * document still queued on a pipe.
+ */
+export function flushJsonOutput(): Promise<void> {
+  return pendingWrite;
 }
 
 /**
@@ -77,9 +110,23 @@ export function emitResult(result: object): void {
  * whose output format is fixed, such as `export:client-contract --stdout`.
  */
 export function emitJsonText(text: string): void {
-  if (!enabled || emitted) return;
+  if (!enabled || emitted || suppressed > 0) return;
   emitted = true;
-  writeStdout(text.endsWith('\n') ? text : `${text}\n`);
+  write(text.endsWith('\n') ? text : `${text}\n`);
+}
+
+/**
+ * Run a command that is one step of another (`deploy` builds a bundle and
+ * prepares a release before submitting it), so only the outer command's
+ * result reaches stdout.
+ */
+export async function withoutResult<T>(step: () => Promise<T>): Promise<T> {
+  suppressed += 1;
+  try {
+    return await step();
+  } finally {
+    suppressed -= 1;
+  }
 }
 
 /**
@@ -103,15 +150,20 @@ export function errorEnvelope(
   exitCode: number = EXIT_CODES[exitClass],
 ): ErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
+  const category = isCliError(error) ? error.category : DEFAULT_CATEGORY[exitClass];
   return {
     error: {
       code: isCliError(error) ? error.code : code,
       message,
-      ...(isCliError(error) && error.hint ? { hint: error.hint } : {}),
-      category: CATEGORY[exitClass],
+      hint: isCliError(error) && error.hint ? error.hint : DEFAULT_HINT[exitClass],
+      docsUrl: CLI_ERRORS_DOCS_URL,
+      category,
       retryable: isCliError(error) ? error.retryable : exitClass === 'transient',
-      correctable: exitClass === 'correctable',
+      // As in Cloud: only correctable_input is something to fix and resubmit.
+      correctable: category === 'correctable_input',
       exitCode,
+      ...(isCliError(error) && error.requestId ? { requestId: error.requestId } : {}),
+      ...(isCliError(error) && error.issues?.length ? { issues: error.issues } : {}),
     },
   };
 }

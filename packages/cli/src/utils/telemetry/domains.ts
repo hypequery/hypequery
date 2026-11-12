@@ -59,7 +59,7 @@ export const COMMAND_FLAGS = {
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
-export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--help', '--version'] as const;
+export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--no-input', '--help', '--version'] as const;
 /** Options that consume the next argument as their value; that value is never a flag. */
 export const VALUE_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],

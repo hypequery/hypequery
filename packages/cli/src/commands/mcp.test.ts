@@ -271,12 +271,12 @@ describe('hypequery mcp', () => {
     it('fails loudly when the hosted check fails', async () => {
       await expect(mcpCommand(undefined, { selfTest: true, url }, {
         env: { HYPEQUERY_API_KEY: 'hq_key' },
-        checkRemote: async () => ({ ok: false as const, reason: 'the API key was refused (401).' }),
-      })).rejects.toThrow('process.exit:1');
-
-      expect(logger.error).toHaveBeenCalledWith(
-        'Hosted MCP check failed: the API key was refused (401).',
-      );
+        checkRemote: async () => ({ ok: false as const, reason: 'the API key was refused (401).', kind: 'auth' as const }),
+      })).rejects.toMatchObject({
+        code: 'MCP_CHECK_FAILED',
+        exitClass: 'auth',
+        message: 'Hosted MCP check failed: the API key was refused (401).',
+      });
     });
 
     it('requires the key in the environment, never on the command line', async () => {

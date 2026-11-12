@@ -6,7 +6,15 @@ const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2025-03-26', PROTOCOL_VERSION, '20
 
 export type RemoteMcpCheck =
   | { readonly ok: true; readonly tools: number; readonly server?: string }
-  | { readonly ok: false; readonly reason: string };
+  | {
+    readonly ok: false;
+    readonly reason: string;
+    /**
+     * Who must act: `input` (fix the URL), `auth` (fix the key), or
+     * `unavailable` (the endpoint failed or did not answer; retry).
+     */
+    readonly kind: 'input' | 'auth' | 'unavailable';
+  };
 
 async function rpc(
   fetchFn: typeof fetch,
@@ -33,6 +41,12 @@ async function rpc(
   return { response, body };
 }
 
+function refusalKind(status: number): 'input' | 'auth' | 'unavailable' {
+  if (status === 401 || status === 403) return 'auth';
+  if (status === 408 || status === 429 || status >= 500) return 'unavailable';
+  return 'input';
+}
+
 function refusal(status: number): string {
   if (status === 401) return 'the API key was refused (401). Check HYPEQUERY_API_KEY.';
   if (status === 403) return 'the API key may not use MCP here (403). Check its scopes.';
@@ -55,11 +69,11 @@ export async function checkRemoteMcp(input: {
   try {
     url = new URL(input.url);
   } catch {
-    return { ok: false, reason: 'the URL is not valid.' };
+    return { ok: false, reason: 'the URL is not valid.', kind: 'input' };
   }
   const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
-    return { ok: false, reason: 'the URL must use https, so the API key is not sent in the clear.' };
+    return { ok: false, reason: 'the URL must use https, so the API key is not sent in the clear.', kind: 'input' };
   }
 
   try {
@@ -73,26 +87,26 @@ export async function checkRemoteMcp(input: {
         clientInfo: { name: 'hypequery-cli-self-test', version: '1.0.0' },
       },
     });
-    if (!init.response.ok) return { ok: false, reason: refusal(init.response.status) };
-    if (!init.body?.result) return { ok: false, reason: 'initialize returned no result.' };
+    if (!init.response.ok) return { ok: false, reason: refusal(init.response.status), kind: refusalKind(init.response.status) };
+    if (!init.body?.result) return { ok: false, reason: 'initialize returned no result.', kind: 'unavailable' };
     const protocolVersion = init.body.result.protocolVersion;
     if (typeof protocolVersion !== 'string' || !SUPPORTED_PROTOCOL_VERSIONS.has(protocolVersion)) {
-      return { ok: false, reason: 'initialize returned an unsupported protocol version.' };
+      return { ok: false, reason: 'initialize returned an unsupported protocol version.', kind: 'unavailable' };
     }
     const session = init.response.headers.get('mcp-session-id') ?? undefined;
     const initialized = await rpc(fetchFn, url.href, input.key, {
       jsonrpc: '2.0',
       method: 'notifications/initialized',
     }, session, protocolVersion);
-    if (!initialized.response.ok) return { ok: false, reason: refusal(initialized.response.status) };
+    if (!initialized.response.ok) return { ok: false, reason: refusal(initialized.response.status), kind: refusalKind(initialized.response.status) };
     const listed = await rpc(fetchFn, url.href, input.key, {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/list',
     }, session, protocolVersion);
-    if (!listed.response.ok) return { ok: false, reason: refusal(listed.response.status) };
+    if (!listed.response.ok) return { ok: false, reason: refusal(listed.response.status), kind: refusalKind(listed.response.status) };
     const tools = listed.body?.result?.tools;
-    if (!Array.isArray(tools)) return { ok: false, reason: 'tools/list returned no tools.' };
+    if (!Array.isArray(tools)) return { ok: false, reason: 'tools/list returned no tools.', kind: 'unavailable' };
     const server = init.body.result.serverInfo?.name;
     return { ok: true, tools: tools.length, ...(typeof server === 'string' ? { server } : {}) };
   } catch (error) {
@@ -101,6 +115,7 @@ export async function checkRemoteMcp(input: {
       reason: (error as Error)?.name === 'TimeoutError'
         ? 'the endpoint did not answer in time.'
         : 'the endpoint could not be reached.',
+      kind: 'unavailable',
     };
   }
 }

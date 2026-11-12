@@ -51,8 +51,8 @@ describe('export:client-contract', () => {
   it('checks, refuses to overwrite and replaces with --force', async () => {
     const root = await directory();
     const contract = path.join(root, 'client-contract.json');
-    await exportClientContractCommand(apiFile, { output: contract, check: true });
-    expect(process.exitCode).toBe(1);
+    await expect(exportClientContractCommand(apiFile, { output: contract, check: true }))
+      .rejects.toMatchObject({ code: 'OUT_OF_DATE' });
     process.exitCode = 0;
     await writeFile(contract, '{}');
     await expect(exportClientContractCommand(apiFile, { output: contract })).rejects.toThrow(/Refusing to overwrite/);

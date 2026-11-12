@@ -1,4 +1,6 @@
-import { childProcessStdio, isJsonOutput } from '../utils/machine-output.js';
+import { childProcessStdio, emitResult, isJsonOutput } from '../utils/machine-output.js';
+import { CliError } from '../utils/cli-error.js';
+import { isUnattended } from '../utils/input-mode.js';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -91,7 +93,7 @@ async function scaffold(
 ): Promise<void> {
   const write = dependencies.write ?? ((line: string) => console.log(line));
   const cwd = dependencies.cwd ?? process.cwd();
-  const interactive = !options.yes && !isJsonOutput() && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
+  const interactive = !options.yes && !isJsonOutput() && !isUnattended() && (dependencies.isTTY ?? process.stdin.isTTY ?? false);
 
   const index = await loadExamplesIndex(dependencies);
   const entry = findIndexEntry(index, slug);
@@ -106,7 +108,7 @@ async function scaffold(
   });
   if (!entry) {
     const slugs = index.entries.filter((e) => e.kind !== 'guide').map((e) => e.slug);
-    throw new Error(`Unknown example "${slug}". Available: ${slugs.join(', ')}. Run \`hypequery examples list\` for details.`);
+    throw new CliError('NOT_FOUND', `Unknown example "${slug}". Available: ${slugs.join(', ')}. Run \`hypequery examples list\` for details.`);
   }
   if (entry.kind === 'guide') {
     throw new Error(`"${slug}" is a guide, not a scaffold. Read it at ${entry.url} (Markdown: ${entry.markdown}).`);
@@ -119,7 +121,9 @@ async function scaffold(
     targetDir = path.resolve(cwd, String(answer.dir));
   }
   if (!(await isEmptyDirectory(targetDir))) {
-    throw new Error(`${path.relative(cwd, targetDir) || '.'} already exists and is not empty. Choose another directory with --dir.`);
+    throw new CliError('OUTPUT_EXISTS', `${path.relative(cwd, targetDir) || '.'} already exists and is not empty. Choose another directory with --dir.`, {
+      hint: 'Choose another directory with --dir <path>.',
+    });
   }
 
   const includeSeed = options.seed !== false;
@@ -205,5 +209,19 @@ async function scaffold(
   progress.reach('completed');
   // The scaffold is usable, but a script that asked for an install must not
   // read a failed one as success.
-  if (installFailed) process.exitCode = 1;
+  if (installFailed) {
+    process.exitCode = 1;
+    return;
+  }
+  emitResult({
+    slug: entry.slug,
+    kind: entry.kind,
+    directory: targetDir,
+    packageManager: manager,
+    install: installed ? 'ok' : 'skipped',
+    seed: includeSeed && existsSync(path.join(targetDir, 'seed')),
+    unpublished,
+    next: run,
+    url: entry.url,
+  });
 }

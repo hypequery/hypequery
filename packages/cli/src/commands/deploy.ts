@@ -30,7 +30,8 @@ import {
   prepareDeploymentReleaseCommand,
 } from './deployment.js';
 import { generateClientCommand } from './generate-client.js';
-import { emitResult } from '../utils/machine-output.js';
+import { emitResult, withoutResult } from '../utils/machine-output.js';
+import { CliError } from '../utils/cli-error.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
@@ -188,9 +189,11 @@ export async function submitDeploymentCommand(
   if (live?.active?.restored
     && live.active.releaseIdentity !== release.identity
     && !options.replaceRestored) {
-    throw new Error(
+    throw new CliError(
+      'CONFIRMATION_REQUIRED',
       'The live deployment is a restored release. '
       + 'Run the command again with --replace-restored to replace it intentionally.',
+      { hint: 'Rerun with --replace-restored to replace the restored live release intentionally.' },
     );
   }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
@@ -293,18 +296,19 @@ export async function deployCommand(
   // a missing or expired login only surfaces after a full bundle build.
   await resolveDeploymentCredential(options.endpoint, dependencies);
 
-  await build(sourcePath, {
+  // Each step's own --json result is suppressed; deploy reports the submission.
+  await withoutResult(() => build(sourcePath, {
     bundleOutput: bundlePath,
     source: options.source,
-  });
-  await prepareRelease(bundlePath, {
+  }));
+  await withoutResult(() => prepareRelease(bundlePath, {
     project: options.project,
     environment: options.environment,
     output: releasePath,
   }, {
     loadCredential: dependencies.loadCredential,
     outputFlagLabel: '--release-output',
-  });
+  }));
   const result = await submit(bundlePath, {
     release: releasePath,
     endpoint: options.endpoint,

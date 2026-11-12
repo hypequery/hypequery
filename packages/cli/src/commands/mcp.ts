@@ -14,6 +14,8 @@ import { McpSession } from '../utils/telemetry/mcp-session.js';
 import { countBucket } from '../utils/telemetry/buckets.js';
 import { entryType } from '../utils/telemetry/session-config.js';
 import { updateCommandTelemetry, setCommandTelemetryError } from '../utils/telemetry/command-context.js';
+import { CliError } from '../utils/cli-error.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface McpOptions {
   /** Analytics directory, matching `hypequery dev --path`. */
@@ -61,11 +63,18 @@ async function remoteSelfTest(url: string, dependencies: McpDependencies): Promi
     ]);
   }
   const result = await (dependencies.checkRemote ?? checkRemoteMcp)({ url, key });
-  if (!result.ok) fail(`Hosted MCP check failed: ${result.reason}`);
+  if (!result.ok) {
+    throw new CliError('MCP_CHECK_FAILED', `Hosted MCP check failed: ${result.reason}`, {
+      exitClass: result.kind === 'auth' ? 'auth' : result.kind === 'unavailable' ? 'transient' : 'correctable',
+      ...(result.kind === 'auth' ? { hint: `Check ${MCP_API_KEY_VARIABLE} and the key's scopes in Cloud under Keys.` } : {}),
+      ...(result.kind === 'input' ? { hint: 'Check the --url: it must be the https MCP URL `deployment:status` prints.' } : {}),
+    });
+  }
   logger.success(`Connected to ${result.server ?? 'the hosted MCP endpoint'}`);
   logger.info(`Tools: ${result.tools}`);
   logger.newline();
   logger.info('The hosted endpoint is ready for MCP clients. No tool was called.');
+  emitResult({ ok: true, mode: 'hosted', url, server: result.server ?? null, tools: result.tools });
 }
 
 function entrypointNotFound(): never {
@@ -174,6 +183,7 @@ export async function mcpCommand(
         : 'Trusted tenant: none (no dataset is tenant-scoped)');
       logger.newline();
       logger.info('The entrypoint is ready to serve over MCP.');
+      emitResult({ ok: true, mode: 'local', entrypoint: path.resolve(entrypoint), datasets: names, tenant: options.tenant ?? null });
       return;
     }
 
