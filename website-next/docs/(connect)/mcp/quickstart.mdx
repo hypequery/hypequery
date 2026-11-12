@@ -1,0 +1,226 @@
+---
+title: Quickstart
+seoTitle: 'ClickHouse MCP quickstart: connect Claude, Cursor and other agents'
+description: Run a hypequery MCP server against the public ClickHouse playground, connect Claude or Cursor, and share it over HTTP, in about five minutes.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+By the end of this page an AI agent will answer questions about 200 million US flights by calling tools you defined,
+not by writing SQL. It uses the public ClickHouse playground, so you don't need a ClickHouse server or credentials.
+
+You need Node.js 20 or newer and an MCP client: Claude Code, Claude Desktop or Cursor.
+
+## 1. Install the packages
+
+Any empty folder works.
+
+<CodeBlock>
+```bash
+mkdir clickhouse-mcp && cd clickhouse-mcp
+npm init -y
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+```
+</CodeBlock>
+
+## 2. Define what the agent may query
+
+Save this as `mcp-config.mjs`. The dataset names the table, the columns an agent can group and filter by, and the
+measures it can ask for. Nothing else in the database is reachable.
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient, dataset, dimension, measure, publishDatasets } from '@hypequery/datasets';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL ?? 'https://play.clickhouse.com',
+  username: process.env.CLICKHOUSE_USERNAME ?? 'play',
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE ?? 'default',
+  // The playground user is readonly = 1, which rejects the setting hypequery
+  // normally sends to quote 64-bit integers. Use the server default instead.
+  integerJsonEncoding: 'server-default',
+});
+
+const Flights = dataset('flights', {
+  source: 'ontime',
+  description: 'US domestic flights, one row per flight (public ClickHouse playground).',
+  limits: { maxResultSize: 1000 },
+  dimensions: {
+    year: dimension.number({ column: 'Year', label: 'Year' }),
+    airline: dimension.string({ column: 'Reporting_Airline', label: 'Airline code' }),
+    origin: dimension.string({ column: 'OriginCityName', label: 'Origin city' }),
+  },
+  measures: {
+    flights: measure.count('Year', { label: 'Flights' }),
+    avgDepartureDelay: measure.avg('DepDelay', { label: 'Average departure delay (minutes)' }),
+  },
+});
+
+const avgDepartureDelay = Flights.metric('avgDepartureDelay', { measure: 'avgDepartureDelay' });
+const flightCount = Flights.metric('flights', { measure: 'flights' });
+
+export const datasets = publishDatasets()
+  .publish(Flights, { metrics: { avgDepartureDelay, flightCount } })
+  .build();
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+```
+</CodeBlock>
+
+## 3. Connect your agent
+
+The client starts the server itself, over stdio, so there is nothing to keep running. Use the absolute path to
+`mcp-config.mjs`: run `pwd` in the folder to get it.
+
+<Tabs items={['Claude Code', 'Claude Desktop', 'Cursor']} defaultIndex={0}>
+  <Tab value="Claude Code" label="Claude Code">
+    <CodeBlock>
+      ```bash
+      claude mcp add clickhouse -- npx -y @hypequery/mcp --config "$PWD/mcp-config.mjs"
+      claude mcp list
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="Claude Desktop" label="Claude Desktop">
+    Open **Settings → Developer → Edit Config** and add:
+
+    <CodeBlock>
+      ```json
+      {
+        "mcpServers": {
+          "clickhouse": {
+            "command": "npx",
+            "args": ["-y", "@hypequery/mcp", "--config", "/absolute/path/to/clickhouse-mcp/mcp-config.mjs"]
+          }
+        }
+      }
+      ```
+    </CodeBlock>
+
+    Fully quit and reopen Claude so it starts the server. If Node comes from a version manager such as nvm, set
+    `command` to the path `which npx` prints.
+  </Tab>
+
+  <Tab value="Cursor" label="Cursor">
+    Add this to `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` for every project:
+
+    <CodeBlock>
+      ```json
+      {
+        "mcpServers": {
+          "clickhouse": {
+            "command": "npx",
+            "args": ["-y", "@hypequery/mcp", "--config", "/absolute/path/to/clickhouse-mcp/mcp-config.mjs"]
+          }
+        }
+      }
+      ```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+## 4. Ask a question
+
+<CodeBlock>
+```text
+Which airline had the highest average departure delay in 2022?
+```
+</CodeBlock>
+
+The agent calls `list_datasets`, `get_dataset_schema` and `query_dataset`. It should answer JetBlue (B6): about 23.5
+minutes over 64,860 flights, the same as running the SQL directly. The playground's 2022 data covers January to March.
+
+If the agent can't see the tools, check the path in your client config is absolute, then restart the client.
+
+## 5. Optional: share it over HTTP
+
+Over stdio, only the client on your machine can use the server. To let teammates or a hosted agent connect, serve the
+same `mcp-config.mjs` over HTTP behind a shared key. Save this as `mcp-http.mjs`:
+
+<CodeBlock>
+```javascript
+// mcp-http.mjs
+import {
+  createMCPExecutor,
+  createMCPHttpHandler,
+  createMCPStaticKeyAuthenticator,
+  listenMCPHttpServer,
+} from '@hypequery/mcp';
+import { analytics, datasets } from './mcp-config.mjs';
+
+const handler = createMCPHttpHandler({
+  authenticate: createMCPStaticKeyAuthenticator({ key: process.env.HYPEQUERY_MCP_KEY }),
+  createExecutor: () => createMCPExecutor({ datasets, analytics }),
+});
+
+const server = await listenMCPHttpServer(handler, { port: 3333 });
+console.log(`MCP server listening on ${server.url}/mcp`);
+```
+</CodeBlock>
+
+Start it with a random key, and keep the key: every client needs it.
+
+<CodeBlock>
+```bash
+export HYPEQUERY_MCP_KEY=$(openssl rand -hex 32)
+node mcp-http.mjs
+```
+</CodeBlock>
+
+Then connect a client to the URL, sending the key as a bearer token:
+
+<Tabs items={['Claude Code', 'Cursor']} defaultIndex={0}>
+  <Tab value="Claude Code" label="Claude Code">
+    <CodeBlock>
+      ```bash
+      claude mcp add --transport http clickhouse-http http://127.0.0.1:3333/mcp \
+        --header "Authorization: Bearer $HYPEQUERY_MCP_KEY"
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="Cursor" label="Cursor">
+    <CodeBlock>
+      ```json
+      {
+        "mcpServers": {
+          "clickhouse-http": {
+            "url": "http://127.0.0.1:3333/mcp",
+            "headers": { "Authorization": "Bearer ${env:HYPEQUERY_MCP_KEY}" }
+          }
+        }
+      }
+      ```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+A request without the key gets `401`. The server listens on `127.0.0.1` only, so this is still local. Before you open it
+to a network, read [Remote MCP over HTTP](/docs/mcp/remote): it covers allowed hosts, TLS, per-user sign-in with OAuth,
+and which clients can connect with a key.
+
+<Callout type="info">
+  Everyone with the key is the same caller and sees the same data. For one login per person, or your customers' users,
+  use your app's auth or OAuth ([Remote MCP over HTTP](/docs/mcp/remote)), or let [hypequery Cloud](/docs/cloud/mcp)
+  host the server and the sign-in.
+</Callout>
+
+## Use your own ClickHouse
+
+Set `CLICKHOUSE_URL`, `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` and `CLICKHOUSE_DATABASE` in the client config's
+`env` (or your shell, for `mcp-http.mjs`). Remove `integerJsonEncoding` unless your user is `readonly = 1`, and point
+`source` and the columns at your own table.
+
+## Next steps
+
+- [Overview](/docs/mcp/overview): serve the datasets your app already has with `hypequery mcp`, from TypeScript or
+  Python.
+- [Configuration](/docs/mcp/configuration): publish several datasets and add metadata that helps agents choose fields.
+- [Tools](/docs/mcp/tools): what each tool accepts and returns.
+- [Safety model](/docs/mcp/safety): what MCP constrains and what it doesn't, including tenants.

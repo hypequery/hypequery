@@ -6,7 +6,11 @@ description: Connect hypequery MCP to Claude Desktop, Cursor, and other MCP clie
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-hypequery MCP runs over stdio, so your MCP client launches the server. There are two ways to launch it:
+This page covers servers your MCP client launches on your machine, over stdio. To connect a client to a server running
+somewhere else, see [Remote MCP over HTTP: Connect a client](/docs/mcp/remote#connect-a-client). New to hypequery MCP?
+The [Quickstart](/docs/mcp/quickstart) gets Claude or Cursor querying a public dataset in five minutes.
+
+There are two ways for a client to launch the server:
 
 - **`hypequery mcp`** serves the datasets in your Serve API file. The command must run from your project directory,
   so the client config changes into it first.

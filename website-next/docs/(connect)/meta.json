@@ -3,6 +3,7 @@
   "pages": [
     "---MCP---",
     "mcp/overview",
+    "mcp/quickstart",
     "mcp/configuration",
     "mcp/tools",
     "mcp/clients",

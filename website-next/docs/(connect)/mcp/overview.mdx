@@ -17,6 +17,9 @@ Use MCP when you want an agent to work inside a constrained analytics vocabulary
 - execute through the same dataset client the rest of your app uses, whether that app is TypeScript or Python ([Python backends](#datasets-served-from-python) have a native server)
 - avoid handing an LLM a direct SQL console
 
+Want to see it work first? The [Quickstart](/docs/mcp/quickstart) connects Claude or Cursor to a public ClickHouse
+dataset in about five minutes, with no ClickHouse install.
+
 <Callout type="info">
   MCP is a capability boundary, not an authentication layer. If your data is multi-tenant, read <a href="/docs/mcp/safety">Safety model</a> before exposing a server broadly.
 </Callout>
