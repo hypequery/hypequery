@@ -4,6 +4,7 @@ import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
 import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { manifestMetrics } from '../utils/telemetry/generation-metrics.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface GenerateManifestOptions {
   output?: string;
@@ -38,4 +39,8 @@ export async function generateManifestCommand(
   await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
   logger.success(`Manifest written to ${outputPath}`);
+  emitResult({
+    output: path.resolve(outputPath),
+    routes: manifest && typeof manifest === 'object' ? Object.keys(manifest as object).sort() : [],
+  });
 }

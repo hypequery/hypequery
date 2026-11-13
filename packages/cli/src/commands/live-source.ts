@@ -13,6 +13,8 @@ import {
   type LiveDeployment,
 } from '../utils/live-deployment.js';
 import { logger } from '../utils/logger.js';
+import { outputConflictError } from '../utils/cli-error.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface LiveSourceOptions {
   readonly endpoint?: string;
@@ -92,7 +94,7 @@ export async function pullCommand(
       ),
   );
   if (destination === path.parse(destination).root || await exists(destination)) {
-    throw new Error(`Refusing to overwrite an existing pull destination: ${destination}`);
+    throw outputConflictError(`Refusing to overwrite an existing pull destination: ${destination}`, [destination], 'Pass --output <directory> with a new directory.');
   }
   const parent = path.dirname(destination);
   await mkdir(parent, { recursive: true });
@@ -115,6 +117,12 @@ export async function pullCommand(
   logger.success(`Live source pulled to ${destination}`);
   logger.info(`Release identity: ${active.releaseIdentity}`);
   logger.info(`Entrypoint: ${source.entrypoint}`);
+  emitResult({
+    destination,
+    releaseIdentity: active.releaseIdentity,
+    entrypoint: source.entrypoint,
+    files: source.files.map(file => file.path),
+  });
   return destination;
 }
 
@@ -147,5 +155,13 @@ export async function diffCommand(
       logger.info(`${difference.status} ${difference.path}`);
     }
   }
+  emitResult({
+    releaseIdentity: active.releaseIdentity,
+    matches: differences.length === 0,
+    differences: differences.map(difference => ({
+      status: difference.status === 'A' ? 'added' : difference.status === 'D' ? 'deleted' : 'modified',
+      path: difference.path,
+    })),
+  });
   return Object.freeze(differences);
 }

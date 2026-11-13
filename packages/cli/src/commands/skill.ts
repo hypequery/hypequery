@@ -5,6 +5,8 @@ import { readGeneratedFile, writeGeneratedFileAtomically } from '../utils/genera
 import { logger } from '../utils/logger.js';
 import { setCommandTelemetryError } from '../utils/telemetry/command-context.js';
 import { emitResult } from '../utils/machine-output.js';
+import { outOfDateError, outputConflictError } from '../utils/cli-error.js';
+import { CliError } from '../utils/cli-error.js';
 
 export interface SkillOptions {
   agent?: string;
@@ -58,12 +60,13 @@ export async function skillCommand(
   options: SkillOptions = {},
   dependencies: SkillDependencies = {},
 ): Promise<void> {
-  if (action !== 'install') throw new Error('Usage: hypequery skill install [--agent claude|cursor|codex|all] [--scope project|user]');
-  if (options.force && options.check) throw new Error('--force cannot be combined with --check.');
+  if (action !== 'install') throw new CliError('USAGE', 'Usage: hypequery skill install [--agent claude|cursor|codex|all] [--scope project|user]');
+  if (options.force && options.check) throw new CliError('USAGE', '--force cannot be combined with --check.');
   const targets = skillTargets(options, dependencies);
   const stale: string[] = [];
   const conflicts: string[] = [];
   const installed: string[] = [];
+  const written: string[] = [];
   for (const target of targets) {
     const current = await readGeneratedFile(target.file);
     if (current === target.content) continue;
@@ -73,17 +76,20 @@ export async function skillCommand(
     }
     await writeGeneratedFileAtomically(target.file, target.content, { overwrite: current !== undefined });
     installed.push(path.relative(base(options.scope, dependencies), target.file));
+    written.push(target.file);
     logger.success(`Installed ${installed.at(-1)}`);
   }
   if (options.check && stale.length > 0) {
     setCommandTelemetryError('output_out_of_date');
-    process.exitCode = 1;
-    logger.error(`Skills are missing or out of date: ${stale.join(', ')}. Run hypequery skill install --force.`);
-    return;
+    throw outOfDateError(
+      `Skills are missing or out of date: ${stale.join(', ')}. Run hypequery skill install --force.`,
+      await Promise.all(stale.map(async file => ({ path: file, missing: await readGeneratedFile(file) === undefined }))),
+      'Run `hypequery skill install --force` to install the current skills.',
+    );
   }
   if (conflicts.length > 0) {
-    throw new Error(`Refusing to overwrite edited skills: ${conflicts.join(', ')}. Use --force to replace them.`);
+    throw outputConflictError(`Refusing to overwrite edited skills: ${conflicts.join(', ')}. Use --force to replace them.`, conflicts);
   }
   logger.success(options.check ? 'hypequery skills are up to date.' : 'hypequery skills are installed.');
-  emitResult({ installed, upToDate: true });
+  emitResult({ installed, upToDate: true, files: written });
 }

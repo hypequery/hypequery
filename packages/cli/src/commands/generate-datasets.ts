@@ -1,3 +1,5 @@
+import { CliError, isCliError, outOfDateError, outputConflictError } from '../utils/cli-error.js';
+import { emitResult } from '../utils/machine-output.js';
 import { exitWith } from '../utils/command-exit.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 /**
@@ -42,10 +44,12 @@ function toImportSpecifier(relativePath: string): string {
   return normalized.startsWith('.') ? normalized : `./${normalized}`;
 }
 
-function refuseOverwrite(relativeOutput: string): void {
-  logger.warn(`Refusing to overwrite existing dataset definitions: ${relativeOutput}`);
-  logger.info('Run again with --diff to inspect changes or --force to replace the file.');
-  process.exitCode = 1;
+function refuseOverwrite(relativeOutput: string): never {
+  throw outputConflictError(
+    `Refusing to overwrite existing dataset definitions: ${relativeOutput}. Run again with --diff to inspect changes or --force to replace the file.`,
+    [relativeOutput],
+    'Run again with --diff to inspect changes or --force to replace the file.',
+  );
 }
 
 function parseTableList(value: string | undefined): string[] | undefined {
@@ -77,10 +81,10 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
   const excludedTables = parseTableList(options.excludeTables);
 
   if (options.force && (options.check || options.diff)) {
-    logger.error('--force cannot be combined with --check or --diff.');
     setCommandTelemetryError('validation_failed');
-    process.exitCode = 1;
-    return;
+    throw new CliError('USAGE', '--force cannot be combined with --check or --diff.', {
+      hint: 'Use --force to write, or --check / --diff to compare, not both.',
+    });
   }
 
   logger.newline();
@@ -122,6 +126,12 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     updateCommandTelemetry('generate:datasets', { datasets_generated_bucket: countBucket(generated.tables.length), warning_counts: warningBuckets(generated.warnings) });
 
     const relativeOutput = path.relative(process.cwd(), outputPath);
+    const report = (status: 'up_to_date' | 'unchanged' | 'created' | 'updated') => emitResult({
+      status,
+      output: outputPath,
+      tables: generated.tables,
+      warnings: generated.warnings ?? [],
+    });
     const currentContents = await readGeneratedFile(outputPath);
     const contentsMatch = currentContents === generated.contents;
     if (options.check) {
@@ -137,25 +147,29 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
           : `Unchanged ${relativeOutput}`,
       );
       if (options.check || options.diff) {
+        report('up_to_date');
         return;
       }
     } else if (options.diff) {
       setCommandTelemetryError('output_out_of_date');
-      logger.raw(formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput));
-      logger.error(`Generated dataset definitions differ: ${relativeOutput}`);
-      process.exitCode = 1;
-      return;
+      const diff = formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput);
+      logger.raw(diff);
+      throw new CliError('OUT_OF_DATE', `Generated dataset definitions differ: ${relativeOutput}`, {
+        category: 'stale_contract',
+        telemetryCode: 'output_out_of_date',
+        hint: 'Review the diff, then rerun with --force to write the new definitions.',
+        issues: [{ path: relativeOutput, message: diff }],
+      });
     } else if (options.check) {
-      logger.error(
+      throw outOfDateError(
         currentContents === undefined
           ? `Dataset definitions are missing: ${relativeOutput}`
           : `Generated dataset definitions are out of date: ${relativeOutput}`,
+        [{ path: relativeOutput, missing: currentContents === undefined }],
+        'Run the command with --diff to inspect the changes, then with --force to write them.',
       );
-      process.exitCode = 1;
-      return;
     } else if (currentContents !== undefined && !options.force) {
       refuseOverwrite(relativeOutput);
-      return;
     } else {
       try {
         // Without --force this is an exclusive create, so a file written
@@ -166,7 +180,6 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
           refuseOverwrite(relativeOutput);
-          return;
         }
         throw error;
       }
@@ -200,8 +213,10 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     );
     logger.indent('const result = await analytics.execute(rowCount);');
     logger.newline();
+    report(contentsMatch ? 'unchanged' : currentContents === undefined ? 'created' : 'updated');
 
   } catch (error) {
+    if (isCliError(error)) throw error;
     spinner.fail('Failed to generate datasets');
     logger.newline();
 

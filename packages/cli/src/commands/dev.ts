@@ -1,5 +1,7 @@
 import { loadServeDev } from '../utils/load-serve-dev.js';
 import { exitWith, finishAndExit } from '../utils/command-exit.js';
+import { CliError } from '../utils/cli-error.js';
+import { emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { DevSession } from '../utils/telemetry/dev-session.js';
 import { setCommandTelemetryError } from '../utils/telemetry/command-context.js';
@@ -138,6 +140,17 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const baseUrl = `http://${hostname}:${port}`;
 
       const routePaths = resolveDevRoutePaths(api);
+      // --json: printed once, when the server first listens; it keeps running.
+      emitResult({
+        url: baseUrl,
+        hostname,
+        port,
+        entrypoint: path.resolve(queriesFile),
+        docsUrl: `${baseUrl}${routePaths.docs}`,
+        openapiUrl: `${baseUrl}${routePaths.openapi}`,
+        queries: queryCount,
+        watching: shouldWatch,
+      });
 
       const boxLines = [
         `Docs:     ${baseUrl}${routePaths.docs}`,
@@ -244,8 +257,14 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     });
   };
 
-  // Start initial server
-  await startServer();
+  // Start initial server. With --json an agent cannot wait for an edit to fix
+  // a failed start, so the command fails instead of watching.
+  if (!(await startServer()) && isJsonOutput()) {
+    throw new CliError('DEV_SERVER_FAILED', 'Failed to start the dev server; the reason is on stderr.', {
+      telemetryCode: 'load_error',
+      hint: 'Fix the error shown on stderr and run the command again.',
+    });
+  }
 
   // Watch for changes
   if (shouldWatch) {

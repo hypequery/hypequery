@@ -18,9 +18,11 @@ export const EXIT_CODES = {
   internal: 5,
   /** Ctrl+C at a prompt or SIGINT. */
   interrupted: 130,
+  /** SIGTERM. */
+  terminated: 143,
 } as const;
 
-export type ExitClass = Exclude<keyof typeof EXIT_CODES, 'ok' | 'interrupted'>;
+export type ExitClass = Exclude<keyof typeof EXIT_CODES, 'ok' | 'interrupted' | 'terminated'>;
 
 const CLASS_BY_CODE: Partial<Record<typeof ERROR_CODES[number], ExitClass>> = {
   auth_failed: 'auth',
@@ -45,6 +47,6 @@ function isProgrammingError(error: unknown) {
 /** The exit class a numeric exit code stands for; unknown codes count as correctable. */
 export function exitClassForCode(exitCode: number): ExitClass {
   const match = (Object.entries(EXIT_CODES) as Array<[keyof typeof EXIT_CODES, number]>)
-    .find(([name, code]) => code === exitCode && name !== 'ok' && name !== 'interrupted');
+    .find(([name, code]) => code === exitCode && name !== 'ok' && name !== 'interrupted' && name !== 'terminated');
   return (match?.[0] as ExitClass | undefined) ?? 'correctable';
 }

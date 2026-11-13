@@ -42,7 +42,9 @@ import { isPromptCancelled } from './utils/prompts.js';
 import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
-import { CliError, isCliError } from './utils/cli-error.js';
+import { CliError, cloudHttpError, isCliError } from './utils/cli-error.js';
+import { DeploymentUploadError } from './utils/deployment-upload.js';
+import { setUnattended } from './utils/input-mode.js';
 import { EXIT_CODES, exitClassFor, exitClassForCode } from './utils/exit-codes.js';
 import {
   emitDefaultResult,
@@ -67,11 +69,13 @@ program
   .description('Type-safe embedded analytics on ClickHouse')
   .version(getCliVersion())
   .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation')
-  .option('--json', 'Print one JSON result (or error) on stdout; logs go to stderr; never prompt');
+  .option('--json', 'Print one JSON result (or error) on stdout; logs go to stderr; never prompt')
+  .option('--no-input', 'Never prompt or wait for a person (also when CI is set); fail with exit code 1 naming the flag to pass');
 
 // `--json` is read before any command runs, so its output starts clean.
 program.hook('preAction', () => {
   if (program.opts().json) enableJsonOutput();
+  setUnattended(program.opts().input === false);
 });
 
 program
@@ -87,7 +91,7 @@ program
   .option('--kind <kind>', 'Only example, recipe or guide')
   .action(runCommand(async (action: string | undefined, options: ExamplesListOptions) => {
     if (action !== undefined && action !== 'list') {
-      throw new Error(`Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
+      throw new CliError('USAGE', `Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
     }
     await examplesListCommand({ ...options, json: isJsonOutput() });
   }));
@@ -155,9 +159,10 @@ function runCommand<TArgs extends unknown[]>(
         console.log('\nCancelled.');
         throw new CommandExit(EXIT_CODES.interrupted, 'cancelled', 'prompt_cancelled');
       }
+      error = relayCloudRejection(error);
       const telemetryCode = isCliError(error) ? error.telemetryCode : telemetryErrorCode(error);
       const exitClass = isCliError(error) ? error.exitClass : exitClassFor(telemetryCode, error);
-      if (isJsonOutput()) emitError(errorEnvelope(error, exitClass, telemetryCode.toUpperCase()));
+      if (isJsonOutput()) emitError(errorEnvelope(error, exitClass, envelopeCode(telemetryCode)));
       console.error(error instanceof Error ? error.message : error);
       throw new CommandExit(EXIT_CODES[exitClass], 'failure', telemetryCode);
     }
@@ -176,6 +181,22 @@ function runCommand<TArgs extends unknown[]>(
     }
     emitDefaultResult();
   };
+}
+
+/** The envelope code for a failure the CLI knows only by its telemetry code. */
+function envelopeCode(telemetryCode: string): string {
+  return telemetryCode === 'unknown' ? 'COMMAND_FAILED' : telemetryCode.toUpperCase();
+}
+
+/**
+ * A rejected Cloud upload carries Cloud's status and, when Cloud sent one, its
+ * error envelope; report it the way every other Cloud failure is reported.
+ */
+function relayCloudRejection(error: unknown): unknown {
+  if (error instanceof DeploymentUploadError && error.code === 'HQ_UPLOAD_REJECTED' && error.status !== undefined) {
+    return cloudHttpError(error.status, error.message, error.cloud);
+  }
+  return error;
 }
 
 /**

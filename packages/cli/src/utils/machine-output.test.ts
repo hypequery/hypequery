@@ -11,6 +11,7 @@ import {
   emitResult,
   enableJsonOutput,
   errorEnvelope,
+  flushJsonOutput,
   isJsonOutput,
 } from './machine-output.js';
 import { assertCanPrompt } from './prompts.js';
@@ -70,7 +71,8 @@ describe('machine output', () => {
         code: 'CLOUD_NOT_SIGNED_IN',
         message: 'Missing deployment credential.',
         hint: 'Run `hypequery login`.',
-        category: 'unauthorized',
+        docsUrl: 'https://hypequery.com/docs/reference/api/cli#exit-codes-and-errors',
+        category: 'unauthenticated',
         retryable: false,
         correctable: false,
         exitCode: EXIT_CODES.auth,
@@ -148,5 +150,22 @@ describe('assertCanPrompt', () => {
     expect(() => assertCanPrompt({ isTTY: true })).toThrow(
       expect.objectContaining({ code: 'INPUT_REQUIRED' }),
     );
+  });
+});
+
+describe('flushJsonOutput', () => {
+  afterEach(() => disableJsonOutput());
+
+  it('waits for the write, but not past its bound when the reader stalls', async () => {
+    let finish: () => void = () => undefined;
+    enableJsonOutput(() => new Promise<void>((resolve) => { finish = resolve; }));
+    emitResult({ ok: true });
+    let flushed = false;
+    const flushing = flushJsonOutput(50).then(() => { flushed = true; });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(flushed).toBe(false);
+    await flushing;
+    expect(flushed).toBe(true);
+    finish();
   });
 });

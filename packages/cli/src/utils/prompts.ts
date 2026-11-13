@@ -2,6 +2,7 @@ import prompts from 'prompts';
 import { CliError } from './cli-error.js';
 import { logger } from './logger.js';
 import { isJsonOutput } from './machine-output.js';
+import { isUnattended } from './input-mode.js';
 
 /**
  * Raised when the user aborts a prompt with Ctrl+C or Esc.
@@ -18,15 +19,19 @@ export function isPromptCancelled(error: unknown): error is PromptCancelledError
 }
 
 /**
- * Prompts need a person at a terminal. Without one (a pipe, CI, a coding agent,
- * or `--json`) the CLI refuses instead of waiting for an answer nobody can give.
+ * Prompts need a person at a terminal. Without one (a pipe, a coding agent),
+ * with `--json`, `--no-input` or in CI, the CLI refuses instead of waiting for
+ * an answer nobody can give. `flag` names how to answer without a prompt.
  */
-export function assertCanPrompt(stdin: { isTTY?: boolean } = process.stdin): void {
-  if (stdin.isTTY === true && !isJsonOutput()) return;
+export function assertCanPrompt(
+  stdin: { isTTY?: boolean } = process.stdin,
+  flag = 'the answer as an option, or --no-interactive where the command supports it',
+): void {
+  if (stdin.isTTY === true && !isJsonOutput() && !isUnattended()) return;
   // Text mode prints only the message, so it carries the next action too.
-  throw new CliError('INPUT_REQUIRED', 'This step needs an answer, and there is no terminal to ask in. '
-    + 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.', {
-    hint: 'Pass the answer as an option, or rerun with --no-interactive where the command supports it.',
+  throw new CliError('INPUT_REQUIRED', 'This step needs an answer, and there is no terminal to ask in '
+    + `(or --json, --no-input or CI is set). Pass ${flag}.`, {
+    hint: `Pass ${flag}.`,
   });
 }
 
@@ -40,8 +45,9 @@ export function assertCanPrompt(stdin: { isTTY?: boolean } = process.stdin): voi
  */
 async function ask<T extends string = string>(
   questions: prompts.PromptObject<T> | Array<prompts.PromptObject<T>>,
+  flag: string,
 ): Promise<prompts.Answers<T>> {
-  assertCanPrompt();
+  assertCanPrompt(process.stdin, flag);
   let cancelled = false;
 
   const answers = await prompts(questions, {
@@ -73,7 +79,7 @@ export async function promptClickHouseConnection(): Promise<{
     name: 'host',
     message: 'ClickHouse URL (or skip to configure later):',
     initial: process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST ?? '',
-  });
+  }, 'CLICKHOUSE_URL, CLICKHOUSE_DATABASE and CLICKHOUSE_USERNAME with --no-interactive');
 
   // Do not ask for credentials when the user has chosen to configure the
   // connection later.
@@ -100,7 +106,7 @@ export async function promptClickHouseConnection(): Promise<{
       message: 'Password:',
       initial: process.env.CLICKHOUSE_PASSWORD ?? '',
     },
-  ]);
+  ], 'CLICKHOUSE_DATABASE and CLICKHOUSE_USERNAME with --no-interactive');
 
   return {
     host: hostResponse.host,
@@ -125,7 +131,7 @@ export async function promptInitDatabase(): Promise<InitDatabase> {
       { title: 'chDB (embedded, no server)', value: 'chdb' },
     ],
     initial: 0,
-  });
+  }, '--database clickhouse|chdb');
 
   return response.database ?? 'clickhouse';
 }
@@ -146,7 +152,7 @@ export async function promptChdbStorage(): Promise<string | undefined> {
       { title: 'Custom path...', value: 'custom' },
     ],
     initial: 0,
-  });
+  }, '--chdb-path <dir>');
 
   if (!response.storage || response.storage === 'memory') {
     return undefined;
@@ -158,7 +164,7 @@ export async function promptChdbStorage(): Promise<string | undefined> {
       name: 'path',
       message: 'Enter chDB data directory:',
       initial: './analytics.chdb',
-    });
+    }, '--chdb-path <dir>');
     return customResponse.path || './analytics.chdb';
   }
 
@@ -179,7 +185,7 @@ export async function promptOutputDirectory(): Promise<string> {
       { title: 'Custom path...', value: 'custom' },
     ],
     initial: 0,
-  });
+  }, '--path <dir>');
 
   if (!response.directory) {
     return 'analytics'; // Default fallback
@@ -191,7 +197,7 @@ export async function promptOutputDirectory(): Promise<string> {
       name: 'path',
       message: 'Enter custom path:',
       initial: 'analytics',
-    });
+    }, '--path <dir>');
 
     return customResponse.path || 'analytics';
   }
@@ -211,7 +217,7 @@ export async function promptInitStyle(): Promise<InitStyle> {
       { title: 'Datasets semantic API', value: 'datasets' },
     ],
     initial: 0,
-  });
+  }, '--style queries|datasets');
 
   return response.style ?? 'queries';
 }
@@ -231,7 +237,7 @@ export async function promptInitAuthMode(): Promise<InitAuthMode> {
       { title: 'Request context authentication', value: 'context' },
     ],
     initial: 0,
-  });
+  }, '--auth none|context');
 
   return response.auth ?? 'none';
 }
@@ -245,7 +251,7 @@ export async function confirmWithoutPackageJson(directory: string): Promise<bool
     name: 'continue',
     message: `package.json was not found in ${directory}. Continue scaffolding here?`,
     initial: false,
-  });
+  }, '--no-interactive to scaffold here anyway');
 
   return response.continue ?? false;
 }
@@ -259,7 +265,7 @@ export async function promptGenerateExample(): Promise<boolean> {
     name: 'generate',
     message: 'Generate an example query?',
     initial: true,
-  });
+  }, '--no-example or --no-interactive');
 
   return response.generate ?? false;
 }
@@ -290,7 +296,7 @@ export async function promptTableSelection(tables: string[]): Promise<string | n
     message: 'Which table should we use for the example?',
     choices,
     initial: 0,
-  });
+  }, '--no-example or --no-interactive');
 
   return response.table;
 }
@@ -325,7 +331,7 @@ export async function promptDatasetTableSelection(
     })),
     min: 0,
     instructions: false,
-  });
+  }, '--tables <names> or --all-tables');
 
   return response.tables ?? [];
 }
@@ -339,7 +345,7 @@ export async function confirmOverwrite(files: string[]): Promise<boolean> {
     name: 'overwrite',
     message: `The following files will be overwritten:\n${files.map(f => `  • ${f}`).join('\n')}\n\nContinue?`,
     initial: false,
-  });
+  }, '--force');
 
   return response.overwrite ?? false;
 }
@@ -353,7 +359,7 @@ export async function promptRetry(message: string): Promise<boolean> {
     name: 'retry',
     message,
     initial: true,
-  });
+  }, '--skip-connection, or fix the connection settings');
 
   return response.retry ?? false;
 }
@@ -367,7 +373,7 @@ export async function promptContinueWithoutDb(): Promise<boolean> {
     name: 'continue',
     message: 'Continue setup without database connection?',
     initial: true,
-  });
+  }, '--skip-connection');
 
   return response.continue ?? false;
 }

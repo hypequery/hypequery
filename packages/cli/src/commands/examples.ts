@@ -3,6 +3,7 @@ import { loadExamplesIndex, type ExamplesIndex, type LoadIndexOptions } from '..
 import { countBucket } from '../utils/telemetry/buckets.js';
 import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { EXAMPLE_KINDS } from '../utils/telemetry/domains.js';
+import { CliError } from '../utils/cli-error.js';
 
 export interface ExamplesListOptions {
   json?: boolean;
@@ -32,7 +33,9 @@ export async function examplesListCommand(options: ExamplesListOptions = {}, dep
   const write = dependencies.write ?? ((line: string) => console.log(line));
   const index = await loadExamplesIndex(dependencies);
   if (options.kind && !(EXAMPLE_KINDS as readonly string[]).includes(options.kind)) {
-    throw new Error(`Unknown --kind ${options.kind}; use example, recipe or guide.`);
+    throw new CliError('INVALID_INPUT', `Unknown --kind ${options.kind}; use example, recipe or guide.`, {
+      issues: [{ path: '--kind', message: 'Use example, recipe or guide.' }],
+    });
   }
   const entries = index.entries.filter((entry) => !options.kind || entry.kind === options.kind);
   updateCommandTelemetry('examples', {
