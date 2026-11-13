@@ -11,7 +11,8 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 | Command | Purpose |
 | --- | --- |
 | `hypequery login` | Authorize this machine with hypequery cloud and save a default project and environment |
-| `hypequery logout` | Revoke and remove the local cloud credential |
+| `hypequery login --device` | Sign in without a browser on this machine: approve a code from any browser |
+| `hypequery logout` | Revoke and remove the local cloud credentials |
 | `hypequery deploy <source>` | Build, release, and submit a TypeScript publication in one step |
 | `hypequery deployment:build <cloud>` | Build a verified deployment bundle without releasing it |
 | `hypequery deployment:release <bundle>` | Bind a bundle to a project and environment as a release |
@@ -23,6 +24,64 @@ import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
 | `hypequery mcp --self-test --url <url>` | Check a hosted MCP endpoint |
 
 Most commands accept `--project` and `--environment` to override the target saved by `hypequery login`.
+
+## Signing in
+
+`hypequery login` opens a browser on this machine. Where no browser can open
+(SSH, a container, a coding agent's sandbox), use device sign-in: the CLI prints
+a short code and a URL, and you approve the code from any browser.
+
+<CodeBlock>
+```bash
+npx hypequery login --device
+# To sign in to hypequery Cloud, open https://cloud.hypequery.com/cli/device and enter the code: BCDF-GHJK
+npx hypequery login --device --project shop --capabilities workspace:view,deployment:publish
+```
+</CodeBlock>
+
+The browser opens by itself only when a person is at the terminal and
+`--no-input` is not set. The CLI polls until the code is approved, denied or
+expires (10 minutes), and prints the code on stderr so `--json` output stays
+one document.
+
+| Option | Description |
+| --- | --- |
+| `--device` | Sign in by approving a code in any browser |
+| `--project <slug>` | With `--device`: limit the token to one Cloud project |
+| `--capabilities <list>` | With `--device`: cap the token below your role, comma-separated |
+| `--cloud-url <url>` | Cloud origin (or `HYPEQUERY_CLOUD_URL`) |
+| `--environment <environment>` | Browser sign-in only: the deployment target to save |
+
+Both sign-ins store a management token (`hqmt_`): user-bound, re-checked
+against your role on every call, valid for 30 days, and listed under Settings ›
+CLI sign-ins where you can revoke it. Browser sign-in also stores the 12-hour
+deploy credential it always has. Tokens go to the operating-system credential
+vault. Where there is none (common on headless Linux), the token is kept in an
+owner-only file (`0600`) in the CLI's config directory, and the CLI says so.
+One token is kept per Cloud origin. `hypequery logout` revokes and removes all
+of them.
+
+Device sign-in doesn't save a deployment target yet, so pass `--project` and
+`--environment` to deploy, status, pull and diff after it.
+
+### Credentials in CI and scripts
+
+Every command that talks to Cloud picks its credential in this order:
+
+1. `HYPEQUERY_API_TOKEN`: a management token (`hqmt_…`) or a project deploy
+   key (`hqdp_…`). The CLI reads the prefix and sends either to
+   `HYPEQUERY_CLOUD_URL` (default `https://cloud.hypequery.com`), unless
+   `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names another endpoint. Any
+   other token needs that explicit endpoint.
+2. The management token stored by `hypequery login` or `hypequery login --device`.
+3. The deploy credential stored by browser sign-in.
+
+<CodeBlock>
+```bash
+HYPEQUERY_API_TOKEN=hqdp_… npx hypequery deploy analytics/cloud.ts \
+  --project acme:analytics --environment production --json --no-input
+```
+</CodeBlock>
 
 ## `hypequery deploy <cloud>`
 
