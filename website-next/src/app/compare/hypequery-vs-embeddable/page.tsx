@@ -7,9 +7,9 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
 
 const PATH = '/compare/hypequery-vs-embeddable';
-const TITLE = 'hypequery vs Embeddable: Embedded Analytics Compared';
+const TITLE = 'hypequery vs Embeddable for Embedded Analytics';
 const DESCRIPTION =
-  'How hypequery and Embeddable differ on data modelling, multi-tenancy, front-end ownership, pricing and AI agents, and when to pick each.';
+  'Compare hypequery and Embeddable on data modelling, multi-tenancy, UI ownership, pricing, ClickHouse support and AI agents. See which fits your team.';
 const PUBLISHED = '2026-11-12';
 const UPDATED = '2026-11-12';
 // Every Embeddable claim was checked on embeddable.com and docs.embeddable.com on this date. See seo-verification-log.md.
@@ -168,11 +168,10 @@ export default function HypequeryVsEmbeddablePage() {
       updated={UPDATED}
       lead={
         <p>
-          Embeddable is a hosted platform for building customer-facing dashboards: you write React chart components, model
-          data in Cube’s YAML, assemble dashboards in a no-code builder, and embed them as a web component. hypequery is an
-          open-source semantic layer for ClickHouse that runs in your own backend and serves typed data to the UI you
-          build, to a public API and to AI agents. Choose Embeddable to ship dashboards that non-engineers can assemble
-          across many databases; choose hypequery to own the whole front end on ClickHouse.
+          The practical difference is who owns the dashboard. With Embeddable, engineers build React components and Cube
+          models, then product or customer teams assemble dashboards in a no-code builder. With hypequery, engineers own
+          the entire UI as well as the typed ClickHouse model behind it. Choose Embeddable for a ready-made dashboard
+          workflow across several databases; choose hypequery when you want the whole analytics stack in your own app.
         </p>
       }
       primaryCta={{ href: '#at-a-glance', label: 'At a glance', target: 'vs_embeddable_table' }}
@@ -209,7 +208,6 @@ export default function HypequeryVsEmbeddablePage() {
               <code className={inlineCode}>*.cube.yml</code> files or built in its Data Model Editor. Embeddable runs a
               managed Cube by default; you can point it at your own Cube Cloud or self-hosted Cube Core instead. In
               practice, Cube’s syntax, joins and security context are what you learn, and Cube’s documentation applies.
-              That is also why Embeddable’s docs rank for “cube core”.
             </p>
             <p>
               hypequery datasets are TypeScript (or Python) modules in your application repo. Your backend imports them, so
@@ -343,7 +341,7 @@ export default function HypequeryVsEmbeddablePage() {
       />
 
       <HubSection
-        eyebrow="An honest answer"
+        eyebrow="Best fit"
         title="When to choose Embeddable instead"
         intro={
           <ul className="list-disc space-y-2 pl-5">

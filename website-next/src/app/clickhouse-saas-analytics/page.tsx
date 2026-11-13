@@ -15,7 +15,7 @@ import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-dat
 const PATH = '/clickhouse-saas-analytics';
 const TITLE = 'Embedded Analytics for SaaS on ClickHouse';
 const DESCRIPTION =
-  'Ship customer-facing dashboards, APIs and AI agents from one typed analytics layer on ClickHouse, with tenant isolation built in.';
+  'Build multi-tenant SaaS dashboards, customer-facing APIs and AI agents on ClickHouse from one typed analytics layer, with tenant isolation built in.';
 const PUBLISHED = '2026-04-25';
 const UPDATED = '2026-11-12';
 
@@ -226,13 +226,14 @@ export default async function EmbeddedAnalyticsForSaasPage() {
         { label: 'For SaaS' },
       ]}
       eyebrow="Embedded analytics for SaaS"
-      title="Embedded analytics for SaaS, built on ClickHouse"
+      title="Build multi-tenant SaaS analytics on ClickHouse"
       updated={UPDATED}
       lead={
         <p>
-          hypequery gives a SaaS team one typed analytics layer on ClickHouse: metrics, dimensions and tenant rules
-          defined in TypeScript or Python, in your own repo. The same definitions serve your in-app dashboards, a
-          customer-facing API and AI agents, and every query is scoped to one customer before it reaches the database.
+          A SaaS dashboard has to answer the same question for hundreds of customers without ever mixing their data.
+          hypequery puts the metrics, dimensions and tenant rule in one typed ClickHouse model in your repo. That model
+          serves the in-app dashboard, customer-facing API and AI agents, with every query scoped to the signed-in
+          customer before it reaches the database.
         </p>
       }
       primaryCta={{ href: '/docs/quick-start', label: 'Get started', target: 'docs_quick_start' }}
@@ -244,7 +245,7 @@ export default async function EmbeddedAnalyticsForSaasPage() {
     >
       <HubSection
         eyebrow="The problem"
-        title="What customer-facing analytics costs when you build it by hand"
+        title="Why SaaS analytics gets harder after the first dashboard"
         intro={
           <>
             <p>
@@ -383,11 +384,11 @@ export default async function EmbeddedAnalyticsForSaasPage() {
 
       <HubSection
         eyebrow="Adoption"
-        title="Open source, used in production"
+        title="Open source and built in public"
         intro={
           <p>
-            The hypequery libraries are Apache 2.0 and developed in the open on GitHub. Current numbers, fetched from
-            npm and GitHub when this page was built:
+            The hypequery libraries are Apache 2.0 and developed in the open on GitHub. These numbers are fetched from
+            npm and GitHub when the page is built:
           </p>
         }
       >

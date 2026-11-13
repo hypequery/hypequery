@@ -8,9 +8,9 @@ import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-dat
 
 // Prices here repeat /compare/embedded-analytics-pricing. Re-verify both together, quarterly.
 const PATH = '/compare/luzmo-alternatives';
-const TITLE = 'Luzmo Alternatives for SaaS Teams (2026)';
+const TITLE = 'Best Luzmo Alternatives for SaaS Teams (2026)';
 const DESCRIPTION =
-  'Comparing Luzmo with Embeddable, Cube, hypequery and more: pricing models, how each handles multi-tenancy, and which fits your stack.';
+  'Compare Luzmo alternatives including Embeddable, Cube, Metabase and hypequery by pricing, multi-tenancy, UI ownership and ClickHouse support.';
 const PUBLISHED = '2026-11-12';
 const UPDATED = '2026-11-12';
 const VERIFIED_ON = 'November 12, 2026';
@@ -123,14 +123,14 @@ export default function LuzmoAlternativesPage() {
         { label: 'Luzmo alternatives' },
       ]}
       eyebrow="Luzmo alternatives"
-      title="The best Luzmo alternatives, by what you’re actually trying to fix"
+      title="The best Luzmo alternatives for SaaS teams"
       updated={UPDATED}
       lead={
         <p>
-          The main Luzmo alternatives are Embeddable, Cube and hypequery if you want to own the front end and the code;
-          Sigma, GoodData and Metabase if your customers need a full BI tool to explore data; and Metabase, Power BI
-          Embedded or open-source Apache Superset if the goal is a lower bill. hypequery fits teams on ClickHouse who
-          want typed metrics in their own repo, served to dashboards, APIs and agents.
+          Choose Embeddable when engineers should own the chart components but other teams need a dashboard builder.
+          Choose Cube—or hypequery on ClickHouse—when you want a headless data layer and will build the UI yourself.
+          Choose Sigma, GoodData or Metabase when customers need to explore data like analysts. If price is the reason
+          you are leaving Luzmo, start with Metabase, Power BI Embedded or Apache Superset.
         </p>
       }
       primaryCta={{ href: '#compared', label: 'Compare options', target: 'luzmo_alt_table' }}
@@ -142,7 +142,7 @@ export default function LuzmoAlternativesPage() {
     >
       <HubSection
         eyebrow="Start here"
-        title="What Luzmo is, and how its pricing works"
+        title="Before switching: what Luzmo already includes"
         intro={
           <>
             <p>
@@ -165,10 +165,10 @@ export default function LuzmoAlternativesPage() {
               <a href="https://www.luzmo.com/pricing" rel="noopener nofollow" className={extLink}>
                 luzmo.com/pricing
               </a>{' '}
-              on {VERIFIED_ON}: one plan, Embedded Everywhere, from €1,995 a month, billed annually only. “There is no
-              smaller tier.” It includes white-label, self-service, AI and APIs, plus 500 AI conversations and 100 million
-              Warp rows a month; extra Warp rows are €0.25 per million, and some contracts scale on monthly active users
-              instead.
+              on {VERIFIED_ON}: one plan, Embedded Everywhere, from €1,995 a month, billed annually. There is no lower
+              published tier. The plan includes white-label, self-service, AI and APIs, plus 500 AI conversations and 100
+              million Warp rows a month. Extra Warp rows are €0.25 per million, and some contracts scale on monthly
+              active users instead.
             </p>
           </>
         }
@@ -356,7 +356,7 @@ export default function LuzmoAlternativesPage() {
       />
 
       <HubSection
-        eyebrow="An honest answer"
+        eyebrow="Stay or switch?"
         title="When to stay on Luzmo"
         intro={
           <ul className="list-disc space-y-2 pl-5">

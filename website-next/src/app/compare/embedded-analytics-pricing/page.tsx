@@ -9,25 +9,25 @@ import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-dat
 // page on the site. Re-check every row against the source URLs below, update
 // VERIFIED_ON and UPDATED, and update seo-verification-log.md. Next check due: February 2027.
 const PATH = '/compare/embedded-analytics-pricing';
-const TITLE = 'Embedded Analytics Pricing Compared (2026)';
+const TITLE = 'Embedded Analytics Pricing: Costs Compared (2026)';
 const DESCRIPTION =
-  'What Power BI Embedded, Luzmo, Embeddable, Metabase, Sigma, Cube and others cost to embed: pricing models, published prices and hidden costs.';
+  'Compare Power BI, Metabase, Luzmo, Cube and other embedded analytics vendors by starting price, billing model and estimated cost for 1,000 viewers.';
 const PUBLISHED = '2026-11-12';
 const UPDATED = '2026-11-12';
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: { absolute: TITLE },
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl(PATH) },
   openGraph: {
     type: 'article',
     url: absoluteUrl(PATH),
-    title: `${TITLE} | hypequery`,
+    title: TITLE,
     description: DESCRIPTION,
     images: ogImage('Embedded analytics pricing compared'),
   },
-  twitter: { card: 'summary_large_image', title: `${TITLE} | hypequery`, description: DESCRIPTION },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
 const inlineLink =
@@ -138,15 +138,15 @@ export default function EmbeddedAnalyticsPricingPage() {
         { label: 'Embedded analytics pricing' },
       ]}
       eyebrow="Pricing"
-      title="Embedded analytics pricing in 2026: what each platform really costs"
+      title="Embedded analytics pricing in 2026: what the options cost"
       updated={UPDATED}
       lead={
         <p>
-          Embedded analytics is priced three ways. Per user or viewer: Metabase’s SSO embeds, Preset’s viewer bundles
-          and Cube’s seats. By capacity: Power BI Embedded and Microsoft Fabric bill for compute by the hour, however many
-          people look. By platform fee and usage: Luzmo, GoodData and Embeddable charge a subscription that scales with
-          adoption, workspaces or project scope. Below, every price is from the vendor’s own page, checked {VERIFIED_ON},
-          with one 1,000-viewer scenario worked through for each vendor that publishes enough.
+          Published prices run from no licence fee for self-hosted open-source tools to $575 a month for Metabase Pro,
+          about $735.91 a month for a continuously running Power BI Embedded A1 capacity, and €1,995 a month for Luzmo.
+          Many vendors still require a quote. The real comparison is the billing unit—viewer, capacity, workspace or
+          usage—so we show both the entry price and a 1,000-viewer SaaS scenario. Every figure was checked against the
+          vendor’s own page on {VERIFIED_ON}.
         </p>
       }
       primaryCta={{ href: '#scenario', label: 'See the worked scenario', target: 'pricing_scenario' }}
@@ -157,7 +157,7 @@ export default function EmbeddedAnalyticsPricingPage() {
       ]}
     >
       <HubSection
-        eyebrow="Master table"
+        eyebrow="Price table"
         title="Embedded analytics pricing, vendor by vendor"
         intro={
           <p>
@@ -214,7 +214,7 @@ export default function EmbeddedAnalyticsPricingPage() {
         </p>
       </HubSection>
 
-      <HubSection eyebrow="Vendor notes" title="Where the cost traps are">
+      <HubSection eyebrow="Vendor notes" title="The pricing details that change the bill">
         <div className="grid gap-5 md:grid-cols-2">
           <Note name="Power BI Embedded">
             <p>

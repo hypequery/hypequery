@@ -10,9 +10,9 @@ import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-dat
 // already ranks for "cube.js alternatives". It now carries the multi-vendor
 // Cube alternatives comparison instead of a second, competing page under /compare.
 const PATH = '/cube-js-alternative';
-const TITLE = 'Cube Alternatives: Semantic Layers Compared (2026)';
+const TITLE = '5 Best Cube.js Alternatives for Semantic Layers (2026)';
 const DESCRIPTION =
-  'Comparing Cube with hypequery, the dbt Semantic Layer, AtScale, GoodData and Boring Semantic Layer for embedded and AI analytics.';
+  'Compare Cube with hypequery, dbt Semantic Layer, AtScale, GoodData and Boring Semantic Layer by databases, APIs, hosting and multi-tenancy.';
 const PUBLISHED = '2026-04-25';
 const UPDATED = '2026-11-12';
 // Every competitor claim was checked on the vendor's own site on this date. See seo-verification-log.md.
@@ -282,15 +282,14 @@ export default function CubeAlternativesPage() {
         { label: 'Cube alternatives' },
       ]}
       eyebrow="Cube alternatives"
-      title="Cube alternatives for embedded analytics and AI agents"
+      title="5 Cube.js alternatives for semantic layers and embedded analytics"
       updated={UPDATED}
       lead={
         <p>
-          The main Cube alternatives are the dbt Semantic Layer if you already model in dbt, AtScale if your users live in
-          Power BI and Excel, GoodData if you want a hosted platform with embedding, and Boring Semantic Layer if you
-          want a small Python library. hypequery is the option for ClickHouse teams who want metrics and tenant rules as
-          typed code inside the application repo. Cube itself remains the strongest choice for many databases behind one
-          API.
+          Cube (formerly Cube.js) is still a strong choice when one semantic layer must serve many databases and clients.
+          The best alternative depends on what you want to simplify: dbt Semantic Layer for teams already on dbt,
+          AtScale for Power BI and Excel, GoodData for managed dashboards, Boring Semantic Layer for a small Python
+          library, or hypequery for typed ClickHouse metrics inside the application repo.
         </p>
       }
       primaryCta={{ href: '#comparison', label: 'Compare all six', target: 'cube_alt_table' }}
@@ -323,11 +322,12 @@ export default function CubeAlternativesPage() {
       <HubSection
         band
         eyebrow="Why teams look elsewhere"
-        title="The reasons, with the evidence"
+        title="Why teams consider a Cube alternative"
         intro={
           <p>
-            These come from Cube’s own docs and pricing page and from its public issue tracker. They are trade-offs of a
-            general-purpose platform, not defects, and several have since been fixed.
+            Cube solves a broad problem, so it also brings more moving parts than a database-specific library. The
+            trade-offs below come from Cube’s own docs, pricing page and public issue tracker; several of the linked
+            ClickHouse issues have since been fixed.
           </p>
         }
       >
@@ -509,7 +509,7 @@ export default function CubeAlternativesPage() {
       />
 
       <HubSection
-        eyebrow="An honest answer"
+        eyebrow="Keep Cube when"
         title="When to stay on Cube"
         intro={
           <ul className="list-disc space-y-2 pl-5">

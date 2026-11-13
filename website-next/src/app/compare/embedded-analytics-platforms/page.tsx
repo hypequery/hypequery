@@ -8,9 +8,9 @@ import { faqJsonLd, itemListJsonLd, techArticleJsonLd, type FaqItem } from '@/li
 
 // Prices and plan gates here repeat /compare/embedded-analytics-pricing. Re-verify both together, quarterly.
 const PATH = '/compare/embedded-analytics-platforms';
-const TITLE = 'Best Embedded Analytics Platforms in 2026, Compared';
+const TITLE = '12 Best Embedded Analytics Tools & Platforms (2026)';
 const DESCRIPTION =
-  '12 embedded analytics platforms grouped by approach (code-first, embedded BI and BI with embedding), with pricing models and who each suits.';
+  'Compare 12 embedded analytics tools by multi-tenancy, embedding method, ClickHouse support, self-hosting and pricing, with the best fit for each team.';
 const PUBLISHED = '2026-11-12';
 const UPDATED = '2026-11-12';
 const VERIFIED_ON = 'November 12, 2026';
@@ -327,15 +327,14 @@ export default function EmbeddedAnalyticsPlatformsPage() {
         { label: 'Embedded analytics platforms' },
       ]}
       eyebrow="Embedded analytics platforms"
-      title="The best embedded analytics platforms in 2026"
+      title="12 embedded analytics tools and platforms compared"
       updated={UPDATED}
       lead={
         <p>
-          Embedded analytics platforms fall into three groups, and the right one depends on who builds the dashboards.
-          Code-first layers (top pick: Cube, for its database coverage) give engineers the data and leave the UI to
-          them. Embedded BI platforms (top pick: Luzmo, because one plan covers the editor, AI and white-labelling) ship
-          dashboards and an editor ready to embed. BI tools with embedding (top pick: Metabase, for the lowest cost to
-          start) reuse an internal BI tool for customers.
+          Start with who needs to build the dashboard. If it is your engineers, shortlist Cube, Embeddable or hypequery.
+          If product teams need a visual builder, look at Luzmo, GoodData or Sisense. If you already have an internal BI
+          tool—or need the lowest-cost route—Metabase, Power BI, Looker or Superset may be a better fit. This guide
+          compares all 12 by embedding method, tenant isolation, ClickHouse support and price.
         </p>
       }
       primaryCta={{ href: '#master-table', label: 'Compare all 12', target: 'listicle_table' }}
@@ -351,13 +350,13 @@ export default function EmbeddedAnalyticsPlatformsPage() {
     >
       <HubSection
         eyebrow="Method"
-        title="How we chose and evaluated"
+        title="How we compared these embedded analytics tools"
         intro={
           <>
             <p>
               We included tools that SaaS teams shortlist for customer-facing analytics and that publish enough
               documentation to evaluate. Each was checked against its own pricing page, docs or repository on{' '}
-              {VERIFIED_ON}, on six criteria:
+              {VERIFIED_ON}, on seven criteria:
             </p>
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
@@ -372,6 +371,10 @@ export default function EmbeddedAnalyticsPlatformsPage() {
               </li>
               <li>
                 <strong className="text-text">Pricing transparency:</strong> whether a price for embedding is published.
+              </li>
+              <li>
+                <strong className="text-text">White-labelling and self-service:</strong> whether customers can build or
+                edit dashboards without seeing the vendor’s brand.
               </li>
               <li>
                 <strong className="text-text">AI features:</strong> assistants, agents and MCP that work inside an embed.
@@ -409,9 +412,9 @@ export default function EmbeddedAnalyticsPlatformsPage() {
 
       <HubSection
         id="master-table"
-        eyebrow="Master table"
-        title="All 12 platforms compared"
-        intro={<p>The short version of each entry above. Verified on {VERIFIED_ON}.</p>}
+        eyebrow="Full comparison"
+        title="Embedded analytics tools: all 12 side by side"
+        intro={<p>Use this table to narrow the list by architecture, tenant model, ClickHouse support and cost. Verified on {VERIFIED_ON}.</p>}
       >
         <HubTable
           caption={`12 embedded analytics platforms compared, verified ${VERIFIED_ON}`}
@@ -504,7 +507,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
       <HubSection
         band
         eyebrow="Decision guide"
-        title="How to choose"
+        title="Which embedded analytics platform should you choose?"
         intro={
           <ul className="list-disc space-y-2 pl-5">
             <li>
