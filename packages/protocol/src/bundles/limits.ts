@@ -9,6 +9,7 @@ Readonly<ProtocolDeploymentBundleLimits> = Object.freeze({
   maxSourceFiles: 1_000,
   maxPathBytes: 1_024,
   maxDeploymentBytes: 16 * 1_024 * 1_024,
+  maxBusinessContextBytes: 1_024 * 1_024,
   maxArtifactBytes: 128 * 1_024 * 1_024,
   maxSourceFileBytes: 2 * 1_024 * 1_024,
   maxSourceBytes: 32 * 1_024 * 1_024,

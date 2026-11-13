@@ -8,21 +8,27 @@ import {
 import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
+  prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
+  type ProtocolBusinessContext,
   type ProtocolDeploymentBundleManifest,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
+import { deploymentBundleFiles } from './utils/bundle-files.js';
 import { readBoundedFile } from './utils/read-bounded-file.js';
 
 export const DEPLOYMENT_BUNDLE_MANIFEST = 'bundle.json';
 export const DEPLOYMENT_BUNDLE_CONTRACT = 'deployment.json';
+export const DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT = 'business-context.json';
 
 export interface VerifiedDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
   readonly contract: ProtocolDeploymentContract;
+  /** Reviewed business context; present only for version 2 bundles. */
+  readonly businessContext?: ProtocolBusinessContext;
 }
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
@@ -92,11 +98,9 @@ async function verifyExactEntries(
   root: string,
   manifest: ProtocolDeploymentBundleManifest,
 ): Promise<void> {
-  const source = manifest.source;
   const expectedFiles = new Set([
     DEPLOYMENT_BUNDLE_MANIFEST,
-    manifest.deployment.path,
-    ...(source?.files.map(file => `${source.root}/${file.path}`) ?? []),
+    ...deploymentBundleFiles(manifest).map(file => file.path),
   ]);
   const expectedDirectoryPaths = expectedDirectories([...expectedFiles]);
   const seenFiles = new Set<string>();
@@ -205,6 +209,8 @@ export async function verifyDeploymentBundle(
     throw new Error('Deployment identity does not match the bundle manifest.');
   }
 
+  const businessContext = await verifyBusinessContext(root, preparedManifest.manifest);
+
   const source = preparedManifest.manifest.source;
   if (source) {
     for (const file of source.files) {
@@ -223,5 +229,37 @@ export async function verifyDeploymentBundle(
     manifest: preparedManifest.manifest,
     identity: preparedManifest.identity,
     contract: preparedContract.contract,
+    ...(businessContext ? { businessContext } : {}),
   });
+}
+
+async function verifyBusinessContext(
+  root: string,
+  manifest: ProtocolDeploymentBundleManifest,
+): Promise<ProtocolBusinessContext | undefined> {
+  const entry = manifest.businessContext;
+  if (!entry) return undefined;
+  const bytes = await readBoundedRegularFile(
+    root,
+    entry.path,
+    DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxBusinessContextBytes,
+  );
+  verifyFile(bytes, entry);
+  let input: unknown;
+  try {
+    input = JSON.parse(utf8Decoder.decode(bytes));
+  } catch (error) {
+    throw new Error(
+      `Invalid business context JSON in bundle: ${entry.path}\n\n`
+      + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+  const prepared = prepareProtocolBusinessContext(input);
+  if (!Buffer.from(bytes).equals(Buffer.from(`${prepared.canonical}\n`))) {
+    throw new Error('Business context JSON must contain canonical JSON followed by one newline.');
+  }
+  if (prepared.identity !== entry.identity) {
+    throw new Error('Business context identity does not match the bundle manifest.');
+  }
+  return prepared.context;
 }

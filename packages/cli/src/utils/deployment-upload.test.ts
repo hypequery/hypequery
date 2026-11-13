@@ -39,7 +39,7 @@ const deployment = {
   datasets: [],
 };
 
-async function verifiedBundle() {
+async function verifiedBundle(businessContext?: Parameters<typeof writeDeploymentBundle>[3]) {
   const parent = await temporaryDirectory();
   const directory = path.join(parent, 'bundle');
   await writeDeploymentBundle(
@@ -58,6 +58,7 @@ async function verifiedBundle() {
         },
       ],
     },
+    businessContext,
   );
   return verifyDeploymentBundle(directory);
 }
@@ -154,6 +155,46 @@ describe('deployment upload transport', () => {
     await expect(transport.submit(bundle, release)).resolves.toEqual(
       submission(bundle.identity, release.identity),
     );
+  });
+
+  it('delivers business context from the CLI bundle writer through intake to the store', async () => {
+    const bundle = await verifiedBundle({
+      kind: 'hypequery-business-context',
+      version: 1,
+      summary: 'Grocery delivery',
+      glossary: [{ term: 'active customer', meaning: 'ordered in the last 30 days' }],
+    });
+    expect(bundle.manifest.version).toBe(2);
+    const release = releaseFor(bundle.identity);
+    const accept = vi.fn(async (submission: { readonly bundle: typeof bundle }) => {
+      expect(submission.bundle.identity).toBe(bundle.identity);
+      expect(submission.bundle.businessContext).toEqual(bundle.businessContext);
+      expect(submission.bundle.businessContext?.summary).toBe('Grocery delivery');
+      return 'accepted' as const;
+    });
+    const intake = createDeploymentIntake({
+      authenticator: { authenticate: async () => 'principal' },
+      authorizer: { authorize: async () => true },
+      store: { accept },
+    });
+    const fetch = vi.fn<DeploymentFetch>(async (_endpoint, init) => {
+      const response = await intake.handle({
+        headers: init.headers,
+        body: init.body,
+        signal: init.signal,
+      });
+      return new Response(response.body, { status: response.status, headers: response.headers });
+    });
+    const transport = createHttpDeploymentUploadTransport({
+      endpoint: 'https://deploy.example.test/v1/releases',
+      token: 'secret-token',
+      fetch,
+    });
+
+    await expect(transport.submit(bundle, release)).resolves.toEqual(
+      submission(bundle.identity, release.identity),
+    );
+    expect(accept).toHaveBeenCalledOnce();
   });
 
   it('streams a verified bundle with authenticated identity headers', async () => {
