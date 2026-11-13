@@ -278,8 +278,18 @@ async function materialize(
       throw new Error('The Hypequery Cloud management token is missing from your credential vault. Run `hypequery login` again.');
     }
   }
-  const { storage: _storage, token: _token, ...metadata } = entry;
-  return { cloudUrl: origin, token: token as string, ...metadata };
+  return {
+    cloudUrl: origin,
+    token: token as string,
+    expiresAt: entry.expiresAt,
+    deploymentEndpoint: entry.deploymentEndpoint,
+    ...(entry.organizationId !== undefined ? { organizationId: entry.organizationId } : {}),
+    ...(entry.project !== undefined ? { project: entry.project } : {}),
+    projectLimited: entry.projectLimited,
+    ...(entry.capabilities !== undefined ? { capabilities: entry.capabilities } : {}),
+    ...(entry.target ? { target: entry.target } : {}),
+    signedInWith: entry.signedInWith,
+  };
 }
 
 /**
@@ -367,7 +377,7 @@ export async function deleteManagementCredentials(
     if (store) {
       if (!(origin in store.origins)) return;
       await deleteVaultToken(origin, dependencies);
-      const { [origin]: _removed, ...origins } = store.origins;
+      const origins = Object.fromEntries(Object.entries(store.origins).filter(([key]) => key !== origin));
       if (Object.keys(origins).length > 0) {
         await writeStore(directory, file, {
           version: 1,
