@@ -112,14 +112,17 @@ program
   .command('login')
   .description('Authorize this machine with Hypequery Cloud')
   .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
-  .option('--environment <environment>', 'Stable deployment target')
+  .option('--environment <environment>', 'Stable deployment target (browser sign-in)')
+  .option('--device', 'Sign in by approving a code in any browser (headless machines, SSH, coding agents)')
+  .option('--project <slug>', 'With --device: limit the token to this Cloud project')
+  .option('--capabilities <list>', 'With --device: cap the token to these capabilities (comma-separated)')
   .action(runCommand(async (options: LoginOptions) => {
     await loginCommand(options);
   }));
 
 program
   .command('logout')
-  .description('Revoke and remove the local Hypequery Cloud credential')
+  .description('Revoke and remove the local Hypequery Cloud credentials')
   .action(runCommand(async () => {
     await logoutCommand();
   }));
@@ -495,6 +498,7 @@ program.on('--help', () => {
   console.log('  hypequery telemetry disable');
   console.log('  hypequery --no-telemetry init');
   console.log('  hypequery login');
+  console.log('  hypequery login --device');
   console.log('  hypequery logout');
   console.log('  hypequery init');
   console.log('  hypequery dev');

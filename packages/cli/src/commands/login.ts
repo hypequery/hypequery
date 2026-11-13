@@ -18,8 +18,20 @@ import { emitResult } from '../utils/machine-output.js';
 import { CliError, cloudHttpError } from '../utils/cli-error.js';
 import { parseCloudErrorBody } from '../utils/cloud-error-body.js';
 import { isUnattended } from '../utils/input-mode.js';
-
-const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
+import { parseCapabilityList } from '../utils/capability-list.js';
+import { DEFAULT_CLOUD_URL } from '../utils/cloud-origin.js';
+import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
+import {
+  pollDeviceAuthorization,
+  startDeviceAuthorization,
+} from '../utils/device-sign-in.js';
+import { managementCredentialFromResponse } from '../utils/management-token-response.js';
+import {
+  deleteManagementCredentials,
+  loadAllManagementCredentials,
+  saveManagementCredential,
+  type StoredManagementCredential,
+} from '../utils/management-token-store.js';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
@@ -36,6 +48,12 @@ export interface LoginOptions {
   readonly cloudUrl?: string;
   /** Stable Cloud deployment target. */
   readonly environment?: string;
+  /** Sign in with a user code approved in any browser (RFC 8628), for machines without one. */
+  readonly device?: boolean;
+  /** With --device: limit the management token to this Cloud project (slug). */
+  readonly project?: string;
+  /** With --device: cap the management token to these capabilities (comma-separated). */
+  readonly capabilities?: string;
 }
 
 export interface LoginDependencies {
@@ -44,6 +62,12 @@ export interface LoginDependencies {
   readonly now?: () => number;
   readonly requestTimeoutMs?: number;
   readonly saveCredential?: typeof saveCloudCredential;
+  readonly saveManagementCredential?: typeof saveManagementCredential;
+  readonly deleteManagementCredentials?: typeof deleteManagementCredentials;
+  /** Device sign-in's wait between polls. */
+  readonly sleep?: (milliseconds: number) => Promise<void>;
+  /** Whether a person is at this terminal, so device sign-in may open a browser. */
+  readonly isInteractive?: () => boolean;
   readonly timeoutMs?: number;
 }
 
@@ -51,6 +75,9 @@ export interface LogoutDependencies {
   readonly fetch?: typeof fetch;
   readonly loadCredential?: typeof loadCloudCredential;
   readonly deleteCredential?: typeof deleteCloudCredential;
+  readonly loadManagementCredentials?: typeof loadAllManagementCredentials;
+  readonly deleteManagementCredentials?: typeof deleteManagementCredentials;
+  readonly env?: Readonly<Record<string, string | undefined>>;
   readonly requestTimeoutMs?: number;
 }
 
@@ -208,6 +235,122 @@ function tokenResponse(
   };
 }
 
+function capabilityCap(options: LoginOptions): string[] | undefined {
+  return options.capabilities === undefined ? undefined : parseCapabilityList(options.capabilities);
+}
+
+function defaultIsInteractive() {
+  return process.stdin.isTTY === true && process.stderr.isTTY === true && !isUnattended();
+}
+
+/**
+ * Browser sign-in also asks for a management token (AG-04). A Cloud without
+ * them ignores the request and returns only the deploy credential; then any
+ * older management token for this origin is dropped, so it can't outrank the
+ * sign-in that just happened.
+ */
+async function storeBrowserManagementToken(
+  body: unknown,
+  origin: string,
+  now: number,
+  dependencies: LoginDependencies,
+): Promise<StoredManagementCredential | null> {
+  let management: StoredManagementCredential | null = null;
+  try {
+    management = managementCredentialFromResponse(body, { origin, now, signedInWith: 'browser' });
+  } catch {
+    logger.warn('Cloud returned a management token the CLI could not use; continuing with the deploy credential.');
+  }
+  if (management) {
+    try {
+      const saved = await (dependencies.saveManagementCredential ?? saveManagementCredential)(management);
+      if (saved.storage === 'file') {
+        logger.warn(`The operating-system credential vault is unavailable, so the management token is stored in ${saved.path} (readable only by you).`);
+      }
+      return management;
+    } catch {
+      logger.warn('The management token could not be stored; continuing with the deploy credential.');
+    }
+  }
+  await (dependencies.deleteManagementCredentials ?? deleteManagementCredentials)({ cloudUrl: origin })
+    .catch(() => undefined);
+  return null;
+}
+
+/**
+ * `hypequery login --device` (AG-05, RFC 8628): print a user code, let a
+ * person approve it in any browser, and poll for a management token. Works
+ * over SSH, in containers and for coding agents; the browser opens only when
+ * a person is at this terminal.
+ */
+async function deviceLogin(
+  origin: string,
+  options: LoginOptions,
+  dependencies: LoginDependencies,
+) {
+  if (options.environment !== undefined) {
+    throw new CliError('USAGE', '--environment applies only to browser sign-in, not --device.', {
+      hint: 'Drop --environment; pass --project and --environment to deploy commands instead.',
+    });
+  }
+  const capabilities = capabilityCap(options);
+  const flow = {
+    fetch: dependencies.fetch,
+    now: dependencies.now,
+    sleep: dependencies.sleep,
+    requestTimeoutMs: dependencies.requestTimeoutMs,
+  };
+  const authorization = await startDeviceAuthorization({
+    origin,
+    ...(options.project !== undefined ? { project: options.project } : {}),
+    ...(capabilities ? { capabilities } : {}),
+  }, flow);
+  const minutes = Math.max(1, Math.round((authorization.expiresAt - (dependencies.now ?? Date.now)()) / 60_000));
+  logger.info(`To sign in to Hypequery Cloud, open ${authorization.verificationUri} and enter the code: ${authorization.userCode}`);
+  if (authorization.verificationUriComplete) {
+    logger.info(`Or open this link, which fills in the code: ${authorization.verificationUriComplete}`);
+  }
+  logger.info(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. Waiting for approval…`);
+  if ((dependencies.isInteractive ?? defaultIsInteractive)()) {
+    await (dependencies.openBrowser ?? open)(authorization.verificationUriComplete ?? authorization.verificationUri)
+      .catch(() => undefined);
+  }
+  const body = await pollDeviceAuthorization(origin, authorization, flow);
+  const credential = managementCredentialFromResponse(body, {
+    origin,
+    now: (dependencies.now ?? Date.now)(),
+    signedInWith: 'device',
+  });
+  if (!credential) throw new Error('Cloud returned an invalid device sign-in response.');
+  const saved = await (dependencies.saveManagementCredential ?? saveManagementCredential)(credential);
+  logger.success('Logged in to Hypequery Cloud');
+  if (saved.storage === 'file') {
+    logger.warn(`The operating-system credential vault is unavailable, so the token is stored in ${saved.path} (readable only by you).`);
+  }
+  if (credential.project) {
+    logger.info(credential.projectLimited
+      ? `Limited to project ${credential.project}`
+      : `Default project ${credential.project}`);
+  }
+  if (credential.capabilities) logger.info(`Capabilities: ${credential.capabilities.join(', ')}`);
+  logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
+  if (!credential.target) {
+    logger.info('Deploy commands need --project and --environment until Cloud names a target for this sign-in.');
+  }
+  emitResult({
+    signedIn: true,
+    method: 'device',
+    cloudUrl: origin,
+    organizationId: credential.organizationId ?? null,
+    project: credential.project ?? null,
+    projectLimited: credential.projectLimited,
+    capabilities: credential.capabilities ?? null,
+    target: credential.target ?? null,
+    expiresAt: credential.expiresAt,
+    storage: saved.storage,
+  });
+}
+
 export async function loginCommand(
   options: LoginOptions = {},
   dependencies: LoginDependencies = {},
@@ -215,6 +358,15 @@ export async function loginCommand(
   const origin = normalizeCloudOrigin(
     options.cloudUrl ?? process.env.HYPEQUERY_CLOUD_URL ?? DEFAULT_CLOUD_URL,
   );
+  if (options.device) {
+    await deviceLogin(origin, options, dependencies);
+    return;
+  }
+  if (options.project !== undefined || options.capabilities !== undefined) {
+    throw new CliError('USAGE', '--project and --capabilities apply only with --device.', {
+      hint: 'Add --device, or drop --project and --capabilities.',
+    });
+  }
   const state = randomBytes(24).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
@@ -235,9 +387,10 @@ export async function loginCommand(
     // Browser sign-in needs a person; with --no-input or in CI it would only
     // wait out the timeout.
     throw new CliError('LOGIN_NEEDS_A_PERSON', '`hypequery login` signs in through a browser, which needs a person, '
-      + 'but this run is unattended (--no-input or CI). Set HYPEQUERY_API_TOKEN with --endpoint instead.', {
+      + 'but this run is unattended (--no-input or CI). Use `hypequery login --device` to approve from another '
+      + 'device, or set HYPEQUERY_API_TOKEN.', {
       exitClass: 'auth',
-      hint: 'Set HYPEQUERY_API_TOKEN (with --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT) for unattended runs, or run `hypequery login` interactively.',
+      hint: 'Run `hypequery login --device` and approve the code from any browser, or set HYPEQUERY_API_TOKEN for unattended runs.',
     });
   }
   const callback = await callbackServer(state, dependencies.timeoutMs ?? LOGIN_TIMEOUT_MS);
@@ -263,6 +416,8 @@ export async function loginCommand(
         code,
         code_verifier: verifier,
         redirect_uri: callback.redirectUri,
+        // AG-04: also issue a management token. Older Cloud ignores this.
+        management_token: true,
       }),
       redirect: 'error',
       signal: AbortSignal.timeout(
@@ -279,12 +434,10 @@ export async function loginCommand(
       );
     }
     const body = await boundedJsonResponse(response);
-    const credential = tokenResponse(
-      body,
-      origin,
-      (dependencies.now ?? Date.now)(),
-    );
+    const now = (dependencies.now ?? Date.now)();
+    const credential = tokenResponse(body, origin, now);
     await (dependencies.saveCredential ?? saveCloudCredential)(credential);
+    const management = await storeBrowserManagementToken(body, origin, now, dependencies);
     logger.success('Logged in to Hypequery Cloud');
     // Cloud resolves the target, so print what was actually issued rather than
     // what was requested.
@@ -294,7 +447,12 @@ export async function loginCommand(
       );
     }
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
-    emitResult({ signedIn: true, target: credential.target ?? null, expiresAt: credential.expiresAt });
+    emitResult({
+      signedIn: true,
+      target: credential.target ?? null,
+      expiresAt: credential.expiresAt,
+      managementTokenExpiresAt: management?.expiresAt ?? null,
+    });
   } finally {
     callback.close();
   }
@@ -303,6 +461,7 @@ export async function loginCommand(
 export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   const load = dependencies.loadCredential ?? loadCloudCredential;
   const remove = dependencies.deleteCredential ?? deleteCloudCredential;
+  const env = dependencies.env ?? process.env;
   let credential: StoredCloudCredential | null = null;
   let unreadable = false;
   try {
@@ -313,29 +472,33 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
     unreadable = true;
     logger.warn('The stored Cloud credential could not be read; removing local state without revoking. The token will expire automatically.');
   }
-  if (!credential && !unreadable) {
+  const management = await (dependencies.loadManagementCredentials ?? loadAllManagementCredentials)()
+    .catch(() => ({ credentials: [] as StoredManagementCredential[], unreadable: 1 }));
+  if (management.unreadable > 0) {
+    unreadable = true;
+    logger.warn('A stored management token could not be read; removing it without revoking. It will expire automatically.');
+  }
+  if (env.HYPEQUERY_API_TOKEN) {
+    logger.warn('HYPEQUERY_API_TOKEN is set; commands keep using it until it is unset.');
+  }
+  if (!credential && management.credentials.length === 0 && !unreadable) {
     logger.info('You are not logged in to Hypequery Cloud.');
     emitResult({ signedIn: false, revoked: false });
     return;
   }
+  const revocation = { fetch: dependencies.fetch, requestTimeoutMs: dependencies.requestTimeoutMs };
+  let unrevoked = false;
   if (credential) {
-    try {
-      const request = dependencies.fetch ?? fetch;
-      const response = await request(new URL('/api/cli/token', credential.cloudUrl), {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${credential.token}` },
-        redirect: 'error',
-        signal: AbortSignal.timeout(
-          dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
-        ),
-      });
-      await response.body?.cancel().catch(() => undefined);
-      if (!response.ok) throw new Error(`Cloud returned HTTP ${response.status}.`);
-    } catch {
-      logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');
-    }
+    unrevoked = !(await revokeCloudToken(credential.cloudUrl, credential.token, revocation)) || unrevoked;
+  }
+  for (const stored of management.credentials) {
+    unrevoked = !(await revokeCloudToken(stored.cloudUrl, stored.token, revocation)) || unrevoked;
+  }
+  if (unrevoked) {
+    logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');
   }
   await remove();
+  await (dependencies.deleteManagementCredentials ?? deleteManagementCredentials)();
   logger.success('Logged out of Hypequery Cloud');
   emitResult({ signedIn: false });
 }
