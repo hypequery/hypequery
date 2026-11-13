@@ -12,6 +12,7 @@ import {
 } from '@/components/semantic-layer-parts';
 import { marketing } from '@/components/ui/marketing';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/dbt-metricflow';
 const TITLE = 'dbt Semantic Layer and MetricFlow vs a Code-Defined Semantic Layer';
@@ -246,7 +247,7 @@ export default function DbtMetricFlowPage() {
           </>
         ),
       }}
-      jsonLd={[spokeArticleJsonLd({ path: PATH, title: TITLE, description: DESCRIPTION, dateModified: '2026-11-10' }), faqJsonLd(faqItems)]}
+      jsonLd={[spokeArticleJsonLd({ path: PATH, title: TITLE, description: DESCRIPTION, dateModified: updatedFor(PATH) }), faqJsonLd(faqItems)]}
     >
       <HubSection
         id="how-it-works"

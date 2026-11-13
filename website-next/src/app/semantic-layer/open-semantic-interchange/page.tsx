@@ -11,6 +11,7 @@ import {
   spokeMetadata,
 } from '@/components/semantic-layer-parts';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/open-semantic-interchange';
 const TITLE = 'Open Semantic Interchange (OSI), Now Apache Ossie, Explained';
@@ -240,7 +241,7 @@ export default function OpenSemanticInterchangePage() {
           </>
         ),
       }}
-      jsonLd={[spokeArticleJsonLd({ path: PATH, title: TITLE, description: DESCRIPTION, dateModified: '2026-11-10' }), faqJsonLd(faqItems)]}
+      jsonLd={[spokeArticleJsonLd({ path: PATH, title: TITLE, description: DESCRIPTION, dateModified: updatedFor(PATH) }), faqJsonLd(faqItems)]}
     >
       <HubSection
         eyebrow="Why it exists"

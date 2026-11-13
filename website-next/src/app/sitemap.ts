@@ -9,6 +9,8 @@ import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { entryHref, registryEntries } from '@/lib/examples';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
+import { getCompareArticle } from '@/lib/compare-article';
+import { maybeUpdatedFor } from '@/data/page-dates';
 
 const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.slug), ...retiredBlogSlugs]);
 
@@ -65,8 +67,16 @@ const staticRoutes = [
   '/tinybird-alternative',
   // Embedded analytics comparison pages. Static routes under /compare, not compare-pages.ts entries.
   ...embeddedAnalyticsComparePages.map((page) => page.href),
-  ...comparePages.map((page) => page.href),
 ];
+
+/** The date a compare page shows: its update when newer than the publish date, else the publish date. */
+async function compareLastModified(slug: string): Promise<Date | undefined> {
+  const article = await getCompareArticle(slug);
+  const updated = article?.updated?.slice(0, 10);
+  const published = article?.date?.slice(0, 10);
+  const date = updated && (!published || updated > published) ? updated : published;
+  return date ? new Date(date) : undefined;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, docParams] = await Promise.all([
@@ -74,9 +84,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(source.generateParams()),
   ]);
 
-  const staticEntries: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
-    url: absoluteUrl(route).toString(),
-  }));
+  const staticEntries: MetadataRoute.Sitemap = staticRoutes.map((route) => {
+    const updated = maybeUpdatedFor(route);
+    return { url: absoluteUrl(route).toString(), lastModified: updated ? new Date(updated) : undefined };
+  });
+
+  const compareEntries: MetadataRoute.Sitemap = await Promise.all(
+    comparePages.map(async (page) => ({
+      url: absoluteUrl(page.href).toString(),
+      lastModified: await compareLastModified(page.slug),
+    })),
+  );
 
   const docsEntries: MetadataRoute.Sitemap = docParams.map((params) => {
     const slug = Array.isArray(params.slug) ? params.slug : [];
@@ -105,5 +123,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: absoluteUrl(entryHref(entry)).toString(),
   }));
 
-  return [...staticEntries, ...functionEntries, ...exampleEntries, ...docsEntries, ...blogEntries];
+  return [...staticEntries, ...compareEntries, ...functionEntries, ...exampleEntries, ...docsEntries, ...blogEntries];
 }

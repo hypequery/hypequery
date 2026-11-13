@@ -7,6 +7,7 @@ import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { hubs } from '@/data/hubs';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/embedded-analytics';
 const TITLE = 'Embedded Analytics for Developers: Build vs Buy';
@@ -308,7 +309,7 @@ const articleJsonLd = {
   headline: TITLE,
   description: DESCRIPTION,
   url: absoluteUrl(PATH).toString(),
-  dateModified: '2026-11-12',
+  dateModified: updatedFor(PATH),
   author: { '@type': 'Organization', name: 'hypequery' },
   publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
 };
