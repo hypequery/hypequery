@@ -294,6 +294,7 @@
             "--release-output",
             "--no-source",
             "--replace-restored",
+            "--take-ownership",
             "--mcp-config",
             "--draft",
             "--client",
@@ -1791,6 +1792,7 @@
       "--no-source",
       "--endpoint",
       "--replace-restored",
+      "--take-ownership",
       "--mcp-config",
       "--draft",
       "--client"
@@ -1809,6 +1811,7 @@
       "--release",
       "--endpoint",
       "--replace-restored",
+      "--take-ownership",
       "--draft"
     ],
     "deployment:status": [

@@ -377,3 +377,20 @@ export async function promptContinueWithoutDb(): Promise<boolean> {
 
   return response.continue ?? false;
 }
+
+/**
+ * Before a deploy replaces a model built in hypequery Cloud (decision 0020).
+ * Defaults to no: replacing it moves the project to code.
+ */
+export async function confirmTakeOwnership(project: string): Promise<boolean> {
+  logger.warn(`The live model of ${project} was built in hypequery Cloud.`);
+  logger.info('Deploying replaces it, and the project is then managed in code: its model can no longer be edited in Cloud or from Claude.');
+  logger.info('Rolling back to a Cloud version in the dashboard returns it to Cloud.');
+  const { confirmed } = await ask({
+    type: 'confirm',
+    name: 'confirmed',
+    message: 'Replace it with this code?',
+    initial: false,
+  }, '--take-ownership');
+  return confirmed === true;
+}

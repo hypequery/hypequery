@@ -27,6 +27,9 @@ Changing the live release takes effect without a redeploy, because the release a
 - Retrying an identical deploy has no side effects.
 - If you restored an older release, the next deploy will not silently replace it. Pass `--replace-restored` when you
   intend to.
+- A project's model lives in one place: hypequery Cloud or your repository, and it's edited where it lives. If the live
+  model was built in Cloud, deploying from code replaces it and the project is then managed in code. The CLI asks first
+  in a terminal; in CI, pass `--take-ownership`. Rolling back to a version built in Cloud returns the project to Cloud.
 
 ## Source snapshots
 
