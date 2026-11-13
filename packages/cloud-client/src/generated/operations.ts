@@ -56,13 +56,6 @@ export const CLOUD_ERRORS = {
     hint: "List projects (`projects.list`) and use one of their slugs.",
     docsUrl: "https://hypequery.com/docs/errors/project-not-found",
   },
-  PROJECT_HAS_SEVERAL_TARGETS: {
-    status: 409,
-    category: "unavailable",
-    retryable: false,
-    hint: "This project still has several environments; contact hypequery support to finish moving it to projects only.",
-    docsUrl: "https://hypequery.com/docs/errors/project-has-several-targets",
-  },
   VERSION_NOT_FOUND: {
     status: 404,
     category: "correctable_input",
@@ -147,6 +140,13 @@ export const CLOUD_ERRORS = {
     hint: "Read it again, then retry with the new expectedRevision.",
     docsUrl: "https://hypequery.com/docs/errors/stale-revision",
   },
+  REQUEST_NOT_FOUND: {
+    status: 404,
+    category: "correctable_input",
+    retryable: false,
+    hint: "Check the request ID and project: request history keeps seven days, and search it with `logs.query`.",
+    docsUrl: "https://hypequery.com/docs/errors/request-not-found",
+  },
   TENANT_NOT_FOUND: {
     status: 404,
     category: "correctable_input",
@@ -224,6 +224,27 @@ export const CLOUD_ERRORS = {
     hint: "List keys (`apiKeys.list` or `deployKeys.list`) and use an active key's id.",
     docsUrl: "https://hypequery.com/docs/errors/key-not-found",
   },
+  SIGNING_KEY_NOT_FOUND: {
+    status: 404,
+    category: "correctable_input",
+    retryable: false,
+    hint: "List signing keys (`signingKeys.list`) and use an active key's id.",
+    docsUrl: "https://hypequery.com/docs/errors/signing-key-not-found",
+  },
+  SIGNING_KEY_LIMIT: {
+    status: 409,
+    category: "correctable_input",
+    retryable: false,
+    hint: "Revoke a signing key no longer in use (`signingKeys.revoke`), then create the new one.",
+    docsUrl: "https://hypequery.com/docs/errors/signing-key-limit",
+  },
+  MANAGEMENT_TOKEN_NOT_FOUND: {
+    status: 404,
+    category: "correctable_input",
+    retryable: false,
+    hint: "List your tokens with `managementTokens.list` and use an active token's id.",
+    docsUrl: "https://hypequery.com/docs/errors/management-token-not-found",
+  },
   MEMBER_NOT_FOUND: {
     status: 404,
     category: "correctable_input",
@@ -293,6 +314,13 @@ export const CLOUD_ERRORS = {
     retryable: false,
     hint: "Show the user what will change; once they agree, repeat the call with `confirm: true`.",
     docsUrl: "https://hypequery.com/docs/errors/confirmation-required",
+  },
+  RATE_LIMITED: {
+    status: 429,
+    category: "budget_exceeded",
+    retryable: true,
+    hint: "Wait before trying again; the message says how long. Carry on with the task meanwhile.",
+    docsUrl: "https://hypequery.com/docs/errors/rate-limited",
   },
   INTERNAL: {
     status: 500,
@@ -683,6 +711,95 @@ export interface DraftsImpactInput {
 /** Output of `drafts.impact`. */
 export interface DraftsImpactOutput {
   impact: Record<string, unknown>;
+}
+
+/** Input for `drafts.evidence`. */
+export interface DraftsEvidenceInput {
+  project: string;
+  /** @format uuid */
+  draft: string;
+}
+
+/** Output of `drafts.evidence`. */
+export interface DraftsEvidenceOutput {
+  /** null for a draft with no working model. */
+  revision: number | null;
+  samplePolicy: "all" | "detected" | "none";
+  entries: Array<{
+    id: string;
+    logicalKey: string;
+    family: string;
+    kind: "fact" | "decision" | "assumption" | "rejected";
+    claim: string;
+    evidence: string;
+    impact: string;
+    confidence: "high" | "medium" | "low";
+    confidenceCeiling?: "medium" | "low";
+    appliesTo: {
+      tables: Array<string>;
+      measures: Array<string>;
+    };
+    status: "active" | "stale" | "superseded";
+    recordedAt: string;
+    requiredChecks?: Array<string>;
+    check?: {
+      id: string;
+      outcome: "passed" | "failed" | "skipped";
+      relationship?: string;
+      applicable?: boolean;
+      reason?: string;
+    };
+    document?: {
+      proposalId: string;
+      document: string;
+      section: string;
+      change: string;
+      contradicts: Array<string>;
+      state: string;
+    };
+    /** Measured proof exists; it stays with the customer. */
+    hasProof: boolean;
+    /** What was left out of this entry under the sample policy. */
+    withheld: Array<"proof" | "sample-values">;
+  }>;
+  /** Entries of a kind not yet cleared for the model, left out entirely. */
+  omitted: number;
+}
+
+/** Input for `drafts.replay`. */
+export interface DraftsReplayInput {
+  project: string;
+  /** @format uuid */
+  draft: string;
+  /** The saved release you reviewed (releaseIdentity from drafts_impact). */
+  releaseIdentity: string;
+  /** The Production it was compared with (publishedRevision from drafts_impact). */
+  publishedRevision: string;
+}
+
+/** Output of `drafts.replay`. */
+export interface DraftsReplayOutput {
+  replay: {
+    results: Array<{
+      dataset: string;
+      published: {
+        /** The HTTP status; null when it didn't run. */
+        status: number | null;
+        rows: number | null;
+      };
+      draft: {
+        /** The HTTP status; null when it didn't run. */
+        status: number | null;
+        rows: number | null;
+      };
+      /** truncated: a full page may be any subset of the result, so not compared. */
+      outcome: "same" | "different" | "truncated" | "not-compared";
+    }>;
+    /** Queries chosen to replay. */
+    selected: number;
+    /** The time limit stopped the replay early. */
+    stopped: boolean;
+  };
 }
 
 /** Input for `drafts.update`. */
@@ -1076,6 +1193,22 @@ export interface LogsQueryOutput {
   entries: Array<Record<string, unknown>>;
   summary: Record<string, unknown>;
   nextCursor: string | null;
+  retentionDays: number;
+}
+
+/** Input for `logs.get`. */
+export interface LogsGetInput {
+  project: string;
+  /**
+   * The x-hypequery-request-id header of a REST answer, or com.hypequery/requestId in an MCP result's _meta.
+   * @format uuid
+   */
+  requestId: string;
+}
+
+/** Output of `logs.get`. */
+export interface LogsGetOutput {
+  entry: Record<string, unknown>;
   retentionDays: number;
 }
 
@@ -1478,6 +1611,114 @@ export interface OidcClientRemoveOutput {
   removed: true;
 }
 
+/** Input for `signingKeys.list`. */
+export interface SigningKeysListInput {
+  project: string;
+}
+
+/** Output of `signingKeys.list`. */
+export interface SigningKeysListOutput {
+  keys: Array<{
+    id: string;
+    kid: string;
+    label: string;
+    publicJwk: Record<string, unknown>;
+    createdAt: string;
+    revokedAt: string | null;
+    active: boolean;
+  }>;
+  audience: string;
+  claims: Record<string, unknown>;
+  maxLifetimeSeconds: number;
+}
+
+/** Input for `signingKeys.create`. */
+export interface SigningKeysCreateInput {
+  label: string;
+  /** @default [] */
+  roles?: Array<string>;
+  /** @default [] */
+  scopes?: Array<string>;
+  project: string;
+}
+
+/** Output of `signingKeys.create`. */
+export interface SigningKeysCreateOutput {
+  key: {
+    id: string;
+    kid: string;
+    label: string;
+    publicJwk: Record<string, unknown>;
+    createdAt: string;
+    revokedAt: string | null;
+    active: boolean;
+  };
+  /** A private JWK (JSON). Store it in your server's secrets. */
+  privateKey: string;
+  audience: string;
+  claims: Record<string, unknown>;
+  maxLifetimeSeconds: number;
+}
+
+/** Input for `signingKeys.revoke`. */
+export interface SigningKeysRevokeInput {
+  project: string;
+  /** @format uuid */
+  key: string;
+  /** This operation is destructive: set `confirm: true` once the user has agreed to it. The server refuses it otherwise (CONFIRMATION_REQUIRED). */
+  confirm: true;
+}
+
+/** Output of `signingKeys.revoke`. */
+export interface SigningKeysRevokeOutput {
+  revoked: true;
+}
+
+/** Input for `customerApp.get`. */
+export interface CustomerAppGetInput {
+  project: string;
+}
+
+/** Output of `customerApp.get`. */
+export interface CustomerAppGetOutput {
+  listing: {
+    enabled: boolean;
+    displayName: string;
+    discoveryDomains: Array<string>;
+    revision: number;
+    updatedAt: string | null;
+  };
+}
+
+/** Input for `customerApp.set`. */
+export interface CustomerAppSetInput {
+  /** Customers can find this company in the hypequery app. */
+  enabled: boolean;
+  /** The company name customers search for and see. */
+  displayName: string;
+  /**
+   * Email domains of your customers' users, such as northwind.com. No webmail.
+   * @default []
+   */
+  discoveryDomains?: Array<string>;
+  /** From customerApp.get; 0 before the first save. */
+  expectedRevision: number;
+  project: string;
+  /** This operation is destructive: set `confirm: true` once the user has agreed to it. The server refuses it otherwise (CONFIRMATION_REQUIRED). */
+  confirm: true;
+}
+
+/** Output of `customerApp.set`. */
+export interface CustomerAppSetOutput {
+  listing: {
+    enabled: boolean;
+    displayName: string;
+    discoveryDomains: Array<string>;
+    revision: number;
+    updatedAt: string | null;
+  };
+}
+
 /** Input for `members.list`. */
 export type MembersListInput = Record<string, never>;
 
@@ -1509,6 +1750,31 @@ export interface MembersCancelInvitationInput {
 /** Output of `members.cancelInvitation`. */
 export interface MembersCancelInvitationOutput {
   canceled: true;
+}
+
+/** Input for `members.changeRole`. */
+export interface MembersChangeRoleInput {
+  member: string;
+  role: "member" | "admin" | "owner";
+  /** This operation is destructive: set `confirm: true` once the user has agreed to it. The server refuses it otherwise (CONFIRMATION_REQUIRED). */
+  confirm: true;
+}
+
+/** Output of `members.changeRole`. */
+export interface MembersChangeRoleOutput {
+  member: Record<string, unknown>;
+}
+
+/** Input for `members.remove`. */
+export interface MembersRemoveInput {
+  member: string;
+  /** This operation is destructive: set `confirm: true` once the user has agreed to it. The server refuses it otherwise (CONFIRMATION_REQUIRED). */
+  confirm: true;
+}
+
+/** Output of `members.remove`. */
+export interface MembersRemoveOutput {
+  removed: true;
 }
 
 /** Input for `org.accessPolicy`. */
@@ -1619,6 +1885,67 @@ export interface ApiKeysRevokeOutput {
   revoked: true;
 }
 
+/** Input for `managementTokens.list`. */
+export type ManagementTokensListInput = Record<string, never>;
+
+/** Output of `managementTokens.list`. */
+export interface ManagementTokensListOutput {
+  tokens: Array<{
+    id: string;
+    label: string;
+    tokenPrefix: string;
+    createdVia: string;
+    project: string | null;
+    capabilities: Array<string> | null;
+    createdAt: string;
+    expiresAt: string;
+    lastUsedAt: string | null;
+    revokedAt: string | null;
+    current: boolean;
+  }>;
+}
+
+/** Input for `managementTokens.revoke`. */
+export interface ManagementTokensRevokeInput {
+  /** @format uuid */
+  token: string;
+  /** This operation is destructive: set `confirm: true` once the user has agreed to it. The server refuses it otherwise (CONFIRMATION_REQUIRED). */
+  confirm: true;
+}
+
+/** Output of `managementTokens.revoke`. */
+export interface ManagementTokensRevokeOutput {
+  revoked: true;
+}
+
+/** Input for `feedback.create`. */
+export interface FeedbackCreateInput {
+  /** bug: something failed; confusing: a description, hint or error misled you; missing: a capability you needed; wrong_result: an answer looked wrong; other. */
+  kind: "bug" | "confusing" | "missing" | "wrong_result" | "other";
+  /** One sentence: what went wrong. */
+  summary: string;
+  /** What happened, including the error message or code you saw. */
+  details?: string;
+  /** What you tried, in order. */
+  attempted?: string;
+  /** What you expected to happen instead. */
+  expected?: string;
+  /** The tool or operation the report is about, e.g. query_dataset. */
+  tool?: string;
+  /** The error code you got, if any, e.g. MCP_INVALID_ARGUMENTS. */
+  errorCode?: string;
+  /** high: it blocked the task; medium: you worked around it; low: a papercut. */
+  severity?: "low" | "medium" | "high";
+  /** The project's slug, from projects_list, when the report is about one project. */
+  project?: string;
+}
+
+/** Output of `feedback.create`. */
+export interface FeedbackCreateOutput {
+  id: string;
+  received: true;
+}
+
 /** Input and output types for every operation, by name. */
 export interface CloudOperationTypes {
   "projects.list": {
@@ -1726,6 +2053,16 @@ export interface CloudOperationTypes {
     output: DraftsImpactOutput;
     inputRequired: true;
   };
+  "drafts.evidence": {
+    input: DraftsEvidenceInput;
+    output: DraftsEvidenceOutput;
+    inputRequired: true;
+  };
+  "drafts.replay": {
+    input: DraftsReplayInput;
+    output: DraftsReplayOutput;
+    inputRequired: true;
+  };
   "drafts.update": {
     input: DraftsUpdateInput;
     output: DraftsUpdateOutput;
@@ -1819,6 +2156,11 @@ export interface CloudOperationTypes {
   "logs.query": {
     input: LogsQueryInput;
     output: LogsQueryOutput;
+    inputRequired: true;
+  };
+  "logs.get": {
+    input: LogsGetInput;
+    output: LogsGetOutput;
     inputRequired: true;
   };
   "usage.get": {
@@ -1956,6 +2298,31 @@ export interface CloudOperationTypes {
     output: OidcClientRemoveOutput;
     inputRequired: true;
   };
+  "signingKeys.list": {
+    input: SigningKeysListInput;
+    output: SigningKeysListOutput;
+    inputRequired: true;
+  };
+  "signingKeys.create": {
+    input: SigningKeysCreateInput;
+    output: SigningKeysCreateOutput;
+    inputRequired: true;
+  };
+  "signingKeys.revoke": {
+    input: SigningKeysRevokeInput;
+    output: SigningKeysRevokeOutput;
+    inputRequired: true;
+  };
+  "customerApp.get": {
+    input: CustomerAppGetInput;
+    output: CustomerAppGetOutput;
+    inputRequired: true;
+  };
+  "customerApp.set": {
+    input: CustomerAppSetInput;
+    output: CustomerAppSetOutput;
+    inputRequired: true;
+  };
   "members.list": {
     input: MembersListInput;
     output: MembersListOutput;
@@ -1969,6 +2336,16 @@ export interface CloudOperationTypes {
   "members.cancelInvitation": {
     input: MembersCancelInvitationInput;
     output: MembersCancelInvitationOutput;
+    inputRequired: true;
+  };
+  "members.changeRole": {
+    input: MembersChangeRoleInput;
+    output: MembersChangeRoleOutput;
+    inputRequired: true;
+  };
+  "members.remove": {
+    input: MembersRemoveInput;
+    output: MembersRemoveOutput;
     inputRequired: true;
   };
   "org.accessPolicy": {
@@ -2011,6 +2388,21 @@ export interface CloudOperationTypes {
     output: ApiKeysRevokeOutput;
     inputRequired: true;
   };
+  "managementTokens.list": {
+    input: ManagementTokensListInput;
+    output: ManagementTokensListOutput;
+    inputRequired: false;
+  };
+  "managementTokens.revoke": {
+    input: ManagementTokensRevokeInput;
+    output: ManagementTokensRevokeOutput;
+    inputRequired: true;
+  };
+  "feedback.create": {
+    input: FeedbackCreateInput;
+    output: FeedbackCreateOutput;
+    inputRequired: true;
+  };
 }
 
 /** Route and policy for every operation, by name. */
@@ -2035,7 +2427,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "projects.connectInfo": {
     name: "projects.connectInfo",
@@ -2046,13 +2438,13 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/connect-info",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "projects.create": {
     name: "projects.create",
     summary: "Create a project: one ClickHouse connection, one live data model, its own URLs.",
     scope: "organization",
-    capability: "environment:create",
+    capability: "project:create",
     destructive: false,
     method: "POST",
     path: "/projects",
@@ -2063,12 +2455,12 @@ export const OPERATIONS = {
     name: "projects.rename",
     summary: "Change a project's display name; its slug and URLs stay the same.",
     scope: "project",
-    capability: "environment:create",
+    capability: "project:create",
     destructive: false,
     method: "PATCH",
     path: "/projects/{project}",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "releases.status": {
     name: "releases.status",
@@ -2079,7 +2471,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/releases/live",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "releases.list": {
     name: "releases.list",
@@ -2090,7 +2482,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/releases",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "releases.get": {
     name: "releases.get",
@@ -2101,7 +2493,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/releases/{version}",
     pathParams: ["project","version"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED","VERSION_NOT_FOUND"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED","VERSION_NOT_FOUND"],
   },
   "releases.rollback": {
     name: "releases.rollback",
@@ -2112,7 +2504,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/releases/{version}/rollback",
     pathParams: ["project","version"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","RELEASE_CHANGE_REFUSED","RELEASE_MOVED","UNAUTHENTICATED","VERSION_NOT_FOUND"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RELEASE_CHANGE_REFUSED","RELEASE_MOVED","UNAUTHENTICATED","VERSION_NOT_FOUND"],
   },
   "drafts.list": {
     name: "drafts.list",
@@ -2123,7 +2515,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.open": {
     name: "drafts.open",
@@ -2134,7 +2526,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/open",
     pathParams: ["project"],
-    errors: ["CONNECTION_NOT_SAVED","DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONNECTION_NOT_SAVED","DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.save": {
     name: "drafts.save",
@@ -2145,7 +2537,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/save",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.review": {
     name: "drafts.review",
@@ -2156,7 +2548,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/review",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
   },
   "drafts.checks": {
     name: "drafts.checks",
@@ -2167,7 +2559,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/checks",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_CHECKABLE","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_CHECKABLE","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.promote": {
     name: "drafts.promote",
@@ -2178,7 +2570,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/promote",
     pathParams: ["project","draft"],
-    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","OWNERSHIP_CHANGE_REQUIRED","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","RELEASE_CHANGE_REFUSED","RELEASE_MOVED","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","OWNERSHIP_CHANGE_REQUIRED","PROJECT_NOT_FOUND","RELEASE_CHANGE_REFUSED","RELEASE_MOVED","UNAUTHENTICATED"],
   },
   "drafts.get": {
     name: "drafts.get",
@@ -2189,7 +2581,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.rename": {
     name: "drafts.rename",
@@ -2200,7 +2592,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/drafts/{draft}",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NAME_TAKEN","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["DRAFT_NAME_TAKEN","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.delete": {
     name: "drafts.delete",
@@ -2211,7 +2603,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/drafts/{draft}",
     pathParams: ["project","draft"],
-    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.archived": {
     name: "drafts.archived",
@@ -2222,7 +2614,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/archive",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.reopen": {
     name: "drafts.reopen",
@@ -2233,7 +2625,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/reopen",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.impact": {
     name: "drafts.impact",
@@ -2244,7 +2636,29 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/impact",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
+  },
+  "drafts.evidence": {
+    name: "drafts.evidence",
+    summary: "Read a draft's evidence ledger: what discovery found, the checks run, the user's decisions and confirmations, each with its confidence, status and what it applies to. Proof stays with the customer, and sample values the sample policy withholds are cut out and marked.",
+    scope: "project",
+    capability: "deployment:publish",
+    destructive: false,
+    method: "GET",
+    path: "/projects/{project}/drafts/{draft}/evidence",
+    pathParams: ["project","draft"],
+    errors: ["DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "drafts.replay": {
+    name: "drafts.replay",
+    summary: "Replay a few of the last week's queries on the datasets a saved draft changes, against Production and the draft, and say whether each answer is the same. Only statuses, row counts and outcomes are returned, never rows.",
+    scope: "project",
+    capability: "deployment:publish",
+    destructive: false,
+    method: "GET",
+    path: "/projects/{project}/drafts/{draft}/replay",
+    pathParams: ["project","draft"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
   },
   "drafts.update": {
     name: "drafts.update",
@@ -2255,7 +2669,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/update",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED","UPDATE_CONFLICTS"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED","UPDATE_CONFLICTS"],
   },
   "drafts.applyUpdate": {
     name: "drafts.applyUpdate",
@@ -2266,7 +2680,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/update",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED","UPDATE_CONFLICTS"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED","UPDATE_CONFLICTS"],
   },
   "drafts.refreshBase": {
     name: "drafts.refreshBase",
@@ -2277,7 +2691,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/refresh-base",
     pathParams: ["project","draft"],
-    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.setup": {
     name: "drafts.setup",
@@ -2288,7 +2702,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/drafts/{draft}/setup",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.findings": {
     name: "drafts.findings",
@@ -2299,7 +2713,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/findings",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.answer": {
     name: "drafts.answer",
@@ -2310,7 +2724,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/answers",
     pathParams: ["project","draft"],
-    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","DRAFT_NOT_READY","DRAFT_READ_ONLY","FINDINGS_CHANGED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","DRAFT_NOT_FOUND","DRAFT_NOT_READY","DRAFT_READ_ONLY","FINDINGS_CHANGED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "drafts.runStatus": {
     name: "drafts.runStatus",
@@ -2321,7 +2735,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/drafts/{draft}/run",
     pathParams: ["project","draft"],
-    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "drafts.run": {
     name: "drafts.run",
@@ -2332,7 +2746,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/drafts/{draft}/run",
     pathParams: ["project","draft"],
-    errors: ["CONNECTION_NOT_SAVED","DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","RUN_CONFLICT","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["CONNECTION_NOT_SAVED","DRAFT_NOT_FOUND","DRAFT_READ_ONLY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RUN_CONFLICT","STALE_REVISION","UNAUTHENTICATED"],
   },
   "customerScope.list": {
     name: "customerScope.list",
@@ -2343,7 +2757,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/onboarding/customer-scope",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerScope.confirmShared": {
     name: "customerScope.confirmShared",
@@ -2354,7 +2768,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/onboarding/customer-scope/confirm",
     pathParams: ["project"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOTHING_TO_CONFIRM","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOTHING_TO_CONFIRM","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "samplePolicy.get": {
     name: "samplePolicy.get",
@@ -2365,7 +2779,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/sample-policy",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "samplePolicy.set": {
     name: "samplePolicy.set",
@@ -2376,7 +2790,7 @@ export const OPERATIONS = {
     method: "PUT",
     path: "/projects/{project}/sample-policy",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.get": {
     name: "connections.get",
@@ -2387,7 +2801,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/connection",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.save": {
     name: "connections.save",
@@ -2398,7 +2812,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/connection",
     pathParams: ["project"],
-    errors: ["CONNECTION_AUTH_FAILED","CONNECTION_DATABASE_LOCKED","CONNECTION_QUERY_FAILED","CONNECTION_UNREACHABLE","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONNECTION_AUTH_FAILED","CONNECTION_DATABASE_LOCKED","CONNECTION_QUERY_FAILED","CONNECTION_UNREACHABLE","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.link": {
     name: "connections.link",
@@ -2409,7 +2823,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/connection/link",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.test": {
     name: "connections.test",
@@ -2420,7 +2834,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/connection/test",
     pathParams: ["project"],
-    errors: ["CONNECTION_AUTH_FAILED","CONNECTION_NOT_SAVED","CONNECTION_QUERY_FAILED","CONNECTION_UNREACHABLE","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONNECTION_AUTH_FAILED","CONNECTION_NOT_SAVED","CONNECTION_QUERY_FAILED","CONNECTION_UNREACHABLE","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.queryHistory": {
     name: "connections.queryHistory",
@@ -2431,7 +2845,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/connection/query-history",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "connections.setQueryHistory": {
     name: "connections.setQueryHistory",
@@ -2442,7 +2856,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/connection/query-history",
     pathParams: ["project"],
-    errors: ["CONNECTION_NOT_SAVED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["CONNECTION_NOT_SAVED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "logs.query": {
     name: "logs.query",
@@ -2453,7 +2867,18 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/logs",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "logs.get": {
+    name: "logs.get",
+    summary: "Explain one answer by its request ID: the customer, end user (as a pseudonym), dataset, release and version, semantic query, timing and row count.",
+    scope: "project",
+    capability: "workspace:view",
+    destructive: false,
+    method: "GET",
+    path: "/projects/{project}/logs/{requestId}",
+    pathParams: ["project","requestId"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","REQUEST_NOT_FOUND","UNAUTHENTICATED"],
   },
   "usage.get": {
     name: "usage.get",
@@ -2486,7 +2911,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/tenants",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "tenants.create": {
     name: "tenants.create",
@@ -2497,7 +2922,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/customers/tenants",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","TENANT_EXISTS","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","TENANT_EXISTS","UNAUTHENTICATED"],
   },
   "tenants.update": {
     name: "tenants.update",
@@ -2508,7 +2933,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/customers/tenants/{tenant}",
     pathParams: ["project","tenant"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","TENANT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","TENANT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "tenants.remove": {
     name: "tenants.remove",
@@ -2519,7 +2944,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/customers/tenants/{tenant}",
     pathParams: ["project","tenant"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","TENANT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","TENANT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "permissionSets.list": {
     name: "permissionSets.list",
@@ -2530,7 +2955,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/permission-sets",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "permissionSets.create": {
     name: "permissionSets.create",
@@ -2541,7 +2966,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/customers/permission-sets",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_EXISTS","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_EXISTS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "permissionSets.update": {
     name: "permissionSets.update",
@@ -2552,7 +2977,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/customers/permission-sets/{permissionSet}",
     pathParams: ["project","permissionSet"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_NOT_FOUND","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_NOT_FOUND","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "permissionSets.remove": {
     name: "permissionSets.remove",
@@ -2563,7 +2988,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/customers/permission-sets/{permissionSet}",
     pathParams: ["project","permissionSet"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_NOT_FOUND","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PERMISSION_SET_NOT_FOUND","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerLimits.get": {
     name: "customerLimits.get",
@@ -2574,7 +2999,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/limits",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerLimits.set": {
     name: "customerLimits.set",
@@ -2585,7 +3010,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/customers/limits",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "tenantGrants.list": {
     name: "tenantGrants.list",
@@ -2596,7 +3021,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/mcp-grants",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "tenantGrants.revokeTenant": {
     name: "tenantGrants.revokeTenant",
@@ -2607,7 +3032,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/customers/mcp-grants/revoke-tenant",
     pathParams: ["project"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "tenantGrants.revoke": {
     name: "tenantGrants.revoke",
@@ -2618,7 +3043,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/customers/mcp-grants/{grant}",
     pathParams: ["project","grant"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","GRANT_NOT_FOUND","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","GRANT_NOT_FOUND","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerAccess.get": {
     name: "customerAccess.get",
@@ -2629,7 +3054,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/access",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerAccess.setMode": {
     name: "customerAccess.setMode",
@@ -2640,7 +3065,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/customers/access",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerAccess.createKey": {
     name: "customerAccess.createKey",
@@ -2651,7 +3076,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/customers/access/key",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerAccess.prove": {
     name: "customerAccess.prove",
@@ -2662,7 +3087,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/customers/access/prove",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerSettings.get": {
     name: "customerSettings.get",
@@ -2673,7 +3098,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/settings",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "customerSettings.set": {
     name: "customerSettings.set",
@@ -2684,7 +3109,7 @@ export const OPERATIONS = {
     method: "PATCH",
     path: "/projects/{project}/customers/settings",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "jwtIssuer.get": {
     name: "jwtIssuer.get",
@@ -2695,7 +3120,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/jwt-issuer",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "jwtIssuer.save": {
     name: "jwtIssuer.save",
@@ -2706,7 +3131,7 @@ export const OPERATIONS = {
     method: "PUT",
     path: "/projects/{project}/customers/jwt-issuer",
     pathParams: ["project"],
-    errors: ["ALREADY_CONFIGURED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","ISSUER_UNREADABLE","NOT_CONFIGURED","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["ALREADY_CONFIGURED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","ISSUER_UNREADABLE","NOT_CONFIGURED","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "jwtIssuer.remove": {
     name: "jwtIssuer.remove",
@@ -2717,7 +3142,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/customers/jwt-issuer",
     pathParams: ["project"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOT_CONFIGURED","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOT_CONFIGURED","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "oidcClient.get": {
     name: "oidcClient.get",
@@ -2728,7 +3153,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/customers/oidc-client",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "oidcClient.save": {
     name: "oidcClient.save",
@@ -2739,7 +3164,7 @@ export const OPERATIONS = {
     method: "PUT",
     path: "/projects/{project}/customers/oidc-client",
     pathParams: ["project"],
-    errors: ["ALREADY_CONFIGURED","CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","ISSUER_REQUIRED","ISSUER_UNREADABLE","NOT_CONFIGURED","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
+    errors: ["ALREADY_CONFIGURED","CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","ISSUER_REQUIRED","ISSUER_UNREADABLE","NOT_CONFIGURED","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "oidcClient.remove": {
     name: "oidcClient.remove",
@@ -2750,7 +3175,62 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/customers/oidc-client",
     pathParams: ["project"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOT_CONFIGURED","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOT_CONFIGURED","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "signingKeys.list": {
+    name: "signingKeys.list",
+    summary: "List the project's managed signing keys for in-app agent tokens (public keys only), with the audience and claims tokens carry.",
+    scope: "project",
+    capability: "embed:view",
+    destructive: false,
+    method: "GET",
+    path: "/projects/{project}/customers/signing-keys",
+    pathParams: ["project"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "signingKeys.create": {
+    name: "signingKeys.create",
+    summary: "Create a signing key your backend mints in-app agent tokens with. Its private key is returned once and never stored.",
+    scope: "project",
+    capability: "credentials:manage",
+    destructive: false,
+    method: "POST",
+    path: "/projects/{project}/customers/signing-keys",
+    pathParams: ["project"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","SIGNING_KEY_LIMIT","UNAUTHENTICATED"],
+  },
+  "signingKeys.revoke": {
+    name: "signingKeys.revoke",
+    summary: "Revoke a signing key; every token it signed is refused from the next request, even before it expires.",
+    scope: "project",
+    capability: "credentials:manage",
+    destructive: true,
+    method: "DELETE",
+    path: "/projects/{project}/customers/signing-keys/{key}",
+    pathParams: ["project","key"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","SIGNING_KEY_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "customerApp.get": {
+    name: "customerApp.get",
+    summary: "Show whether customers can find this company in the hypequery app, its display name and discovery email domains.",
+    scope: "project",
+    capability: "embed:view",
+    destructive: false,
+    method: "GET",
+    path: "/projects/{project}/customers/app-listing",
+    pathParams: ["project"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "customerApp.set": {
+    name: "customerApp.set",
+    summary: "List or unlist this company in the hypequery app, with the name customers search for and their email domains. Unlisting keeps existing connections.",
+    scope: "project",
+    capability: "embed:manage",
+    destructive: true,
+    method: "PUT",
+    path: "/projects/{project}/customers/app-listing",
+    pathParams: ["project"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","NOT_CONFIGURED","PROJECT_NOT_FOUND","STALE_REVISION","UNAUTHENTICATED"],
   },
   "members.list": {
     name: "members.list",
@@ -2765,14 +3245,14 @@ export const OPERATIONS = {
   },
   "members.invite": {
     name: "members.invite",
-    summary: "Invite someone by email as a Developer (member) or an Admin; they get an email to accept.",
+    summary: "Invite someone by email as a Developer (member) or an Admin; they get an email to accept. The organisation's approved email domains apply.",
     scope: "organization",
     capability: "organization:manage",
     destructive: false,
     method: "POST",
     path: "/org/members/invitations",
     pathParams: [],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","SESSION_REQUIRED","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","UNAUTHENTICATED"],
   },
   "members.cancelInvitation": {
     name: "members.cancelInvitation",
@@ -2783,7 +3263,29 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/org/members/invitations/{invitation}",
     pathParams: ["invitation"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","MEMBER_NOT_FOUND","SESSION_REQUIRED","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","MEMBER_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "members.changeRole": {
+    name: "members.changeRole",
+    summary: "Change a member's role: member (Developer), admin or owner. Only an Owner gives or takes the Owner role.",
+    scope: "organization",
+    capability: "organization:manage",
+    destructive: true,
+    method: "PATCH",
+    path: "/org/members/{member}",
+    pathParams: ["member"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","MEMBER_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "members.remove": {
+    name: "members.remove",
+    summary: "Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.",
+    scope: "organization",
+    capability: "organization:manage",
+    destructive: true,
+    method: "DELETE",
+    path: "/org/members/{member}",
+    pathParams: ["member"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","MEMBER_NOT_FOUND","UNAUTHENTICATED"],
   },
   "org.accessPolicy": {
     name: "org.accessPolicy",
@@ -2816,7 +3318,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/deploy-keys",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "deployKeys.create": {
     name: "deployKeys.create",
@@ -2827,7 +3329,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/deploy-keys",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "deployKeys.revoke": {
     name: "deployKeys.revoke",
@@ -2838,7 +3340,7 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/deploy-keys/{key}",
     pathParams: ["project","key"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","KEY_NOT_FOUND","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","KEY_NOT_FOUND","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "apiKeys.list": {
     name: "apiKeys.list",
@@ -2849,7 +3351,7 @@ export const OPERATIONS = {
     method: "GET",
     path: "/projects/{project}/api-keys",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "apiKeys.create": {
     name: "apiKeys.create",
@@ -2860,7 +3362,7 @@ export const OPERATIONS = {
     method: "POST",
     path: "/projects/{project}/api-keys",
     pathParams: ["project"],
-    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
   },
   "apiKeys.revoke": {
     name: "apiKeys.revoke",
@@ -2871,7 +3373,40 @@ export const OPERATIONS = {
     method: "DELETE",
     path: "/projects/{project}/api-keys/{key}",
     pathParams: ["project","key"],
-    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","KEY_NOT_FOUND","PROJECT_HAS_SEVERAL_TARGETS","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","KEY_NOT_FOUND","PROJECT_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "managementTokens.list": {
+    name: "managementTokens.list",
+    summary: "List your management tokens in this organisation (CLI sign-ins), with when each was last used.",
+    scope: "organization",
+    capability: "workspace:view",
+    destructive: false,
+    method: "GET",
+    path: "/org/management-tokens",
+    pathParams: [],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","UNAUTHENTICATED"],
+  },
+  "managementTokens.revoke": {
+    name: "managementTokens.revoke",
+    summary: "Revoke one of your management tokens; the CLI using it is signed out on its next call.",
+    scope: "organization",
+    capability: "workspace:view",
+    destructive: true,
+    method: "DELETE",
+    path: "/org/management-tokens/{token}",
+    pathParams: ["token"],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","MANAGEMENT_TOKEN_NOT_FOUND","UNAUTHENTICATED"],
+  },
+  "feedback.create": {
+    name: "feedback.create",
+    summary: "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.",
+    scope: "organization",
+    capability: "feedback:create",
+    destructive: false,
+    method: "POST",
+    path: "/feedback",
+    pathParams: [],
+    errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RATE_LIMITED","UNAUTHENTICATED"],
   },
 } as const satisfies Record<string, OperationMeta>;
 export type CloudOperationName = keyof typeof OPERATIONS;
@@ -2890,28 +3425,28 @@ export interface CloudClientOperations {
      * Show one project and whether a release is live.
      *
      * `GET /projects/{project}` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: ProjectsGetInput, options?: CallOptions): Promise<ProjectsGetOutput>;
     /**
      * Where the project is served: the MCP URL, the REST base and dataset URLs, and the client contract.
      *
      * `GET /projects/{project}/connect-info` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     connectInfo(input: ProjectsConnectInfoInput, options?: CallOptions): Promise<ProjectsConnectInfoOutput>;
     /**
      * Create a project: one ClickHouse connection, one live data model, its own URLs.
      *
-     * `POST /projects` · organization scope · needs `environment:create`
+     * `POST /projects` · organization scope · needs `project:create`
      * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_EXISTS, UNAUTHENTICATED
      */
     create(input: ProjectsCreateInput, options?: CallOptions): Promise<ProjectsCreateOutput>;
     /**
      * Change a project's display name; its slug and URLs stay the same.
      *
-     * `PATCH /projects/{project}` · project scope · needs `environment:create`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * `PATCH /projects/{project}` · project scope · needs `project:create`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     rename(input: ProjectsRenameInput, options?: CallOptions): Promise<ProjectsRenameOutput>;
   };
@@ -2920,21 +3455,21 @@ export interface CloudClientOperations {
      * Show what is live: the current version and revision.
      *
      * `GET /projects/{project}/releases/live` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     status(input: ReleasesStatusInput, options?: CallOptions): Promise<ReleasesStatusOutput>;
     /**
      * List published versions, newest first.
      *
      * `GET /projects/{project}/releases` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: ReleasesListInput, options?: CallOptions): Promise<ReleasesListOutput>;
     /**
      * Show one published version and its data model.
      *
      * `GET /projects/{project}/releases/{version}` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED, VERSION_NOT_FOUND
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED, VERSION_NOT_FOUND
      */
     get(input: ReleasesGetInput, options?: CallOptions): Promise<ReleasesGetOutput>;
     /**
@@ -2942,7 +3477,7 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/releases/{version}/rollback` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, RELEASE_CHANGE_REFUSED, RELEASE_MOVED, UNAUTHENTICATED, VERSION_NOT_FOUND
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RELEASE_CHANGE_REFUSED, RELEASE_MOVED, UNAUTHENTICATED, VERSION_NOT_FOUND
      */
     rollback(input: ReleasesRollbackInput, options?: CallOptions): Promise<ReleasesRollbackOutput>;
   };
@@ -2951,35 +3486,35 @@ export interface CloudClientOperations {
      * List the project's drafts and whether each is ready to publish.
      *
      * `GET /projects/{project}/drafts` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: DraftsListInput, options?: CallOptions): Promise<DraftsListOutput>;
     /**
      * Open your working draft (created on first use, with the ClickHouse schema discovered) or a named draft, and see what it holds.
      *
      * `POST /projects/{project}/drafts/open` · project scope · needs `deployment:publish`
-     * Errors: CONNECTION_NOT_SAVED, DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONNECTION_NOT_SAVED, DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     open(input: DraftsOpenInput, options?: CallOptions): Promise<DraftsOpenOutput>;
     /**
      * Save the draft as a staging release after its publish gates pass. Nothing goes live; publishing is drafts.promote.
      *
      * `POST /projects/{project}/drafts/{draft}/save` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     save(input: DraftsSaveInput, options?: CallOptions): Promise<DraftsSaveOutput>;
     /**
      * Review a saved draft before publishing: what changes against production, breaking changes, held measures and checks.
      *
      * `GET /projects/{project}/drafts/{draft}/review` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
      */
     review(input: DraftsReviewInput, options?: CallOptions): Promise<DraftsReviewOutput>;
     /**
      * Run Cloud's number checks on a code draft's saved release.
      *
      * `POST /projects/{project}/drafts/{draft}/checks` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_CHECKABLE, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_CHECKABLE, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     checks(input: DraftsChecksInput, options?: CallOptions): Promise<DraftsChecksOutput>;
     /**
@@ -2987,21 +3522,21 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/drafts/{draft}/promote` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, OWNERSHIP_CHANGE_REQUIRED, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, RELEASE_CHANGE_REFUSED, RELEASE_MOVED, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, OWNERSHIP_CHANGE_REQUIRED, PROJECT_NOT_FOUND, RELEASE_CHANGE_REFUSED, RELEASE_MOVED, UNAUTHENTICATED
      */
     promote(input: DraftsPromoteInput, options?: CallOptions): Promise<DraftsPromoteOutput>;
     /**
      * Read a draft: its model, revision, whether Production moved since it was based, its saved release and its publish gates.
      *
      * `GET /projects/{project}/drafts/{draft}` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: DraftsGetInput, options?: CallOptions): Promise<DraftsGetOutput>;
     /**
      * Rename a draft. Its id and staging URL stay the same.
      *
      * `PATCH /projects/{project}/drafts/{draft}` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NAME_TAKEN, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: DRAFT_NAME_TAKEN, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     rename(input: DraftsRenameInput, options?: CallOptions): Promise<DraftsRenameOutput>;
     /**
@@ -3009,42 +3544,56 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/drafts/{draft}` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     delete(input: DraftsDeleteInput, options?: CallOptions): Promise<DraftsDeleteOutput>;
     /**
      * Read an archived draft: the release it published and whether it can be reopened against current Production.
      *
      * `GET /projects/{project}/drafts/{draft}/archive` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     archived(input: DraftsArchivedInput, options?: CallOptions): Promise<DraftsArchivedOutput>;
     /**
      * Reopen an archived draft as a working draft, from the release you read.
      *
      * `POST /projects/{project}/drafts/{draft}/reopen` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     reopen(input: DraftsReopenInput, options?: CallOptions): Promise<DraftsReopenOutput>;
     /**
      * Who a saved draft affects: which apps and customers called the datasets, measures and fields it changes or removes, recently.
      *
      * `GET /projects/{project}/drafts/{draft}/impact` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
      */
     impact(input: DraftsImpactInput, options?: CallOptions): Promise<DraftsImpactOutput>;
+    /**
+     * Read a draft's evidence ledger: what discovery found, the checks run, the user's decisions and confirmations, each with its confidence, status and what it applies to. Proof stays with the customer, and sample values the sample policy withholds are cut out and marked.
+     *
+     * `GET /projects/{project}/drafts/{draft}/evidence` · project scope · needs `deployment:publish`
+     * Errors: DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     */
+    evidence(input: DraftsEvidenceInput, options?: CallOptions): Promise<DraftsEvidenceOutput>;
+    /**
+     * Replay a few of the last week's queries on the datasets a saved draft changes, against Production and the draft, and say whether each answer is the same. Only statuses, row counts and outcomes are returned, never rows.
+     *
+     * `GET /projects/{project}/drafts/{draft}/replay` · project scope · needs `deployment:publish`
+     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
+     */
+    replay(input: DraftsReplayInput, options?: CallOptions): Promise<DraftsReplayOutput>;
     /**
      * When Production moved since a draft was based, show the merge onto current Production: what merges cleanly and each conflict to choose.
      *
      * `GET /projects/{project}/drafts/{draft}/update` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED, UPDATE_CONFLICTS
+     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED, UPDATE_CONFLICTS
      */
     update(input: DraftsUpdateInput, options?: CallOptions): Promise<DraftsUpdateOutput>;
     /**
      * Merge a draft onto current Production with the user's choice for each conflict (keep the draft's or Production's). Preview first; apply once every conflict is chosen.
      *
      * `POST /projects/{project}/drafts/{draft}/update` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED, UPDATE_CONFLICTS
+     * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED, UPDATE_CONFLICTS
      */
     applyUpdate(input: DraftsApplyUpdateInput, options?: CallOptions): Promise<DraftsApplyUpdateOutput>;
     /**
@@ -3052,21 +3601,21 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/drafts/{draft}/refresh-base` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     refreshBase(input: DraftsRefreshBaseInput, options?: CallOptions): Promise<DraftsRefreshBaseOutput>;
     /**
      * Save what the user said about the project on a draft: what it's for, who it serves, the tables to model, priority metrics and one number they trust.
      *
      * `PATCH /projects/{project}/drafts/{draft}/setup` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     setup(input: DraftsSetupInput, options?: CallOptions): Promise<DraftsSetupOutput>;
     /**
      * List what discovery found that changes numbers (internal rows, mixed units, versioned rows, grain, customer scope…), each with the question to ask the user and the measures it affects.
      *
      * `GET /projects/{project}/drafts/{draft}/findings` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     findings(input: DraftsFindingsInput, options?: CallOptions): Promise<DraftsFindingsOutput>;
     /**
@@ -3074,21 +3623,21 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/drafts/{draft}/answers` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, DRAFT_NOT_READY, DRAFT_READ_ONLY, FINDINGS_CHANGED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, DRAFT_NOT_FOUND, DRAFT_NOT_READY, DRAFT_READ_ONLY, FINDINGS_CHANGED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     answer(input: DraftsAnswerInput, options?: CallOptions): Promise<DraftsAnswerOutput>;
     /**
      * Read the progress of the draft's background checks (grain, column meaning, measures, joins, query history, the trusted number).
      *
      * `GET /projects/{project}/drafts/{draft}/run` · project scope · needs `deployment:publish`
-     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     runStatus(input: DraftsRunStatusInput, options?: CallOptions): Promise<DraftsRunStatusOutput>;
     /**
      * Start, resume or cancel the draft's background checks against ClickHouse. They run in batches; poll drafts_run_status, then read drafts_findings.
      *
      * `POST /projects/{project}/drafts/{draft}/run` · project scope · needs `deployment:publish`
-     * Errors: CONNECTION_NOT_SAVED, DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, RUN_CONFLICT, STALE_REVISION, UNAUTHENTICATED
+     * Errors: CONNECTION_NOT_SAVED, DRAFT_NOT_FOUND, DRAFT_READ_ONLY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RUN_CONFLICT, STALE_REVISION, UNAUTHENTICATED
      */
     run(input: DraftsRunInput, options?: CallOptions): Promise<DraftsRunOutput>;
   };
@@ -3097,7 +3646,7 @@ export interface CloudClientOperations {
      * List each live dataset's customer scope, and the ones flagged for exposing a customer column without being scoped by it.
      *
      * `GET /projects/{project}/onboarding/customer-scope` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: CustomerScopeListInput, options?: CallOptions): Promise<CustomerScopeListOutput>;
     /**
@@ -3105,7 +3654,7 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/onboarding/customer-scope/confirm` · project scope · needs `deployment:publish`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOTHING_TO_CONFIRM, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOTHING_TO_CONFIRM, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     confirmShared(input: CustomerScopeConfirmSharedInput, options?: CallOptions): Promise<CustomerScopeConfirmSharedOutput>;
   };
@@ -3114,14 +3663,14 @@ export interface CloudClientOperations {
      * Read which columns' sample values the assistant may see: all, only those not detected as sensitive, or none, with per-column overrides.
      *
      * `GET /projects/{project}/sample-policy` · project scope · needs `deployment:publish`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: SamplePolicyGetInput, options?: CallOptions): Promise<SamplePolicyGetOutput>;
     /**
      * Set which columns' sample values the assistant may see.
      *
      * `PUT /projects/{project}/sample-policy` · project scope · needs `connection:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     set(input: SamplePolicySetInput, options?: CallOptions): Promise<SamplePolicySetOutput>;
   };
@@ -3130,42 +3679,42 @@ export interface CloudClientOperations {
      * Show the project's ClickHouse connection (never the password).
      *
      * `GET /projects/{project}/connection` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: ConnectionsGetInput, options?: CallOptions): Promise<ConnectionsGetOutput>;
     /**
      * Test and save the project's ClickHouse connection; once a release is live, databases can only be added.
      *
      * `POST /projects/{project}/connection` · project scope · needs `connection:manage`
-     * Errors: CONNECTION_AUTH_FAILED, CONNECTION_DATABASE_LOCKED, CONNECTION_QUERY_FAILED, CONNECTION_UNREACHABLE, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONNECTION_AUTH_FAILED, CONNECTION_DATABASE_LOCKED, CONNECTION_QUERY_FAILED, CONNECTION_UNREACHABLE, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     save(input: ConnectionsSaveInput, options?: CallOptions): Promise<ConnectionsSaveOutput>;
     /**
      * Get a one-time link for the user to enter the project's ClickHouse connection in the dashboard, so the password never passes through chat. It works for the user who asked, signed in, once, for 15 minutes; then check it with connections.test.
      *
      * `POST /projects/{project}/connection/link` · project scope · needs `connection:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     link(input: ConnectionsLinkInput, options?: CallOptions): Promise<ConnectionsLinkOutput>;
     /**
      * Check the saved connection now: reachable, the user accepted, and what hypequery needs granted.
      *
      * `POST /projects/{project}/connection/test` · project scope · needs `workspace:view`
-     * Errors: CONNECTION_AUTH_FAILED, CONNECTION_NOT_SAVED, CONNECTION_QUERY_FAILED, CONNECTION_UNREACHABLE, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONNECTION_AUTH_FAILED, CONNECTION_NOT_SAVED, CONNECTION_QUERY_FAILED, CONNECTION_UNREACHABLE, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     test(input: ConnectionsTestInput, options?: CallOptions): Promise<ConnectionsTestOutput>;
     /**
      * Show whether onboarding may read ClickHouse query history, and which accounts are technical.
      *
      * `GET /projects/{project}/connection/query-history` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     queryHistory(input: ConnectionsQueryHistoryInput, options?: CallOptions): Promise<ConnectionsQueryHistoryOutput>;
     /**
      * Allow or stop onboarding reading ClickHouse query history (shapes only, never literals).
      *
      * `PATCH /projects/{project}/connection/query-history` · project scope · needs `connection:manage`
-     * Errors: CONNECTION_NOT_SAVED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: CONNECTION_NOT_SAVED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     setQueryHistory(input: ConnectionsSetQueryHistoryInput, options?: CallOptions): Promise<ConnectionsSetQueryHistoryOutput>;
   };
@@ -3174,9 +3723,16 @@ export interface CloudClientOperations {
      * Search the project's request history (7 days): who queried what, how long it took, and what failed.
      *
      * `GET /projects/{project}/logs` · project scope · needs `workspace:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     query(input: LogsQueryInput, options?: CallOptions): Promise<LogsQueryOutput>;
+    /**
+     * Explain one answer by its request ID: the customer, end user (as a pseudonym), dataset, release and version, semantic query, timing and row count.
+     *
+     * `GET /projects/{project}/logs/{requestId}` · project scope · needs `workspace:view`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, REQUEST_NOT_FOUND, UNAUTHENTICATED
+     */
+    get(input: LogsGetInput, options?: CallOptions): Promise<LogsGetOutput>;
   };
   usage: {
     /**
@@ -3201,21 +3757,21 @@ export interface CloudClientOperations {
      * List the project's customers (tenants) and whether each is enabled.
      *
      * `GET /projects/{project}/customers/tenants` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: TenantsListInput, options?: CallOptions): Promise<TenantsListOutput>;
     /**
      * Register a customer by the id your app uses for it, with a display name.
      *
      * `POST /projects/{project}/customers/tenants` · project scope · needs `embed:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, TENANT_EXISTS, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, TENANT_EXISTS, UNAUTHENTICATED
      */
     create(input: TenantsCreateInput, options?: CallOptions): Promise<TenantsCreateOutput>;
     /**
      * Rename a customer, or disable it (which ends its users' MCP sign-ins).
      *
      * `PATCH /projects/{project}/customers/tenants/{tenant}` · project scope · needs `embed:manage`
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, TENANT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, TENANT_NOT_FOUND, UNAUTHENTICATED
      */
     update(input: TenantsUpdateInput, options?: CallOptions): Promise<TenantsUpdateOutput>;
     /**
@@ -3223,7 +3779,7 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/customers/tenants/{tenant}` · project scope · needs `embed:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, TENANT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, TENANT_NOT_FOUND, UNAUTHENTICATED
      */
     remove(input: TenantsRemoveInput, options?: CallOptions): Promise<TenantsRemoveOutput>;
   };
@@ -3232,21 +3788,21 @@ export interface CloudClientOperations {
      * List the permission sets that decide which datasets and fields customers' users see.
      *
      * `GET /projects/{project}/customers/permission-sets` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: PermissionSetsListInput, options?: CallOptions): Promise<PermissionSetsListOutput>;
     /**
      * Create a permission set: the datasets and fields a customer's users may query.
      *
      * `POST /projects/{project}/customers/permission-sets` · project scope · needs `embed:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_EXISTS, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_EXISTS, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     create(input: PermissionSetsCreateInput, options?: CallOptions): Promise<PermissionSetsCreateOutput>;
     /**
      * Change a permission set, guarded by the revision you read; fields you leave out keep their values.
      *
      * `PATCH /projects/{project}/customers/permission-sets/{permissionSet}` · project scope · needs `embed:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_NOT_FOUND, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_NOT_FOUND, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     update(input: PermissionSetsUpdateInput, options?: CallOptions): Promise<PermissionSetsUpdateOutput>;
     /**
@@ -3254,7 +3810,7 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/customers/permission-sets/{permissionSet}` · project scope · needs `embed:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_NOT_FOUND, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PERMISSION_SET_NOT_FOUND, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     remove(input: PermissionSetsRemoveInput, options?: CallOptions): Promise<PermissionSetsRemoveOutput>;
   };
@@ -3263,14 +3819,14 @@ export interface CloudClientOperations {
      * Show each customer's query rate, daily query limit and chat token allowance.
      *
      * `GET /projects/{project}/customers/limits` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: CustomerLimitsGetInput, options?: CallOptions): Promise<CustomerLimitsGetOutput>;
     /**
      * Set each customer's query rate, daily query limit and chat tokens; null keeps the default.
      *
      * `PATCH /projects/{project}/customers/limits` · project scope · needs `embed:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     set(input: CustomerLimitsSetInput, options?: CallOptions): Promise<CustomerLimitsSetOutput>;
   };
@@ -3279,7 +3835,7 @@ export interface CloudClientOperations {
      * List customers' users signed in to MCP, by customer and user.
      *
      * `GET /projects/{project}/customers/mcp-grants` · project scope · needs `embed:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: TenantGrantsListInput, options?: CallOptions): Promise<TenantGrantsListOutput>;
     /**
@@ -3287,7 +3843,7 @@ export interface CloudClientOperations {
      *
      * `POST /projects/{project}/customers/mcp-grants/revoke-tenant` · project scope · needs `embed:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     revokeTenant(input: TenantGrantsRevokeTenantInput, options?: CallOptions): Promise<TenantGrantsRevokeTenantOutput>;
     /**
@@ -3295,7 +3851,7 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/customers/mcp-grants/{grant}` · project scope · needs `embed:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, GRANT_NOT_FOUND, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, GRANT_NOT_FOUND, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     revoke(input: TenantGrantsRevokeInput, options?: CallOptions): Promise<TenantGrantsRevokeOutput>;
   };
@@ -3304,28 +3860,28 @@ export interface CloudClientOperations {
      * Show how the app identifies its customers' users, the customer origin, and a dataset to prove scoping with.
      *
      * `GET /projects/{project}/customers/access` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: CustomerAccessGetInput, options?: CallOptions): Promise<CustomerAccessGetOutput>;
     /**
      * Choose how the app identifies its customers' users: jwt (your provider), minted (your backend mints tokens), backend (your backend names the customer) or internal.
      *
      * `PATCH /projects/{project}/customers/access` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     setMode(input: CustomerAccessSetModeInput, options?: CallOptions): Promise<CustomerAccessSetModeOutput>;
     /**
      * Create the server key a minted or backend mode uses, for any customer. Its token is returned once.
      *
      * `POST /projects/{project}/customers/access/key` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     createKey(input: CustomerAccessCreateKeyInput, options?: CallOptions): Promise<CustomerAccessCreateKeyOutput>;
     /**
      * Prove customer scoping: one query as a chosen customer through the customer origin, then the same query with no customer, which must be refused.
      *
      * `POST /projects/{project}/customers/access/prove` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     prove(input: CustomerAccessProveInput, options?: CallOptions): Promise<CustomerAccessProveOutput>;
   };
@@ -3334,14 +3890,14 @@ export interface CloudClientOperations {
      * Show the allowed browser origins and how customers register.
      *
      * `GET /projects/{project}/customers/settings` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: CustomerSettingsGetInput, options?: CallOptions): Promise<CustomerSettingsGetOutput>;
     /**
      * Replace the browser origins allowed to call customer endpoints, and choose whether customers register on first use.
      *
      * `PATCH /projects/{project}/customers/settings` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     set(input: CustomerSettingsSetInput, options?: CallOptions): Promise<CustomerSettingsSetOutput>;
   };
@@ -3350,14 +3906,14 @@ export interface CloudClientOperations {
      * Show the identity provider whose JWTs your app's users present, with its health.
      *
      * `GET /projects/{project}/customers/jwt-issuer` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: JwtIssuerGetInput, options?: CallOptions): Promise<JwtIssuerGetOutput>;
     /**
      * Trust your identity provider's JWTs: issuer, audience, JWKS URL and which claims name the customer and access.
      *
      * `PUT /projects/{project}/customers/jwt-issuer` · project scope · needs `credentials:manage`
-     * Errors: ALREADY_CONFIGURED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, ISSUER_UNREADABLE, NOT_CONFIGURED, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: ALREADY_CONFIGURED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, ISSUER_UNREADABLE, NOT_CONFIGURED, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     save(input: JwtIssuerSaveInput, options?: CallOptions): Promise<JwtIssuerSaveOutput>;
     /**
@@ -3365,7 +3921,7 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/customers/jwt-issuer` · project scope · needs `credentials:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOT_CONFIGURED, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOT_CONFIGURED, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     remove(input: JwtIssuerRemoveInput, options?: CallOptions): Promise<JwtIssuerRemoveOutput>;
   };
@@ -3374,14 +3930,14 @@ export interface CloudClientOperations {
      * Show OIDC sign-in for customers' MCP users, with the redirect and MCP URLs to register (never the client secret).
      *
      * `GET /projects/{project}/customers/oidc-client` · project scope · needs `embed:view`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     get(input: OidcClientGetInput, options?: CallOptions): Promise<OidcClientGetOutput>;
     /**
      * Let customers' users sign in to MCP with your identity provider: issuer, client id and (the first time) secret.
      *
      * `PUT /projects/{project}/customers/oidc-client` · project scope · needs `credentials:manage`
-     * Errors: ALREADY_CONFIGURED, CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, ISSUER_REQUIRED, ISSUER_UNREADABLE, NOT_CONFIGURED, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     * Errors: ALREADY_CONFIGURED, CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, ISSUER_REQUIRED, ISSUER_UNREADABLE, NOT_CONFIGURED, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
      */
     save(input: OidcClientSaveInput, options?: CallOptions): Promise<OidcClientSaveOutput>;
     /**
@@ -3389,9 +3945,50 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/customers/oidc-client` · project scope · needs `credentials:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOT_CONFIGURED, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOT_CONFIGURED, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     remove(input: OidcClientRemoveInput, options?: CallOptions): Promise<OidcClientRemoveOutput>;
+  };
+  signingKeys: {
+    /**
+     * List the project's managed signing keys for in-app agent tokens (public keys only), with the audience and claims tokens carry.
+     *
+     * `GET /projects/{project}/customers/signing-keys` · project scope · needs `embed:view`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     */
+    list(input: SigningKeysListInput, options?: CallOptions): Promise<SigningKeysListOutput>;
+    /**
+     * Create a signing key your backend mints in-app agent tokens with. Its private key is returned once and never stored.
+     *
+     * `POST /projects/{project}/customers/signing-keys` · project scope · needs `credentials:manage`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, SIGNING_KEY_LIMIT, UNAUTHENTICATED
+     */
+    create(input: SigningKeysCreateInput, options?: CallOptions): Promise<SigningKeysCreateOutput>;
+    /**
+     * Revoke a signing key; every token it signed is refused from the next request, even before it expires.
+     *
+     * `DELETE /projects/{project}/customers/signing-keys/{key}` · project scope · needs `credentials:manage`
+     * Destructive: requires `confirm: true`.
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, SIGNING_KEY_NOT_FOUND, UNAUTHENTICATED
+     */
+    revoke(input: SigningKeysRevokeInput, options?: CallOptions): Promise<SigningKeysRevokeOutput>;
+  };
+  customerApp: {
+    /**
+     * Show whether customers can find this company in the hypequery app, its display name and discovery email domains.
+     *
+     * `GET /projects/{project}/customers/app-listing` · project scope · needs `embed:view`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     */
+    get(input: CustomerAppGetInput, options?: CallOptions): Promise<CustomerAppGetOutput>;
+    /**
+     * List or unlist this company in the hypequery app, with the name customers search for and their email domains. Unlisting keeps existing connections.
+     *
+     * `PUT /projects/{project}/customers/app-listing` · project scope · needs `embed:manage`
+     * Destructive: requires `confirm: true`.
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, NOT_CONFIGURED, PROJECT_NOT_FOUND, STALE_REVISION, UNAUTHENTICATED
+     */
+    set(input: CustomerAppSetInput, options?: CallOptions): Promise<CustomerAppSetOutput>;
   };
   members: {
     /**
@@ -3402,10 +3999,10 @@ export interface CloudClientOperations {
      */
     list(input?: MembersListInput, options?: CallOptions): Promise<MembersListOutput>;
     /**
-     * Invite someone by email as a Developer (member) or an Admin; they get an email to accept.
+     * Invite someone by email as a Developer (member) or an Admin; they get an email to accept. The organisation's approved email domains apply.
      *
      * `POST /org/members/invitations` · organization scope · needs `organization:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, SESSION_REQUIRED, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, UNAUTHENTICATED
      */
     invite(input: MembersInviteInput, options?: CallOptions): Promise<MembersInviteOutput>;
     /**
@@ -3413,9 +4010,25 @@ export interface CloudClientOperations {
      *
      * `DELETE /org/members/invitations/{invitation}` · organization scope · needs `organization:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, MEMBER_NOT_FOUND, SESSION_REQUIRED, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, MEMBER_NOT_FOUND, UNAUTHENTICATED
      */
     cancelInvitation(input: MembersCancelInvitationInput, options?: CallOptions): Promise<MembersCancelInvitationOutput>;
+    /**
+     * Change a member's role: member (Developer), admin or owner. Only an Owner gives or takes the Owner role.
+     *
+     * `PATCH /org/members/{member}` · organization scope · needs `organization:manage`
+     * Destructive: requires `confirm: true`.
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, MEMBER_NOT_FOUND, UNAUTHENTICATED
+     */
+    changeRole(input: MembersChangeRoleInput, options?: CallOptions): Promise<MembersChangeRoleOutput>;
+    /**
+     * Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.
+     *
+     * `DELETE /org/members/{member}` · organization scope · needs `organization:manage`
+     * Destructive: requires `confirm: true`.
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, MEMBER_NOT_FOUND, UNAUTHENTICATED
+     */
+    remove(input: MembersRemoveInput, options?: CallOptions): Promise<MembersRemoveOutput>;
   };
   org: {
     /**
@@ -3438,14 +4051,14 @@ export interface CloudClientOperations {
      * List the project's deploy keys (for CI), with when each was last used.
      *
      * `GET /projects/{project}/deploy-keys` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: DeployKeysListInput, options?: CallOptions): Promise<DeployKeysListOutput>;
     /**
      * Create a deploy key for CI; its token is returned once.
      *
      * `POST /projects/{project}/deploy-keys` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     create(input: DeployKeysCreateInput, options?: CallOptions): Promise<DeployKeysCreateOutput>;
     /**
@@ -3453,7 +4066,7 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/deploy-keys/{key}` · project scope · needs `credentials:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, KEY_NOT_FOUND, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, KEY_NOT_FOUND, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     revoke(input: DeployKeysRevokeInput, options?: CallOptions): Promise<DeployKeysRevokeOutput>;
   };
@@ -3462,14 +4075,14 @@ export interface CloudClientOperations {
      * List the project's API keys and approved MCP connections, with their roles, scopes and customers.
      *
      * `GET /projects/{project}/api-keys` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     list(input: ApiKeysListInput, options?: CallOptions): Promise<ApiKeysListOutput>;
     /**
      * Create an API key with roles, scopes and which customers it may act for; its token is returned once.
      *
      * `POST /projects/{project}/api-keys` · project scope · needs `credentials:manage`
-     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     create(input: ApiKeysCreateInput, options?: CallOptions): Promise<ApiKeysCreateOutput>;
     /**
@@ -3477,8 +4090,34 @@ export interface CloudClientOperations {
      *
      * `DELETE /projects/{project}/api-keys/{key}` · project scope · needs `credentials:manage`
      * Destructive: requires `confirm: true`.
-     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, KEY_NOT_FOUND, PROJECT_HAS_SEVERAL_TARGETS, PROJECT_NOT_FOUND, UNAUTHENTICATED
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, KEY_NOT_FOUND, PROJECT_NOT_FOUND, UNAUTHENTICATED
      */
     revoke(input: ApiKeysRevokeInput, options?: CallOptions): Promise<ApiKeysRevokeOutput>;
+  };
+  managementTokens: {
+    /**
+     * List your management tokens in this organisation (CLI sign-ins), with when each was last used.
+     *
+     * `GET /org/management-tokens` · organization scope · needs `workspace:view`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, UNAUTHENTICATED
+     */
+    list(input?: ManagementTokensListInput, options?: CallOptions): Promise<ManagementTokensListOutput>;
+    /**
+     * Revoke one of your management tokens; the CLI using it is signed out on its next call.
+     *
+     * `DELETE /org/management-tokens/{token}` · organization scope · needs `workspace:view`
+     * Destructive: requires `confirm: true`.
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, MANAGEMENT_TOKEN_NOT_FOUND, UNAUTHENTICATED
+     */
+    revoke(input: ManagementTokensRevokeInput, options?: CallOptions): Promise<ManagementTokensRevokeOutput>;
+  };
+  feedback: {
+    /**
+     * Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.
+     *
+     * `POST /feedback` · organization scope · needs `feedback:create`
+     * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RATE_LIMITED, UNAUTHENTICATED
+     */
+    create(input: FeedbackCreateInput, options?: CallOptions): Promise<FeedbackCreateOutput>;
   };
 }
