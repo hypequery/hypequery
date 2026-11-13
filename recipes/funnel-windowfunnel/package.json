@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/funnel-windowfunnel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A login -> query -> export funnel per tenant with ClickHouse windowFunnel behind a hypequery dataset: the view, the dataset, the SQL it generates, and the output on the seed",
   "type": "module",

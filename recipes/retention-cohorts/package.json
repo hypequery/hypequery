@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/retention-cohorts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Weekly retention cohorts in ClickHouse with a hypequery dataset over a cohort view: the dataset, the SQL it generates, and the output on the seed",
   "type": "module",

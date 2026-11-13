@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/replacingmergetree-upserts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Upserts and deletes in ClickHouse with ReplacingMergeTree: version and is_deleted columns, FINAL vs argMax, and a typed hypequery dataset that reads FINAL, pinned before and after OPTIMIZE",
   "type": "module",

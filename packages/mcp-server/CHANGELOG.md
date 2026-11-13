@@ -1,5 +1,38 @@
 # @hypequery/mcp
 
+## 0.13.0
+
+### Minor Changes
+
+- 33dfaf4: Client contracts can carry field metadata: a field's annotations may now include `synonyms`, `examples`, `format`, `unit` and `currency` (RFC 0018 amendment, 5 November 2026), the same vocabulary the deployment contract already validates. The MCP HTTP bridge returns it with each endpoint profile from `get_dataset_schema`, so agents served from a Python backend or Cloud see the synonyms, example values and units that local mode already shows.
+
+  Field metadata is negotiated so released consumers keep working. Validators before this release reject the new members, so producers emit them only to a discovery request whose `x-hypequery-client-features` header names `field-metadata`; the MCP bridge sends it. `@hypequery/protocol` adds `CLIENT_CONTRACT_FEATURES_HEADER`, `acceptsClientFieldMetadata`, `parseClientContractFeatures` and `withoutClientFieldMetadata` (the reduced view for consumers that did not ask), and the `ClientAnnotationText` type. `buildClientContract` gains `fieldMetadata` (off by default): a Cloud or host discovery route sets it from the request header. Both views share every `schemaHash`, so neither invalidates generated clients or connected bridges.
+
+  Upgrade `@hypequery/protocol`, `@hypequery/mcp` and `@hypequery/cli` together with the producer you pair them with; a producer that only sends field metadata on request is safe with older consumers either way.
+
+- 33ab1d9: MCP tool errors can carry three optional host fields:
+
+  - `hint`: the next action, in one sentence.
+  - `docsUrl`: a page explaining the failure.
+  - `requestId`: the host's request id.
+
+  Set them through `MCPToolError`'s options, or pass them to `mcpToolErrorFromSemanticFailure`. Every tool's error envelope schema lists them, so MCP SDK clients accept errors that include them.
+
+- 33dfaf4: Self-hosted remote MCP over Streamable HTTP, with OAuth resource-server support.
+
+  - `@hypequery/mcp`: `createMCPHttpHandler` answers Fetch `Request`s (Node through `listenMCPHttpServer` or `createMCPNodeRequestListener`; also Bun, Deno and Cloudflare Workers with the `nodejs_compat` flag, since the package imports Node built-ins). Every request checks `Host` and `Origin` (DNS-rebinding protection), then the credential. Each session belongs to the principal that opened it and gets its own executor for that principal's tenant; another principal using its id gets `404`. Bodies, open sessions and idle sessions are bounded, and `close()` during a session open leaves nothing behind. Pass `allowedOrigins` and a browser page's preflight is answered before any credential, with the CORS headers a page needs to read replies, the session id and the OAuth challenge (`allowedRequestHeaders` adds request headers).
+  - Credentials: `createMCPStaticKeyAuthenticator` (one shared key), or `createMCPServeAuthenticator`, which reuses `@hypequery/serve` auth strategies such as `createJwtStrategy`. With `oauth` configured, the server publishes RFC 9728 protected-resource metadata, answers with RFC 6750 `WWW-Authenticate` challenges that point at it, and enforces `requiredScopes`. Set the JWT strategy's `audience` to the resource URL, and no other: `createMCPServeAuthenticator({ audience })` throws for a `createJwtStrategy` strategy that also accepts another audience, or none, since a token naming only that audience would otherwise open a session. `hypequery mcp --http --resource` applies it. There is no authorization server.
+  - `@hypequery/serve`: the MCP source now carries the app's auth strategies and tenant extraction (`ServeMcpAuth`).
+  - `@hypequery/cli`: `hypequery mcp --http` with `--port`, `--host`, `--allowed-hosts`, `--allowed-origins`, and the OAuth flags `--resource`, `--authorization-servers` and `--required-scopes`. Callers send `HYPEQUERY_MCP_KEY`, or without it are verified by the app's `defineServe` auth, each with its own tenant. Because MCP applies only the global auth and tenant, `--http` refuses to verify callers that way when a dataset or metric entry sets its own `auth`, `requiredRoles`, `requiredScopes`, `middlewares` or `tenant`, or when `defineServe({ middlewares })` or `api.use()` adds global middlewares (the MCP source reports their count); serve one trusted principal with `HYPEQUERY_MCP_KEY` instead. `--client-contract-url --http` accepts only the static key and never forwards callers' credentials.
+
+### Patch Changes
+
+- c307bf6: `get_dataset_schema`'s output schema now declares `segments`, so datasets with segments return `structuredContent` that matches the advertised schema. Every tool's error envelope now lists `MCP_CATALOG_TOO_LARGE` among its codes. The `dataset_guide` prompt now says window and shift measures need `grain` (not `by`) and a bounded time range.
+- Updated dependencies [33dfaf4]
+- Updated dependencies [83606fe]
+  - @hypequery/protocol@0.26.0
+  - @hypequery/datasets@0.31.0
+
 ## 0.12.0
 
 ### Minor Changes
