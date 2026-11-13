@@ -5,6 +5,7 @@ import { HubFaq, HubLinkGrid, HubSection, HubShell, HubSources, HubTable, type H
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 // This URL used to hold a single "hypequery as a Cube.js alternative" page and
 // already ranks for "cube.js alternatives". It now carries the multi-vendor
@@ -14,7 +15,7 @@ const TITLE = '5 Best Cube.js Alternatives for Semantic Layers (2026)';
 const DESCRIPTION =
   'Compare Cube with hypequery, dbt Semantic Layer, AtScale, GoodData and Boring Semantic Layer by databases, APIs, hosting and multi-tenancy.';
 const PUBLISHED = '2026-04-25';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 // Every competitor claim was checked on the vendor's own site on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 12, 2026';
 

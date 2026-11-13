@@ -5,6 +5,7 @@ import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, itemListJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 // Prices and plan gates here repeat /compare/embedded-analytics-pricing. Re-verify both together, quarterly.
 const PATH = '/compare/embedded-analytics-platforms';
@@ -12,7 +13,7 @@ const TITLE = '12 Best Embedded Analytics Tools & Platforms (2026)';
 const DESCRIPTION =
   'Compare 12 embedded analytics tools by multi-tenancy, embedding method, ClickHouse support, self-hosting and pricing, with the best fit for each team.';
 const PUBLISHED = '2026-11-12';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
