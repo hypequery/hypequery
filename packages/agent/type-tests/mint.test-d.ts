@@ -8,11 +8,9 @@ import {
 
 declare const session: { orgId: string; userId: string };
 
-// The plan's example, with the project's endpoint.
+// The plan's example: project and endpoint come from the key's JSON.
 const minted: Promise<AgentToken> = mintAgentToken({
   signingKey: process.env.HYPEQUERY_AGENT_KEY!,
-  project: 'acme:logistics',
-  endpoint: 'https://acme-logistics-1f2e3d4c.hypequery.app',
   tenant: session.orgId,
   subject: session.userId,
   permissionSet: 'customers',
@@ -51,8 +49,17 @@ void [eqList, inScalar, gt];
 
 // @ts-expect-error the permission set is required: a managed key has no default
 void mintAgentToken({ signingKey: '{}', project: 'p', endpoint: 'https://p.hypequery.app', tenant: 't', subject: 's' });
-// @ts-expect-error the endpoint is required: mcpUrl is not derivable from the key
-void mintAgentToken({ signingKey: '{}', project: 'p', tenant: 't', subject: 's', permissionSet: 'c' });
+// project and endpoint may be given explicitly, overriding the key's.
+void mintAgentToken({
+  signingKey: '{}',
+  project: 'p',
+  endpoint: 'https://p.hypequery.app',
+  tenant: 't',
+  subject: 's',
+  permissionSet: 'c',
+});
+// @ts-expect-error the tenant is required
+void mintAgentToken({ signingKey: '{}', subject: 's', permissionSet: 'c' });
 // @ts-expect-error a JWK must be an Ed25519 key
 void mintAgentToken({ signingKey: { kty: 'RSA' }, project: 'p', endpoint: 'https://p.hypequery.app', tenant: 't', subject: 's', permissionSet: 'c' });
 

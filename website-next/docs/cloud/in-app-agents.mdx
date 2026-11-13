@@ -20,12 +20,8 @@ nothing to change.
 Under **Settings → Customer access → Signing keys for in-app agents**, create a key. Cloud shows the private key once,
 as JSON. Store it as a secret named `HYPEQUERY_AGENT_KEY`. Cloud keeps only the public key.
 
-Note two values from the same page:
-
-- **Project**: the project's protocol name, the part after `hypequery-agent:` in the token audience shown there (for
-  example `acme:logistics`).
-- **Endpoint**: the project's customer endpoint, `https://<endpoint>.hypequery.app`. Your agent connects to its
-  `/mcp` path.
+The JSON also names the project (`hq_project`, its protocol name, such as `acme:logistics`) and its customer endpoint
+(`hq_endpoint`, `https://<endpoint>.hypequery.app`), so minting needs nothing else from Cloud.
 
 ## Mint a token
 
@@ -36,8 +32,6 @@ import { mintAgentToken } from '@hypequery/agent';
 
 const { token, mcpUrl, expiresAt } = await mintAgentToken({
   signingKey: process.env.HYPEQUERY_AGENT_KEY!,
-  project: 'acme:logistics',
-  endpoint: 'https://acme-logistics-1f2e3d4c.hypequery.app',
   tenant: session.orgId,
   subject: session.userId,
   permissionSet: 'customers',
@@ -53,8 +47,6 @@ from hypequery.agent import mint_agent_token
 
 minted = mint_agent_token(
     signing_key=os.environ["HYPEQUERY_AGENT_KEY"],
-    project="acme:logistics",
-    endpoint="https://acme-logistics-1f2e3d4c.hypequery.app",
     tenant=session.org_id,
     subject=session.user_id,
     permission_set="customers",
@@ -73,6 +65,11 @@ permission set allows, and only that tenant's rows.
 | `permissionSet` | The permission set the end user acts with, by name. Required. |
 | `constraints` | Optional filters every query carries, at most 8: `{ filter, operator: 'eq', value }` or `{ filter, operator: 'in', value: [...] }`. Each names a filter the dataset declares; a dataset without it refuses the query. |
 | `expiresInSeconds` | Lifetime, 1 to 900 seconds. Defaults to 900. |
+| `project` | The project's protocol name. Defaults to the key's `hq_project`. |
+| `endpoint` | The customer endpoint (its origin or `/mcp` URL). Defaults to the key's `hq_endpoint`. Must be `https`, except on `localhost`. |
+
+An explicit `project` or `endpoint` wins over the key's own, for example to point a key at a local gateway in
+development. If neither gives one, minting throws `AgentTokenError` naming it.
 
 Tokens live at most 15 minutes. Mint a new one before `expiresAt`, for example on each request. An option Cloud would
 refuse throws `AgentTokenError` (`AgentTokenError` in Python too, a `ValueError`) naming the option, rather than
