@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.28.2",
   "workspaces": [
+    "packages/agent",
     "packages/cli",
     "packages/clickhouse",
     "packages/cloud-client",
