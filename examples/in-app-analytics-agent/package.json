@@ -1,0 +1,36 @@
+{
+  "name": "@hypequery-examples/in-app-analytics-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tenant-safe analytics agent in your own Next.js app: mint an end-user token per session, stream an AI SDK chat with hypequery Cloud's tenant MCP tools",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.104",
+    "@ai-sdk/openai": "^4.0.117",
+    "@ai-sdk/react": "^4.0.176",
+    "@hypequery/agent": "workspace:*",
+    "@hypequery/datasets": "workspace:*",
+    "ai": "^7.0.172",
+    "next": "16.4.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@hypequery/cli": "workspace:*",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/mcp": "workspace:*",
+    "@types/node": "^22.5.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jose": "^6.2.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
