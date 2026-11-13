@@ -62,7 +62,6 @@ const staticRoutes = [
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
   '/contact-us',
-  '/cube-js-alternative',
   '/tinybird-alternative',
   // Embedded analytics comparison pages. Static routes under /compare, not compare-pages.ts entries.
   ...embeddedAnalyticsComparePages.map((page) => page.href),

@@ -154,10 +154,6 @@ const nextLinks: HubLink[] = [
   },
 ];
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat('en').format(value);
-}
-
 /** App → hypequery → ClickHouse, with the three outputs. Plain HTML so the text is crawlable. */
 function ArchitectureDiagram() {
   const box = 'rounded-lg border border-border-strong bg-bg-card px-4 py-3 text-sm';
@@ -396,7 +392,7 @@ export default async function EmbeddedAnalyticsForSaasPage() {
           <div className={marketing.card}>
             <dt className="font-mono text-xs text-text-dim">npm downloads, last 30 days</dt>
             <dd className="mt-2 text-2xl font-medium tracking-tight text-text">
-              {monthlyDownloads !== null ? formatCount(monthlyDownloads) : (
+              {monthlyDownloads !== null ? new Intl.NumberFormat('en').format(monthlyDownloads) : (
                 <a href="https://www.npmjs.com/org/hypequery" className={inlineLink}>See npm</a>
               )}
             </dd>
@@ -405,7 +401,7 @@ export default async function EmbeddedAnalyticsForSaasPage() {
           <div className={marketing.card}>
             <dt className="font-mono text-xs text-text-dim">GitHub stars</dt>
             <dd className="mt-2 text-2xl font-medium tracking-tight text-text">
-              {stars !== null ? formatCount(stars) : (
+              {stars !== null ? new Intl.NumberFormat('en').format(stars) : (
                 <a href="https://github.com/hypequery/hypequery" className={inlineLink}>See GitHub</a>
               )}
             </dd>
