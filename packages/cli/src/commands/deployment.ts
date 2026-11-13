@@ -13,10 +13,11 @@ import {
 import { captureDeploymentSourceSnapshot } from '../utils/deployment-source-snapshot.js';
 import { loadCloudPublication } from '../utils/load-cloud-publication.js';
 import { logger } from '../utils/logger.js';
+import { type StoredCloudCredential } from '../utils/cloud-credential-store.js';
 import {
-  loadCloudCredential,
-  type StoredCloudCredential,
-} from '../utils/cloud-credential-store.js';
+  storedDeploymentTarget,
+  type CloudDeploymentAccessDependencies,
+} from '../utils/cloud-deployment-access.js';
 import { unscopedTenantCandidates } from '../utils/tenant-key-candidates.js';
 import { CliError } from '../utils/cli-error.js';
 import { emitResult } from '../utils/machine-output.js';
@@ -33,7 +34,9 @@ export interface PrepareDeploymentReleaseOptions {
 }
 
 export interface PrepareDeploymentReleaseDependencies {
+  env?: CloudDeploymentAccessDependencies['env'];
   loadCredential?: () => Promise<StoredCloudCredential | null>;
+  loadManagementCredential?: CloudDeploymentAccessDependencies['loadManagementCredential'];
   /**
    * Flag name to quote in output-path errors. `hypequery deploy` delegates
    * here but spells the same option `--release-output`.
@@ -284,16 +287,14 @@ export async function prepareDeploymentReleaseCommand(
     project = options.project;
     environment = options.environment;
   } else {
-    const credential = await (
-      dependencies.loadCredential ?? loadCloudCredential
-    )();
-    project = credential?.target?.project;
-    environment = credential?.target?.environment;
+    const target = await storedDeploymentTarget(dependencies);
+    project = target?.project;
+    environment = target?.environment;
     if (!project || !environment) {
       throw new CliError(
         'INPUT_REQUIRED',
-        'Missing deployment target. Run `hypequery login` or pass both '
-        + '--project <project> and --environment <environment>.',
+        'Missing deployment target. Pass both --project <project> and --environment <environment>, '
+        + 'or run `hypequery login` (browser sign-in names a target).',
         { hint: 'Pass --project <project> and --environment <environment>, or run `hypequery login`.' },
       );
     }

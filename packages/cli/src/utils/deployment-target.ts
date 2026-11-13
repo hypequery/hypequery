@@ -2,11 +2,11 @@ import {
   validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
-import type { StoredCloudCredential } from './cloud-credential-store.js';
 
 export function deploymentTargetFromOptions(
   options: { readonly project?: string; readonly environment?: string },
-  credential: StoredCloudCredential | undefined,
+  /** The resolved credential; its target is the default. */
+  credential: { readonly target?: ProtocolDeploymentReleaseTarget } | undefined,
 ): ProtocolDeploymentReleaseTarget {
   if ((options.project === undefined) !== (options.environment === undefined)) {
     throw new Error('Pass both --project and --environment, or omit both.');
@@ -16,8 +16,8 @@ export function deploymentTargetFromOptions(
     : { project: options.project, environment: options.environment };
   if (!input) {
     throw new Error(
-      'Missing deployment target. Run `hypequery login` or pass both '
-      + '--project and --environment.',
+      'Missing deployment target. Pass both --project and --environment, '
+      + 'or run `hypequery login` (browser sign-in names a target).',
     );
   }
   try {
