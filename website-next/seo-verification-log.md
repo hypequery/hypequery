@@ -119,3 +119,58 @@ against the published npm packages `@hypequery/clickhouse@2.15.0`, `@hypequery/d
 - **Boring Semantic Layer ClickHouse support**: its docs don't name ClickHouse; the page says so.
 - **Cube "deprecated Redis"** FAQ from the previous /cube-js-alternative page: not re-verified, so removed.
 - **dbt Semantic Layer overage price per queried metric**: not published.
+
+# SEO verification log: semantic layer pages (P2)
+
+Same rules as above: every claim about another project, checked live on its own repository, docs, site or
+package registry on the date shown. Star counts come from `gh api repos/<owner>/<repo>` and will drift.
+
+Pages:
+
+| # | Page | URL |
+|---|---|---|
+| S1 | Open-source semantic layer tools | /semantic-layer/open-source-tools |
+| S2 | Semantic layer for AI agents | /semantic-layer/ai-agents |
+
+hypequery claims (four MCP tools with no raw SQL tool in TypeScript and Python, tenant scope that fails closed and
+rejects agent tenant filters, default 100 rows, ceiling at most 10,000, at most 50 dimensions or measures,
+single-dataset execution, Apache 2.0, ClickHouse only, Python in beta, 105 GitHub stars) were checked against
+`packages/mcp-server/src` (tool-manifest.ts, args.ts, types.ts, utils/tenant-config.ts,
+tools/query-sql.integration.test.ts), `python/hypequery/src/hypequery/mcp`, `python/hypequery/pyproject.toml`
+(0.1.0b4), `website-next/docs/(connect)/mcp/safety.mdx` and `gh repo view hypequery/hypequery` on 2026-11-13. The
+dataset sample on S2 was type-checked against `@hypequery/datasets@0.31.0` from npm.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| S1, S2 | Cube Core: backend Apache 2.0, client MIT; 21,224 stars | https://github.com/cube-js/cube/blob/master/README.md ; https://github.com/cube-js/cube/blob/master/packages/cubejs-client-core/LICENSE | 2026-11-13 |
+| S1 | Cube models are YAML or JavaScript files | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/data-modeling/concepts/syntax.mdx | 2026-11-13 |
+| S1 | Cube APIs: REST, GraphQL, SQL over the Postgres protocol; ClickHouse is a data source | https://github.com/cube-js/cube/blob/master/docs-mintlify/reference/core-data-apis/sql-api/index.mdx ; https://github.com/cube-js/cube/blob/master/docs-mintlify/admin/connect-to-data/data-sources/clickhouse.mdx | 2026-11-13 |
+| S1, S2 | Cube MCP server: "available on all plans", "30 tools", includes data-model editing tools; Viewer role or higher, tools by role, tokens scoped with tool:<name> | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/integrations/mcp-server.mdx | 2026-11-13 |
+| S1 | Wren Engine merged into Canner/WrenAI under core/ (May 2026); wren-engine archived | https://github.com/Canner/wren-engine ; https://github.com/Canner/WrenAI | 2026-11-13 |
+| S1 | WrenAI: code Apache 2.0, docs CC BY 4.0, AGPL reserved for future modules; 18,158 stars; "governed semantic layer, expressed in the Modeling Definition Language (MDL)"; MCP server, CLI, 22+ connectors incl. ClickHouse; built on Apache DataFusion; Wren AI Cloud and Enterprise Plus commercial | https://github.com/Canner/WrenAI/blob/main/README.md ; https://github.com/Canner/WrenAI/blob/main/LICENSE | 2026-11-13 |
+| S1 | Lightdash: MIT except packages/backend/src/ee (commercial); 6,230 stars; metrics in dbt YAML or standalone Lightdash YAML; adapters include ClickHouse | https://github.com/lightdash/lightdash/blob/main/LICENSE ; https://github.com/lightdash/lightdash/blob/main/README.md | 2026-11-13 |
+| S1 | Lightdash MCP: "Available to all Lightdash Cloud users"; self-hosted needs an Enterprise licence; code under ee/ | https://docs.lightdash.com/references/integrations/lightdash-mcp ; https://github.com/lightdash/lightdash/tree/main/packages/backend/src/ee/services/McpService | 2026-11-13 |
+| S1 | MetricFlow Apache 2.0 from v0.209.0 (earlier AGPL, then BSL); 1,876 stars; local mf CLI via pip install dbt-metricflow | https://github.com/dbt-labs/metricflow/blob/main/README.md ; https://github.com/dbt-labs/metricflow/blob/main/LICENSE | 2026-11-13 |
+| S1, S2 | dbt Semantic Layer needs Starter, Enterprise or Enterprise+; local CLI has no APIs or integrations; platforms Snowflake, BigQuery, Databricks, Redshift, Postgres, Trino | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-13 |
+| S1, S2 | dbt MCP server Apache 2.0; Semantic Layer tools (list_metrics, get_dimensions, query_metrics, ...); SQL tools execute_sql and text_to_sql; CLI show "Executes SQL against the database"; disable or allowlist with DISABLE_SQL, DISABLE_DBT_CLI, DISABLE_TOOLS, DBT_MCP_ENABLE_TOOLS | https://github.com/dbt-labs/dbt-mcp/blob/main/README.md | 2026-11-13 |
+| S1 | Malloy: MIT (LICENSE file); 2,622 stars; "semantic modeling and query language built on top of SQL"; engines BigQuery, Snowflake, DuckDB, MotherDuck, PostgreSQL, MySQL, Trino, Presto, Databricks (no ClickHouse) | https://github.com/malloydata/malloy/blob/main/README.md ; https://github.com/malloydata/malloy/blob/main/LICENSE | 2026-11-13 |
+| S1, S2 | Malloy Publisher (MIT) serves models over REST and MCP | https://github.com/malloydata/publisher/blob/main/README.md | 2026-11-13 |
+| S1, S2 | Boring Semantic Layer: MIT, built on Ibis, joint effort of boringdata and xorq-labs; 490 stars; 0.3.19 released 2026-11-11; built-in MCP (MCPSemanticModel) with tools list_models, get_model, get_time_range, query_model, compare_periods; docs do not name ClickHouse | https://github.com/boringdata/boring-semantic-layer ; https://pypi.org/pypi/boring-semantic-layer/json ; https://github.com/boringdata/boring-semantic-layer/blob/main/docs/md/doc/query-agent-mcp.md | 2026-11-13 |
+| S1 | AtScale SML: Apache 2.0, YAML, Git-friendly, versions 1.0 to 1.7; 179 stars | https://github.com/semanticdatalayer/SML | 2026-11-13 |
+| S1, S2 | AtScale MCP: "The MCP tools are read-only"; tools include list_models, explore_columns, run_query | https://www.atscale.com/use-cases/semantic-context-ai-mcp/ | 2026-11-13 |
+| S2 | AtScale lists Snowflake, Databricks, BigQuery, Redshift, PostgreSQL and others; no ClickHouse | https://www.atscale.com/integrations/ | 2026-11-13 |
+| S2 | GoodData: "MCP Server with 30+ Tools" on Enterprise only | https://www.gooddata.ai/pricing | 2026-11-13 |
+| S2 | GoodData lists 23 data sources, ClickHouse among them | https://www.gooddata.ai/docs/cloud/connect-data/ | 2026-11-13 |
+| S2 | Snowflake-managed MCP server tool types: CORTEX_AGENT_RUN, CORTEX_SEARCH_SERVICE_QUERY, CORTEX_ANALYST_MESSAGE, SYSTEM_EXECUTE_SQL (read_only defaults to true; docs advise against exposing it next to a governed agent), GENERIC; per-tool privileges; Snowflake OAuth or external OAuth | https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp | 2026-11-13 |
+| S2 | Cortex Analyst uses semantic views | https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst | 2026-11-13 |
+| S1 | Apache Ossie (formerly OSI): Apache 2.0 spec for semantic models in YAML/JSON, incubating at the ASF; latest released spec 0.1.1 (2025-12-11); participants include Snowflake, dbt Labs, Salesforce, Databricks, Cube | https://github.com/apache/ossie/blob/main/README.md ; https://github.com/apache/ossie/blob/main/core-spec/spec.md ; https://ossie.apache.org/ | 2026-11-13 |
+
+## Claims cut from S1 and S2 because they could not be verified on 2026-11-13
+
+- **Cube embedding, SSO and pre-aggregations** on S1: verified on 2026-11-12 for P3 but not re-checked; left out.
+- **Cube's total source count** ("about 26 engines"): not re-checked; S2 says "many sources, including ClickHouse".
+- **Whether Cube's MCP server has a raw SQL tool**: not stated in the sections read; shown as "Not covered".
+- **Malloy "nested queries" and editor tooling**, **Lightdash API**: not checked; removed.
+- **Cube Cloud free plan**: not re-checked for this page; S1 says only that the MCP server is on all plans.
+- **Databricks Genie and metric views** (docs now say "Genie Agents"): not used on S2; the Databricks spoke covers it.
+- **Accuracy statistics for text-to-SQL vs semantic layers**: no primary source; none are on either page.
