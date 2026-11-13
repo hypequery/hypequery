@@ -6,6 +6,7 @@ import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { withInlineCode } from '@/components/InlineCode';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { marketing } from '@/components/ui/marketing';
+import { formatLongDate } from '@/lib/format-date';
 import type { BreadcrumbItem, FaqItem } from '@/lib/structured-data';
 
 // Building blocks for hub pages: pages that answer a topic briefly and link
@@ -30,6 +31,7 @@ export function HubShell({
   secondaryCta,
   definition,
   jsonLd,
+  updated,
   children,
 }: {
   path: string;
@@ -43,6 +45,8 @@ export function HubShell({
   /** Answer-first definition shown right under the hero. */
   definition?: { term: string; body: ReactNode };
   jsonLd?: object[];
+  /** ISO date (YYYY-MM-DD) shown as a visible "Last updated" line under the title. */
+  updated?: string;
   children: ReactNode;
 }) {
   return (
@@ -60,6 +64,11 @@ export function HubShell({
               {eyebrow ? <p className={marketing.eyebrow}>{eyebrow}</p> : null}
             </div>
             <h1 className={`mt-5 max-w-[980px] text-balance ${marketing.heroTitle}`}>{title}</h1>
+            {updated ? (
+              <p className="mt-4 font-mono text-xs text-text-dim">
+                Last updated <time dateTime={updated}>{formatLongDate(updated)}</time>
+              </p>
+            ) : null}
             <div className={`mt-5 max-w-[720px] text-pretty ${marketing.heroLead}`}>{lead}</div>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link

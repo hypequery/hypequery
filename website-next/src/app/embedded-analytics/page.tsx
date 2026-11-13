@@ -13,7 +13,7 @@ const TITLE = 'Embedded Analytics for Developers: Build vs Buy';
 const DESCRIPTION =
   'What embedded analytics is, when to embed a BI tool and when to build, how to isolate tenants on ClickHouse, and how 8 tools compare.';
 // The date the vendor table was checked against each vendor's own site.
-const VERIFIED_ON = 'November 8, 2026';
+const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -81,15 +81,15 @@ const vendorRows = [
   ],
   [
     'Luzmo',
-    'Web components by default, iframe option, React, Vue and Angular components, Flex SDK for charts from code',
+    'Web component plus React, React Native, Angular and Vue components, authorised with a server-side embed token',
     'No',
-    'Not by default; private deployments by arrangement on Enterprise',
+    'Private infrastructure is available as a tailored deployment option',
     'From €1,995/mo billed annually, scaling with usage',
   ],
   [
     'Embeddable',
-    'Web component, with guides for React, Next.js, Vue and Angular',
-    'Partly: the Remarkable UI component library and CLI are MIT',
+    'Web component; engineers register React chart components and assemble dashboards in its builder',
+    'No: the hosted platform is commercial; the component-suite licence was not confirmed',
     'No: the platform is hosted; the Cube data layer it uses can run in your environment',
     'Quote on request; fixed price with unlimited usage',
   ],
@@ -101,18 +101,18 @@ const vendorRows = [
     'Professional: platform fee plus per workspace. Enterprise: custom. No public prices',
   ],
   [
-    'Explo',
-    'Web component, iframe',
-    'Not stated',
-    'Enterprise only (on-premise deployment)',
-    'Pro from $1,995/mo; Enterprise on request',
+    'Apache Superset',
+    'Embedded SDK that inserts an iframe authorised with a guest token',
+    'Yes: Apache 2.0',
+    'Yes',
+    'Free to self-host; managed Preset embedding starts at $500/mo for 50 viewers',
   ],
   [
     'Sisense',
-    'iframe, Embed SDK, Compose SDK (React, Angular, Vue, web components), REST API',
-    'No: Compose SDK source is public under an end user license agreement',
+    'iframe or Compose SDK for React, Angular and Vue',
+    'No: commercial platform',
     'Enterprise: your own cloud or on-prem',
-    'No public prices: Enterprise through sales, Self-Serve free trial',
+    'No public prices; contact sales',
   ],
   [
     'Cube',
@@ -143,9 +143,8 @@ const sources: Array<{ vendor: string; urls: string[] }> = [
     vendor: 'Luzmo',
     urls: [
       'https://www.luzmo.com/pricing',
-      'https://developer.luzmo.com/guide/embedding--component-api-reference',
-      'https://developer.luzmo.com/',
-      'https://www.luzmo.com/compare/metabase',
+      'https://developer.luzmo.com/guide/dashboard-embedding--embed-into-application',
+      'https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data',
     ],
   },
   {
@@ -153,8 +152,8 @@ const sources: Array<{ vendor: string; urls: string[] }> = [
     urls: [
       'https://embeddable.com/pricing',
       'https://docs.embeddable.com/deployment/embedding',
-      'https://embeddable.com/security',
-      'https://github.com/embeddable-hq',
+      'https://docs.embeddable.com/data-modeling/introduction',
+      'https://docs.embeddable.com/data/bring-your-own-cube',
     ],
   },
   {
@@ -167,20 +166,28 @@ const sources: Array<{ vendor: string; urls: string[] }> = [
     ],
   },
   {
-    vendor: 'Explo',
-    urls: ['https://www.explo.co/pricing-two-tier', 'https://docs.explo.co/embedding-documentation/web-component-vs-iframe'],
+    vendor: 'Apache Superset and Preset',
+    urls: [
+      'https://superset.apache.org/',
+      'https://www.npmjs.com/package/@superset-ui/embedded-sdk',
+      'https://preset.io/pricing/',
+      'https://clickhouse.com/docs/integrations/connectors/data-visualization/superset-and-clickhouse',
+    ],
   },
   {
     vendor: 'Sisense',
     urls: [
-      'https://www.sisense.com/pricing/',
-      'https://developer.sisense.com/guides/choosing-an-integration.html',
-      'https://github.com/sisense/compose-sdk-monorepo/blob/main/LICENSE.md',
+      'https://www.sisense.com/plans/',
+      'https://www.sisense.com/ai-analytics-platform/compose-sdk/',
     ],
   },
   {
     vendor: 'Cube',
     urls: ['https://cube.dev/pricing', 'https://docs.cube.dev/embedding', 'https://github.com/cube-js/cube'],
+  },
+  {
+    vendor: 'Explo and Omni',
+    urls: ['https://omni.co/blog/omni-acquires-explo/', 'https://www.explo.co/'],
   },
 ];
 
@@ -208,16 +215,31 @@ const faqItems: FaqItem[] = [
   {
     question: 'What does embedded analytics cost?',
     answer:
-      'In the table on this page, published starting prices run from free open source editions to about 2,000 a month (Luzmo from €1,995, Explo Pro from $1,995), and several vendors quote only on request. Building costs engineering time instead of license fees.',
+      'Published starting prices in the table run from free open-source editions to €1,995 a month for Luzmo, while several vendors quote only on request. Building costs engineering time instead of licence fees.',
   },
   {
     question: 'Which embedded analytics tools are open source?',
     answer:
-      'Of the tools compared here, Metabase (AGPL open source edition), Cube (Cube Core, Apache 2.0) and hypequery (Apache 2.0) have open-source cores. Embeddable and GoodData publish parts of their SDKs under MIT.',
+      'Of the tools compared here, Metabase has an AGPL open-source edition, while Cube Core, Apache Superset and hypequery are Apache 2.0.',
   },
 ];
 
 const guides: HubLink[] = [
+  {
+    href: '/compare/embedded-analytics-platforms',
+    title: 'Best embedded analytics platforms',
+    description: 'Twelve vendors in three groups, each with a best-for and a watch-out.',
+  },
+  {
+    href: '/compare/embedded-analytics-pricing',
+    title: 'Embedded analytics pricing compared',
+    description: 'Every vendor’s published price for embedding, and a 200-customer SaaS priced end to end.',
+  },
+  {
+    href: '/clickhouse-saas-analytics',
+    title: 'Embedded analytics for SaaS on ClickHouse',
+    description: 'One typed, tenant-scoped model serving dashboards, a customer API and agents.',
+  },
   {
     href: '/blog/embedded-analytics-clickhouse-multi-tenant-dashboards',
     title: 'Embedded analytics with ClickHouse',
@@ -227,11 +249,6 @@ const guides: HubLink[] = [
     href: '/clickhouse-multi-tenant-analytics',
     title: 'ClickHouse multi-tenant analytics',
     description: 'Tenant isolation for SaaS when ClickHouse powers customer-facing features.',
-  },
-  {
-    href: '/clickhouse-saas-analytics',
-    title: 'ClickHouse SaaS analytics',
-    description: 'A multi-tenant analytics layer for SaaS products on ClickHouse.',
   },
   {
     href: '/clickhouse-dashboard',
@@ -291,7 +308,7 @@ const articleJsonLd = {
   headline: TITLE,
   description: DESCRIPTION,
   url: absoluteUrl(PATH).toString(),
-  dateModified: '2026-11-08',
+  dateModified: '2026-11-12',
   author: { '@type': 'Organization', name: 'hypequery' },
   publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
 };
@@ -473,8 +490,12 @@ export default function EmbeddedAnalyticsPage() {
           rows={vendorRows}
         />
         <p className="mt-4 text-xs leading-5 text-text-dim">
-          All eight document a ClickHouse connection. Embeddable connects to databases through Cube. hypequery is listed
-          last because it is ours.
+          Seven document a ClickHouse connection; Sisense support could not be confirmed. Embeddable connects to databases
+          through Cube. hypequery is listed last because it is ours. Explo is not listed because{' '}
+          <a href="https://omni.co/blog/omni-acquires-explo/" rel="noopener nofollow" className={inlineLink}>
+            Omni acquired it in October 2025
+          </a>{' '}
+          and said customers would migrate to Omni over the following 12 months.
         </p>
       </HubSection>
 

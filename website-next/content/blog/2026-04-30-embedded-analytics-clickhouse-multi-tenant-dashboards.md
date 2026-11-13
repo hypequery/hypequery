@@ -16,7 +16,7 @@ tags:
 
 Customers expect usage dashboards and reporting inside your product. Not in a separate BI tool, but inside your app, loading fast, showing only their data. ClickHouse is one of the best engines for this, and teams like PostHog, LaunchDarkly, Grafana Cloud, GitLab, Cloudflare, and Inigo have all built customer-facing analytics on it. What they all also discovered is that the hard part is not query performance. It is multi-tenancy, isolation, and keeping the codebase maintainable as you scale to thousands of tenants.
 
-This guide covers the full picture: schema design, row-level security and app-side tenant scoping, a typed tenant-scoped API, dashboard performance, per-tenant resource limits, and onboarding and offboarding tenants. Every SQL statement here was run on a ClickHouse 26.6 server, including the row policies, quotas and read-only users.
+This guide is for teams who have decided to build rather than embed a vendor's dashboards; if that choice is still open, the [embedded analytics platforms comparison](/compare/embedded-analytics-platforms) covers the vendors and [embedded analytics pricing](/compare/embedded-analytics-pricing) what they cost. It covers the full picture: schema design, row-level security and app-side tenant scoping, a typed tenant-scoped API, dashboard performance, per-tenant resource limits, and onboarding and offboarding tenants. Every SQL statement here was run on a ClickHouse 26.6 server, including the row policies, quotas and read-only users.
 
 ## Quick answers
 
@@ -584,4 +584,4 @@ ORDER BY rows_read DESC;
 
 ## Closing
 
-Four decisions carry most of the weight: a shared table with `tenant_id` first in the sort key, a tenant resolved from the session and injected by one API layer, a custom-setting row policy as the backstop, and per-tenant limits through profiles and keyed quotas. For the architecture overview, see [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) and the [multi-tenant SaaS use case](/use-cases/multi-tenant-saas).
+Four decisions carry most of the weight: a shared table with `tenant_id` first in the sort key, a tenant resolved from the session and injected by one API layer, a custom-setting row policy as the backstop, and per-tenant limits through profiles and keyed quotas. For the architecture overview, see [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) and the [multi-tenant SaaS use case](/use-cases/multi-tenant-saas). For how one tenant-scoped model serves in-app dashboards, customer APIs and agents together, see [embedded analytics for SaaS on ClickHouse](/clickhouse-saas-analytics).

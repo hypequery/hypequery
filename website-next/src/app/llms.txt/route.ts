@@ -1,6 +1,7 @@
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { comparePages } from '@/data/compare-pages';
+import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
 import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
 import { PRODUCT_DEFINITION } from '@/data/product';
@@ -26,7 +27,8 @@ const PRODUCT_PAGES: Entry[] = [
   { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
   ...semanticLayerPages.map((page) => ({ title: page.label, url: page.href, description: page.description })),
   { title: 'ClickHouse semantic layer', url: '/clickhouse-semantic-layer', description: 'What a semantic layer is, and how to define one for ClickHouse in TypeScript or Python with typed datasets, tenant keys and time keys.' },
-  { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
+  ...embeddedAnalyticsComparePages.map((page) => ({ title: page.title, url: page.href, description: page.description })),
+  { title: 'Embedded analytics for SaaS on ClickHouse', url: '/clickhouse-saas-analytics', description: 'How hypequery serves in-app dashboards, customer-facing APIs and AI agents from one typed, tenant-scoped model on ClickHouse.' },
   { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
   { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },
   { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
