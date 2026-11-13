@@ -1,5 +1,24 @@
 # @hypequery/datasets
 
+## 0.31.0
+
+### Minor Changes
+
+- 33dfaf4: Client contracts can carry field metadata: a field's annotations may now include `synonyms`, `examples`, `format`, `unit` and `currency` (RFC 0018 amendment, 5 November 2026), the same vocabulary the deployment contract already validates. The MCP HTTP bridge returns it with each endpoint profile from `get_dataset_schema`, so agents served from a Python backend or Cloud see the synonyms, example values and units that local mode already shows.
+
+  Field metadata is negotiated so released consumers keep working. Validators before this release reject the new members, so producers emit them only to a discovery request whose `x-hypequery-client-features` header names `field-metadata`; the MCP bridge sends it. `@hypequery/protocol` adds `CLIENT_CONTRACT_FEATURES_HEADER`, `acceptsClientFieldMetadata`, `parseClientContractFeatures` and `withoutClientFieldMetadata` (the reduced view for consumers that did not ask), and the `ClientAnnotationText` type. `buildClientContract` gains `fieldMetadata` (off by default): a Cloud or host discovery route sets it from the request header. Both views share every `schemaHash`, so neither invalidates generated clients or connected bridges.
+
+  Upgrade `@hypequery/protocol`, `@hypequery/mcp` and `@hypequery/cli` together with the producer you pair them with; a producer that only sends field metadata on request is safe with older consumers either way.
+
+- 83606fe: Add `@hypequery/datasets/codegen`: `generateDatasetSource(contract)` turns a deployment contract into idiomatic `dataset()` code, a `datasets.ts` and the `cloud.ts` entrypoint `hypequery deploy` reads. `publishToCloud` over the generated code builds the same contract, with members, and their `examples`, `synonyms` and SQL `dependencies`, in name order (`canonicalMemberOrder`), the only order code produces. Anything `dataset()` code can't express exactly is refused with `ContractExportError` rather than approximated. This is how a model built in hypequery cloud is exported to a repository.
+
+  `publishToCloud` gains two optional settings: `endpoints`, a published dataset's exact endpoint policy in place of the one `access` derives (for example a cache TTL, or no row cap), and `supporting`, datasets published without an endpoint beyond those reached through relationships.
+
+### Patch Changes
+
+- Updated dependencies [33dfaf4]
+  - @hypequery/protocol@0.26.0
+
 ## 0.30.0
 
 ### Minor Changes

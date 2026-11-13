@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/dictionary-lookups",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Tenant plan and region from a ClickHouse dictionary via dictGet in a hypequery dataset dimension, compared with a relationship JOIN: same rows, timings from system.query_log",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/postgres-app-clickhouse-analytics",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Keep your app's accounts in Postgres with Drizzle, serve usage analytics from ClickHouse with hypequery, and join them by account id in the app",
   "type": "module",

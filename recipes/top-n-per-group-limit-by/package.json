@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/top-n-per-group-limit-by",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Top N rows per group in ClickHouse with LIMIT BY from the hypequery query builder, compared with row_number() and rank(), pinned on the seed",
   "type": "module",

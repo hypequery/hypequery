@@ -1,5 +1,57 @@
 # @hypequery/cli
 
+## 1.30.0
+
+### Minor Changes
+
+- 46af540: Finish machine output for scripts and coding agents (AG-07-b).
+
+  - Every command now returns a structured `--json` result instead of `{ "ok": true }`: `init`, `create`, `dev` (once listening), `mcp --self-test`, `generate`, `generate:types`, `generate:datasets`, `generate:manifest`, `generate:client`, `export:client-contract`, `deployment:build`, `deployment:validate`, `deployment:release`, `pull`, `diff` and `telemetry`.
+  - Error envelopes use decision 0003's nine categories, as Cloud's `/v1` and MCP do (`unauthenticated` instead of `unauthorized`, `budget_exceeded` instead of `plan`), and always carry a `hint` and `docsUrl`. They relay Cloud's own hint and `requestId`, and list affected files in `issues`.
+  - `--check` and `--diff` misses report `OUT_OF_DATE` (category `stale_contract`, still exit 1), and refused overwrites report `OUTPUT_EXISTS`.
+  - New global `--no-input`, and `CI`, refuse every prompt with `INPUT_REQUIRED` naming the option to pass. `login` fails fast with exit 2 instead of waiting for a browser.
+  - `init --no-interactive` over existing files now fails with `CONFIRMATION_REQUIRED` instead of exiting 0 without writing.
+  - Cloud 402 exits 3 and 409/412 reports `CLOUD_STATE_CHANGED`. A hosted `mcp --self-test` refused with 401/403 exits 2, and an unreachable one exits 4.
+  - Commander's argument errors print an envelope with `--json`, and a large `--json` document is fully written before the process exits.
+
+- 96ca29c: Add machine output for scripts and coding agents.
+
+  - `--json` on every command. Stdout carries exactly one JSON document: the command's result, or `{ "error": { code, message, hint, category, retryable, correctable, exitCode } }`. Logs, and the package manager output of `create` and `init`, go to stderr. `deployment:status`, `deploy`, `deployment:submit`, `login`, `logout` and `skill install` return structured results. Other commands return `{ "ok": true }` for now. `examples list --json` is unchanged.
+  - Fixed exit codes: 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal, 130 interrupted.
+    - Sign-in failures (missing or expired Cloud credentials) now exit 2 instead of 1.
+    - Network failures now exit 4 instead of 1.
+    - Cloud reads (`pull`, `diff`, `deployment:status`, `generate:client --cloud`) that Cloud refuses with 401/403 exit 2; 408/429/5xx exit 4.
+  - `mcp --json` is refused unless `--self-test` is set, since serving MCP owns stdout.
+  - Prompts are refused with `INPUT_REQUIRED` when there is no terminal or `--json` is set, instead of waiting for input nobody can give. `init` without a TTY now asks for `--no-interactive`.
+
+- 84c967c: Add `hypequery examples list [--json] [--kind example|recipe|guide]` and `hypequery create <slug> [-y] [--dir] [--no-install] [--no-seed] [--tag]`.
+
+  `examples list` prints the registry behind hypequery.com/examples (or its JSON index). `create` scaffolds an example or recipe into `./<slug>` with a blobless sparse `git` checkout, pins `workspace:*` dependencies to the published versions the example was tested with (falling back to a dist-tag when a version is not on npm yet), copies the shared seed dataset into `./<slug>/seed`, installs dependencies, and always ends with a `Next:` block. No account, no prompts with `-y`, non-zero exit on failure. Set `HYPEQUERY_EXAMPLES_INDEX` to a URL or file to use another index.
+
+- 33dfaf4: Self-hosted remote MCP over Streamable HTTP, with OAuth resource-server support.
+
+  - `@hypequery/mcp`: `createMCPHttpHandler` answers Fetch `Request`s (Node through `listenMCPHttpServer` or `createMCPNodeRequestListener`; also Bun, Deno and Cloudflare Workers with the `nodejs_compat` flag, since the package imports Node built-ins). Every request checks `Host` and `Origin` (DNS-rebinding protection), then the credential. Each session belongs to the principal that opened it and gets its own executor for that principal's tenant; another principal using its id gets `404`. Bodies, open sessions and idle sessions are bounded, and `close()` during a session open leaves nothing behind. Pass `allowedOrigins` and a browser page's preflight is answered before any credential, with the CORS headers a page needs to read replies, the session id and the OAuth challenge (`allowedRequestHeaders` adds request headers).
+  - Credentials: `createMCPStaticKeyAuthenticator` (one shared key), or `createMCPServeAuthenticator`, which reuses `@hypequery/serve` auth strategies such as `createJwtStrategy`. With `oauth` configured, the server publishes RFC 9728 protected-resource metadata, answers with RFC 6750 `WWW-Authenticate` challenges that point at it, and enforces `requiredScopes`. Set the JWT strategy's `audience` to the resource URL, and no other: `createMCPServeAuthenticator({ audience })` throws for a `createJwtStrategy` strategy that also accepts another audience, or none, since a token naming only that audience would otherwise open a session. `hypequery mcp --http --resource` applies it. There is no authorization server.
+  - `@hypequery/serve`: the MCP source now carries the app's auth strategies and tenant extraction (`ServeMcpAuth`).
+  - `@hypequery/cli`: `hypequery mcp --http` with `--port`, `--host`, `--allowed-hosts`, `--allowed-origins`, and the OAuth flags `--resource`, `--authorization-servers` and `--required-scopes`. Callers send `HYPEQUERY_MCP_KEY`, or without it are verified by the app's `defineServe` auth, each with its own tenant. Because MCP applies only the global auth and tenant, `--http` refuses to verify callers that way when a dataset or metric entry sets its own `auth`, `requiredRoles`, `requiredScopes`, `middlewares` or `tenant`, or when `defineServe({ middlewares })` or `api.use()` adds global middlewares (the MCP source reports their count); serve one trusted principal with `HYPEQUERY_MCP_KEY` instead. `--client-contract-url --http` accepts only the static key and never forwards callers' credentials.
+
+### Patch Changes
+
+- 33dfaf4: Client contracts can carry field metadata: a field's annotations may now include `synonyms`, `examples`, `format`, `unit` and `currency` (RFC 0018 amendment, 5 November 2026), the same vocabulary the deployment contract already validates. The MCP HTTP bridge returns it with each endpoint profile from `get_dataset_schema`, so agents served from a Python backend or Cloud see the synonyms, example values and units that local mode already shows.
+
+  Field metadata is negotiated so released consumers keep working. Validators before this release reject the new members, so producers emit them only to a discovery request whose `x-hypequery-client-features` header names `field-metadata`; the MCP bridge sends it. `@hypequery/protocol` adds `CLIENT_CONTRACT_FEATURES_HEADER`, `acceptsClientFieldMetadata`, `parseClientContractFeatures` and `withoutClientFieldMetadata` (the reduced view for consumers that did not ask), and the `ClientAnnotationText` type. `buildClientContract` gains `fieldMetadata` (off by default): a Cloud or host discovery route sets it from the request header. Both views share every `schemaHash`, so neither invalidates generated clients or connected bridges.
+
+  Upgrade `@hypequery/protocol`, `@hypequery/mcp` and `@hypequery/cli` together with the producer you pair them with; a producer that only sends field metadata on request is safe with older consumers either way.
+
+- f3943fe: `hypequery create` exits non-zero when the install it was asked to run fails. The scaffold and the `Next:` block with the install command are still written, so a script can tell a half-finished setup from a complete one.
+- 770b01f: Instrument `hypequery examples list` and `hypequery create` telemetry. `examples` now reports the kind filter, table or JSON output, and a bucketed entry count. `create` reports which public registry entry was scaffolded (any slug outside the registry is recorded as `other`, never as typed), its kind and language, the stage reached or failed (resolved, fetched, pinned, installed, completed), whether the seed was copied, whether any pin fell back to a dist-tag, and whether the dependency install succeeded, failed or was skipped. Cancelling the directory prompt now exits 130 as `cancelled` instead of failing. The website telemetry proxy schema must be deployed before this release, or the new properties are rejected.
+
+  `hypequery create` now removes a Python example's monorepo `uv.lock` along with its `[tool.uv.sources]` table, so uv resolves `hypequery` fresh from PyPI. Previously the stale lock kept `hypequery` at 0.1.0b3, which has no `mcp` extra, and `mcp-agent-analytics-python` failed with `No module named 'mcp'`.
+
+- Updated dependencies [33dfaf4]
+  - @hypequery/protocol@0.26.0
+  - @hypequery/deployment@0.12.1
+
 ## 1.29.0
 
 ### Minor Changes

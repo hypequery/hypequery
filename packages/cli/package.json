@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/cli",
-  "version": "1.29.0",
+  "version": "1.30.0",
   "description": "CLI for scaffolding type-safe ClickHouse analytics, semantic datasets, React manifests, and deployments",
   "keywords": [
     "clickhouse",

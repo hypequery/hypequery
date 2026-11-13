@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/multiif-bucketing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Latency and status buckets in ClickHouse with multiIf as dataset dimensions, compared with CASE, transform and roundDown, pinned on the seed",
   "type": "module",

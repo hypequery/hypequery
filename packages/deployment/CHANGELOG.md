@@ -1,5 +1,12 @@
 # @hypequery/deployment
 
+## 0.12.1
+
+### Patch Changes
+
+- Updated dependencies [33dfaf4]
+  - @hypequery/protocol@0.26.0
+
 ## 0.12.0
 
 ### Minor Changes
