@@ -16,6 +16,19 @@ export interface CloudPublishingOptions {
     readonly roles: readonly string[];
     readonly scopes: readonly string[];
   }>>;
+  /**
+   * The exact endpoint policy for a published dataset, by name. It replaces
+   * the policy derived from `access` (authenticated, tenant auto-injected from
+   * `tenantKey`, `maxLimit` from `limits.maxResultSize` or 1000), so it can say
+   * what that derivation can't: an optional tenant, a cache TTL, no row limit.
+   * Exported Cloud models use it to stay byte-identical (decision 0020).
+   */
+  readonly endpoints?: Readonly<Record<string, ProtocolEndpointPolicy>>;
+  /**
+   * Datasets published without an endpoint, beyond those reached through a
+   * relationship (which are always included). They can't be queried directly.
+   */
+  readonly supporting?: Readonly<Record<string, AnyDatasetInstance>>;
 }
 
 /**
@@ -36,6 +49,17 @@ export function publishToCloud(options: CloudPublishingOptions): ProtocolDeploym
   for (const [, dataset] of entries) {
     collectCloudDatasets(datasets, dataset);
     exposed.add(dataset.name);
+  }
+  for (const [, dataset] of Object.entries(options.supporting ?? {})) {
+    if (exposed.has(dataset.name)) {
+      throw new Error(`Cloud dataset "${dataset.name}" can't be both published and supporting.`);
+    }
+    collectCloudDatasets(datasets, dataset);
+  }
+  for (const name of Object.keys(options.endpoints ?? {})) {
+    if (!exposed.has(name)) {
+      throw new Error(`Cloud endpoint policy names an unpublished dataset: "${name}".`);
+    }
   }
   for (const dataset of datasets.values()) {
     const namedMetrics = (dataset as AnyDatasetInstance & {
@@ -61,6 +85,11 @@ export function publishToCloud(options: CloudPublishingOptions): ProtocolDeploym
   const endpoints: Record<string, ProtocolEndpointPolicy> = {};
   for (const dataset of datasets.values()) {
     if (!exposed.has(dataset.name)) continue;
+    const explicit = options.endpoints?.[dataset.name];
+    if (explicit) {
+      endpoints[dataset.name] = explicit;
+      continue;
+    }
     const access = options.datasetAccess?.[dataset.name] ?? options.access;
     endpoints[dataset.name] = {
           access: {

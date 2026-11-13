@@ -85,3 +85,29 @@ export {
 export { MCP_PACKAGE_VERSION } from './version.js';
 
 export { HypequeryMCPHttpExecutor, createMCPHttpExecutor, type MCPHttpExecutorConfig } from './http-executor.js';
+
+export {
+  createMCPHttpHandler,
+  type MCPHttpHandler,
+  type MCPHttpHandlerOptions,
+  type MCPProtectedResourceOptions,
+} from './http-server.js';
+export {
+  MCPHttpAuthError,
+  createMCPServeAuthenticator,
+  createMCPStaticKeyAuthenticator,
+  type MCPHttpAuthErrorCode,
+  type MCPHttpAuthenticator,
+  type MCPPrincipal,
+  type MCPServeAuthContext,
+  type MCPServeAuthRequest,
+  type MCPServeAuthStrategy,
+  type MCPServeAuthenticatorOptions,
+  type MCPStaticKeyAuthenticatorOptions,
+} from './http-auth.js';
+export {
+  createMCPNodeRequestListener,
+  listenMCPHttpServer,
+  type MCPHttpListenOptions,
+  type MCPHttpListener,
+} from './http-node.js';

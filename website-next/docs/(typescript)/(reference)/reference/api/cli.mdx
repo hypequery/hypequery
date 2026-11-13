@@ -75,7 +75,7 @@ npx hypequery dev
 | `hypequery generate:client [contract]` | Generate typed React client types and routes from a TypeScript serve or Python client contract, or the live cloud release |
 | `hypequery export:client-contract <api>` | Export a TypeScript serve API's client contract for `hypequery generate:client` |
 | `hypequery deploy <cloud>` | Build, release, and deploy a dataset-only Cloud publication, then print where it is served (hypequery cloud is not live yet) |
-| `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio, or check an endpoint with `--self-test` |
+| `hypequery mcp [file]` | Serve this project's datasets to an MCP client over stdio or Streamable HTTP (`--http`), or check an endpoint with `--self-test` |
 | `hypequery skill install` | Install hypequery's agent skills for Claude Code, Cursor and Codex |
 | `hypequery examples list` | List the runnable examples, recipes and guides at hypequery.com/examples |
 | `hypequery create <slug>` | Scaffold an example or recipe into `./<slug>`, pinned to published versions |
@@ -510,7 +510,8 @@ credential.
 
 ## `hypequery mcp [file]`
 
-Serves the project's datasets over stdio for a local MCP client.
+Serves the project's datasets over stdio for a local MCP client, or over Streamable HTTP with `--http`
+([Remote MCP over HTTP](/docs/mcp/remote)).
 
 Without `[file]`, the command looks for a Serve API file in the current directory: `hypequery.ts`,
 `analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, or
@@ -522,6 +523,11 @@ With an absolute `[file]` it runs from any directory: the file's imports resolve
 | `--tenant <id>` | Trusted tenant for tenant-scoped datasets (required when any dataset is tenant-scoped) |
 | `--self-test` | Check the entrypoint and exit. It fails if `@hypequery/mcp` isn't installed |
 | `--self-test --url <mcp-url>` | Check a hosted endpoint instead: initialize and list tools, without calling one. The runtime API key is read from `HYPEQUERY_API_KEY` rather than a command argument |
+| `--http` | Serve over Streamable HTTP. Callers send `HYPEQUERY_MCP_KEY`, or without it are verified by `defineServe` auth, each with their own tenant |
+| `--port <n>`, `--host <address>` | With `--http`: where to listen (default `127.0.0.1:3333`) |
+| `--allowed-hosts <names>` | With `--http`: comma-separated `Host` names to answer (default: loopback; required for another bind address) |
+| `--allowed-origins <origins>` | With `--http`: comma-separated browser origins allowed to call |
+| `--resource <url>`, `--authorization-servers <urls>`, `--required-scopes <scopes>` | With `--http`: OAuth resource-server settings |
 
 Supply `HYPEQUERY_API_KEY` through your environment or secret manager before
 running the check; the command never takes the key as an argument.
@@ -592,6 +598,99 @@ What it does:
 | `--tag <dist-tag>` | Dist-tag for `@hypequery/*` packages whose recorded version is not on npm (default `latest`) |
 
 Set `HYPEQUERY_EXAMPLES_INDEX` to a URL or a local file to scaffold from another index, for example a branch of the repository.
+
+## Scripts, CI and coding agents
+
+Every command can run headless. Coding agents (Claude Code, Codex), CI jobs and scripts can parse its results and recover from its errors without a person.
+
+- **`--json`** (on any command) prints exactly one JSON document on stdout. Logs, spinners, package-manager output and next steps go to stderr, without colour. On success the document is the command's result; on failure it is an error envelope (below).
+- **No prompts without a person.** A command prompts only in a terminal, and never with `--json`, `--no-input` or `CI` set. Anything it would have asked fails fast with exit code `1` and `INPUT_REQUIRED`, naming the flag or environment variable to pass (`init` asks for `--no-interactive` and the `CLICKHOUSE_*` variables).
+- **Destructive changes need an explicit flag.** Overwriting generated files needs `--force` (`OUTPUT_EXISTS` otherwise). `init --no-interactive` over existing files fails with `CONFIRMATION_REQUIRED` instead of exiting `0` without writing. Replacing a restored live release needs `--replace-restored`.
+- **`--no-input`** (or `CI`) also stops `hypequery login` from waiting for a browser (it fails with exit code `2`), and package installers run by `create` and `init` get no stdin. Use `HYPEQUERY_API_TOKEN` with `--endpoint` in unattended runs.
+
+```bash
+hypequery generate:datasets --check --json
+hypequery deploy analytics/cloud.ts --json > deploy.json
+```
+
+### Exit codes and errors
+
+Exit codes are fixed (`EXIT_CODES` in the CLI source):
+
+| Code | Meaning | What to do |
+| --- | --- | --- |
+| `0` | Success | — |
+| `1` | Correctable: bad options, missing input, not found, output exists, out of date | Fix what the message names and run again |
+| `2` | Auth: not signed in, expired, refused or insufficient credential | Run `hypequery login` or set `HYPEQUERY_API_TOKEN` |
+| `3` | Plan limit | Upgrade the plan, or ask for less |
+| `4` | Transient: ClickHouse or Cloud unreachable or failing temporarily | Retry |
+| `5` | Internal error in hypequery | Report it |
+| `130` | Interrupted (Ctrl+C), including a cancelled prompt | — |
+| `143` | Terminated (SIGTERM) | — |
+
+With `--json`, a failure prints the same envelope as Cloud's `/v1` operations and MCP tools, plus the exit code:
+
+```json
+{
+  "error": {
+    "code": "INPUT_REQUIRED",
+    "message": "This step needs an answer, and there is no terminal to ask in (or --json, --no-input or CI is set). Pass --style queries|datasets.",
+    "hint": "Pass --style queries|datasets.",
+    "docsUrl": "https://hypequery.com/docs/reference/api/cli#exit-codes-and-errors",
+    "category": "correctable_input",
+    "retryable": false,
+    "correctable": true,
+    "exitCode": 1
+  }
+}
+```
+
+`requestId` (relayed from Cloud) and `issues` (`[{ path, message }]`, for example each file that is out of date) appear when they apply. `category` is one of decision 0003's nine, shared with Cloud: `correctable_input`, `unauthenticated`, `forbidden`, `tenant_unavailable`, `budget_exceeded`, `cancelled`, `stale_contract`, `unavailable`, `internal`. `correctable` is true only for `correctable_input`. Codes never change meaning once released:
+
+| Code | Category | Exit | Meaning |
+| --- | --- | --- | --- |
+| `USAGE` | `correctable_input` | 1 | Unknown command or option, or a missing argument |
+| `INPUT_REQUIRED` | `correctable_input` | 1 | The command would have prompted; pass the named option or variable |
+| `CONFIRMATION_REQUIRED` | `correctable_input` | 1 | A destructive change needs the named flag |
+| `OUTPUT_EXISTS` | `correctable_input` | 1 | An output exists and differs; pass `--force` or choose another output |
+| `NOT_FOUND` | `correctable_input` | 1 | An example or Cloud resource does not exist |
+| `ENTRYPOINT_NOT_FOUND` | `correctable_input` | 1 | No API file was found to serve |
+| `CLICKHOUSE_CONNECTION_FAILED` | `correctable_input` | 1 | `init --no-interactive` could not connect with the `CLICKHOUSE_*` settings |
+| `JSON_NOT_SUPPORTED` | `correctable_input` | 1 | `mcp` serves over stdout; use `--self-test` with `--json` |
+| `OUT_OF_DATE` | `stale_contract` | 1 | `--check` or `--diff` found generated output missing or out of date |
+| `CLOUD_STATE_CHANGED` | `stale_contract` | 1 | The live deployment changed since the command read it |
+| `CLOUD_REQUEST_FAILED` | `correctable_input` | 1 | Cloud rejected the request; its reason is in the message |
+| `CLOUD_ENDPOINT_WITHOUT_TOKEN`, `CLOUD_TOKEN_WITHOUT_ENDPOINT` | `correctable_input` | 1 | Only one of the endpoint and `HYPEQUERY_API_TOKEN` is set; set both, or neither to use `hypequery login` |
+| `CLOUD_NOT_SIGNED_IN`, `CLOUD_CREDENTIAL_EXPIRED`, `CLOUD_UNAUTHORIZED`, `LOGIN_NEEDS_A_PERSON` | `unauthenticated` / `forbidden` | 2 | No usable Cloud credential |
+| `CLOUD_PLAN_LIMIT` | `budget_exceeded` | 3 | The organisation's plan does not allow this |
+| `CONNECTION_FAILED`, `CLOUD_UNAVAILABLE`, `CLOUD_NETWORK_ERROR` | `unavailable` | 4 | ClickHouse or Cloud could not be reached (retryable) |
+| `COMMAND_FAILED` | `correctable_input` | 1 | Any other failure the message explains |
+
+### `--json` results
+
+Fields are only ever added. Paths are absolute.
+
+| Command | Result |
+| --- | --- |
+| `telemetry` | `{ action, enabled, source, installId, docsUrl }` |
+| `examples list` | `{ version, packageVersions, entries }` |
+| `create` | `{ slug, kind, directory, packageManager, install, seed, unpublished, next, url }` |
+| `init` | `{ directory, database, style, auth, connection, files, datasetsGenerated }` |
+| `dev` | Printed once listening; the server keeps running: `{ url, hostname, port, entrypoint, docsUrl, openapiUrl, queries, watching }` |
+| `mcp --self-test` | `{ ok, mode: "local" \| "hosted" \| "http", … }`. Serving MCP refuses `--json`: stdout carries the protocol |
+| `generate`, `generate:types` | `{ output, database, tables }` |
+| `generate:datasets` | `{ status, output, tables, warnings }` |
+| `generate:manifest` | `{ output, routes }` |
+| `generate:client` | `{ status, output, endpoints }` |
+| `export:client-contract` | `{ status, output }`, or the canonical contract itself with `--stdout` |
+| `skill install` | `{ installed, upToDate, files }` |
+| `login` / `logout` | `{ signedIn, target, expiresAt }` / `{ signedIn: false, … }` |
+| `deployment:build` | `{ bundle, deployment, unscopedTenantCandidates }` |
+| `deployment:validate` | `{ valid, kind, path, deployment, bundle? }` |
+| `deployment:release` | `{ release: { path, identity, bundleIdentity, target } }` |
+| `deployment:submit`, `deploy` | `{ status, releaseIdentity, bundleIdentity, target, endpoints \| draft }` |
+| `deployment:status` | `{ target, live, endpoints }` |
+| `pull` / `diff` | `{ destination, releaseIdentity, entrypoint, files }` / `{ releaseIdentity, matches, differences }` |
 
 ## Environment variables
 

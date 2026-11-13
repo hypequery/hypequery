@@ -68,13 +68,13 @@ describe('remote MCP self-test', () => {
     const fetch = hostedMcp({ protocolVersion: '2099-01-01' });
 
     await expect(checkRemoteMcp({ url: URL_, key: 'hq_key', fetch: fetch as never }))
-      .resolves.toEqual({ ok: false, reason: 'initialize returned an unsupported protocol version.' });
+      .resolves.toEqual({ ok: false, reason: 'initialize returned an unsupported protocol version.', kind: 'unavailable' });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('explains a refused key', async () => {
     await expect(checkRemoteMcp({ url: URL_, key: 'bad', fetch: hostedMcp({ initStatus: 401 }) as never }))
-      .resolves.toEqual({ ok: false, reason: expect.stringContaining('401') });
+      .resolves.toEqual({ ok: false, reason: expect.stringContaining('401'), kind: 'auth' });
   });
 
   it('refuses to send the key over plain http to a remote host', async () => {
@@ -92,7 +92,7 @@ describe('remote MCP self-test', () => {
       fetch: vi.fn(async () => { throw new TypeError('fetch failed'); }) as never,
     });
 
-    expect(result).toEqual({ ok: false, reason: 'the endpoint could not be reached.' });
+    expect(result).toEqual({ ok: false, reason: 'the endpoint could not be reached.', kind: 'unavailable' });
     expect(JSON.stringify(result)).not.toContain('hq_key');
   });
 });

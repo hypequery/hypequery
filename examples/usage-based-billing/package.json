@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/usage-based-billing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Usage metering and invoice previews on ClickHouse: per-tenant billable usage, plan quotas and overage pricing in code, Decimal-safe totals, and MRR over time",
   "type": "module",

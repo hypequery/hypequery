@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/datasets",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "description": "Code-first TypeScript semantic layer for ClickHouse datasets, metrics, multi-tenancy, and AI agents",
   "keywords": [
     "semantic-layer",
@@ -29,6 +29,11 @@
       "import": "./dist/schemas.js",
       "require": "./dist/schemas.js"
     },
+    "./codegen": {
+      "types": "./dist/codegen/index.d.ts",
+      "import": "./dist/codegen/index.js",
+      "require": "./dist/codegen/index.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js",
@@ -37,6 +42,9 @@
   },
   "typesVersions": {
     "*": {
+      "codegen": [
+        "./dist/codegen/index.d.ts"
+      ],
       "internal": [
         "./dist/internal.d.ts"
       ],
@@ -67,7 +75,7 @@
     "!dist/**/type-tests/**"
   ],
   "dependencies": {
-    "@hypequery/protocol": "^0.25.0",
+    "@hypequery/protocol": "^0.26.0",
     "@noble/hashes": "^2.4.0",
     "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2"

@@ -37,6 +37,8 @@ function mockUserCancels() {
 
 describe('prompts', () => {
   beforeEach(() => {
+    // The prompts under test run at a terminal; assertCanPrompt has its own cases.
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
     vi.clearAllMocks();
   });
 

@@ -5,6 +5,7 @@ import { runMcpUntilSignal } from './mcp-lifecycle.js';
 import { MCP_API_KEY_VARIABLE } from './hosted-endpoints.js';
 import { logger } from './logger.js';
 import type { McpSession } from './telemetry/mcp-session.js';
+import { emitResult } from './machine-output.js';
 
 interface HttpMcpDependencies {
   loadMcp?: () => Promise<unknown>;
@@ -46,6 +47,7 @@ export async function runHttpMcp(url: string, selfTest: boolean, dependencies: H
     logger.success('Authorized HTTP client contract is ready for MCP.');
     logger.info(`Tools: ${tools.tools.length}`);
     logger.info('No query tool was called. Python resolves the principal and tenant.');
+    emitResult({ ok: true, mode: 'http', url, tools: tools.tools.length });
     return;
   }
   await runMcpUntilSignal(async signal => {

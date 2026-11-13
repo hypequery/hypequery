@@ -3,6 +3,8 @@ import { normalizeInitDatabase, normalizeInitStyle, normalizeAuthMode, parseTabl
 import { getChdbGitignoreEntry } from '../utils/chdb-gitignore-entry.js';
 import { InitFunnel } from '../utils/telemetry/init-funnel.js';
 import { exitWith } from '../utils/command-exit.js';
+import { CliError } from '../utils/cli-error.js';
+import { emitResult } from '../utils/machine-output.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
@@ -78,8 +80,10 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
       const values = Array.isArray(keys) ? keys : [keys];
       const value = values.map((key) => process.env[key]).find(Boolean);
       if (!value) {
-        throw new Error(
+        throw new CliError(
+          'INPUT_REQUIRED',
           `Missing ${values.join(' or ')}. Provide ClickHouse connection info via environment variables when using --no-interactive.`,
+          { hint: `Set ${values.join(' or ')} (and the other CLICKHOUSE_* variables), or pass --database chdb for embedded chDB.` },
         );
       }
       return value;
@@ -198,6 +202,8 @@ export async function initCommand(options: InitOptions = {}) {
 
 async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> {
   const noInteractive = options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false;
+  const written: string[] = [];
+  let connectionResult: 'ok' | 'failed' | 'skipped' = 'skipped';
 
   logger.newline();
   logger.header('Welcome to hypequery!');
@@ -257,11 +263,16 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     } else {
       const { hasValidConnection: valid, tableCount } = await testConnection(connectionConfig);
       hasValidConnection = valid;
+      connectionResult = valid ? 'ok' : 'failed';
       funnel.update({ connection_result: valid ? 'ok' : 'failed', ...(valid ? { table_count_bucket: countBucket(tableCount) } : {}) });
 
       if (!hasValidConnection) {
         if (noInteractive) {
-          throw new Error('Failed to connect to ClickHouse in non-interactive mode. Check your environment variables or use interactive setup.');
+          // The check reports only that it failed, so this stays correctable
+          // (exit 1): a wrong password or database must not look retryable.
+          throw new CliError('CLICKHOUSE_CONNECTION_FAILED', 'Failed to connect to ClickHouse in non-interactive mode. Check your environment variables or use interactive setup.', {
+            hint: 'Check CLICKHOUSE_URL, CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD, or pass --skip-connection to scaffold without connecting.',
+          });
         }
 
         const retry = await promptRetry('Try again?');
@@ -345,7 +356,14 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
   if (existingFiles.length > 0 && !options.force) {
     logger.warn('Files already exist');
     logger.newline();
-    const shouldOverwrite = noInteractive ? false : await confirmOverwrite(existingFiles);
+    if (noInteractive) {
+      // Exiting 0 here used to report success for a run that wrote nothing.
+      throw new CliError('CONFIRMATION_REQUIRED', `Files already exist: ${existingFiles.join(', ')}. Pass --force to overwrite them.`, {
+        hint: 'Rerun with --force to overwrite the existing files, or choose another directory with --path <dir>.',
+        issues: existingFiles.map(file => ({ path: file, message: 'already exists' })),
+      });
+    }
+    const shouldOverwrite = await confirmOverwrite(existingFiles);
     if (!shouldOverwrite) {
       logger.info('Setup cancelled');
       exitWith(0, 'cancelled');
@@ -367,6 +385,7 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     } else {
       const chdbTest = await testChdbConnection(chdbPath);
       hasValidConnection = chdbTest.ok;
+      connectionResult = chdbTest.ok ? 'ok' : 'failed';
       funnel.update({ connection_result: chdbTest.ok ? 'ok' : 'failed', ...(chdbTest.ok ? { table_count_bucket: countBucket(chdbTest.tableCount) } : { chdb_failure_reason: chdbTest.reason === 'not-installed' ? 'not_installed' : 'engine_error' }) });
       if (!chdbTest.ok) {
         chdbFailureReason = chdbTest.reason;
@@ -452,10 +471,12 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
       const existingEnv = await readFile(envPath, 'utf-8');
       const newEnv = appendToEnv(existingEnv, generateEnvTemplate(connectionConfig));
       await writeFile(envPath, newEnv);
+      if (newEnv !== existingEnv) written.push(envPath);
       funnel.update({ env_file: newEnv === existingEnv ? 'unchanged' : 'updated' });
       logger.success('Updated .env');
     } else {
       await writeFile(envPath, generateEnvTemplate(connectionConfig));
+      written.push(envPath);
       funnel.update({ env_file: 'created' });
       logger.success('Created .env');
     }
@@ -474,6 +495,7 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     funnel.update({ env_file: 'unchanged' });
     if (!envExists) {
       await writeFile(envPath, generateEnvTemplate(placeholderConfig));
+      written.push(envPath);
       funnel.update({ env_file: 'created' });
       logger.success('Created .env (configure your credentials)');
     }
@@ -488,6 +510,7 @@ async function runInit(options: InitOptions, funnel: InitFunnel): Promise<void> 
     try {
       const generator = getTypeGenerator(database);
       await generator({ outputPath: schemaPath, chdbPath });
+      written.push(schemaPath);
       typeSpinner.succeed(`Generated TypeScript types (${path.relative(process.cwd(), schemaPath)})`);
     } catch (error) {
       typeSpinner.fail('Failed to generate types');
@@ -506,12 +529,14 @@ export interface IntrospectedSchema {
   // Your table types will appear here after generation
 }
 `);
+    written.push(schemaPath);
     logger.success(`Created placeholder schema (${path.relative(process.cwd(), schemaPath)})`);
   }
 
   // Step 10: Create client.ts
   const clientPath = path.join(resolvedOutputDir, 'client.ts');
   await writeFile(clientPath, generateClientTemplate({ database, chdbPath }));
+  written.push(clientPath);
   logger.success(
     `Created ${database === 'chdb' ? 'embedded chDB' : 'ClickHouse'} client (${path.relative(process.cwd(), clientPath)})`,
   );
@@ -540,6 +565,7 @@ export interface IntrospectedSchema {
           ? { client: getChdbTypeGenerationClient(chdbPath) }
           : {}),
       });
+      written.push(datasetsPath);
       if (generated) funnel.update({ datasets_generated_bucket: countBucket(generated.tables.length) });
       logDatasetGenerationWarnings(generated?.warnings);
       generatedAnyDatasets = true;
@@ -549,6 +575,7 @@ export interface IntrospectedSchema {
       );
     } else {
       await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate({ auth }));
+      written.push(datasetsPath);
       funnel.update({ datasets_generated_bucket: '0' });
       if (hasValidConnection) {
         logger.info(
@@ -562,9 +589,11 @@ export interface IntrospectedSchema {
 
     apiPath = path.join(resolvedOutputDir, 'api.ts');
     await writeFile(apiPath, generateApiTemplate({ auth }));
+    written.push(apiPath);
     logger.success(`Created API file (${path.relative(process.cwd(), apiPath)})`);
     const cloudPath = path.join(resolvedOutputDir, 'cloud.ts');
     await writeFile(cloudPath, generateCloudTemplate());
+    written.push(cloudPath);
     logger.success(`Created Cloud publication (${path.relative(process.cwd(), cloudPath)})`);
   } else {
     apiPath = path.join(resolvedOutputDir, 'queries.ts');
@@ -576,6 +605,7 @@ export interface IntrospectedSchema {
         auth,
       })
     );
+    written.push(apiPath);
     logger.success(`Created queries file (${path.relative(process.cwd(), apiPath)})`);
   }
 
@@ -597,11 +627,13 @@ export interface IntrospectedSchema {
     funnel.update({ gitignore: 'unchanged' });
     if (newGitignore !== existingGitignore) {
       await writeFile(gitignorePath, newGitignore);
+      written.push(gitignorePath);
       funnel.update({ gitignore: 'updated' });
       logger.success('Updated .gitignore');
     }
   } else {
     await writeFile(gitignorePath, appendToGitignore('', gitignoreEntries));
+    written.push(gitignorePath);
     funnel.update({ gitignore: 'created' });
     logger.success('Created .gitignore');
   }
@@ -685,4 +717,13 @@ export interface IntrospectedSchema {
   funnel.reach('completed');
   logger.info('Docs: https://hypequery.com/docs');
   logger.newline();
+  emitResult({
+    directory: resolvedOutputDir,
+    database,
+    style,
+    auth,
+    connection: connectionResult,
+    files: written,
+    datasetsGenerated: generatedAnyDatasets,
+  });
 }

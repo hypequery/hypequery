@@ -16,12 +16,28 @@ export const COMMANDS = [
   'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
+/**
+ * Public registry slugs (hypequery.com/examples). `create` records one only when
+ * it names a registry entry; any other input becomes `other`. Kept in sync with
+ * website-next/src/data/examples-registry.json by catalog.test.ts.
+ */
+export const EXAMPLE_SLUGS = [
+  'async-inserts-node', 'chdb-embedded-analytics', 'clickhouse-docker-compose', 'clickhouse-rest-api-openapi',
+  'clickhouse-vs-postgres-app-analytics', 'cursor-pagination', 'dictionary-lookups', 'django-analytics',
+  'fastapi-analytics-api', 'funnel-windowfunnel', 'grouparray-user-timelines', 'iso-week-bucketing',
+  'materialized-view-rollups', 'mcp-agent-analytics', 'mcp-agent-analytics-python', 'multi-tenant-embedded-analytics',
+  'multiif-bucketing', 'nextjs-dashboard', 'p95-latency', 'postgres-app-clickhouse-analytics',
+  'projection-for-dataset-queries', 'refreshable-materialized-views', 'replacingmergetree-upserts', 'retention-cohorts',
+  'sessionization', 'streamlit-dashboard', 'top-n-per-group-limit-by', 'ttl-data-retention', 'usage-based-billing',
+  'other',
+] as const;
+export const EXAMPLE_KINDS = ['example', 'recipe', 'guide'] as const;
 
 /** Canonical long names, including negated flags. Values and aliases never leave the CLI. */
 export const COMMAND_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--all-tables', '--tables', '--exclude-tables', '--no-example', '--no-interactive', '--force', '--skip-connection'],
   dev: ['--port', '--hostname', '--no-watch', '--no-cache', '--cache', '--redis-url', '--open', '--cors', '--path', '--quiet'],
-  mcp: ['--path', '--tenant', '--self-test', '--url', '--client-contract-url'],
+  mcp: ['--path', '--tenant', '--self-test', '--url', '--client-contract-url', '--http', '--port', '--host', '--allowed-hosts', '--allowed-origins', '--resource', '--authorization-servers', '--required-scopes'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column', '--force', '--check', '--diff'],
@@ -39,16 +55,16 @@ export const COMMAND_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope', '--force', '--check'],
-  examples: ['--json', '--kind'],
+  examples: ['--kind'],
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
-export const GLOBAL_FLAGS = ['--no-telemetry', '--help', '--version'] as const;
+export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--no-input', '--help', '--version'] as const;
 /** Options that consume the next argument as their value; that value is never a flag. */
 export const VALUE_FLAGS = {
   init: ['--path', '--style', '--database', '--chdb-path', '--auth', '--tables', '--exclude-tables'],
   dev: ['--port', '--hostname', '--cache', '--redis-url', '--path'],
-  mcp: ['--path', '--tenant', '--url', '--client-contract-url'],
+  mcp: ['--path', '--tenant', '--url', '--client-contract-url', '--port', '--host', '--allowed-hosts', '--allowed-origins', '--resource', '--authorization-servers', '--required-scopes'],
   generate: ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:types': ['--output', '--path', '--tables', '--database', '--chdb-path'],
   'generate:datasets': ['--output', '--path', '--tables', '--exclude-tables', '--tenant-column'],

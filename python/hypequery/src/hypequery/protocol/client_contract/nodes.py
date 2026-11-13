@@ -10,6 +10,7 @@ from .primitives import (
     OPERATORS,
     boolean,
     choice,
+    currency,
     integer,
     name,
     names,
@@ -18,6 +19,7 @@ from .primitives import (
     record,
     shape,
     text,
+    text_list,
     timezone,
 )
 
@@ -119,6 +121,10 @@ def limits(value: object, path: str) -> dict[str, object]:
     }
 
 
+#: Field annotation members after label/description, in validation order.
+FIELD_METADATA_MEMBERS = ("synonyms", "examples", "format", "unit", "currency")
+
+
 def _annotation(value: object, path: str, keys: list[str]) -> dict[str, object]:
     node = optional_shape(value, keys, path)
     result: dict[str, object] = {}
@@ -126,6 +132,14 @@ def _annotation(value: object, path: str, keys: list[str]) -> dict[str, object]:
         result["label"] = text(node["label"], pointer(path, "label"))
     if "description" in node:
         result["description"] = text(node["description"], pointer(path, "description"))
+    for key in ("synonyms", "examples"):
+        if key in node:
+            result[key] = text_list(node[key], pointer(path, key))
+    for key in ("format", "unit"):
+        if key in node:
+            result[key] = text(node[key], pointer(path, key))
+    if "currency" in node:
+        result["currency"] = currency(node["currency"], pointer(path, "currency"))
     return result
 
 
@@ -144,7 +158,9 @@ def annotations(value: object, path: str) -> dict[str, object]:
         for key in sorted(entries):
             name(key, fields_path, qualified=True)
             described[key] = _annotation(
-                entries[key], pointer(fields_path, key), ["label", "description"]
+                entries[key],
+                pointer(fields_path, key),
+                ["label", "description", *FIELD_METADATA_MEMBERS],
             )
         result["fields"] = described
     return result

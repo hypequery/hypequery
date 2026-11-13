@@ -18,6 +18,8 @@ import {
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
 import { unscopedTenantCandidates } from '../utils/tenant-key-candidates.js';
+import { CliError } from '../utils/cli-error.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface BuildDeploymentOptions {
   bundleOutput?: string;
@@ -58,7 +60,7 @@ export async function buildDeploymentCommand(
   options: BuildDeploymentOptions = {},
 ): Promise<ProtocolDeploymentContract> {
   if (!sourcePath) {
-    throw new Error(
+    throw new CliError('USAGE',
       'Missing Cloud publication module path.\n\n'
       + 'Usage: hypequery deployment:build analytics/cloud.ts',
     );
@@ -90,6 +92,15 @@ export async function buildDeploymentCommand(
   logger.info(`Bundle identity: ${bundle.identity}`);
   logger.info(`Deployment identity: ${prepared.identity}`);
   warnUnscopedTenantCandidates(prepared.contract);
+  emitResult({
+    bundle: {
+      directory: path.resolve(bundle.directory),
+      identity: bundle.identity,
+      sourceFiles: bundle.manifest.source?.files.length ?? 0,
+    },
+    deployment: { identity: prepared.identity, datasets: prepared.contract.datasets.map(dataset => dataset.name) },
+    unscopedTenantCandidates: unscopedTenantCandidates(prepared.contract),
+  });
   return prepared.contract;
 }
 
@@ -105,7 +116,7 @@ export async function validateDeploymentCommand(
   artifactPath: string | undefined,
 ): Promise<ProtocolDeploymentContract> {
   if (!artifactPath) {
-    throw new Error(
+    throw new CliError('USAGE',
       'Missing deployment artifact path.\n\n'
       + 'Usage: hypequery deployment:validate analytics/hypequery-deployment',
     );
@@ -132,9 +143,16 @@ export async function validateDeploymentCommand(
       logger.info(describeContract(contract));
       logger.info(`Bundle identity: ${bundle.identity}`);
       logger.info(`Deployment identity: ${bundle.manifest.deployment.identity}`);
+      emitResult({
+        valid: true,
+        kind: 'bundle',
+        path: path.resolve(artifactPath),
+        bundle: { identity: bundle.identity },
+        deployment: { identity: bundle.manifest.deployment.identity, datasets: contract.datasets.map(dataset => dataset.name) },
+      });
       return contract;
     } catch (error) {
-      throw new Error(
+      throw new CliError('INVALID_INPUT',
         `Invalid deployment bundle: ${artifactPath}\n\n`
         + (error instanceof Error ? error.message : String(error)),
       );
@@ -142,7 +160,7 @@ export async function validateDeploymentCommand(
   }
 
   if (artifactStat && !artifactStat.isFile()) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Deployment input must be a regular JSON file or bundle directory: ${artifactPath}`,
     );
   }
@@ -151,7 +169,7 @@ export async function validateDeploymentCommand(
   try {
     input = JSON.parse(await readFile(artifactPath, 'utf8'));
   } catch (error) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Invalid deployment JSON: ${artifactPath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -161,7 +179,7 @@ export async function validateDeploymentCommand(
   try {
     prepared = prepareProtocolDeploymentContract(input);
   } catch (error) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Invalid deployment contract: ${artifactPath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -171,6 +189,12 @@ export async function validateDeploymentCommand(
   logger.success(`Valid deployment contract: ${artifactPath}`);
   logger.info(describeContract(contract));
   logger.info(`Identity: ${digest}`);
+  emitResult({
+    valid: true,
+    kind: 'contract',
+    path: path.resolve(artifactPath),
+    deployment: { identity: digest, datasets: contract.datasets.map(dataset => dataset.name) },
+  });
   return contract;
 }
 
@@ -243,7 +267,7 @@ export async function prepareDeploymentReleaseCommand(
   dependencies: PrepareDeploymentReleaseDependencies = {},
 ): Promise<ProtocolDeploymentReleaseEnvelope> {
   if (!bundlePath) {
-    throw new Error(
+    throw new CliError('USAGE',
       'Missing deployment bundle path.\n\n'
       + 'Usage: hypequery deployment:release analytics/hypequery-deployment',
     );
@@ -255,8 +279,8 @@ export async function prepareDeploymentReleaseCommand(
   let project: string | undefined;
   let environment: string | undefined;
   if (options.project !== undefined || options.environment !== undefined) {
-    if (!options.project) throw new Error('Missing required --project <project>.');
-    if (!options.environment) throw new Error('Missing required --environment <environment>.');
+    if (!options.project) throw new CliError('INPUT_REQUIRED', 'Missing required --project <project>.', { hint: 'Pass both --project <project> and --environment <environment>.' });
+    if (!options.environment) throw new CliError('INPUT_REQUIRED', 'Missing required --environment <environment>.', { hint: 'Pass both --project <project> and --environment <environment>.' });
     project = options.project;
     environment = options.environment;
   } else {
@@ -266,9 +290,11 @@ export async function prepareDeploymentReleaseCommand(
     project = credential?.target?.project;
     environment = credential?.target?.environment;
     if (!project || !environment) {
-      throw new Error(
+      throw new CliError(
+        'INPUT_REQUIRED',
         'Missing deployment target. Run `hypequery login` or pass both '
         + '--project <project> and --environment <environment>.',
+        { hint: 'Pass --project <project> and --environment <environment>, or run `hypequery login`.' },
       );
     }
   }
@@ -280,7 +306,7 @@ export async function prepareDeploymentReleaseCommand(
   try {
     bundle = await verifyDeploymentBundle(bundlePath);
   } catch (error) {
-    throw new Error(
+    throw new CliError('INVALID_INPUT',
       `Cannot prepare a release from an invalid deployment bundle: ${bundlePath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
@@ -306,5 +332,13 @@ export async function prepareDeploymentReleaseCommand(
   logger.info(`Target: ${project}/${environment}`);
   logger.info(`Release identity: ${prepared.identity}`);
   logger.info(`Bundle identity: ${bundle.identity}`);
+  emitResult({
+    release: {
+      path: path.resolve(outputPath),
+      identity: prepared.identity,
+      bundleIdentity: bundle.identity,
+      target: { project, environment },
+    },
+  });
   return prepared.release;
 }

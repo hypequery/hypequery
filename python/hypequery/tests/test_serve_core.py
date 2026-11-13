@@ -448,7 +448,7 @@ def test_strict_client_endpoints_and_discovery_are_served_by_the_core() -> None:
     response, body = handle(
         api, ServeRequest(method="GET", path="/client-contract", headers=Headers(TOKEN.items()))
     )
-    assert response.headers["vary"] == "authorization"
+    assert response.headers["vary"] == "authorization, x-hypequery-client-features"
     assert [item["path"] for item in body["endpoints"]] == ["/orders"]
     response, body = handle(api, ServeRequest(method="GET", path="/client-contract"))
     assert response.status == 401

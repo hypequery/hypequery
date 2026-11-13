@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/sessionization",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "30-minute inactivity sessions per user in ClickHouse with lagInFrame behind a hypequery dataset: the view, the dataset, the SQL it generates, and the output on the seed",
   "type": "module",

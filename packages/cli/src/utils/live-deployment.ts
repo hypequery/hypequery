@@ -1,3 +1,5 @@
+import { cloudHttpError, type CloudErrorDetails } from './cli-error.js';
+import { parseCloudErrorBody } from './cloud-error-body.js';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {
@@ -208,19 +210,18 @@ function parseResponse(
   });
 }
 
-async function errorMessage(response: Response) {
+/** The message and Cloud's envelope fields from one read of a failed response's body. */
+async function failure(response: Response): Promise<{ message: string; cloud: CloudErrorDetails }> {
+  let body = '';
+  try { body = await response.text(); } catch { /* The status stays authoritative. */ }
+  let message = response.statusText;
   try {
-    const input = await response.json() as {
-      error?: { code?: unknown; message?: unknown };
-    };
+    const input = JSON.parse(body) as { error?: { code?: unknown; message?: unknown } };
     const code = typeof input.error?.code === 'string' ? `${input.error.code}: ` : '';
-    const message = typeof input.error?.message === 'string'
-      ? input.error.message
-      : response.statusText;
-    return `${code}${message}`;
-  } catch {
-    return response.statusText;
-  }
+    if (typeof input.error?.message === 'string') message = `${code}${input.error.message}`;
+    else if (code) message = `${code}${response.statusText}`;
+  } catch { /* Not JSON. */ }
+  return { message, cloud: parseCloudErrorBody(body) };
 }
 
 export async function fetchLiveDeployment(input: {
@@ -249,8 +250,11 @@ export async function fetchLiveDeployment(input: {
   });
   if (input.resource === 'state' && response.status === 404) return undefined;
   if (!response.ok) {
-    throw new Error(
-      `Could not read the live deployment (${response.status}): ${await errorMessage(response)}`,
+    const { message, cloud } = await failure(response);
+    throw cloudHttpError(
+      response.status,
+      `Could not read the live deployment (${response.status}): ${message}`,
+      cloud,
     );
   }
   const contentLength = Number(response.headers.get('content-length'));

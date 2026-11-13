@@ -127,82 +127,16 @@ Yes, if your workload fits the plan limits: Tinybird sells its paid plans for pr
 
 The closest alternative is a managed ClickHouse service with your own API layer on top: ClickHouse Cloud, or one of the other hosts in our [comparison of managed ClickHouse services](/blog/managed-clickhouse-services-compared). If you want open source, ClickHouse itself is Apache-2.0 and you can self-host it. Tinybird Local is a development and CI container whose prerequisites include a Tinybird account, so it can't stand in for a self-hosted deployment. If what you liked about Tinybird is turning SQL into HTTP endpoints, ClickHouse Cloud's Query API endpoints do that for saved queries in the console. If you want typed analytics endpoints defined in your own code and served from your own backend, [hypequery](/tinybird-alternative) is an open-source (Apache 2.0) TypeScript and Python layer that runs against any ClickHouse, including ClickHouse Cloud; the [hypequery vs Tinybird comparison](/compare/hypequery-vs-tinybird) covers the trade-offs. It is our product, and it does not ingest data or host anything for you, which Tinybird does.
 
-## TypeScript client for ClickHouse Cloud
+## Connecting to ClickHouse Cloud from TypeScript
 
-The official TypeScript client for ClickHouse Cloud is [`@clickhouse/client`](https://clickhouse.com/docs/integrations/language-clients/js/index) for Node.js, with `@clickhouse/client-web` for browsers and Cloudflare Workers. It talks to ClickHouse over HTTPS (port 8443 on Cloud), using the URL, username and password from the **Connect** dialog in the Cloud console.
-
-```typescript
-import { createClient } from '@clickhouse/client';
-
-const client = createClient({
-  url: process.env.CLICKHOUSE_URL!, // https://<service>.<region>.<provider>.clickhouse.cloud:8443
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-
-const result = await client.query({
-  query: `
-    SELECT event_name, count() AS events
-    FROM events
-    WHERE tenant_id = {tenant:String} AND occurred_at >= {from:DateTime}
-    GROUP BY event_name
-    ORDER BY events DESC
-  `,
-  query_params: { tenant: 'acme', from: '2026-11-01 00:00:00' },
-  format: 'JSONEachRow',
-  clickhouse_settings: { output_format_json_quote_64bit_integers: 1 },
-});
-
-const rows = await result.json<{ event_name: string; events: string }>();
-```
-
-`count()` returns a UInt64, which can exceed `Number.MAX_SAFE_INTEGER`, so the example asks ClickHouse to send 64-bit integers as strings. Set it explicitly: on ClickHouse 26.6 the default is unquoted. With the setting on, the query above returns rows like this (checked on ClickHouse 26.6 with four sample events):
-
-```text
-{"event_name":"signup","events":"2"}
-{"event_name":"login","events":"1"}
-```
-
-The client gives you transport, but you write the row types by hand. [hypequery](/clickhouse-typescript) adds a typed query builder on top: in Node.js it uses `@clickhouse/client` under the hood, generates TypeScript types from your live ClickHouse Cloud schema, and checks table names, columns, filters and result shapes at compile time.
-
-```bash
-npm install @hypequery/clickhouse
-npm install -D @hypequery/cli
-npx hypequery generate   # reads CLICKHOUSE_URL, CLICKHOUSE_USERNAME, CLICKHOUSE_PASSWORD, CLICKHOUSE_DATABASE
-```
-
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './analytics/schema.js';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-
-const rows = await db
-  .table('events')
-  .select(['event_name'])
-  .count('event_id', 'events')
-  .where('tenant_id', 'eq', 'acme')
-  .where('occurred_at', 'gte', '2026-11-01 00:00:00')
-  .groupBy(['event_name'])
-  .orderBy('events', 'DESC')
-  .execute();
-// rows: { event_name: string; events: string }[]
-```
-
-hypequery quotes 64-bit integers by default, so `events` is typed and delivered as a string. When a query needs to be an HTTP endpoint, `@hypequery/serve` exposes it with input validation, docs and OpenAPI; the [quick start](/docs/quick-start) covers both steps. That gives you the Tinybird-style "query as an endpoint" result while the endpoint runs in your own application.
+ClickHouse Cloud accepts any standard ClickHouse client. From Node.js that is the official [`@clickhouse/client`](https://clickhouse.com/docs/integrations/language-clients/js/index), over HTTPS on port 8443 with the URL, username and password from the **Connect** dialog in the Cloud console. The client handles transport, and you write the row types by hand. For generated types, a typed query builder and served endpoints on top of the same connection, see our guide to a [TypeScript client for ClickHouse Cloud](/clickhouse-typescript#clickhouse-cloud), which has the setup and code.
 
 If you are on Tinybird, Tinybird documents [connecting `@clickhouse/client`](https://www.tinybird.co/docs/forward/guides/connect-clickhouse-js) to its ClickHouse interface with a workspace token, so the official client also works for reads there.
 
 ## Related
 
 - [Managed ClickHouse services compared](/blog/managed-clickhouse-services-compared)
-- [ClickHouse with TypeScript](/clickhouse-typescript)
+- [TypeScript client for ClickHouse Cloud](/clickhouse-typescript)
 - [hypequery quick start](/docs/quick-start)
 - [Building an API on ClickHouse](/clickhouse-api)
 - [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)

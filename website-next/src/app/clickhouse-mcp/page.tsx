@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse MCP Server: 5-Minute Quickstart for Claude, Cursor, Codex',
   description:
-    'A governed ClickHouse MCP server: agents query named datasets and metrics, never raw SQL. Run it in five minutes against the public ClickHouse playground.',
+    'A governed ClickHouse MCP server: agents query named datasets and metrics, never raw SQL. Connect Claude, Cursor or Codex to your own ClickHouse in five minutes, from TypeScript or Python.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
@@ -59,43 +59,35 @@ export const api = serve({
 // The tenant comes from how you start the server, never from the model:
 //   npx hypequery mcp --tenant acme`;
 
-const quickstartConfig = `// mcp-config.mjs
+const quickstartApi = `// analytics/api.ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient, dataset, dimension, measure, publishDatasets } from '@hypequery/datasets';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+import { initServe } from '@hypequery/serve';
 
+// Reads CLICKHOUSE_URL, _USERNAME, _PASSWORD and _DATABASE from .env
 const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL ?? 'https://play.clickhouse.com',
-  username: process.env.CLICKHOUSE_USERNAME ?? 'play',
-  password: process.env.CLICKHOUSE_PASSWORD ?? '',
-  database: process.env.CLICKHOUSE_DATABASE ?? 'default',
-  // The playground user is readonly = 1, which rejects the setting hypequery
-  // normally sends to quote 64-bit integers. Use the server default instead.
-  integerJsonEncoding: 'server-default',
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-const Flights = dataset('flights', {
-  source: 'ontime',
-  description: 'US domestic flights, one row per flight (public ClickHouse playground).',
-  limits: { maxResultSize: 1000 },
+const Orders = dataset('orders', {
+  source: 'orders',
+  description: 'One row per order.',
   dimensions: {
-    year: dimension.number({ column: 'Year', label: 'Year' }),
-    airline: dimension.string({ column: 'Reporting_Airline', label: 'Airline code' }),
-    origin: dimension.string({ column: 'OriginCityName', label: 'Origin city' }),
+    status: dimension.string({ label: 'Status', description: 'completed, refunded or pending' }),
+    country: dimension.string({ label: 'Country' }),
   },
   measures: {
-    flights: measure.count('Year', { label: 'Flights' }),
-    avgDepartureDelay: measure.avg('DepDelay', { label: 'Average departure delay (minutes)' }),
+    revenue: measure.sum('amount', { label: 'Revenue' }),
+    orders: measure.count('id', { label: 'Orders' }),
   },
 });
 
-const avgDepartureDelay = Flights.metric('avgDepartureDelay', { measure: 'avgDepartureDelay' });
-const flightCount = Flights.metric('flights', { measure: 'flights' });
+const { serve } = initServe({ context: () => ({ db }) });
 
-export const datasets = publishDatasets()
-  .publish(Flights, { metrics: { avgDepartureDelay, flightCount } })
-  .build();
-
-export const analytics = createDatasetClient({ queryBuilder: db });`;
+export const api = serve({ queryBuilder: db, datasets: { orders: Orders } });`;
 
 export default function ClickHouseMcpPage() {
   return (
@@ -104,50 +96,63 @@ export default function ClickHouseMcpPage() {
       eyebrow="ClickHouse MCP"
       title="Give AI agents trusted ClickHouse analytics — not a database console"
       description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."
-      primaryCta={{ href: '/docs/mcp/overview', label: 'Start with MCP' }}
+      primaryCta={{ href: '/docs/mcp/quickstart', label: 'Start with MCP' }}
       secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}
       quickstart={{
         eyebrow: 'Quickstart',
         title: 'Run a ClickHouse MCP server in five minutes',
         description:
-          'No ClickHouse install needed: this uses the public ClickHouse playground and its 200-million-row US flights table. The agent gets two metrics and three dimensions as tools, not a SQL console.',
+          'Point it at a ClickHouse table you already have. The agent gets the dimensions and measures you define as tools, not a SQL console.',
         steps: [
           {
             title: 'Install the packages',
-            description: 'Any empty folder works. You need Node.js 20 or newer.',
-            code: `mkdir clickhouse-mcp && cd clickhouse-mcp
-npm init -y
-npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse`,
+            description: 'In your project folder. You need Node.js 20 or newer.',
+            code: `npm install @hypequery/clickhouse @hypequery/datasets @hypequery/serve @hypequery/mcp
+npm install -D @hypequery/cli`,
             filename: 'terminal',
             language: 'bash',
           },
           {
             title: 'Define what the agent may query',
             description:
-              'Save this as mcp-config.mjs. The dataset names the table, the columns an agent can group by, and the metrics it can ask for.',
-            code: quickstartConfig,
-            filename: 'mcp-config.mjs',
+              'Save this as analytics/api.ts, with your ClickHouse settings in .env. The dataset names the table, the columns an agent can group and filter by, and the measures it can ask for. Swap in your own table.',
+            code: quickstartApi,
+            filename: 'analytics/api.ts',
           },
           {
             title: 'Connect your agent',
             description:
-              'Claude Code shown here. Cursor and Codex take the same command; see the setup guides below.',
-            code: `claude mcp add clickhouse -- npx -y @hypequery/mcp --config "$PWD/mcp-config.mjs"
+              'Claude Code shown here; run it from your project folder. `npx hypequery mcp --self-test` checks the setup first.',
+            code: `claude mcp add hypequery -- sh -c "cd '$PWD' && npx hypequery mcp"
 claude mcp list`,
             filename: 'terminal',
             language: 'bash',
+            alternative: {
+              description:
+                'Using Claude Desktop? Open Settings → Developer → Edit Config, add this entry with your project\'s absolute path, then fully quit and reopen Claude so it starts the server.',
+              code: `{
+  "mcpServers": {
+    "hypequery": {
+      "command": "sh",
+      "args": ["-c", "cd /absolute/path/to/your-project && npx hypequery mcp"]
+    }
+  }
+}`,
+              filename: 'claude_desktop_config.json',
+              language: 'json',
+            },
           },
           {
             title: 'Ask a question',
             description:
-              'The agent calls list_datasets, get_dataset_schema and query_dataset. In our run it returned JetBlue (B6) first: 23.5 minutes over 64,860 flights, the same as running the SQL directly. (The playground\'s 2022 data covers January to March.)',
-            code: `Which airline had the highest average departure delay in 2022?`,
+              'The agent calls list_datasets, get_dataset_schema and query_dataset, and answers from the rows hypequery returns.',
+            code: `What was revenue by country for completed orders?`,
             filename: 'prompt',
             language: 'text',
           },
         ],
         footnote:
-          'To use your own ClickHouse, set CLICKHOUSE_URL, CLICKHOUSE_USERNAME, CLICKHOUSE_PASSWORD and CLICKHOUSE_DATABASE, remove integerJsonEncoding unless your user is readonly = 1, and point the dataset at your table.',
+          'Using Python? The same four steps with `hypequery mcp app:api` are in the MCP quickstart. Add `--http` to serve it over HTTP for your team.',
       }}
       stats={[
         { label: 'Agent surface', value: 'Datasets and measures' },
@@ -195,16 +200,16 @@ claude mcp list`,
         eyebrow: 'MCP server',
         title: 'Serve your datasets, then expose them over MCP',
         description:
-          '@hypequery/mcp exposes list_datasets, get_dataset_schema, and query_dataset tools over stdio. The agent never writes or receives SQL.',
+          '@hypequery/mcp exposes list_datasets, get_dataset_schema, and query_dataset tools over stdio or HTTP. The agent never writes or receives SQL.',
         paragraphs: [
-          'hypequery mcp serves the datasets your Serve API already registers. A Python backend works too: the CLI bridges its client contract. Use the standalone server when you want a dedicated config for the agent.',
+          'hypequery mcp serves the datasets your Serve API already registers, and hypequery mcp app:api does the same for a Python API. Add --http to serve them at a URL, behind a shared key, your app\'s auth or OAuth.',
           'Because MCP queries go through the same dataset definitions as the rest of your application, validation and the meaning of each measure do not fork into an agent-only implementation.',
         ],
         codePanel: {
           eyebrow: '@hypequery/mcp',
           title: 'One Serve API, one MCP command',
           description:
-            'Each server process runs as one trusted tenant, and tenant-scoped datasets refuse to start without one. Never ask the model to choose its own tenant.',
+            'Over stdio the server runs as one trusted tenant; over HTTP each caller\'s tenant comes from their verified credential. Tenant-scoped datasets refuse to run without one, and the model never chooses its own tenant.',
           code: mcpCode,
         },
       }}
@@ -247,9 +252,9 @@ claude mcp list`,
           description: 'Register the server with codex mcp add or ~/.codex/config.toml.',
         },
         {
-          href: '/docs/mcp/overview',
+          href: '/docs/mcp/quickstart',
           title: 'MCP quick start',
-          description: 'Install @hypequery/mcp and expose your first dataset.',
+          description: 'Expose your first dataset from TypeScript or Python, then share it over HTTP.',
         },
         {
           href: '/docs/mcp/tools',
@@ -279,7 +284,7 @@ claude mcp list`,
         title: 'Give one approved dataset to your first agent',
         description:
           'Install @hypequery/mcp, register a dataset with Serve, then connect hypequery mcp to your MCP client.',
-        primaryCta: { href: '/docs/mcp/overview', label: 'Open the MCP guide' },
+        primaryCta: { href: '/docs/mcp/quickstart', label: 'Open the MCP quickstart' },
         secondaryCta: { href: '/docs/mcp/safety', label: 'Review safety' },
       }}
     />

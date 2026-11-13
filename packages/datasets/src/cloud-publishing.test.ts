@@ -98,4 +98,38 @@ describe('publishToCloud', () => {
       datasets: { Orders }, access, datasetAccess: { typo: { roles: [], scopes: [] } },
     })).toThrow('unpublished dataset');
   });
+
+  it('uses an explicit endpoint policy as given, in place of the derived one', () => {
+    const Orders = dataset('orders', {
+      source: 'analytics.orders',
+      tenantKey: 'tenant_id',
+      dimensions: { id: dimension.string(), tenant_id: dimension.string() },
+    });
+    const endpoint = {
+      access: { kind: 'authenticated' as const, roles: ['analyst'], scopes: [] },
+      tenant: { kind: 'required' as const, mode: 'manual' as const, column: 'tenant_id' },
+      cacheTtlMs: 30_000,
+      path: '/api/analytics/datasets/orders/query',
+    };
+
+    const contract = publishToCloud({ access, datasets: { orders: Orders }, endpoints: { orders: endpoint } });
+
+    expect(contract.datasets[0]?.endpoint).toEqual(endpoint);
+    expect(() => publishToCloud({ access, datasets: { orders: Orders }, endpoints: { other: endpoint } }))
+      .toThrow('unpublished dataset: "other"');
+  });
+
+  it('publishes supporting datasets without an endpoint', () => {
+    const Orders = dataset('orders', { source: 'orders', dimensions: { id: dimension.string() } });
+    const Plans = dataset('plans', { source: 'plans', dimensions: { id: dimension.string() } });
+
+    const contract = publishToCloud({ access, datasets: { orders: Orders }, supporting: { plans: Plans } });
+
+    expect(contract.datasets.map(item => [item.name, item.endpoint === undefined])).toEqual([
+      ['orders', false],
+      ['plans', true],
+    ]);
+    expect(() => publishToCloud({ access, datasets: { orders: Orders }, supporting: { orders: Orders } }))
+      .toThrow("can't be both published and supporting");
+  });
 });

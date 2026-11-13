@@ -14,6 +14,10 @@ import {
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
 import { logger } from '../utils/logger.js';
+import { emitResult } from '../utils/machine-output.js';
+import { CliError, cloudHttpError } from '../utils/cli-error.js';
+import { parseCloudErrorBody } from '../utils/cloud-error-body.js';
+import { isUnattended } from '../utils/input-mode.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -98,7 +102,10 @@ async function callbackServer(state: string, timeoutMs: number) {
     // legitimate login. A matching Cloud error still ends the transaction.
     if (valid) settle?.(authorizationCode as string);
     else if (stateMatches && authorizationError) {
-      reject?.(new Error('Cloud authorization was not completed.'));
+      reject?.(new CliError('CLOUD_AUTHORIZATION_DECLINED', 'Cloud authorization was not completed.', {
+        exitClass: 'auth',
+        hint: 'Run `hypequery login` again and approve the request in the browser.',
+      }));
     }
   });
   server.listen(0, '127.0.0.1');
@@ -108,7 +115,10 @@ async function callbackServer(state: string, timeoutMs: number) {
   });
   const address = server.address() as AddressInfo;
   const timer = setTimeout(() => {
-    reject?.(new Error('CLI authorization timed out. Run `hypequery login` again.'));
+    reject?.(new CliError('CLOUD_AUTHORIZATION_TIMED_OUT', 'CLI authorization timed out. Run `hypequery login` again.', {
+      exitClass: 'auth',
+      hint: 'Run `hypequery login` again and approve the request in the browser within 5 minutes.',
+    }));
   }, timeoutMs);
   timer.unref();
   return {
@@ -221,6 +231,15 @@ export async function loginCommand(
       );
     }
   }
+  if (isUnattended()) {
+    // Browser sign-in needs a person; with --no-input or in CI it would only
+    // wait out the timeout.
+    throw new CliError('LOGIN_NEEDS_A_PERSON', '`hypequery login` signs in through a browser, which needs a person, '
+      + 'but this run is unattended (--no-input or CI). Set HYPEQUERY_API_TOKEN with --endpoint instead.', {
+      exitClass: 'auth',
+      hint: 'Set HYPEQUERY_API_TOKEN (with --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT) for unattended runs, or run `hypequery login` interactively.',
+    });
+  }
   const callback = await callbackServer(state, dependencies.timeoutMs ?? LOGIN_TIMEOUT_MS);
   const authorizeUrl = new URL('/cli/authorize', origin);
   authorizeUrl.searchParams.set('redirect_uri', callback.redirectUri);
@@ -251,8 +270,13 @@ export async function loginCommand(
       ),
     });
     if (!response.ok) {
-      await response.body?.cancel().catch(() => undefined);
-      throw new Error('Cloud rejected the CLI authorization code. Run `hypequery login` again.');
+      const rejection = await boundedJsonResponse(response).catch(() => null);
+      // An invalid or expired authorization code (400) means signing in again.
+      throw cloudHttpError(
+        response.status === 400 ? 401 : response.status,
+        'Cloud rejected the CLI authorization code. Run `hypequery login` again.',
+        parseCloudErrorBody(JSON.stringify(rejection ?? {})),
+      );
     }
     const body = await boundedJsonResponse(response);
     const credential = tokenResponse(
@@ -270,6 +294,7 @@ export async function loginCommand(
       );
     }
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
+    emitResult({ signedIn: true, target: credential.target ?? null, expiresAt: credential.expiresAt });
   } finally {
     callback.close();
   }
@@ -290,6 +315,7 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   }
   if (!credential && !unreadable) {
     logger.info('You are not logged in to Hypequery Cloud.');
+    emitResult({ signedIn: false, revoked: false });
     return;
   }
   if (credential) {
@@ -311,4 +337,5 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   }
   await remove();
   logger.success('Logged out of Hypequery Cloud');
+  emitResult({ signedIn: false });
 }

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/clickhouse-rest-api-openapi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A typed REST API over ClickHouse with named endpoints, API-key auth, rate limiting, caching and a generated OpenAPI document with interactive docs",
   "type": "module",

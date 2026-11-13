@@ -42,6 +42,17 @@ import { isPromptCancelled } from './utils/prompts.js';
 import { telemetryCommand } from './commands/telemetry.js';
 import { getCliVersion } from './utils/cli-version.js';
 import { CommandExit } from './utils/command-exit.js';
+import { CliError, cloudHttpError, isCliError } from './utils/cli-error.js';
+import { DeploymentUploadError } from './utils/deployment-upload.js';
+import { setUnattended } from './utils/input-mode.js';
+import { EXIT_CODES, exitClassFor, exitClassForCode } from './utils/exit-codes.js';
+import {
+  emitDefaultResult,
+  emitError,
+  enableJsonOutput,
+  errorEnvelope,
+  isJsonOutput,
+} from './utils/machine-output.js';
 import { telemetryErrorCode } from './utils/telemetry/error-code.js';
 
 const program = new Command();
@@ -57,7 +68,15 @@ program
   .name('hypequery')
   .description('Type-safe embedded analytics on ClickHouse')
   .version(getCliVersion())
-  .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation');
+  .option('--no-telemetry', 'Disable anonymous usage telemetry for this invocation')
+  .option('--json', 'Print one JSON result (or error) on stdout; logs go to stderr; never prompt')
+  .option('--no-input', 'Never prompt or wait for a person (also when CI is set); fail with exit code 1 naming the flag to pass');
+
+// `--json` is read before any command runs, so its output starts clean.
+program.hook('preAction', () => {
+  if (program.opts().json) enableJsonOutput();
+  setUnattended(program.opts().input === false);
+});
 
 program
   .command('telemetry [action]')
@@ -69,13 +88,12 @@ program
 program
   .command('examples [action]')
   .description('List the runnable examples, recipes and guides in the registry (action: list)')
-  .option('--json', 'Print the registry index as JSON')
   .option('--kind <kind>', 'Only example, recipe or guide')
   .action(runCommand(async (action: string | undefined, options: ExamplesListOptions) => {
     if (action !== undefined && action !== 'list') {
-      throw new Error(`Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
+      throw new CliError('USAGE', `Unknown action "${action}". Usage: hypequery examples list [--json] [--kind example|recipe|guide]`);
     }
-    await examplesListCommand(options);
+    await examplesListCommand({ ...options, json: isJsonOutput() });
   }));
 
 program
@@ -134,17 +152,84 @@ function runCommand<TArgs extends unknown[]>(
     try {
       await action(...args);
     } catch (error) {
-      if (error instanceof CommandExit) throw error;
+      if (error instanceof CommandExit) throw settleCommandExit(error);
       // Ctrl+C at a prompt is a deliberate abort, not a failure: report it as
       // the interrupt it is instead of dumping an error and exiting 1.
       if (isPromptCancelled(error)) {
         console.log('\nCancelled.');
-        throw new CommandExit(130, 'cancelled', 'prompt_cancelled');
+        throw new CommandExit(EXIT_CODES.interrupted, 'cancelled', 'prompt_cancelled');
       }
+      error = relayCloudRejection(error);
+      const telemetryCode = isCliError(error) ? error.telemetryCode : telemetryErrorCode(error);
+      const exitClass = isCliError(error) ? error.exitClass : exitClassFor(telemetryCode, error);
+      if (isJsonOutput()) emitError(errorEnvelope(error, exitClass, envelopeCode(telemetryCode)));
       console.error(error instanceof Error ? error.message : error);
-      throw new CommandExit(1, 'failure', telemetryErrorCode(error));
+      throw new CommandExit(EXIT_CODES[exitClass], 'failure', telemetryCode);
     }
+    if (!isJsonOutput()) return;
+    // Commands that report failure through process.exitCode print their reasons
+    // to stderr; stdout still gets one JSON document.
+    if (process.exitCode) {
+      const exitCode = Number(process.exitCode);
+      emitError(errorEnvelope(
+        new Error('The command failed; its reasons are on stderr.'),
+        exitClassForCode(exitCode),
+        'COMMAND_FAILED',
+        exitCode,
+      ));
+      return;
+    }
+    emitDefaultResult();
   };
+}
+
+/** The envelope code for a failure the CLI knows only by its telemetry code. */
+function envelopeCode(telemetryCode: string): string {
+  return telemetryCode === 'unknown' ? 'COMMAND_FAILED' : telemetryCode.toUpperCase();
+}
+
+/**
+ * A rejected Cloud upload carries Cloud's status and, when Cloud sent one, its
+ * error envelope; report it the way every other Cloud failure is reported.
+ */
+function relayCloudRejection(error: unknown): unknown {
+  if (error instanceof DeploymentUploadError && error.code === 'HQ_UPLOAD_REJECTED' && error.status !== undefined) {
+    return cloudHttpError(error.status, error.message, error.cloud);
+  }
+  return error;
+}
+
+/**
+ * Commands that end through `exitWith` (a caught failure, a `--check` miss)
+ * still get the fixed exit code for their failure class, and in `--json` mode
+ * stdout still gets one JSON document. Deliberate cancellations keep their code.
+ */
+function settleCommandExit(exit: CommandExit): CommandExit {
+  if (exit.exitCode === 0) {
+    if (isJsonOutput()) emitDefaultResult();
+    return exit;
+  }
+  const code = exit.errorCode && exit.errorCode !== 'unknown' ? exit.errorCode.toUpperCase() : 'COMMAND_FAILED';
+  if (exit.outcome !== 'failure') {
+    if (isJsonOutput()) {
+      emitError(errorEnvelope(new Error('The command was cancelled.'), 'correctable', code, exit.exitCode));
+    }
+    return exit;
+  }
+  // Only the generic exit 1 is reclassified; a command that chose another code keeps it.
+  const exitClass = exit.exitCode === EXIT_CODES.correctable ? exitClassFor(exit.errorCode ?? 'unknown') : exitClassForCode(exit.exitCode);
+  const settled = exit.exitCode === EXIT_CODES.correctable
+    ? new CommandExit(EXIT_CODES[exitClass], exit.outcome, exit.errorCode)
+    : exit;
+  if (isJsonOutput()) {
+    emitError(errorEnvelope(
+      new Error('The command failed; its reasons are on stderr.'),
+      exitClass,
+      code,
+      settled.exitCode,
+    ));
+  }
+  return settled;
 }
 
 function addTypeGenerationOptions(command: Command) {
@@ -197,13 +282,32 @@ program
 
 program
   .command('mcp [file]')
-  .description('Serve local datasets or authorized HTTP client endpoints over MCP stdio')
+  .description('Serve local datasets or authorized HTTP client endpoints over MCP (stdio, or Streamable HTTP with --http)')
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('--tenant <id>', 'Trusted tenant applied to every tenant-scoped dataset')
   .option('--self-test', 'Check the entrypoint and exit without speaking MCP')
   .option('--url <url>', 'With --self-test: check a hosted MCP endpoint (key from HYPEQUERY_API_KEY)')
   .option('--client-contract-url <url>', 'Bridge authorized HTTP client endpoints to MCP (Bearer key from HYPEQUERY_API_KEY)')
+  .option('--http', 'Serve over Streamable HTTP instead of stdio (callers send HYPEQUERY_MCP_KEY, or defineServe auth)')
+  .option('--port <port>', 'With --http: port to listen on (default 3333)')
+  .option('--host <address>', 'With --http: interface to bind (default 127.0.0.1)')
+  .option('--allowed-hosts <names>', 'With --http: comma-separated Host names to answer (default: loopback)')
+  .option('--allowed-origins <origins>', 'With --http: comma-separated browser origins allowed to call')
+  .option('--resource <url>', 'With --http: OAuth resource URL; tokens must name it as their audience')
+  .option('--authorization-servers <urls>', 'With --resource: comma-separated authorization server issuer URLs')
+  .option('--required-scopes <scopes>', 'With --resource: comma-separated scopes every caller must hold')
   .action(runCommand(async (file: string | undefined, options: McpOptions) => {
+    // Serving MCP owns stdout for the protocol (stdio) or runs until stopped
+    // (--http), so it has no single JSON result.
+    if (isJsonOutput() && !options.selfTest) {
+      const serving = options.http
+        ? '`hypequery mcp --http` serves until stopped'
+        : '`hypequery mcp` serves MCP over stdout';
+      throw new CliError('JSON_NOT_SUPPORTED', `${serving}, so it cannot also print a --json result. `
+        + 'Drop --json, or add --self-test to check the entrypoint.', {
+        hint: 'Drop --json, or add --self-test.',
+      });
+    }
     await mcpCommand(file, options);
   }));
 
@@ -408,6 +512,9 @@ program.on('--help', () => {
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
   console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
+  console.log('');
+  console.log('Machine output (--json): one JSON result or {"error": {...}} on stdout, logs on stderr.');
+  console.log('Exit codes: 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal, 130 interrupted.');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

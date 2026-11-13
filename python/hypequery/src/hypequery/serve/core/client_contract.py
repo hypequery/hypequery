@@ -165,11 +165,14 @@ def export_placements(
     mount_path: str,
     view: Literal["build", "authorized"] = "build",
     auths: Mapping[ClientEndpointRegistry, RequestAuth | None] | None = None,
+    field_metadata: bool = False,
 ) -> PreparedProtocolClientContract:
     """The contract for the opted-in endpoints among *placements*.
 
     An authorized view checks each target against *auths*, the request's
     authentication by that target's own API (None when it was refused).
+    *field_metadata* also advertises field vocabulary; see
+    `export_registered_client_contract`.
     """
 
     if view not in ("build", "authorized"):
@@ -200,5 +203,7 @@ def export_placements(
         definitions.append(
             (binding.definition(placement.path, production), binding.client.registry)
         )
-    prepared = export_registered_client_contract(definitions, mount_path=mount_path)
+    prepared = export_registered_client_contract(
+        definitions, mount_path=mount_path, field_metadata=field_metadata
+    )
     return client_contract_view(prepared, view)

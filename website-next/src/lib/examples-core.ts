@@ -87,6 +87,11 @@ export function kindLabel(kind: ManifestKind, plural = false): string {
   return plural ? `${base}s` : base;
 }
 
+/** Where a manifest's package is published: `@hypequery/*` on npm, `hypequery` on PyPI. */
+export function packageUrl(pkg: string): string {
+  return pkg === 'hypequery' ? 'https://pypi.org/project/hypequery/' : `https://www.npmjs.com/package/${pkg}`;
+}
+
 export function entryHref(entry: Pick<RegistryEntry, 'manifest'>): string {
   return `${kindPath(entry.manifest.kind)}/${entry.manifest.slug}`;
 }

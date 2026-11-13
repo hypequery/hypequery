@@ -12,6 +12,7 @@ import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 import { updateCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { countBucket } from '../utils/telemetry/buckets.js';
 import { TypeGenerationMetrics } from '../utils/telemetry/generation-metrics.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface GenerateOptions {
   output?: string;
@@ -119,6 +120,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
     logger.newline();
     logger.header('Types regenerated successfully!');
+    emitResult({ output: outputPath, database: dbType, tables: generatedTables });
     logger.newline();
 
   } catch (error) {

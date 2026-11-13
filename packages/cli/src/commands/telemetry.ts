@@ -1,13 +1,15 @@
 import { TelemetryConfigStore } from '../utils/telemetry/config-store.js';
 import { TELEMETRY_DOCS_URL } from '../utils/telemetry/config-schema.js';
 import { resolveTelemetryState, type TelemetryResolutionOptions } from '../utils/telemetry/opt-out.js';
+import { emitResult } from '../utils/machine-output.js';
+import { CliError } from '../utils/cli-error.js';
 
 export async function telemetryCommand(
   action = 'status',
   options: TelemetryResolutionOptions = {},
 ): Promise<void> {
   if (!['status', 'enable', 'disable'].includes(action)) {
-    throw new Error('Usage: hypequery telemetry [status|enable|disable]');
+    throw new CliError('USAGE', 'Usage: hypequery telemetry [status|enable|disable]');
   }
   if (action !== 'status') {
     const config = await new TelemetryConfigStore(options).setEnabled(action === 'enable');
@@ -20,4 +22,11 @@ export async function telemetryCommand(
   console.log(`Telemetry: ${state.enabled ? 'enabled' : 'disabled'} (source: ${state.source})`);
   console.log(`Install ID: ${state.config?.install_id ?? 'unavailable'}`);
   console.log(`Learn more: ${TELEMETRY_DOCS_URL}`);
+  emitResult({
+    action,
+    enabled: state.enabled,
+    source: state.source,
+    installId: state.config?.install_id ?? null,
+    docsUrl: TELEMETRY_DOCS_URL,
+  });
 }

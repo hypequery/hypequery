@@ -31,6 +31,8 @@ import {
 } from './deployment.js';
 import { generateClientCommand } from './generate-client.js';
 import { confirmTakeOwnership } from '../utils/prompts.js';
+import { emitResult, withoutResult } from '../utils/machine-output.js';
+import { CliError } from '../utils/cli-error.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
@@ -194,9 +196,11 @@ export async function submitDeploymentCommand(
   if (live?.active?.restored
     && live.active.releaseIdentity !== release.identity
     && !options.replaceRestored) {
-    throw new Error(
+    throw new CliError(
+      'CONFIRMATION_REQUIRED',
       'The live deployment is a restored release. '
       + 'Run the command again with --replace-restored to replace it intentionally.',
+      { hint: 'Rerun with --replace-restored to replace the restored live release intentionally.' },
     );
   }
   // Decision 0020: a model built in Cloud is replaced only on purpose, and the
@@ -207,7 +211,7 @@ export async function submitDeploymentCommand(
     && live.active.releaseIdentity !== release.identity
     && !takeOwnership) {
     const confirm = dependencies.confirmTakeOwnership === undefined
-      ? defaultConfirmTakeOwnership()
+      ? confirmTakeOwnership
       : dependencies.confirmTakeOwnership;
     if (!confirm) {
       throw new Error(
@@ -241,6 +245,13 @@ export async function submitDeploymentCommand(
     logger.info(`Staging endpoint: ${result.draft.stagingUrl}`);
     logger.info(`Release identity: ${result.releaseIdentity}`);
     logger.info('Review and publish this draft in Cloud when ready.');
+    emitResult({
+      status: result.status,
+      releaseIdentity: result.releaseIdentity,
+      bundleIdentity: result.bundleIdentity,
+      target: release.release.target,
+      draft: result.draft,
+    });
     return result;
   }
   logger.success(
@@ -257,13 +268,14 @@ export async function submitDeploymentCommand(
     target: release.release.target,
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
+  emitResult({
+    status: result.status,
+    releaseIdentity: result.releaseIdentity,
+    bundleIdentity: result.bundleIdentity,
+    target: release.release.target,
+    endpoints: endpoints ?? null,
+  });
   return result;
-}
-
-/** In a terminal, ask; with no terminal (CI), there is nobody to ask. */
-function defaultConfirmTakeOwnership(): ((project: string) => Promise<boolean>) | null {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
-  return confirmTakeOwnership;
 }
 
 /**
@@ -313,18 +325,19 @@ export async function deployCommand(
   // a missing or expired login only surfaces after a full bundle build.
   await resolveDeploymentCredential(options.endpoint, dependencies);
 
-  await build(sourcePath, {
+  // Each step's own --json result is suppressed; deploy reports the submission.
+  await withoutResult(() => build(sourcePath, {
     bundleOutput: bundlePath,
     source: options.source,
-  });
-  await prepareRelease(bundlePath, {
+  }));
+  await withoutResult(() => prepareRelease(bundlePath, {
     project: options.project,
     environment: options.environment,
     output: releasePath,
   }, {
     loadCredential: dependencies.loadCredential,
     outputFlagLabel: '--release-output',
-  });
+  }));
   const result = await submit(bundlePath, {
     release: releasePath,
     endpoint: options.endpoint,

@@ -140,6 +140,12 @@ def test_discovery_tools_describe_the_authorized_groups() -> None:
     assert [e["id"] for e in endpoints] == ["orders", "ordersTotal"]
     # Paths and schema hashes are backend plumbing, not agent-facing.
     assert all("path" not in e and "schemaHash" not in e for e in endpoints)
+    # Discovery asks for field metadata, so the vocabulary reaches the agent.
+    annotations = cast(dict[str, dict[str, object]], endpoints[0]["annotations"])
+    assert annotations["fields"] == {
+        "country": {"synonyms": ["market"]},
+        "revenue": {"format": "#,##0.00", "currency": "USD"},
+    }
     assert (
         error_code(call(executor, "get_dataset_schema", {"dataset": "secret"})) == "MCP_NOT_FOUND"
     )
@@ -383,3 +389,26 @@ def test_host_error_details_reach_the_envelope() -> None:
     for bad in (-1, float("inf"), float("nan")):
         with pytest.raises(ValueError, match="retry_after_seconds"):
             McpToolError("MCP_RATE_LIMITED", "x", retry_after_seconds=bad)
+
+
+def test_host_hint_docs_url_and_request_id_reach_the_envelope() -> None:
+    from hypequery.mcp.errors import McpToolError, classify_mcp_tool_error
+
+    refused = McpToolError(
+        "MCP_UNAUTHORIZED",
+        "Sign in again.",
+        hint="Reconnect the MCP client to sign in again.",
+        docs_url="https://hypequery.com/docs/errors/mcp-unauthorized",
+        request_id="req_123",
+    )
+    assert classify_mcp_tool_error(refused) == {
+        "code": "MCP_UNAUTHORIZED",
+        "category": "unauthorized",
+        "message": "Sign in again.",
+        "retryable": False,
+        "correctable": False,
+        "hint": "Reconnect the MCP client to sign in again.",
+        "docsUrl": "https://hypequery.com/docs/errors/mcp-unauthorized",
+        "requestId": "req_123",
+    }
+    assert "hint" not in classify_mcp_tool_error(McpToolError("MCP_NOT_FOUND", "No."))

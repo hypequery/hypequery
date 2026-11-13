@@ -7,6 +7,7 @@ import { fetchHostedEndpoints } from '../utils/hosted-endpoints.js';
 import { printHostedEndpoints } from '../utils/hosted-endpoints-output.js';
 import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import { logger } from '../utils/logger.js';
+import { emitResult } from '../utils/machine-output.js';
 
 export interface DeploymentStatusOptions {
   readonly endpoint?: string;
@@ -49,4 +50,5 @@ export async function deploymentStatusCommand(
   });
   if (endpoints) printHostedEndpoints(endpoints, options.mcpConfig === true);
   else logger.warn('Cloud did not return hosted endpoint details.');
+  emitResult({ target, live: live?.active ?? null, endpoints: endpoints ?? null });
 }

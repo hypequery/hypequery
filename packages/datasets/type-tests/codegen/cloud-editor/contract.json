@@ -1,0 +1,207 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "orders",
+      "source": "orders",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "dimensions": [
+        {
+          "name": "status",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "status"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Status",
+          "description": "Where it is."
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "created_at"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Order date",
+          "description": "When placed."
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "tenant_id"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Tenant",
+          "description": "Customer."
+        }
+      ],
+      "measures": [
+        {
+          "name": "revenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [],
+          "label": "Revenue",
+          "description": "Paid value.",
+          "synonyms": [
+            "sales"
+          ],
+          "currency": "EUR"
+        },
+        {
+          "name": "refunds",
+          "aggregation": "sum",
+          "field": "refund",
+          "filters": [],
+          "label": "Refunds",
+          "description": "Refunded."
+        },
+        {
+          "name": "paid",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            }
+          ],
+          "label": "Paid",
+          "description": "Paid only."
+        },
+        {
+          "name": "orderCount",
+          "aggregation": "count",
+          "field": "id",
+          "filters": [],
+          "label": "Orders",
+          "description": "Orders."
+        },
+        {
+          "kind": "derived",
+          "name": "net",
+          "uses": [
+            {
+              "alias": "refunds",
+              "measure": "refunds"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "subtract",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "reference",
+              "name": "refunds"
+            }
+          },
+          "label": "Net",
+          "description": "Net."
+        },
+        {
+          "kind": "derived",
+          "name": "aov",
+          "uses": [
+            {
+              "alias": "orderCount",
+              "measure": "orderCount"
+            },
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "reference",
+              "name": "orderCount"
+            }
+          },
+          "label": "AOV",
+          "description": "Average."
+        },
+        {
+          "name": "p95",
+          "aggregation": "percentile",
+          "field": "amount",
+          "filters": [],
+          "level": 0.95,
+          "label": "P95",
+          "description": "P95."
+        }
+      ],
+      "filters": [
+        {
+          "name": "status",
+          "field": "status",
+          "operators": [
+            "eq",
+            "in"
+          ],
+          "label": "Status",
+          "description": "By status."
+        }
+      ],
+      "relationships": [],
+      "timeField": "createdAt",
+      "description": "Every order.",
+      "owner": "ops",
+      "defaults": {
+        "dimensions": [
+          "status"
+        ],
+        "timeGrain": "day"
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "analyst"
+          ],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "required",
+          "mode": "auto-inject",
+          "column": "tenant_id"
+        },
+        "cacheTtlMs": 30000,
+        "maxLimit": 250,
+        "path": "/api/analytics/datasets/orders/query"
+      }
+    }
+  ]
+}

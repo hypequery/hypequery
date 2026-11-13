@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/nextjs-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Next.js dashboard over ClickHouse with typed hypequery datasets, serve endpoints and React hooks with cross-filtering",
   "type": "module",

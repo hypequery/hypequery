@@ -28,6 +28,8 @@ export const cloud = publishToCloud({
 - `datasets` lists the datasets cloud exposes. Datasets they relate to are included as supporting datasets.
 - `access` is required: the roles and scopes callers need for every published dataset.
 - `datasetAccess` optionally sets a different policy for individual datasets, keyed by published name.
+- `endpoints` optionally gives a published dataset's exact endpoint policy, keyed by name. It replaces the policy `access` derives, which is authenticated, injects the tenant from `tenantKey`, and caps rows at `limits.maxResultSize` or 1,000. Use it for what that can't say, such as a cache TTL or no row cap. Code exported from hypequery cloud uses it to rebuild a model exactly.
+- `supporting` optionally lists datasets to publish without an endpoint, beyond those reached through a relationship. They can't be queried directly.
 
 `publishToCloud` makes no network request. It only builds the contract that the CLI uploads.
 

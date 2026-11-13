@@ -4,7 +4,10 @@ import { logger } from '../utils/logger.js';
 import { canonicalClientContract } from '../utils/client-contract-canonical.js';
 import { checkClientOutputPath, describeClientContractError, readClientOutput } from '../utils/client-contract-file.js';
 import { writeGeneratedFileAtomically } from '../utils/generated-file.js';
+import { emitJsonText, emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { withStdoutToStderr } from '../utils/stdout-to-stderr.js';
+import { outOfDateError, outputConflictError } from '../utils/cli-error.js';
+import { CliError } from '../utils/cli-error.js';
 
 export interface ExportClientContractOptions {
   output?: string;
@@ -28,9 +31,9 @@ export async function exportClientContractCommand(
     );
   }
   if (options.stdout && (options.output !== undefined || options.check || options.force)) {
-    throw new Error('--stdout cannot be combined with --output, --check or --force.');
+    throw new CliError('USAGE', '--stdout cannot be combined with --output, --check or --force.');
   }
-  if (options.force && options.check) throw new Error('--force cannot be combined with --check.');
+  if (options.force && options.check) throw new CliError('USAGE', '--force cannot be combined with --check.');
 
   // With --stdout, the API module's own startup logs go to stderr so the output stays valid JSON.
   const exported = async () => {
@@ -59,7 +62,9 @@ export async function exportClientContractCommand(
     );
   }
   if (options.stdout) {
-    process.stdout.write(canonical);
+    // Under --json the contract is the command's one result document.
+    if (isJsonOutput()) emitJsonText(canonical);
+    else process.stdout.write(canonical);
     return;
   }
 
@@ -70,16 +75,20 @@ export async function exportClientContractCommand(
   const current = await readClientOutput(output);
   if (current === canonical) {
     logger.success(`Client contract is up to date: ${shown}`);
+    emitResult({ status: 'up_to_date', output });
     return;
   }
   if (options.check) {
-    process.exitCode = 1;
-    logger.error('Client contract is missing or out of date; review it with --stdout, then rerun with --force to replace it.');
-    return;
+    throw outOfDateError(
+      `Client contract is ${current === undefined ? 'missing' : 'out of date'}: ${shown}. Review it with --stdout, then rerun with --force to replace it.`,
+      [{ path: output, missing: current === undefined }],
+      'Review it with --stdout, then rerun with --force to replace it.',
+    );
   }
   if (current !== undefined && !options.force) {
-    throw new Error('Refusing to overwrite an existing client contract; use --check or --force.');
+    throw outputConflictError('Refusing to overwrite an existing client contract; use --check or --force.', [output]);
   }
   await writeGeneratedFileAtomically(output, canonical, { overwrite: options.force === true });
   logger.success(`${current === undefined ? 'Created' : 'Updated'} client contract: ${shown}`);
+  emitResult({ status: current === undefined ? 'created' : 'updated', output });
 }
