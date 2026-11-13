@@ -1,0 +1,145 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
+import { createHypequeryToolsClient, toModelOutput } from './client.js';
+import { HypequeryToolsError } from './errors.js';
+import type { HypequeryToolResult, HypequeryToolsClient } from './types.js';
+
+const TOKEN = 'agent-token-0123456789';
+let server: FixtureServer;
+const clients: HypequeryToolsClient[] = [];
+function connect(options: Partial<Parameters<typeof createHypequeryToolsClient>[0]> = {}) {
+  const client = createHypequeryToolsClient({ url: server.url, token: TOKEN, ...options });
+  clients.push(client);
+  return client;
+}
+
+beforeEach(async () => {
+  server = await startFixtureServer(TOKEN);
+});
+afterEach(async () => {
+  await Promise.all(clients.splice(0).map(client => client.close()));
+  await server.close();
+});
+
+describe('createHypequeryToolsClient', () => {
+  it('lists the tenant tools with the schemas the server lists', async () => {
+    const tools = await connect().listTools();
+    const listed = await server.executor.listTools();
+    expect(tools.map(tool => tool.name)).toEqual(TENANT_TOOLS);
+    expect(tools.map(tool => tool.inputSchema)).toEqual(listed.tools.map(tool => tool.inputSchema));
+    expect(tools.map(tool => tool.description)).toEqual(listed.tools.map(tool => tool.description ?? ''));
+  });
+
+  it('lists once per client', async () => {
+    const spy = vi.spyOn(server.executor, 'listTools');
+    const client = connect();
+    await Promise.all([client.listTools(), client.listTools()]);
+    await client.listTools();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the bearer token on every request', async () => {
+    const client = connect();
+    await client.listTools();
+    await client.callTool('list_datasets', {});
+    expect(server.authorizations.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(server.authorizations)).toEqual(new Set([`Bearer ${TOKEN}`]));
+  });
+
+  it('asks a token function before each request, so a refreshed token takes over', async () => {
+    let current = TOKEN;
+    const token = vi.fn(async () => current);
+    const client = connect({ token });
+    await client.listTools();
+    const fresh = 'agent-token-refreshed-0123';
+    server.validTokens.add(fresh);
+    server.validTokens.delete(TOKEN);
+    current = fresh;
+    const result = await client.callTool('list_datasets', {});
+    expect(result.ok).toBe(true);
+    expect(server.authorizations.at(-1)).toBe(`Bearer ${fresh}`);
+    expect(token.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('calls query_dataset and keeps the result request id', async () => {
+    const onResult = vi.fn<(result: HypequeryToolResult) => void>();
+    const client = connect({ onResult });
+    const result = await client.callTool('query_dataset', {
+      dataset: 'orders', dimensions: ['region'], measures: ['revenue'],
+    });
+    expect(result).toMatchObject({ ok: true, tool: 'query_dataset', requestId: expect.stringMatching(/^req_\d+$/) });
+    expect(result.ok && result.data).toMatchObject({ data: ROWS });
+    expect(toModelOutput(result)).toMatchObject({ data: ROWS });
+    expect(onResult).toHaveBeenCalledWith(result);
+  });
+
+  it('returns a tool error with its envelope, hint and request id', async () => {
+    const result = await connect().callTool('query_dataset', { dataset: 'throttled', measures: ['revenue'] });
+    expect(result).toMatchObject({
+      ok: false,
+      requestId: THROTTLED.requestId,
+      error: {
+        code: THROTTLED.code,
+        category: 'budget',
+        message: THROTTLED.message,
+        retryable: true,
+        correctable: false,
+        retryAfterSeconds: 30,
+        hint: THROTTLED.hint,
+        docsUrl: THROTTLED.docsUrl,
+        requestId: THROTTLED.requestId,
+      },
+    });
+    expect(toModelOutput(result)).toEqual({ error: !result.ok && result.error });
+  });
+
+  it('returns the server’s correctable errors, adding the result request id to the envelope', async () => {
+    const direct = await server.executor.callTool('get_dataset_schema', { dataset: 'missing' });
+    const result = await connect().callTool('get_dataset_schema', { dataset: 'missing' });
+    expect(result.ok).toBe(false);
+    expect(result.requestId).toMatch(/^req_\d+$/);
+    expect(!result.ok && result.error).toEqual({
+      ...(direct.structuredContent as { error: object }).error,
+      requestId: result.requestId,
+    });
+  });
+
+  it('throws HypequeryToolsError when the token is refused', async () => {
+    const error = await connect({ token: 'wrong-token-0123456789' }).listTools().catch(caught => caught);
+    expect(error).toBeInstanceOf(HypequeryToolsError);
+    expect(error).toMatchObject({ code: 'MCP_UNAUTHORIZED', category: 'unauthorized', status: 401 });
+  });
+
+  it('reuses one session, and opens a new one after the idle timeout', async () => {
+    const client = connect({ idleTimeoutMs: 20 });
+    await client.callTool('list_datasets', {});
+    await client.callTool('list_datasets', {});
+    expect(server.sessionsOpened()).toBe(1);
+    await new Promise(resolve => setTimeout(resolve, 60));
+    const result = await client.callTool('list_datasets', {});
+    expect(result.ok).toBe(true);
+    expect(server.sessionsOpened()).toBe(2);
+  });
+
+  it('opens a new session once when the server has lost the old one', async () => {
+    let loseNext = false;
+    const client = connect({
+      fetch: async (url, init) => {
+        if (loseNext && init?.method === 'POST' && new Headers(init.headers).has('mcp-session-id')) {
+          loseNext = false;
+          return new Response('Session not found', { status: 404 });
+        }
+        return fetch(url, init);
+      },
+    });
+    await client.callTool('list_datasets', {});
+    loseNext = true;
+    const result = await client.callTool('list_datasets', {});
+    expect(result.ok).toBe(true);
+    expect(server.sessionsOpened()).toBe(2);
+  });
+
+  it('rejects options without a usable token', () => {
+    expect(() => createHypequeryToolsClient({ url: server.url, token: 42 as never })).toThrow(TypeError);
+  });
+});

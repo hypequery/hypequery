@@ -1,11 +1,18 @@
 {
   "name": "@hypequery/agent",
   "version": "0.0.0",
-  "description": "Put a hypequery Cloud project's tenant-safe analytics in your own agent: mint end-user tokens locally",
+  "description": "Put a hypequery Cloud project's tenant-safe analytics in your own agent: mint end-user tokens locally, and use the hosted MCP tools as AI SDK, Anthropic SDK and OpenAI Agents SDK tools",
   "keywords": [
     "hypequery",
     "agent",
+    "ai-agents",
     "mcp",
+    "ai-sdk",
+    "anthropic",
+    "openai-agents",
+    "tools",
+    "clickhouse",
+    "semantic-layer",
     "jwt",
     "multi-tenant",
     "analytics"
@@ -20,10 +27,26 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./ai-sdk": {
+      "types": "./dist/tools/ai-sdk.d.ts",
+      "import": "./dist/tools/ai-sdk.js",
+      "default": "./dist/tools/ai-sdk.js"
+    },
+    "./anthropic": {
+      "types": "./dist/tools/anthropic.d.ts",
+      "import": "./dist/tools/anthropic.js",
+      "default": "./dist/tools/anthropic.js"
+    },
+    "./openai-agents": {
+      "types": "./dist/tools/openai-agents.d.ts",
+      "import": "./dist/tools/openai-agents.js",
+      "default": "./dist/tools/openai-agents.js"
     }
   },
   "files": [
     "dist",
+    "!dist/**/*.test.*",
     "README.md"
   ],
   "engines": {
@@ -38,11 +61,35 @@
     "test:types": "tsc --project tsconfig.type-tests.json",
     "types": "tsc --project tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.50.0 <2.0.0",
+    "@openai/agents": ">=0.1.0 <1.0.0",
+    "ai": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@openai/agents": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@hypequery/mcp": "workspace:*",
+    "@openai/agents": "^0.22.0",
     "@types/node": "^26.6.6",
+    "ai": "^7.0.172",
     "jose": "^6.2.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "zod": "^4.6.6"
   },
   "repository": {
     "type": "git",
