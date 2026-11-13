@@ -18,6 +18,8 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/snowflake-semantic-views': '2026-11-10',
   '/semantic-layer/databricks-metric-views': '2026-11-10',
   '/semantic-layer/open-semantic-interchange': '2026-11-10',
+  '/semantic-layer/open-source-tools': '2026-11-13',
+  '/semantic-layer/ai-agents': '2026-11-13',
 };
 
 /** The page's last update (YYYY-MM-DD). Throws at build time when a page is missing from the map. */
