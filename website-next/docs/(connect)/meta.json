@@ -10,6 +10,8 @@
     "mcp/safety",
     "mcp/configuration",
     "mcp/programmatic",
+    "---In-app agents---",
+    "agents/tools",
     "---React---",
     "react/getting-started",
     "[With hypequery cloud](/docs/cloud/react)",
