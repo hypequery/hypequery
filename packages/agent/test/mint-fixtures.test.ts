@@ -13,6 +13,7 @@ interface AcceptedCase {
   readonly name: string;
   readonly now: number;
   readonly input: Record<string, unknown>;
+  readonly keyMembers?: Record<string, unknown>;
   readonly token: string;
   readonly mcpUrl: string;
   readonly expiresAt: number;
@@ -23,6 +24,7 @@ interface RefusedCase {
   readonly name: string;
   readonly input?: Record<string, unknown>;
   readonly signingKey?: string;
+  readonly keyMembers?: Record<string, unknown>;
   readonly field: string;
 }
 const fixture = JSON.parse(
@@ -32,7 +34,9 @@ const fixture = JSON.parse(
   accepted: AcceptedCase[];
   refused: RefusedCase[];
 };
-const signingKey = JSON.stringify(fixture.signingKey);
+/** The fixture key with a case's extra members (Cloud's hq_project and hq_endpoint). */
+const keyWith = (members?: Record<string, unknown>) =>
+  JSON.stringify({ ...fixture.signingKey, ...members });
 const publicKey = { kid: fixture.signingKey.kid, publicKey: fixture.signingKey.x };
 const BASE = {
   project: 'acme:logistics',
@@ -51,7 +55,7 @@ function refusedOptions(entry: RefusedCase): MintAgentTokenOptions {
   const options: Record<string, unknown> = {
     ...BASE,
     ...entry.input,
-    signingKey: entry.signingKey ?? signingKey,
+    signingKey: entry.signingKey ?? keyWith(entry.keyMembers),
     now: new Date(1_763_000_000_000),
   };
   for (const [key, value] of Object.entries(options)) if (value === null) delete options[key];
@@ -63,7 +67,7 @@ describe('mint-v1 fixtures', () => {
     it('mints the fixture token byte for byte', async () => {
       const minted = await mintAgentToken({
         ...(entry.input as unknown as MintAgentTokenOptions),
-        signingKey,
+        signingKey: keyWith(entry.keyMembers),
         now: new Date(entry.now * 1_000),
       });
       expect(minted.token).toBe(entry.token);
@@ -75,7 +79,9 @@ describe('mint-v1 fixtures', () => {
     });
 
     it('passes the AG-18a verifier for its whole lifetime, and not after', async () => {
-      const audience = signingKeyAudience(String(entry.input.project));
+      // The explicit project, else the key's hq_project.
+      const audience = signingKeyAudience(String(entry.input.project ?? entry.keyMembers?.hq_project));
+      expect(entry.payload.aud).toBe(audience);
       const payload = entry.payload as { iat: number; exp: number; constraints?: unknown };
       for (const seconds of [entry.now, payload.exp - 1]) {
         const claims = await verifySigningKeyJwt(entry.token, publicKey, audience, new Date(seconds * 1_000));

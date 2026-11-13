@@ -12,11 +12,18 @@ export interface AgentSigningJwk {
   readonly kid: string;
   readonly alg?: 'EdDSA';
   readonly use?: 'sig';
+  /** The project's protocol name, which Cloud adds so minting needs no `project`. */
+  readonly hq_project?: string;
+  /** The project's customer endpoint, which Cloud adds so minting needs no `endpoint`. */
+  readonly hq_endpoint?: string;
 }
 
 export interface ParsedSigningKey {
   readonly kid: string;
   readonly jwk: { kty: 'OKP'; crv: 'Ed25519'; x: string; d: string };
+  /** `hq_project` and `hq_endpoint` as found, checked only when used. */
+  readonly project: unknown;
+  readonly endpoint: unknown;
 }
 
 /** Cloud's key ids: `hqsk_` and 16 random bytes, base64url. */
@@ -60,5 +67,10 @@ export function parseSigningKey(input: unknown): ParsedSigningKey {
   if (typeof jwk.x !== 'string' || !KEY_BYTES_PATTERN.test(jwk.x)) {
     refuse('The signing key has no public key (x).');
   }
-  return { kid: jwk.kid, jwk: { kty: 'OKP', crv: 'Ed25519', x: jwk.x, d: jwk.d } };
+  return {
+    kid: jwk.kid,
+    jwk: { kty: 'OKP', crv: 'Ed25519', x: jwk.x, d: jwk.d },
+    project: jwk.hq_project,
+    endpoint: jwk.hq_endpoint,
+  };
 }

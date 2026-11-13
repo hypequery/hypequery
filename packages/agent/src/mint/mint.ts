@@ -19,14 +19,18 @@ export interface MintAgentTokenOptions {
    * (keep it in `HYPEQUERY_AGENT_KEY`), or that JSON parsed.
    */
   readonly signingKey: string | AgentSigningJwk;
-  /** The project's protocol name, as Cloud shows it beside the key (for example "acme:logistics"). */
-  readonly project: string;
   /**
-   * The project's customer endpoint, as Cloud shows it: its origin
-   * (`https://<endpoint>.hypequery.app`) or its `/mcp` URL. `mcpUrl` is
-   * `<origin>/mcp`.
+   * The project's protocol name (for example "acme:logistics"). Defaults to
+   * the key's `hq_project`; when both are given, this wins.
    */
-  readonly endpoint: string;
+  readonly project?: string;
+  /**
+   * The project's customer endpoint: its origin
+   * (`https://<endpoint>.hypequery.app`) or its `/mcp` URL. `mcpUrl` is
+   * `<origin>/mcp`. Defaults to the key's `hq_endpoint`; when both are
+   * given, this wins.
+   */
+  readonly endpoint?: string;
   /** The end user's customer: every query is scoped to this tenant. */
   readonly tenant: string;
   /** The end user, as your app identifies them. */
@@ -84,8 +88,23 @@ function subtleCrypto(): SubtleCrypto {
  */
 export async function mintAgentToken(options: MintAgentTokenOptions): Promise<AgentToken> {
   const key = parseSigningKey(options.signingKey);
-  const audience = agentTokenAudience(options.project);
-  const mcpUrl = resolveMcpUrl(options.endpoint);
+  // An explicit option wins over the key's own member.
+  const project = options.project ?? key.project;
+  if (project === undefined) {
+    throw new AgentTokenError(
+      'project',
+      'No project: pass project, or use a signing key whose JSON has hq_project.',
+    );
+  }
+  const endpoint = options.endpoint ?? key.endpoint;
+  if (endpoint === undefined) {
+    throw new AgentTokenError(
+      'endpoint',
+      'No endpoint: pass endpoint, or use a signing key whose JSON has hq_endpoint.',
+    );
+  }
+  const audience = `hypequery-agent:${checkProject(project)}`;
+  const mcpUrl = resolveMcpUrl(endpoint);
   const subject = checkSubject(options.subject);
   const tenant = checkTenant(options.tenant);
   const permissionSet = checkPermissionSet(options.permissionSet);

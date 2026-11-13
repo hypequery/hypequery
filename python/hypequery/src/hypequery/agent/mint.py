@@ -259,8 +259,19 @@ def _refuse_key(message: str) -> AgentTokenError:
     return AgentTokenError("signing_key", message)
 
 
-def _parse_signing_key(signing_key: object) -> tuple[str, str, str]:
-    """The key's `kid`, `x` and `d`, from the JSON Cloud shows or its parsed form."""
+@dataclass(frozen=True, slots=True)
+class _SigningKey:
+    kid: str
+    x: str
+    d: str
+    #: `hq_project` and `hq_endpoint` as found, checked only when used.
+    project: object
+    endpoint: object
+
+
+def _parse_signing_key(signing_key: object) -> _SigningKey:
+    """The key from the JSON Cloud shows or its parsed form. Members it doesn't
+    use are ignored; Cloud's `hq_project` and `hq_endpoint` are kept."""
 
     value: object = signing_key
     if isinstance(signing_key, str):
@@ -289,7 +300,7 @@ def _parse_signing_key(signing_key: object) -> tuple[str, str, str]:
         )
     if not isinstance(x, str) or not _KEY_BYTES.fullmatch(x):
         raise _refuse_key("The signing key has no public key (x).")
-    return kid, x, d
+    return _SigningKey(kid, x, d, value.get("hq_project"), value.get("hq_endpoint"))
 
 
 def _b64url(data: bytes) -> str:
@@ -325,11 +336,11 @@ def _private_key(x: str, d: str) -> Ed25519PrivateKey:
 def mint_agent_token(
     *,
     signing_key: str | Mapping[str, Any],
-    project: str,
-    endpoint: str,
     tenant: str,
     subject: str,
     permission_set: str,
+    project: str | None = None,
+    endpoint: str | None = None,
     constraints: Sequence[Mapping[str, Any]] | None = None,
     expires_in_seconds: int = AGENT_TOKEN_MAX_LIFETIME_SECONDS,
     now: datetime | None = None,
@@ -342,12 +353,14 @@ def mint_agent_token(
     Args:
         signing_key: The private key JSON Cloud showed once (keep it in
             ``HYPEQUERY_AGENT_KEY``), or that JSON parsed.
-        project: The project's protocol name (for example ``"acme:logistics"``).
-        endpoint: The project's customer endpoint,
-            ``https://<endpoint>.hypequery.app``, or its ``/mcp`` URL.
         tenant: The end user's customer; every query is scoped to it.
         subject: The end user, as your app identifies them.
         permission_set: The permission set the end user acts with, by name.
+        project: The project's protocol name (for example ``"acme:logistics"``).
+            Defaults to the key's ``hq_project``; when both are given, this wins.
+        endpoint: The project's customer endpoint,
+            ``https://<endpoint>.hypequery.app``, or its ``/mcp`` URL. Defaults
+            to the key's ``hq_endpoint``; when both are given, this wins.
         constraints: Filters every query carries: ``{"filter", "operator":
             "eq", "value"}`` or ``{"filter", "operator": "in", "value": [...]}``.
         expires_in_seconds: Lifetime, 1 to 900 (Cloud's 15-minute ceiling).
@@ -358,9 +371,21 @@ def mint_agent_token(
         ModuleNotFoundError: The ``jwt`` extra is not installed.
     """
 
-    kid, x, d = _parse_signing_key(signing_key)
-    audience = agent_token_audience(project)
-    mcp_url = _resolve_mcp_url(endpoint)
+    key = _parse_signing_key(signing_key)
+    # An explicit option wins over the key's own member.
+    chosen_project = key.project if project is None else project
+    if chosen_project is None:
+        raise AgentTokenError(
+            "project", "No project: pass project, or use a signing key whose JSON has hq_project."
+        )
+    chosen_endpoint = key.endpoint if endpoint is None else endpoint
+    if chosen_endpoint is None:
+        raise AgentTokenError(
+            "endpoint",
+            "No endpoint: pass endpoint, or use a signing key whose JSON has hq_endpoint.",
+        )
+    audience = f"hypequery-agent:{_check_project(chosen_project)}"
+    mcp_url = _resolve_mcp_url(chosen_endpoint)
     checked_subject = _check_subject(subject)
     checked_tenant = _check_tenant(tenant)
     checked_permission_set = _check_permission_set(permission_set)
@@ -374,7 +399,7 @@ def mint_agent_token(
     expires_at = issued_at + lifetime
 
     # Fixed member order, so both languages serialize the same bytes.
-    header = {"alg": "EdDSA", "kid": kid, "typ": "JWT"}
+    header = {"alg": "EdDSA", "kid": key.kid, "typ": "JWT"}
     payload: dict[str, Any] = {
         "aud": audience,
         "sub": checked_subject,
@@ -386,7 +411,7 @@ def mint_agent_token(
     payload["iat"] = issued_at
     payload["exp"] = expires_at
     signing_input = f"{_encode_json(header)}.{_encode_json(payload)}"
-    signature = _private_key(x, d).sign(signing_input.encode("ascii"))
+    signature = _private_key(key.x, key.d).sign(signing_input.encode("ascii"))
     return AgentToken(
         token=f"{signing_input}.{_b64url(signature)}",
         mcp_url=mcp_url,

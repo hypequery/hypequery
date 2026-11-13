@@ -199,3 +199,46 @@ def test_imports_without_the_jwt_extra_and_minting_asks_for_it() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+KEY_WITH_TARGET = json.dumps(
+    {
+        **KEY,
+        "hq_project": "acme:logistics",
+        "hq_endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app",
+    }
+)
+
+
+def test_takes_project_and_endpoint_from_the_key() -> None:
+    minted = mint_agent_token(
+        signing_key=KEY_WITH_TARGET,
+        tenant="northwind",
+        subject="user_42",
+        permission_set="customers",
+    )
+    assert minted.mcp_url == "https://acme-logistics-1f2e3d4c.hypequery.app/mcp"
+    assert verify_signing_key_jwt(minted.token, PUBLIC_KEY, AUDIENCE, time.time()) is not None
+
+
+def test_explicit_project_and_endpoint_win_over_the_key() -> None:
+    minted = mint_agent_token(
+        **{
+            **OPTIONS,
+            "signing_key": KEY_WITH_TARGET,
+            "project": "acme:other",
+            "endpoint": "https://acme-other.hypequery.app",
+        }
+    )
+    assert minted.mcp_url == "https://acme-other.hypequery.app/mcp"
+    other = signing_key_audience("acme:other")
+    assert verify_signing_key_jwt(minted.token, PUBLIC_KEY, other, time.time()) is not None
+    assert verify_signing_key_jwt(minted.token, PUBLIC_KEY, AUDIENCE, time.time()) is None
+
+
+@pytest.mark.parametrize("missing", ["project", "endpoint"])
+def test_names_the_missing_option_when_neither_gives_it(missing: str) -> None:
+    arguments = {name: value for name, value in OPTIONS.items() if name != missing}
+    with pytest.raises(AgentTokenError) as raised:
+        mint_agent_token(**arguments)
+    assert raised.value.field == missing

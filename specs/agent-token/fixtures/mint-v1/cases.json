@@ -1,5 +1,5 @@
 {
-  "description": "Agent tokens minted locally with a managed signing key (AG-18a/AG-18b). Both mintAgentToken() (@hypequery/agent) and mint_agent_token() (hypequery.agent) must mint each accepted case byte for byte, and refuse each refused case naming its field. In a refused case, input patches the base options (project acme:logistics, endpoint https://acme-logistics-1f2e3d4c.hypequery.app, tenant northwind, subject user_42, permissionSet customers, now 1763000000) and null means the option is left out (TypeScript) or None (Python). Option names are TypeScript's; Python's are their snake_case. The key is a fixture key generated for these tests only.",
+  "description": "Agent tokens minted locally with a managed signing key (AG-18a/AG-18b). Both mintAgentToken() (@hypequery/agent) and mint_agent_token() (hypequery.agent) must mint each accepted case byte for byte, and refuse each refused case naming its field. In a refused case, input patches the base options (project acme:logistics, endpoint https://acme-logistics-1f2e3d4c.hypequery.app, tenant northwind, subject user_42, permissionSet customers, now 1763000000) and null means the option is left out (TypeScript) or None (Python). Option names are TypeScript's; Python's are their snake_case. keyMembers, when present, are added to signingKey (Cloud adds hq_project and hq_endpoint); an explicit project or endpoint wins over the key's. The key is a fixture key generated for these tests only.",
   "signingKey": {
     "kty": "OKP",
     "crv": "Ed25519",
@@ -221,6 +221,95 @@
         "exp": 1763000900
       },
       "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6QWJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJzdWIiOiJ-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fiIsInRlbmFudCI6InR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0IiwicGVybWlzc2lvbl9zZXQiOiJwYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwiaWF0IjoxNzYzMDAwMDAwLCJleHAiOjE3NjMwMDA5MDB9.ahYgzi1e5sTxKIzJmuiJ8DGBHXgVokMdYiwYd6xB5eqXeOCepYM_t0AfJOgztk8UEkf2JbNSQJncNYmFCEA8AA"
+    },
+    {
+      "name": "project and endpoint from the key",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_project": "acme:logistics",
+        "hq_endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    },
+    {
+      "name": "explicit project and endpoint win over the key's",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_project": "acme:old-logistics",
+        "hq_endpoint": "https://acme-old-0a0b0c0d.hypequery.app"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers",
+        "project": "acme:logistics",
+        "endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    },
+    {
+      "name": "the key's endpoint as an /mcp URL with only the project explicit",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_endpoint": "https://ACME-Logistics-1f2e3d4c.hypequery.app/mcp"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers",
+        "project": "acme:logistics"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
     }
   ],
   "refused": [
@@ -806,6 +895,62 @@
       "name": "a JSON array",
       "signingKey": "[]",
       "field": "signingKey"
+    },
+    {
+      "name": "no project, given or in the key",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {},
+      "field": "project"
+    },
+    {
+      "name": "no endpoint, given or in the key",
+      "input": {
+        "endpoint": null
+      },
+      "keyMembers": {},
+      "field": "endpoint"
+    },
+    {
+      "name": "the key's hq_project is not a protocol name",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {
+        "hq_project": "acme/logistics"
+      },
+      "field": "project"
+    },
+    {
+      "name": "the key's hq_project is not a string",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {
+        "hq_project": 42
+      },
+      "field": "project"
+    },
+    {
+      "name": "the key's hq_endpoint is plain http to a remote host",
+      "input": {
+        "endpoint": null
+      },
+      "keyMembers": {
+        "hq_endpoint": "http://acme.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "an explicit endpoint is checked even when the key has a good one",
+      "input": {
+        "endpoint": "http://acme.hypequery.app"
+      },
+      "keyMembers": {
+        "hq_endpoint": "https://acme.hypequery.app"
+      },
+      "field": "endpoint"
     }
   ]
 }

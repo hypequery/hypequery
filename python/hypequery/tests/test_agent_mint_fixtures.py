@@ -28,7 +28,14 @@ FIXTURES: dict[str, Any] = json.loads(
         Path(__file__).resolve().parents[3] / "specs/agent-token/fixtures/mint-v1/cases.json"
     ).read_text(encoding="utf-8")
 )
-SIGNING_KEY = json.dumps(FIXTURES["signingKey"])
+
+
+def key_with(members: dict[str, Any] | None) -> str:
+    """The fixture key with a case's extra members (Cloud's hq_project and hq_endpoint)."""
+
+    return json.dumps({**FIXTURES["signingKey"], **(members or {})})
+
+
 PUBLIC_KEY = {"kid": FIXTURES["signingKey"]["kid"], "publicKey": FIXTURES["signingKey"]["x"]}
 BASE = {
     "project": "acme:logistics",
@@ -66,7 +73,7 @@ def decode(part: str) -> Any:
 def test_mints_the_fixture_token_byte_for_byte(case: dict[str, Any]) -> None:
     minted = mint_agent_token(
         **options(case["input"]),
-        signing_key=SIGNING_KEY,
+        signing_key=key_with(case.get("keyMembers")),
         now=datetime.fromtimestamp(case["now"], UTC),
     )
     assert minted.token == case["token"]
@@ -79,8 +86,11 @@ def test_mints_the_fixture_token_byte_for_byte(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("case", FIXTURES["accepted"], ids=lambda case: case["name"])
 def test_passes_the_ag18a_verifier_for_its_lifetime_and_not_after(case: dict[str, Any]) -> None:
-    audience = signing_key_audience(case["input"]["project"])
+    # The explicit project, else the key's hq_project.
+    project = case["input"].get("project") or case.get("keyMembers", {})["hq_project"]
+    audience = signing_key_audience(project)
     payload = case["payload"]
+    assert payload["aud"] == audience
     expected = {
         "subject": payload["sub"],
         "tenantId": payload["tenant"],
@@ -97,7 +107,7 @@ def test_passes_the_ag18a_verifier_for_its_lifetime_and_not_after(case: dict[str
 @pytest.mark.parametrize("case", FIXTURES["refused"], ids=lambda case: case["name"])
 def test_refuses_the_fixture_input(case: dict[str, Any]) -> None:
     arguments = options({**BASE, **case.get("input", {})})
-    arguments["signing_key"] = case.get("signingKey", SIGNING_KEY)
+    arguments["signing_key"] = case.get("signingKey", key_with(case.get("keyMembers")))
     with pytest.raises(AgentTokenError) as raised:
         mint_agent_token(**arguments, now=datetime.fromtimestamp(1_763_000_000, UTC))
     assert raised.value.field == OPTION_NAMES[case["field"]]

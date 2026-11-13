@@ -1,10 +1,10 @@
 import { AgentTokenError } from './errors.js';
 
 /**
- * The project's tenant MCP URL, from its customer endpoint as Cloud shows it:
- * the origin (`https://<endpoint>.hypequery.app`) or the MCP URL itself. The
- * endpoint's name is not derivable from the project or the key, so it is
- * given, never looked up: minting makes no network call.
+ * The project's tenant MCP URL, from its customer endpoint: the origin
+ * (`https://<endpoint>.hypequery.app`) or the MCP URL itself, given as an
+ * option or read from the key's `hq_endpoint`. It is never looked up:
+ * minting makes no network call.
  *
  * Parsed by pattern rather than `URL`, so Python's `mint_agent_token()`
  * resolves every input to the same URL or refuses the same inputs.

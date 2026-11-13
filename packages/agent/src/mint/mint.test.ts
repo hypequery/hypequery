@@ -175,3 +175,43 @@ describe('the ported AG-18a verifier', () => {
     expect(await verifySigningKeyJwt(token, publicKey, audience, now)).toBeNull();
   });
 });
+
+describe('project and endpoint from the key', () => {
+  const keyWithTarget = JSON.stringify({
+    ...key,
+    hq_project: 'acme:logistics',
+    hq_endpoint: 'https://acme-logistics-1f2e3d4c.hypequery.app',
+  });
+
+  it('mints with only the key, tenant, subject and permission set', async () => {
+    const { token, mcpUrl } = await mintAgentToken({
+      signingKey: keyWithTarget,
+      tenant: 'northwind',
+      subject: 'user_42',
+      permissionSet: 'customers',
+    });
+    expect(mcpUrl).toBe('https://acme-logistics-1f2e3d4c.hypequery.app/mcp');
+    expect(await verifySigningKeyJwt(token, publicKey, audience)).not.toBeNull();
+  });
+
+  it('lets explicit options win', async () => {
+    const { token, mcpUrl } = await mintAgentToken({
+      signingKey: keyWithTarget,
+      project: 'acme:other',
+      endpoint: 'https://acme-other.hypequery.app',
+      tenant: 'northwind',
+      subject: 'user_42',
+      permissionSet: 'customers',
+    });
+    expect(mcpUrl).toBe('https://acme-other.hypequery.app/mcp');
+    expect(await verifySigningKeyJwt(token, publicKey, signingKeyAudience('acme:other'))).not.toBeNull();
+    expect(await verifySigningKeyJwt(token, publicKey, audience)).toBeNull();
+  });
+
+  it('names the missing option when neither gives it', async () => {
+    const { project: _project, ...withoutProject } = options;
+    await expect(mintAgentToken(withoutProject)).rejects.toMatchObject({ field: 'project' });
+    const { endpoint: _endpoint, ...withoutEndpoint } = options;
+    await expect(mintAgentToken(withoutEndpoint)).rejects.toMatchObject({ field: 'endpoint' });
+  });
+});
