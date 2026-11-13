@@ -12,12 +12,13 @@ import {
 } from '@/components/semantic-layer-parts';
 import { marketing } from '@/components/ui/marketing';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/ai-agents';
 const TITLE = 'Semantic Layer for AI Agents: Governed Metrics over MCP (2026)';
 const DESCRIPTION =
   'Why AI agents need a semantic layer instead of raw text-to-SQL, what to look for in one (named metrics, no raw SQL tool, tenant scope, query limits), and how hypequery, Cube, dbt, AtScale, Snowflake and others expose metrics to agents over MCP.';
-const UPDATED = '2026-11-13';
+const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own site, docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 13, 2026';
 
