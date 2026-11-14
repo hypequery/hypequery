@@ -81,6 +81,7 @@ npx hypequery dev
 | `hypequery examples list` | List the runnable examples, recipes and guides at hypequery.com/examples |
 | `hypequery create <slug>` | Scaffold an example or recipe into `./<slug>`, pinned to published versions |
 | `hypequery deployment:validate <artifact>` | Verify a deployment bundle or validate contract JSON and report its identity |
+| `hypequery <group> <action>` | Run any hypequery Cloud operation (`releases rollback`, `members invite`, `api-keys create`, …); see [Cloud operation commands](/docs/cloud/cli-operations) |
 | `hypequery help [command]` | Show help for the CLI or a specific command |
 | `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
 
@@ -703,6 +704,8 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `CONNECTION_FAILED`, `CLOUD_UNAVAILABLE`, `CLOUD_NETWORK_ERROR`, `CLOUD_UNREACHABLE` | `unavailable` | 4 | ClickHouse or Cloud could not be reached (retryable) |
 | `COMMAND_FAILED` | `correctable_input` | 1 | Any other failure the message explains |
 
+A Cloud operation command (`hypequery <group> <action>`) reports Cloud's own envelope instead: Cloud's `code` (for example `RELEASE_MOVED` or `PROJECT_NOT_FOUND`), `hint`, `docsUrl`, `requestId` and `issues`, with the exit code from its category (`unauthenticated` and `forbidden` exit 2, `budget_exceeded` 3, `unavailable` and `internal` 4, everything else 1). Before calling Cloud, these commands can also fail with `CONFIRMATION_REQUIRED` (a destructive operation without `--yes` and without a terminal), `CONFIRMATION_DECLINED` (you answered no), `MISSING_INPUT` or `INVALID_OPTION` (a required or malformed flag, named in `issues`).
+
 ### `--json` results
 
 Fields are only ever added. Paths are absolute.
@@ -729,6 +732,7 @@ Fields are only ever added. Paths are absolute.
 | `deployment:submit`, `deploy` | `{ status, releaseIdentity, bundleIdentity, target, endpoints \| draft }` |
 | `deployment:status` | `{ target, live, endpoints }` |
 | `pull` / `diff` | `{ destination, releaseIdentity, entrypoint, files }` / `{ releaseIdentity, matches, differences }` |
+| `<group> <action>` (Cloud operations) | The operation's output, exactly as Cloud returns it (its schema is in `operations-v1.json`) |
 
 ## Environment variables
 

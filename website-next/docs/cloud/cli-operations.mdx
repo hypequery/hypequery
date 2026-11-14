@@ -1,0 +1,1289 @@
+---
+title: Cloud operation commands
+description: One hypequery CLI command for every hypequery Cloud operation, generated from the operations spec.
+---
+
+{/* Generated from specs/cloud-api/operations-v1.json by `pnpm --filter @hypequery/cli cloud-operations:docs`. Do not edit by hand. */}
+
+Every hypequery Cloud operation is a CLI command: `hypequery <group> <action>`. The commands are built from
+the same operations spec as the REST API, so they cover everything an agent or the dashboard can do.
+
+| Group | Actions |
+| --- | --- |
+| [`projects`](#projects) | list, get, connect-info, create, rename |
+| [`releases`](#releases) | status, list, get, rollback |
+| [`drafts`](#drafts) | list, open, save, review, checks, promote, get, rename, delete, archived, reopen, impact, evidence, replay, update, apply-update, refresh-base, setup, findings, answer, run-status, run |
+| [`customer-scope`](#customer-scope) | list, confirm-shared |
+| [`sample-policy`](#sample-policy) | get, set |
+| [`connections`](#connections) | get, save, link, test, query-history, set-query-history |
+| [`logs`](#logs) | query, get |
+| [`usage`](#usage) | get |
+| [`audit`](#audit) | list |
+| [`tenants`](#tenants) | list, create, update, remove |
+| [`permission-sets`](#permission-sets) | list, create, update, remove |
+| [`customer-limits`](#customer-limits) | get, set |
+| [`tenant-grants`](#tenant-grants) | list, revoke-tenant, revoke |
+| [`customer-access`](#customer-access) | get, set-mode, create-key, prove |
+| [`customer-settings`](#customer-settings) | get, set |
+| [`jwt-issuer`](#jwt-issuer) | get, save, remove |
+| [`oidc-client`](#oidc-client) | get, save, remove |
+| [`signing-keys`](#signing-keys) | list, create, revoke |
+| [`customer-app`](#customer-app) | get, set |
+| [`members`](#members) | list, invite, cancel-invitation, change-role, remove |
+| [`org`](#org) | access-policy, set-access-policy |
+| [`deploy-keys`](#deploy-keys) | list, create, revoke |
+| [`api-keys`](#api-keys) | list, create, revoke |
+| [`management-tokens`](#management-tokens) | list, revoke |
+| [`feedback`](#feedback) | create |
+
+## How the commands behave
+
+- **Credentials.** The same as every Cloud command: `HYPEQUERY_API_TOKEN`, then the management token from
+  `hypequery login` or `hypequery login --device`, then the browser sign-in. See [CLI commands](/docs/cloud/cli).
+- **Project.** `--project <slug>` names the project. Project operations default to the project your sign-in names.
+- **Output.** Each command prints the operation's output as JSON on stdout. With `--json` stdout carries exactly
+  that document, or the error envelope (`code`, `message`, `hint`, `docsUrl`, `requestId`, `issues`).
+- **Exit codes.** 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal.
+- **Destructive operations** need `--yes`. At a terminal the CLI asks instead; without one (or with `--json`,
+  `--no-input` or `CI`) it refuses with `CONFIRMATION_REQUIRED` and changes nothing.
+- **Secrets.** Secret inputs (a ClickHouse password, an OIDC client secret) come from stdin with
+  `--<field>-stdin`, a hidden prompt, or `--input-json`, never a flag value. New keys are printed to stdout once,
+  with a warning on stderr.
+- **Values.** Lists repeat the flag (`--scopes a --scopes b`); `null` sends JSON null where a field allows it;
+  object fields take JSON. `--input-json` takes the whole input as an object, inline, from `@file` or from `-` (stdin).
+
+## projects
+
+### `hypequery projects list`
+
+List the projects in your organisation.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `projects.list`; your role needs `workspace:view`.
+
+### `hypequery projects get`
+
+Show one project and whether a release is live.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `projects.get`; your role needs `workspace:view`.
+
+### `hypequery projects connect-info`
+
+Where the project is served: the MCP URL, the REST base and dataset URLs, and the client contract.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `projects.connectInfo`; your role needs `workspace:view`.
+
+### `hypequery projects create`
+
+Create a project: one ClickHouse connection, one live data model, its own URLs.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--name` | text | Required. |
+| `--slug` | text | Lowercase letters, digits and hyphens; part of every URL, so it never changes. Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `projects.create`; your role needs `project:create`.
+
+### `hypequery projects rename`
+
+Change a project's display name; its slug and URLs stay the same.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--name` | text | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `projects.rename`; your role needs `project:create`.
+
+## releases
+
+### `hypequery releases status`
+
+Show what is live: the current version and revision.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `releases.status`; your role needs `workspace:view`.
+
+### `hypequery releases list`
+
+List published versions, newest first.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--limit` | whole number | `limit` |
+| `--before` | whole number | From a previous nextBefore. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `releases.list`; your role needs `workspace:view`.
+
+### `hypequery releases get <version>`
+
+Show one published version and its data model.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<version>` | text | A version label, e.g. v12. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `releases.get`; your role needs `workspace:view`.
+
+### `hypequery releases rollback <version>`
+
+Make an earlier published version live again. The project's owner follows it: rolling back to a version built in Cloud makes the model editable in Cloud again, and to one deployed from code makes it managed in code.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<version>` | text | A version label, e.g. v12. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-revision` | text | The live revision from releases.status. Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `releases.rollback`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## drafts
+
+### `hypequery drafts list`
+
+List the project's drafts and whether each is ready to publish.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--archived` | `true`, `false` | `archived` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.list`; your role needs `workspace:view`.
+
+### `hypequery drafts open`
+
+Open your working draft (created on first use, with the ClickHouse schema discovered) or a named draft, and see what it holds.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--draft` | text | A draft id; omit for your own working draft. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.open`; your role needs `deployment:publish`.
+
+### `hypequery drafts save <draft>`
+
+Save the draft as a staging release after its publish gates pass. Nothing goes live; publishing is drafts.promote.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-identity` | text | From drafts.open; refuses if the draft changed since. Omit to save it as it is. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.save`; your role needs `deployment:publish`.
+
+### `hypequery drafts review <draft>`
+
+Review a saved draft before publishing: what changes against production, breaking changes, held measures and checks.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.review`; your role needs `deployment:publish`.
+
+### `hypequery drafts checks <draft>`
+
+Run Cloud's number checks on a code draft's saved release.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--rerun` / `--no-rerun` | flag | Run again even when a result is stored. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.checks`; your role needs `deployment:publish`.
+
+### `hypequery drafts promote <draft>`
+
+Publish a draft's saved release to production.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--release-identity` | text | The draft's latestReleaseIdentity you reviewed. Required. |
+| `--expected-revision` | text, or `null` | The live revision, or null for a first publish. Required. |
+| `--expected-working-revision` | whole number | `expectedWorkingRevision` |
+| `--take-ownership` / `--no-take-ownership` | flag | Code drafts over a model built in Cloud: true only after the user agreed the project is then managed in code. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.promote`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery drafts get <draft>`
+
+Read a draft: its model, revision, whether Production moved since it was based, its saved release and its publish gates.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.get`; your role needs `deployment:publish`.
+
+### `hypequery drafts rename <draft>`
+
+Rename a draft. Its id and staging URL stay the same.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--name` | text | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.rename`; your role needs `deployment:publish`.
+
+### `hypequery drafts delete <draft>`
+
+Delete a draft and its staging URL for good. Only its creator can, unless you manage the organisation.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.delete`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery drafts archived <draft>`
+
+Read an archived draft: the release it published and whether it can be reopened against current Production.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.archived`; your role needs `deployment:publish`.
+
+### `hypequery drafts reopen <draft>`
+
+Reopen an archived draft as a working draft, from the release you read.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-base-revision` | text | baseRevision from drafts_archived. Required. |
+| `--expected-release-identity` | text | releaseIdentity from drafts_archived. Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.reopen`; your role needs `deployment:publish`.
+
+### `hypequery drafts impact <draft>`
+
+Who a saved draft affects: which apps and customers called the datasets, measures and fields it changes or removes, recently.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--release-identity` | text | The saved release you reviewed (drafts_review). Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.impact`; your role needs `deployment:publish`.
+
+### `hypequery drafts evidence <draft>`
+
+Read a draft's evidence ledger: what discovery found, the checks run, the user's decisions and confirmations, each with its confidence, status and what it applies to. Proof stays with the customer, and sample values the sample policy withholds are cut out and marked.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.evidence`; your role needs `deployment:publish`.
+
+### `hypequery drafts replay <draft>`
+
+Replay a few of the last week's queries on the datasets a saved draft changes, against Production and the draft, and say whether each answer is the same. Only statuses, row counts and outcomes are returned, never rows.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--release-identity` | text | The saved release you reviewed (releaseIdentity from drafts_impact). Required. |
+| `--published-revision` | text | The Production it was compared with (publishedRevision from drafts_impact). Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.replay`; your role needs `deployment:publish`.
+
+### `hypequery drafts update <draft>`
+
+When Production moved since a draft was based, show the merge onto current Production: what merges cleanly and each conflict to choose.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.update`; your role needs `deployment:publish`.
+
+### `hypequery drafts apply-update <draft>`
+
+Merge a draft onto current Production with the user's choice for each conflict (keep the draft's or Production's). Preview first; apply once every conflict is chosen.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--action` | `preview`, `apply` | Required. |
+| `--expected-revision` | whole number | workingRevision from drafts_update. Required. |
+| `--expected-base-revision` | text, or `null` | baseRevision from drafts_update. Required. |
+| `--expected-published-revision` | text, or `null` | publishedRevision from drafts_update. Required. |
+| `--expected-release-identity` | text, or `null` | latestReleaseIdentity from drafts_update. Required. |
+| `--resolutions` | JSON | Each conflict's key from drafts_update, and which side the user chose. Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.applyUpdate`; your role needs `deployment:publish`.
+
+### `hypequery drafts refresh-base <draft>`
+
+For a code draft whose base Production moved: acknowledge that publishing it will replace current Production as it is, dropping the changes made there since. Nothing is merged.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-base-revision` | text, or `null` | baseRevision from drafts_review. Required. |
+| `--expected-published-revision` | text, or `null` | expectedRevision from drafts_review. Required. |
+| `--expected-release-identity` | text | releaseIdentity from drafts_review. Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.refreshBase`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery drafts setup <draft>`
+
+Save what the user said about the project on a draft: what it's for, who it serves, the tables to model, priority metrics and one number they trust.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-revision` | whole number | The draft's revision from drafts_open. Required. |
+| `--answers` | JSON | The user's own statements; tables must be names drafts_open listed. Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.setup`; your role needs `deployment:publish`.
+
+### `hypequery drafts findings <draft>`
+
+List what discovery found that changes numbers (internal rows, mixed units, versioned rows, grain, customer scope…), each with the question to ask the user and the measures it affects.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.findings`; your role needs `deployment:publish`.
+
+### `hypequery drafts answer <draft>`
+
+Record the user's answers to findings: approve the proposed default, reject it (remove, or their own alternative), or decide later. Each answer becomes the member's decision in the draft's evidence ledger and can release held measures, so ask the user first.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-revision` | whole number | Required. |
+| `--answers` | JSON | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.answer`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery drafts run-status <draft>`
+
+Read the progress of the draft's background checks (grain, column meaning, measures, joins, query history, the trusted number).
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.runStatus`; your role needs `deployment:publish`.
+
+### `hypequery drafts run <draft>`
+
+Start, resume or cancel the draft's background checks against ClickHouse. They run in batches; poll drafts_run_status, then read drafts_findings.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<draft>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--action` | `start`, `resume`, `cancel` | Required. |
+| `--expected-revision` | whole number | Required. |
+| `--run-id` | text | Required to resume or cancel. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `drafts.run`; your role needs `deployment:publish`.
+
+## customer-scope
+
+### `hypequery customer-scope list`
+
+List each live dataset's customer scope, and the ones flagged for exposing a customer column without being scoped by it.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerScope.list`; your role needs `workspace:view`.
+
+### `hypequery customer-scope confirm-shared`
+
+Record that a flagged dataset is the same for every customer, so it stays unscoped on purpose. Only the user can decide this.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--dataset` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerScope.confirmShared`; your role needs `deployment:publish`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## sample-policy
+
+### `hypequery sample-policy get`
+
+Read which columns' sample values the assistant may see: all, only those not detected as sensitive, or none, with per-column overrides.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `samplePolicy.get`; your role needs `deployment:publish`.
+
+### `hypequery sample-policy set`
+
+Set which columns' sample values the assistant may see.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--policy` | JSON | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `samplePolicy.set`; your role needs `connection:manage`.
+
+## connections
+
+### `hypequery connections get`
+
+Show the project's ClickHouse connection (never the password).
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.get`; your role needs `workspace:view`.
+
+### `hypequery connections save`
+
+Test and save the project's ClickHouse connection; once a release is live, databases can only be added.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--host` | text | Required. |
+| `--database` | text | Required. |
+| `--databases` | text, repeatable | `databases` |
+| `--username` | text | Required. |
+| `--password-stdin` | stdin | Reads `password` from stdin. At a terminal the CLI asks for it without echoing; never pass it as a flag value. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.save`; your role needs `connection:manage`.
+
+### `hypequery connections link`
+
+Get a one-time link for the user to enter the project's ClickHouse connection in the dashboard, so the password never passes through chat. It works for the user who asked, signed in, once, for 15 minutes; then check it with connections.test.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.link`; your role needs `connection:manage`.
+
+### `hypequery connections test`
+
+Check the saved connection now: reachable, the user accepted, and what hypequery needs granted.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.test`; your role needs `workspace:view`.
+
+### `hypequery connections query-history`
+
+Show whether onboarding may read ClickHouse query history, and which accounts are technical.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.queryHistory`; your role needs `workspace:view`.
+
+### `hypequery connections set-query-history`
+
+Allow or stop onboarding reading ClickHouse query history (shapes only, never literals).
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--enabled` / `--no-enabled` | flag | Required. |
+| `--expected-revision` | whole number | The consent revision from connections.queryHistory. Required. |
+| `--service-accounts` | text, repeatable | `serviceAccounts` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `connections.setQueryHistory`; your role needs `connection:manage`.
+
+## logs
+
+### `hypequery logs query`
+
+Search the project's request history (7 days): who queried what, how long it took, and what failed.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--range` | `1h`, `24h`, `7d` | `range` |
+| `--status` | `success`, `error` | `status` |
+| `--transport` | `rest`, `mcp` | `transport` |
+| `--source` | `api`, `mcp`, `app` | `source` |
+| `--target` | `published` | Only Published traffic. |
+| `--draft` | text | Only this draft's staging traffic. |
+| `--outcome` | text | An outcome category, e.g. client_error. |
+| `--dataset` | text | `dataset` |
+| `--tenant` | text | `tenant` |
+| `--q` | text | Search request paths and failure codes. |
+| `--cursor` | text | From a previous nextCursor. |
+| `--limit` | whole number | `limit` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `logs.query`; your role needs `workspace:view`.
+
+### `hypequery logs get <request-id>`
+
+Explain one answer by its request ID: the customer, end user (as a pseudonym), dataset, release and version, semantic query, timing and row count.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<request-id>` | text | The x-hypequery-request-id header of a REST answer, or com.hypequery/requestId in an MCP result's _meta. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `logs.get`; your role needs `workspace:view`.
+
+## usage
+
+### `hypequery usage get`
+
+Show this month's queries by day and transport, per customer, and embedded chat usage.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `usage.get`; your role needs `workspace:view`.
+
+## audit
+
+### `hypequery audit list`
+
+List the organisation's audit log: publishes, rollbacks, members, keys and connection changes.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--cursor` | text | From a previous nextCursor. |
+| `--limit` | whole number | `limit` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `audit.list`; your role needs `audit:read`.
+
+## tenants
+
+### `hypequery tenants list`
+
+List the project's customers (tenants) and whether each is enabled.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenants.list`; your role needs `embed:view`.
+
+### `hypequery tenants create`
+
+Register a customer by the id your app uses for it, with a display name.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--tenant-key` | text | Your app's id for the customer. Required. |
+| `--display-name` | text | Required. |
+| `--enabled` / `--no-enabled` | flag | `enabled` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenants.create`; your role needs `embed:manage`.
+
+### `hypequery tenants update <tenant>`
+
+Rename a customer, or disable it (which ends its users' MCP sign-ins).
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<tenant>` | text | The tenant's id from tenants.list. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--display-name` | text | `displayName` |
+| `--enabled` / `--no-enabled` | flag | `enabled` |
+| `--yes` | flag | Confirms a change Cloud asks about. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenants.update`; your role needs `embed:manage`. Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.
+
+### `hypequery tenants remove <tenant>`
+
+Remove a customer and end its users' MCP sign-ins.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<tenant>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenants.remove`; your role needs `embed:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## permission-sets
+
+### `hypequery permission-sets list`
+
+List the permission sets that decide which datasets and fields customers' users see.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `permissionSets.list`; your role needs `embed:view`.
+
+### `hypequery permission-sets create`
+
+Create a permission set: the datasets and fields a customer's users may query.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--name` | text | Required. |
+| `--label` | text | Required. |
+| `--datasets` | JSON | "*" for every published dataset, or \{ dataset: \{ dimensions, measures \} \}. Required. |
+| `--starter-prompts` | text, repeatable | `starterPrompts` |
+| `--allow-export` / `--no-allow-export` | flag | `allowExport` |
+| `--show-query` / `--no-show-query` | flag | `showQuery` |
+| `--model-tier` | `standard`, `premium` | `modelTier` |
+| `--limits` | JSON | `limits` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `permissionSets.create`; your role needs `embed:manage`.
+
+### `hypequery permission-sets update <permission-set>`
+
+Change a permission set, guarded by the revision you read; fields you leave out keep their values.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<permission-set>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--expected-revision` | whole number | Required. |
+| `--label` | text | `label` |
+| `--datasets` | JSON | "*" for every published dataset, or \{ dataset: \{ dimensions, measures \} \}. |
+| `--starter-prompts` | text, repeatable | `starterPrompts` |
+| `--allow-export` / `--no-allow-export` | flag | `allowExport` |
+| `--show-query` / `--no-show-query` | flag | `showQuery` |
+| `--model-tier` | `standard`, `premium` | `modelTier` |
+| `--limits` | JSON | `limits` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `permissionSets.update`; your role needs `embed:manage`.
+
+### `hypequery permission-sets remove <permission-set>`
+
+Delete a permission set; tokens naming it are refused from then on.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<permission-set>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `permissionSets.remove`; your role needs `embed:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## customer-limits
+
+### `hypequery customer-limits get`
+
+Show each customer's query rate, daily query limit and chat token allowance.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerLimits.get`; your role needs `embed:view`.
+
+### `hypequery customer-limits set`
+
+Set each customer's query rate, daily query limit and chat tokens; null keeps the default.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--requests-per-minute` | whole number, or `null` | Required. |
+| `--daily-executions` | whole number, or `null` | Required. |
+| `--chat-tokens-per-month` | whole number, or `null` | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerLimits.set`; your role needs `embed:manage`.
+
+## tenant-grants
+
+### `hypequery tenant-grants list`
+
+List customers' users signed in to MCP, by customer and user.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenantGrants.list`; your role needs `embed:manage`.
+
+### `hypequery tenant-grants revoke-tenant`
+
+End every MCP connection of one customer's users.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--tenant-key` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenantGrants.revokeTenant`; your role needs `embed:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery tenant-grants revoke <grant>`
+
+End one customer user's MCP connection; it stops on its next call.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<grant>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `tenantGrants.revoke`; your role needs `embed:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## customer-access
+
+### `hypequery customer-access get`
+
+Show how the app identifies its customers' users, the customer origin, and a dataset to prove scoping with.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerAccess.get`; your role needs `embed:view`.
+
+### `hypequery customer-access set-mode`
+
+Choose how the app identifies its customers' users: jwt (your provider), minted (your backend mints tokens), backend (your backend names the customer) or internal.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--mode` | `jwt`, `minted`, `backend`, `internal` | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerAccess.setMode`; your role needs `credentials:manage`.
+
+### `hypequery customer-access create-key`
+
+Create the server key a minted or backend mode uses, for any customer. Its token is returned once.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--mode` | `minted`, `backend` | Required. |
+| `--roles` | text, repeatable | `roles` |
+| `--scopes` | text, repeatable | `scopes` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerAccess.createKey`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+
+### `hypequery customer-access prove`
+
+Prove customer scoping: one query as a chosen customer through the customer origin, then the same query with no customer, which must be refused.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--tenant-id` | text, or `null` | `tenantId` |
+| `--origin` | text, or `null` | `origin` |
+| `--permission-set-id` | text, or `null` | `permissionSetId` |
+| `--sample-token-stdin` | stdin | Reads `sampleToken` from stdin. At a terminal the CLI asks for it without echoing; never pass it as a flag value. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerAccess.prove`; your role needs `credentials:manage`.
+
+## customer-settings
+
+### `hypequery customer-settings get`
+
+Show the allowed browser origins and how customers register.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerSettings.get`; your role needs `embed:view`.
+
+### `hypequery customer-settings set`
+
+Replace the browser origins allowed to call customer endpoints, and choose whether customers register on first use.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--allowed-origins` | text, repeatable | Required. |
+| `--expected-revision` | whole number | From customerSettings.get; 0 before any save. Required. |
+| `--tenant-registration` | `automatic`, `listed` | `tenantRegistration` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerSettings.set`; your role needs `credentials:manage`.
+
+## jwt-issuer
+
+### `hypequery jwt-issuer get`
+
+Show the identity provider whose JWTs your app's users present, with its health.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `jwtIssuer.get`; your role needs `embed:view`.
+
+### `hypequery jwt-issuer save`
+
+Trust your identity provider's JWTs: issuer, audience, JWKS URL and which claims name the customer and access.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--credential-id` | text, or `null` | `credentialId` |
+| `--roles` | text, repeatable | `roles` |
+| `--scopes` | text, repeatable | `scopes` |
+| `--issuer` | text | Required. |
+| `--audience` | text | Required. |
+| `--jwks-uri` | text | Required. |
+| `--algorithms` | `RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `EdDSA` (repeatable) | `algorithms` |
+| `--subject-claim` | text | `subjectClaim` |
+| `--tenant-claim` | text | Required. |
+| `--permission-set-claim` | text, or `null` | `permissionSetClaim` |
+| `--default-permission-set-id` | text, or `null` | `defaultPermissionSetId` |
+| `--constraints-claim` | text, or `null` | `constraintsClaim` |
+| `--max-token-lifetime-seconds` | whole number | `maxTokenLifetimeSeconds` |
+| `--expected-revision` | whole number | `expectedRevision` |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `jwtIssuer.save`; your role needs `credentials:manage`.
+
+### `hypequery jwt-issuer remove`
+
+Stop trusting the identity provider's JWTs; tokens from it are refused from then on.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `jwtIssuer.remove`; your role needs `credentials:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## oidc-client
+
+### `hypequery oidc-client get`
+
+Show OIDC sign-in for customers' MCP users, with the redirect and MCP URLs to register (never the client secret).
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `oidcClient.get`; your role needs `embed:view`.
+
+### `hypequery oidc-client save`
+
+Let customers' users sign in to MCP with your identity provider: issuer, client id and (the first time) secret.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--issuer` | text | Required. |
+| `--client-id` | text | Required. |
+| `--client-secret-stdin` | stdin | Reads `clientSecret` from stdin. At a terminal the CLI asks for it without echoing; never pass it as a flag value. |
+| `--scopes` | text, repeatable | `scopes` |
+| `--expected-revision` | whole number | `expectedRevision` |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms a change Cloud asks about. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `oidcClient.save`; your role needs `credentials:manage`. Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.
+
+### `hypequery oidc-client remove`
+
+Remove OIDC sign-in; every customer MCP connection ends with it.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `oidcClient.remove`; your role needs `credentials:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## signing-keys
+
+### `hypequery signing-keys list`
+
+List the project's managed signing keys for in-app agent tokens (public keys only), with the audience and claims tokens carry.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `signingKeys.list`; your role needs `embed:view`.
+
+### `hypequery signing-keys create`
+
+Create a signing key your backend mints in-app agent tokens with. Its private key is returned once and never stored.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--label` | text | Required. |
+| `--roles` | text, repeatable | `roles` |
+| `--scopes` | text, repeatable | `scopes` |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `signingKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+
+### `hypequery signing-keys revoke <key>`
+
+Revoke a signing key; every token it signed is refused from the next request, even before it expires.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<key>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `signingKeys.revoke`; your role needs `credentials:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## customer-app
+
+### `hypequery customer-app get`
+
+Show whether customers can find this company in the hypequery app, its display name and discovery email domains.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerApp.get`; your role needs `embed:view`.
+
+### `hypequery customer-app set`
+
+List or unlist this company in the hypequery app, with the name customers search for and their email domains. Unlisting keeps existing connections.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--enabled` / `--no-enabled` | flag | Customers can find this company in the hypequery app. Required. |
+| `--display-name` | text | The company name customers search for and see. Required. |
+| `--discovery-domains` | text, repeatable | Email domains of your customers' users, such as northwind.com. No webmail. |
+| `--expected-revision` | whole number | From customerApp.get; 0 before the first save. Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `customerApp.set`; your role needs `embed:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## members
+
+### `hypequery members list`
+
+List the organisation's members and pending invitations, with their roles.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `members.list`; your role needs `organization:manage`.
+
+### `hypequery members invite`
+
+Invite someone by email as a Developer (member) or an Admin; they get an email to accept. The organisation's approved email domains apply.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--email` | text | Required. |
+| `--role` | `member`, `admin` | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `members.invite`; your role needs `organization:manage`.
+
+### `hypequery members cancel-invitation <invitation>`
+
+Cancel a pending invitation.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<invitation>` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `members.cancelInvitation`; your role needs `organization:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery members change-role <member>`
+
+Change a member's role: member (Developer), admin or owner. Only an Owner gives or takes the Owner role.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<member>` | text | Required. |
+| `--role` | `member`, `admin`, `owner` | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `members.changeRole`; your role needs `organization:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+### `hypequery members remove <member>`
+
+Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<member>` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `members.remove`; your role needs `organization:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## org
+
+### `hypequery org access-policy`
+
+Show who may be invited: any email, or only approved email domains.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `org.accessPolicy`; your role needs `organization:manage`.
+
+### `hypequery org set-access-policy`
+
+Choose who may be invited: any email, or only approved email domains.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--invite-mode` | `any-email`, `approved-domains` | Required. |
+| `--approved-domains` | text, repeatable | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `org.setAccessPolicy`; your role needs `organization:manage`.
+
+## deploy-keys
+
+### `hypequery deploy-keys list`
+
+List the project's deploy keys (for CI), with when each was last used.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `deployKeys.list`; your role needs `credentials:manage`.
+
+### `hypequery deploy-keys create`
+
+Create a deploy key for CI; its token is returned once.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--label` | text | Required. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `deployKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+
+### `hypequery deploy-keys revoke <key>`
+
+Revoke a deploy key; CI using it stops deploying.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<key>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `deployKeys.revoke`; your role needs `credentials:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## api-keys
+
+### `hypequery api-keys list`
+
+List the project's API keys and approved MCP connections, with their roles, scopes and customers.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `apiKeys.list`; your role needs `credentials:manage`.
+
+### `hypequery api-keys create`
+
+Create an API key with roles, scopes and which customers it may act for; its token is returned once.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--label` | text | Required. |
+| `--roles` | text, repeatable | `roles` |
+| `--scopes` | text, repeatable | `scopes` |
+| `--tenant-authority` | JSON | trusted-server: your backend names the customer per request; bound: only these customers. Required. |
+| `--expires-in-days` | whole number | `expiresInDays` |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `apiKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+
+### `hypequery api-keys revoke <key>`
+
+Revoke an API key or an approved MCP connection; it stops on its next call.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<key>` | text | Required. |
+| `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `apiKeys.revoke`; your role needs `credentials:manage`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## management-tokens
+
+### `hypequery management-tokens list`
+
+List your management tokens in this organisation (CLI sign-ins), with when each was last used.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `managementTokens.list`; your role needs `workspace:view`.
+
+### `hypequery management-tokens revoke <token>`
+
+Revoke one of your management tokens; the CLI using it is signed out on its next call.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `<token>` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `managementTokens.revoke`; your role needs `workspace:view`. Destructive: refused without `--yes` unless you confirm at a terminal.
+
+## feedback
+
+### `hypequery feedback create`
+
+Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--kind` | `bug`, `confusing`, `missing`, `wrong_result`, `other` | bug: something failed; confusing: a description, hint or error misled you; missing: a capability you needed; wrong_result: an answer looked wrong; other. Required. |
+| `--summary` | text | One sentence: what went wrong. Required. |
+| `--details` | text | What happened, including the error message or code you saw. |
+| `--attempted` | text | What you tried, in order. |
+| `--expected` | text | What you expected to happen instead. |
+| `--tool` | text | The tool or operation the report is about, e.g. query_dataset. |
+| `--error-code` | text | The error code you got, if any, e.g. MCP_INVALID_ARGUMENTS. |
+| `--severity` | `low`, `medium`, `high` | high: it blocked the task; medium: you worked around it; low: a papercut. |
+| `--project` | text | The project's slug, from projects_list, when the report is about one project. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `feedback.create`; your role needs `feedback:create`.
