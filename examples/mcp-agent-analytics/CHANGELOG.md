@@ -1,5 +1,12 @@
 # @hypequery-examples/mcp-agent-analytics
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [2fb4f98]
+  - @hypequery/mcp@0.13.1
+
 ## 0.1.1
 
 ### Patch Changes
