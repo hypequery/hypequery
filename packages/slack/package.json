@@ -1,0 +1,61 @@
+{
+  "name": "@hypequery/slack",
+  "version": "0.0.0",
+  "description": "Slack transport and Block Kit rendering for hypequery analytics agents: verify Slack requests, normalize events, ack within Slack's 3 seconds, and render answers as Block Kit",
+  "keywords": [
+    "hypequery",
+    "slack",
+    "slack-bot",
+    "block-kit",
+    "socket-mode",
+    "ai-agents",
+    "analytics",
+    "clickhouse",
+    "semantic-layer"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "npm run test:types && npm run test:unit",
+    "test:unit": "vitest run",
+    "test:types": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/slack"
+  },
+  "homepage": "https://hypequery.com",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

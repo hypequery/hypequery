@@ -1,5 +1,6 @@
 packages:
   - 'packages/agent'
+  - 'packages/slack'
   - 'packages/cli'
   - 'packages/clickhouse'
   - 'packages/cloud-client'

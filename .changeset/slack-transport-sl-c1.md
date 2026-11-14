@@ -1,0 +1,5 @@
+---
+"@hypequery/slack": minor
+---
+
+New package: Slack transport and Block Kit rendering for hypequery analytics agents. `createSlackRequestHandler()` is a Fetch API handler that checks Slack's request signature (v0 HMAC with a 5-minute replay window), answers `url_verification`, acks every request at once and runs your handlers afterwards through `waitUntil`. Each event id runs once, including when Slack retries it. `createSocketModeClient()` runs the same handlers over Socket Mode, so a self-hosted bot needs no public URL. Events come in as one union: questions from `@mentions` and DMs (with the bot mention removed), `assistant_thread_started`, `app_uninstalled` and `tokens_revoked`. `createSlackClient()` covers the Web API methods a bot needs, including assistant status and suggested prompts. `renderSlackAnswer()` turns an answer, a result table and its source (dataset, filters, request id) into Block Kit within Slack's limits. It escapes every value, so model output and data cannot produce mentions or links. No runtime dependencies.
