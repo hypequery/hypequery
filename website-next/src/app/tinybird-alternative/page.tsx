@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Tinybird Alternative for ClickHouse APIs (2026)',
+  title: 'Tinybird Alternatives for ClickHouse APIs (2026)',
   description:
-    'Looking for a Tinybird alternative? hypequery + your own ClickHouse gives you typed analytics APIs with no data ingestion into a third-party platform and no second platform plan to pay for.',
+    'Tinybird alternatives compared: ClickHouse Cloud, self-hosted ClickHouse, Cube, and hypequery for typed analytics APIs on the ClickHouse you own, with no data ingestion and no second platform plan.',
   alternates: { canonical: absoluteUrl('/tinybird-alternative') },
   openGraph: {
     images: ogImage('Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure'),
@@ -203,6 +203,11 @@ export default function TinybirdAlternativePage() {
       ]}
       faq={[
         {
+          question: 'What are the main Tinybird alternatives?',
+          answer:
+            'ClickHouse Cloud, if you want a managed ClickHouse database and will build the API layer yourself. Self-hosted ClickHouse, if you want to run everything. Cube, if you want a semantic layer as a separate service. hypequery, if you want typed analytics APIs defined in TypeScript or Python on the ClickHouse you already run. Propel and MooseStack, two earlier options, are no longer active: Propel\'s site points to a parking page and MooseStack has reached end of life (both checked November 2026).',
+        },
+        {
           question: 'Is there an open-source Tinybird alternative?',
           answer:
             'Yes. hypequery is open source under Apache 2.0. Pair it with self-hosted ClickHouse for a fully open stack, or with ClickHouse Cloud if you want the database managed and the API layer in your own code.',
@@ -251,6 +256,8 @@ export default function TinybirdAlternativePage() {
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
         { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
+        { href: '/compare/clickhouse-cloud-vs-tinybird', label: 'ClickHouse Cloud vs Tinybird' },
+        { href: '/compare/cube-vs-tinybird-vs-hypequery', label: 'Cube vs Tinybird vs hypequery' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

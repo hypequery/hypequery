@@ -162,7 +162,7 @@ export default function CompareIndexPage() {
               href="/tinybird-alternative"
               className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
             >
-              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Tinybird alternative</h3>
+              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Tinybird alternatives</h3>
               <p className="mt-4 text-sm leading-6 text-text-muted">
                 Keep your data in your own ClickHouse and build the typed API layer in TypeScript or Python, with no ingestion into a third-party platform and no second platform plan to pay for.
               </p>
