@@ -155,7 +155,7 @@ const yearlyStats = await db.table('orders')
   .orderBy('year', 'ASC')
   .execute();
 
-// Day of week analysis
+// Day-of-month analysis
 const dailyStats = await db.table('events')
   .select([
     datePart('day', 'created_at', 'day_of_month'),
