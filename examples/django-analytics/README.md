@@ -124,4 +124,4 @@ GET /api/overview  ────────▶  AuthenticationMiddleware ─▶ 
 - [fastapi-analytics-api](../fastapi-analytics-api): the same datasets behind FastAPI, with hypequery's endpoints and a JWT.
 - [streamlit-dashboard](../streamlit-dashboard): the same measures in a Streamlit dashboard with pandas export.
 
-Tested on ClickHouse 25.8 with `hypequery` 0.1.0b3 (PyPI), Django 6.1 and Python 3.12.
+Versions used: ClickHouse 25.8, `hypequery` 0.1.0b3 (PyPI), Django 6.1 and Python 3.12.

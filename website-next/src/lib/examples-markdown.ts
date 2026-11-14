@@ -29,7 +29,7 @@ export function entryMarkdown(entry: RegistryEntry): string {
   ];
   if (manifest.kind === 'guide') {
     lines.push(
-      `Tested on ClickHouse ${manifest.clickhouseVersion}. Every SQL block below is a file CI runs against the seed dataset: ${REPO_TREE_URL}/${entry.dir}`,
+      `Runs on ClickHouse ${manifest.clickhouseVersion}. Every SQL block below is a file CI runs against the seed dataset: ${REPO_TREE_URL}/${entry.dir}`,
       '',
     );
   } else {
@@ -43,7 +43,7 @@ export function entryMarkdown(entry: RegistryEntry): string {
       manifest.run.dev,
       '```',
       '',
-      `- Packages: ${manifest.packages.join(', ')} (tested from hypequery ${manifest.minVersion})`,
+      `- Packages: ${manifest.packages.join(', ')} (hypequery ${manifest.minVersion} or later)`,
       `- Stack: ${manifest.stack.join(', ')}`,
       `- Source: ${REPO_TREE_URL}/${entry.dir}`,
       `- Test: \`${manifest.run.test}\``,

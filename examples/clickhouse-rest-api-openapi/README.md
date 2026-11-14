@@ -113,4 +113,4 @@ The spec also lists each query at its default `/queries/<name>` path, which stay
 - [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): the same serve runtime with signed per-tenant tokens and a semantic dataset.
 - [fastapi-analytics-api](../fastapi-analytics-api): the Python version, an analytics API on FastAPI.
 
-Tested on ClickHouse 25.8 with `@hypequery/serve` 0.24 and 0.25, `@hypequery/clickhouse` 2.14 and 2.15, and Hono 4.
+Versions used: ClickHouse 25.8, `@hypequery/serve` 0.24 and 0.25, `@hypequery/clickhouse` 2.14 and 2.15, and Hono 4.

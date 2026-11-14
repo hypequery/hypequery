@@ -4,6 +4,9 @@ import { marketing } from '@/components/ui/marketing';
 import CodeHighlight from '@/components/CodeHighlight';
 import MarkdownContent from '@/components/MarkdownContent';
 import ExampleCard from '@/components/examples/ExampleCard';
+import { HubSection } from '@/components/hub-page';
+import { InstallCommand } from '@/components/home/InstallCommand';
+import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import {
   createCommand,
   entryHref,
@@ -68,16 +71,19 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(sourceCode) }} />
 
       <section className="border-b border-border">
-        <div className={`${marketing.container} pb-12 pt-12 sm:pb-14 sm:pt-16`}>
+        <div className={`${marketing.container} pb-14 pt-10 sm:pb-16 sm:pt-12`}>
           <Breadcrumbs
             items={[{ label: 'Home', href: '/' }, { label: hubLabel, href: kindPath(manifest.kind) }, { label: manifest.title }]}
             currentPath={entryHref(entry)}
           />
-          <p className={`mt-6 ${marketing.eyebrow}`}>{kindName} · {isGuide ? `Tested on ClickHouse ${manifest.clickhouseVersion}` : label(manifest.language)}</p>
-          <h1 className={`mt-4 max-w-[980px] ${marketing.heroTitle}`}>{manifest.title}</h1>
-          <p className={`mt-5 max-w-[760px] ${marketing.heroLead}`}>{manifest.outcome}</p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            {create && <code className="rounded-lg border border-border bg-bg-card px-4 py-2.5 font-mono text-sm text-text">{create}</code>}
+            <OpenSourceBadge />
+            <p className={marketing.eyebrow}>{kindName} · {isGuide ? `ClickHouse ${manifest.clickhouseVersion}` : label(manifest.language)}</p>
+          </div>
+          <h1 className={`mt-5 max-w-[980px] text-balance ${marketing.heroTitle}`}>{manifest.title}</h1>
+          <p className={`mt-5 max-w-[720px] text-pretty ${marketing.heroLead}`}>{manifest.outcome}</p>
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            {create && <InstallCommand command={create} location={`${manifest.kind}_detail`} className="max-w-full" />}
             <a
               href={`${REPO_TREE_URL}/${entry.dir}`}
               target="_blank"
@@ -89,13 +95,13 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             {tags.map((tag) => (
-              <span key={tag} className="border border-border px-2.5 py-1 font-mono text-[11px] text-text-muted">{label(tag)}</span>
+              <span key={tag} className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-text-muted">{label(tag)}</span>
             ))}
           </div>
         </div>
       </section>
 
-      <section className={`${marketing.container} py-12 sm:py-16`}>
+      <section className={`${marketing.container} py-14 sm:py-20`}>
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.66fr)_minmax(0,0.34fr)]">
           <article className="prose prose-invert max-w-none">
             <MarkdownContent content={readmeBody(entry)} />
@@ -167,7 +173,7 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
                     </li>
                   ))}
                 </ul>
-                {manifest.kind !== 'guide' && <p className="mt-4 text-xs text-text-muted">Tested from hypequery {manifest.minVersion}.</p>}
+                {manifest.kind !== 'guide' && <p className="mt-4 text-xs text-text-muted">Needs hypequery {manifest.minVersion} or later.</p>}
               </div>
             )}
 
@@ -200,19 +206,17 @@ export default function ExampleDetail({ entry }: { entry: RegistryEntry }) {
             )}
           </aside>
         </div>
-
-        {related.length > 0 && (
-          <div className="mt-16 border-t border-border pt-10">
-            <p className={marketing.eyebrow}>Related</p>
-            <h2 className={`mt-3 ${marketing.sectionTitle}`}>Keep going with the same seed dataset</h2>
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              {related.map((item) => (
-                <ExampleCard key={item.manifest.slug} entry={item} compact />
-              ))}
-            </div>
-          </div>
-        )}
       </section>
+
+      {related.length > 0 && (
+        <HubSection band eyebrow="Related" title="Keep going with the same seed dataset">
+          <div className="grid gap-5 lg:grid-cols-2">
+            {related.map((item) => (
+              <ExampleCard key={item.manifest.slug} entry={item} compact />
+            ))}
+          </div>
+        </HubSection>
+      )}
     </>
   );
 }

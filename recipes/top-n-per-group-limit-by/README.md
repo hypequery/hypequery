@@ -120,4 +120,4 @@ src/recipe.ts  topPathsPerTenant().toSQL()   ──▶ expected.sql  (asserted i
 
 More on the clause itself: [ClickHouse LIMIT BY in TypeScript](/blog/clickhouse-limit-by-typescript).
 
-Tested on ClickHouse 25.8 with `@hypequery/clickhouse` 2.14 and `@hypequery/datasets` 0.29.
+Versions used: ClickHouse 25.8, `@hypequery/clickhouse` 2.14 and `@hypequery/datasets` 0.29.

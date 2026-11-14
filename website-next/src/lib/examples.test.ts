@@ -69,7 +69,7 @@ test('guides load with expanded SQL and a Markdown twin that states the tested v
   assert.ok(!guide.readme.includes('{{sql:'), 'includes are expanded in the registry');
   assert.ok(readmeBody(guide).includes('```sql'));
   const md = entryMarkdown(guide);
-  assert.ok(md.includes('Tested on ClickHouse 25.8'));
+  assert.ok(md.includes('Runs on ClickHouse 25.8'));
   assert.ok(md.includes('› [Guides](https://hypequery.com/guides) ›'));
   assert.ok(!md.includes('npx @hypequery/cli create refreshable'), 'guides have no create command');
 });

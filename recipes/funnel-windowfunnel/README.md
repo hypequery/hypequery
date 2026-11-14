@@ -107,4 +107,4 @@ events ── VIEW funnel_windowfunnel_user_levels (tenant_id, user_id, month, f
 
 - [multi-tenant-embedded-analytics](../../examples/multi-tenant-embedded-analytics): serve a per-tenant funnel to each customer.
 
-Tested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
