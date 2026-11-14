@@ -1,0 +1,37 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "in-app-analytics-agent",
+  "kind": "example",
+  "title": "A tenant-safe analytics agent in your Next.js app with the AI SDK",
+  "outcome": "Ship an analytics agent in your product: AI SDK chat with hypequery's tools, from Cloud or your own backend, and every answer stays in one customer.",
+  "language": "typescript",
+  "stack": ["nextjs", "react", "ai-sdk", "mcp"],
+  "useCases": ["ai-agents", "multi-tenant", "embedded-analytics", "saas-analytics"],
+  "packages": ["@hypequery/agent", "@hypequery/datasets", "@hypequery/mcp"],
+  "keyFile": "lib/agent-tools.ts",
+  "env": [
+    { "name": "HYPEQUERY_AGENT_KEY", "description": "Cloud mode: the signing key JSON hypequery Cloud shows once (Settings → Customer access → Signing keys for in-app agents). Names the project and its endpoint.", "required": false },
+    { "name": "HYPEQUERY_MODE", "description": "Where the tools run: cloud (default, needs HYPEQUERY_AGENT_KEY) or self-hosted (in this app's backend, against your ClickHouse)", "required": false },
+    { "name": "HYPEQUERY_PERMISSION_SET", "description": "The permission set end users act with (default customers)", "required": false },
+    { "name": "AI_MODEL", "description": "Chat model as <provider>:<model id> (default anthropic:claude-opus-5-5; openai:<id> also works)", "required": false },
+    { "name": "ANTHROPIC_API_KEY", "description": "Anthropic API key, for the default model. Use OPENAI_API_KEY with an openai: model instead.", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "Self-hosted mode and tests: the seed's ClickHouse HTTP endpoint (default http://localhost:8123)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "Self-hosted mode and tests: ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "Self-hosted mode and tests: ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Self-hosted mode and tests: database holding the seed tables (default hypequery_examples)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "curl -s -c /tmp/hq-session -X POST localhost:3000/api/session -H 'content-type: application/json' -d '{\"userId\":\"ada\"}' && curl -s -b /tmp/hq-session -X POST localhost:3000/api/chat -H 'content-type: application/json' -d '{\"messages\":[{\"id\":\"m1\",\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"text\":\"How many events did we have by type?\"}]}]}'",
+  "related": ["multi-tenant-embedded-analytics", "mcp-agent-analytics", "nextjs-dashboard"],
+  "leadPages": ["/clickhouse-mcp", "/clickhouse-multi-tenant-analytics", "/clickhouse-nextjs", "/clickhouse-saas-analytics", "/embedded-analytics"],
+  "functionPages": ["count", "uniq", "quantile"],
+  "keywords": [
+    "clickhouse ai agent",
+    "multi-tenant ai agent analytics",
+    "ai sdk clickhouse",
+    "nextjs analytics agent",
+    "in-app analytics agent",
+    "self-hosted ai sdk analytics"
+  ],
+  "minVersion": "2.15.0"
+}

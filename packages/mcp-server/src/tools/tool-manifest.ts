@@ -15,6 +15,48 @@ const semanticMetadataProperties = {
   },
 };
 
+const businessContextProperties = {
+  summary: { type: 'string' },
+  industry: { type: 'string' },
+  businessModel: { type: 'string' },
+  customers: { type: 'string' },
+  audience: { type: 'string' },
+  goals: { type: 'array', items: { type: 'string' } },
+  kpis: {
+    type: 'array',
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { name: { type: 'string' }, definition: { type: 'string' } },
+      required: ['name', 'definition'],
+    },
+  },
+  glossary: {
+    type: 'array',
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { term: { type: 'string' }, meaning: { type: 'string' } },
+      required: ['term', 'meaning'],
+    },
+  },
+  conventions: { type: 'string' },
+  caveats: { type: 'array', items: { type: 'string' } },
+};
+
+export const BUSINESS_CONTEXT_OUTPUT_SCHEMA = resultSchema({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    businessContext: {
+      type: 'object',
+      additionalProperties: false,
+      properties: businessContextProperties,
+    },
+  },
+  required: ['businessContext'],
+});
+
 export const DATASET_LIST_OUTPUT_SCHEMA = resultSchema({
   type: 'object',
   additionalProperties: false,
@@ -35,6 +77,15 @@ export const DATASET_LIST_OUTPUT_SCHEMA = resultSchema({
       },
     },
     total: { type: 'integer', minimum: 0 },
+    businessContext: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        ...businessContextProperties,
+        truncated: { type: 'boolean' },
+        hint: { type: 'string' },
+      },
+    },
   },
   required: ['datasets', 'total'],
 });
@@ -237,15 +288,32 @@ function annotations(title: string): Tool['annotations'] {
   };
 }
 
+export interface MCPToolManifestOptions {
+  /** List `get_business_context`, and say in `list_datasets` that it carries the context. */
+  businessContext?: boolean;
+}
+
+const BUSINESS_CONTEXT_TOOL: Tool = {
+  name: 'get_business_context',
+  title: 'Get business context',
+  description: 'Get the business context for these datasets: what the business does, KPI definitions, the glossary of business terms, reporting conventions (currency, time zone, fiscal year) and known data caveats. Read it before interpreting or presenting numbers.',
+  inputSchema: { type: 'object', properties: {} },
+  outputSchema: BUSINESS_CONTEXT_OUTPUT_SCHEMA,
+  annotations: annotations('Get business context'),
+};
+
 export function buildMCPToolManifest(
   querySchemas: CanonicalSemanticQuerySchemas,
+  options: MCPToolManifestOptions = {},
 ): ListToolsResult {
   return {
     tools: [
       {
         name: 'list_datasets',
         title: 'List datasets',
-        description: 'List all available datasets in the semantic layer',
+        description: options.businessContext
+          ? 'List all available datasets in the semantic layer, with the business context (KPIs, glossary, conventions, caveats) to interpret them'
+          : 'List all available datasets in the semantic layer',
         inputSchema: { type: 'object', properties: {} },
         outputSchema: DATASET_LIST_OUTPUT_SCHEMA,
         annotations: annotations('List datasets'),
@@ -283,6 +351,7 @@ export function buildMCPToolManifest(
         outputSchema: QUERY_OUTPUT_SCHEMA,
         annotations: annotations('Query dataset'),
       },
+      ...(options.businessContext ? [BUSINESS_CONTEXT_TOOL] : []),
     ],
   };
 }

@@ -2,6 +2,7 @@ import { bundleError } from './errors.js';
 import { resolveDeploymentBundleLimits } from './limits.js';
 import type {
   ProtocolDeploymentBundleArtifact,
+  ProtocolDeploymentBundleBusinessContext,
   ProtocolDeploymentBundleDeployment,
   ProtocolDeploymentBundleLimits,
   ProtocolDeploymentBundleManifest,
@@ -122,6 +123,21 @@ function validateDeployment(
     sha256: digest(value.sha256, `${path}.sha256`),
     byteLength: byteLength(value.byteLength, `${path}.byteLength`, limits.maxDeploymentBytes),
   }) as unknown as ProtocolDeploymentBundleDeployment;
+}
+
+function validateBusinessContext(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentBundleLimits>,
+): ProtocolDeploymentBundleBusinessContext {
+  const value = requireRecord(input, path);
+  exactFields(value, ['path', 'identity', 'sha256', 'byteLength'], path);
+  return freezeRecord({
+    path: relativePath(value.path, `${path}.path`, limits.maxPathBytes),
+    identity: digest(value.identity, `${path}.identity`),
+    sha256: digest(value.sha256, `${path}.sha256`),
+    byteLength: byteLength(value.byteLength, `${path}.byteLength`, limits.maxBusinessContextBytes),
+  }) as unknown as ProtocolDeploymentBundleBusinessContext;
 }
 
 function validateArtifact(
@@ -257,24 +273,45 @@ export function validateProtocolDeploymentBundleManifest(
 ): ProtocolDeploymentBundleManifest {
   const limits = resolveDeploymentBundleLimits(options);
   const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'version', 'deployment', 'artifacts'], '$', ['source']);
+  exactFields(
+    value,
+    ['kind', 'version', 'deployment', 'artifacts'],
+    '$',
+    ['businessContext', 'source'],
+  );
   if (value.kind !== 'hypequery-deployment-bundle') {
     if (typeof value.kind !== 'string') bundleError('HQ_BUNDLE_TYPE', '$.kind');
     bundleError('HQ_BUNDLE_INVALID_VALUE', '$.kind');
   }
-  if (value.version !== 1) {
+  if (value.version !== 1 && value.version !== 2) {
     if (typeof value.version !== 'number') bundleError('HQ_BUNDLE_TYPE', '$.version');
     bundleError('HQ_BUNDLE_INVALID_VERSION', '$.version');
   }
+  const version = value.version;
+  // v1 cannot carry business context; v2 exists only to carry it.
+  if (version === 1 && value.businessContext !== undefined) {
+    bundleError('HQ_BUNDLE_UNKNOWN_FIELD', '$.businessContext');
+  }
+  if (version === 2 && value.businessContext === undefined) {
+    bundleError('HQ_BUNDLE_TYPE', '$.businessContext');
+  }
 
   const deployment = validateDeployment(value.deployment, '$.deployment', limits);
+  const businessContext = value.businessContext === undefined
+    ? undefined
+    : validateBusinessContext(value.businessContext, '$.businessContext', limits);
   const artifacts = Object.freeze(requireArray(value.artifacts, '$.artifacts', limits.maxArtifacts)
     .map((artifact, index) => validateArtifact(artifact, `$.artifacts[${index}]`, limits)));
   const source = value.source === undefined
     ? undefined
     : validateSource(value.source, '$.source', limits);
   const sourcePaths = source?.files.map(file => `${source.root}/${file.path}`) ?? [];
-  const paths = [deployment.path, ...artifacts.map(artifact => artifact.path), ...sourcePaths];
+  const paths = [
+    deployment.path,
+    ...(businessContext ? [businessContext.path] : []),
+    ...artifacts.map(artifact => artifact.path),
+    ...sourcePaths,
+  ];
   if (new Set(paths).size !== paths.length
     || new Set(paths.map(bundlePath => bundlePath.toLowerCase())).size !== paths.length
     || hasTreeCollision(paths)) {
@@ -288,6 +325,7 @@ export function validateProtocolDeploymentBundleManifest(
     bundleError('HQ_BUNDLE_INVALID_VALUE', '$.artifacts');
   }
   const totalBytes = deployment.byteLength
+    + (businessContext?.byteLength ?? 0)
     + artifacts.reduce((total, artifact) => total + artifact.byteLength, 0)
     + (source?.files.reduce((total, file) => total + file.byteLength, 0) ?? 0);
   if (!Number.isSafeInteger(totalBytes) || totalBytes > limits.maxTotalBytes) {
@@ -296,8 +334,9 @@ export function validateProtocolDeploymentBundleManifest(
 
   return freezeRecord({
     kind: 'hypequery-deployment-bundle',
-    version: 1,
+    version,
     deployment,
+    ...(businessContext ? { businessContext } : {}),
     artifacts,
     ...(source ? { source } : {}),
   }) as unknown as ProtocolDeploymentBundleManifest;

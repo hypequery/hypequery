@@ -192,6 +192,12 @@ export interface DatasetListItem {
 export interface DatasetsListResponse {
   datasets: DatasetListItem[];
   total: number;
+  /**
+   * The project's reviewed business context (KPIs, glossary, conventions,
+   * caveats), when the server has one. Large contexts carry the summary only,
+   * with `truncated: true`; `get_business_context` returns all of it.
+   */
+  businessContext?: Record<string, unknown>;
 }
 
 /**

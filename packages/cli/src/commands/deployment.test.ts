@@ -92,7 +92,7 @@ describe('deployment commands', () => {
 
 
   it('writes a deployment bundle with no runtime artifacts by default', async () => {
-    mockLoadCloudPublication.mockResolvedValue(contract);
+    mockLoadCloudPublication.mockResolvedValue({ contract });
 
     await buildDeploymentCommand('analytics/cloud.ts');
 
@@ -100,12 +100,13 @@ describe('deployment commands', () => {
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract }),
       sourceSnapshot,
+      undefined,
     );
     expect(writeFile).not.toHaveBeenCalled();
   });
 
   it('can explicitly omit project source from a bundle', async () => {
-    mockLoadCloudPublication.mockResolvedValue(contract);
+    mockLoadCloudPublication.mockResolvedValue({ contract });
 
     await buildDeploymentCommand('analytics/cloud.ts', { source: false });
 
@@ -113,6 +114,7 @@ describe('deployment commands', () => {
     expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract }),
+      undefined,
       undefined,
     );
   });
@@ -140,18 +142,61 @@ describe('deployment commands', () => {
     });
     const { logger } = await import('../utils/logger.js');
 
-    mockLoadCloudPublication.mockResolvedValue(scoped(false));
+    mockLoadCloudPublication.mockResolvedValue({ contract: scoped(false) });
     await buildDeploymentCommand('analytics/cloud.ts', { source: false });
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Dataset "orders" has a customer column (tenant_id) but no tenantKey'));
 
     vi.mocked(logger.warn).mockClear();
-    mockLoadCloudPublication.mockResolvedValue(scoped(true));
+    mockLoadCloudPublication.mockResolvedValue({ contract: scoped(true) });
     await buildDeploymentCommand('analytics/cloud.ts', { source: false });
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
+  it('writes business context into the bundle and reports it', async () => {
+    const { logger } = await import('../utils/logger.js');
+    const businessContext = {
+      kind: 'hypequery-business-context' as const,
+      version: 1 as const,
+      glossary: [{ term: 'active customer', meaning: 'ordered in 30 days' }],
+    };
+    mockLoadCloudPublication.mockResolvedValue({ contract, businessContext });
+    mockWriteDeploymentBundle.mockImplementationOnce(async (_output, prepared) => ({
+      directory: 'analytics/hypequery-deployment',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 2,
+        deployment: {
+          path: 'deployment.json',
+          identity: prepared.identity,
+          sha256: 'e'.repeat(64),
+          byteLength: 1,
+        },
+        businessContext: {
+          path: 'business-context.json',
+          identity: 'c'.repeat(64),
+          sha256: 'd'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: 'f'.repeat(64),
+      contract: prepared.contract,
+      businessContext,
+    }));
+
+    await buildDeploymentCommand('analytics/cloud.ts', { source: false });
+
+    expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
+      'analytics/hypequery-deployment',
+      expect.objectContaining({ contract }),
+      undefined,
+      businessContext,
+    );
+    expect(logger.info).toHaveBeenCalledWith('Business context: 1 glossary term, 0 KPIs');
+  });
+
   it('rejects non-dataset Cloud contracts', async () => {
-    mockLoadCloudPublication.mockResolvedValue({ ...contract, queries: [{ name: 'legacy' }] });
+    mockLoadCloudPublication.mockResolvedValue({ contract: { ...contract, queries: [{ name: 'legacy' }] } });
     await expect(buildDeploymentCommand('analytics/cloud.ts')).rejects.toThrow('datasets only');
   });
 

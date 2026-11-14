@@ -8,8 +8,10 @@ import type {
   CanonicalSemanticQuerySchemas,
   DatasetClient,
 } from '@hypequery/datasets';
+import type { ProtocolBusinessContext } from '@hypequery/protocol';
 import { MCPToolError } from './errors.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
+import { getBusinessContextTool } from './tools/get-business-context.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
@@ -33,6 +35,7 @@ import type {
   MCPExecutionBudget,
   MCPQueryLimits,
 } from './types.js';
+import { resolveMCPBusinessContext, type MCPBusinessContext } from './utils/business-context.js';
 import { validateMCPServerTenantConfig } from './utils/tenant-config.js';
 import {
   createMCPErrorResponse,
@@ -46,6 +49,13 @@ export interface MCPExecutorConfig {
   analytics: DatasetClient;
   /** Trusted tenant id used to scope tenant-keyed datasets. */
   tenantId?: string;
+  /**
+   * Reviewed business context (from `defineBusinessContext`). `list_datasets`
+   * carries it and `get_business_context` returns it, so every agent reads the
+   * KPI definitions, glossary, conventions and caveats before it answers.
+   * It is guidance only: it never changes what a query returns.
+   */
+  businessContext?: ProtocolBusinessContext;
   /** Include generated SQL in trusted-debug responses. Defaults to false. */
   includeSql?: boolean;
   /** Server-side query ceilings applied in addition to Dataset limits. */
@@ -86,6 +96,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
   private readonly querySchemas: CanonicalSemanticQuerySchemas;
   private readonly executionBudget: EffectiveExecutionBudget;
   private readonly catalogBudget: EffectiveCatalogBudget;
+  private readonly businessContext: MCPBusinessContext | undefined;
 
   constructor(private readonly config: MCPExecutorConfig) {
     validateMCPServerTenantConfig(config);
@@ -93,6 +104,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
     this.executionBudget = resolveExecutionBudget(config.executionBudget);
     this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
     this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
+    this.businessContext = resolveMCPBusinessContext(config.businessContext);
   }
 
   getManifestHash(): string {
@@ -100,7 +112,7 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
   }
 
   async listTools(): Promise<ListToolsResult> {
-    return assertManifestWithinBudget(buildMCPToolManifest(this.querySchemas), this.catalogBudget);
+    return assertManifestWithinBudget(buildMCPToolManifest(this.querySchemas, { businessContext: this.businessContext !== undefined }), this.catalogBudget);
   }
 
   async callTool(
@@ -111,7 +123,13 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
     try {
       switch (name) {
         case 'list_datasets':
-          return await listDatasetsTool(this.config.datasets);
+          return await listDatasetsTool(this.config.datasets, this.businessContext);
+
+        case 'get_business_context':
+          if (this.businessContext === undefined) {
+            throw new MCPToolError('MCP_UNKNOWN_TOOL', `Unknown tool: ${name}`);
+          }
+          return await getBusinessContextTool(this.businessContext);
 
         case 'get_dataset_schema':
           return await getDatasetSchemaTool(

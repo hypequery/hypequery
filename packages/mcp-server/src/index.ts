@@ -28,6 +28,12 @@ export { listDatasetsTool } from './tools/list-datasets.js';
 export { getDatasetSchemaTool, getTrustedDatasetSchema } from './tools/introspect.js';
 export { queryMetricTool } from './tools/query-metric.js';
 export { queryDatasetTool } from './tools/query-dataset.js';
+export { getBusinessContextTool } from './tools/get-business-context.js';
+export {
+  formatBusinessContext,
+  LIST_DATASETS_CONTEXT_INLINE_BYTES,
+  type MCPBusinessContext,
+} from './utils/business-context.js';
 export { datasetGuidePrompt } from './prompts/dataset-guide.js';
 
 // Export types
