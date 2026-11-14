@@ -4,6 +4,7 @@ description: "How to express ClickHouse filters in TypeScript with query_params 
 seoTitle: "ClickHouse WHERE, IN, LIKE and BETWEEN in TypeScript"
 seoDescription: "ClickHouse WHERE, IN, LIKE and BETWEEN (inclusive on both ends) from TypeScript: query_params in @clickhouse/client and typed where-chains in hypequery."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-filter-operators-typescript
 status: published
