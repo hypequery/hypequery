@@ -9,6 +9,9 @@ import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand, type Language } from '@/components/home/SetupCommand';
 import { marketing } from '@/components/ui/marketing';
 import { faqPageSchema, type FaqItem } from '@/lib/faq-schema';
+import { breadcrumbJsonLd } from '@/lib/structured-data';
+import { absoluteUrl } from '@/lib/site';
+import { maybeUpdatedFor } from '@/data/page-dates';
 
 type LinkItem = {
   href: string;
@@ -222,8 +225,34 @@ export function ClickhousePillarPage({
   relatedPillars,
   nextStep,
 }: ClickhousePillarPageProps) {
+  const updated = leadPage ? maybeUpdatedFor(leadPage) : undefined;
+  // The page as a dated article plus a Home > page trail, so search engines and
+  // AI answers see what the page is, when it last changed, and where it sits.
+  const articleSchema = leadPage
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'TechArticle',
+        headline: title,
+        description,
+        url: absoluteUrl(leadPage).toString(),
+        ...(updated ? { dateModified: updated } : {}),
+        author: { '@type': 'Organization', name: 'hypequery' },
+        publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
+      }
+    : null;
   return (
     <>
+      {articleSchema ? (
+        <>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(breadcrumbJsonLd([{ label: 'Home', href: '/' }, { label: eyebrow }], leadPage!)),
+            }}
+          />
+        </>
+      ) : null}
       {faq && faq.length > 0 ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faq)) }} />
       ) : null}
