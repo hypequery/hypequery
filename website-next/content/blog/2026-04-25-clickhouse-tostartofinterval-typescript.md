@@ -4,7 +4,7 @@ description: "toStartOfInterval rounds a timestamp down to the start of a 5-minu
 seoTitle: "ClickHouse toStartOfInterval: GROUP BY and Return Types"
 seoDescription: "toStartOfInterval(ts, INTERVAL 5 MINUTE) buckets timestamps. Group by its alias, fill gaps with WITH FILL, and note it returns DateTime or Date by interval."
 pubDate: 2026-04-25
-updatedAt: 2026-11-08
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-tostartofinterval-typescript
 status: published
@@ -65,6 +65,10 @@ The type depends on the interval, not only on the input:
 | MILLISECOND, MICROSECOND, NANOSECOND | error | `DateTime64` | error |
 
 Two results surprise people. A `DateTime64` column bucketed by a second or more comes back as `DateTime`, so the fraction of a second is gone. And a `Date` bucketed by `INTERVAL 1 DAY` comes back as a `DateTime`. An origin passed as the third argument must have the same type as the timestamp, and then the result keeps the timestamp's type: `DateTime` in, `DateTime` out, even for WEEK or MONTH.
+
+### Has the DateTime64 behaviour changed since ClickHouse 20.6?
+
+Not for intervals of a second or more. On ClickHouse 20.6.11.1, `toStartOfInterval(toDateTime64('2026-11-08 10:17:33.123', 3), INTERVAL n unit)` returned `DateTime('UTC')` for SECOND, MINUTE, HOUR and DAY, and `Date` for WEEK and MONTH, the same types as 25.8 and 26.6 (25.8 shows `DateTime` without the time zone in the type name). What changed is that 20.6 had no sub-second intervals: `INTERVAL 100 MILLISECOND` was a syntax error there. To keep fractions of a second in a bucket, use a MILLISECOND, MICROSECOND or NANOSECOND interval on a server version that has them.
 
 ## Which day do week buckets start on?
 
