@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     default: "hypequery | Semantic layer for embedded analytics on ClickHouse",
     template: "%s | hypequery",
   },
-  description: "hypequery is an open-source semantic layer for TypeScript and Python teams building embedded analytics, APIs and AI agents on ClickHouse.",
+  description: "hypequery (not hyperquery) is an open-source semantic layer for TypeScript and Python teams building embedded analytics, APIs and AI agents on ClickHouse.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
