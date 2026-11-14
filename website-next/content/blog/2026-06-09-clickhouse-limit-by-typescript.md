@@ -4,6 +4,7 @@ description: "LIMIT BY is ClickHouse's built-in answer to top-N-per-group: lates
 seoTitle: "ClickHouse LIMIT BY and LIMIT 1 BY: Top-N Per Group"
 seoDescription: "ClickHouse LIMIT BY returns the first N rows per group without window functions. Syntax, LIMIT 1 BY for dedup, LIMIT BY vs row_number(), with TypeScript examples."
 pubDate: 2026-06-09
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-limit-by-typescript
 status: published
@@ -40,6 +41,22 @@ const latestEvents = await db
 No subquery, no window function, no raw SQL string. If you want to run these examples against your own schema, the [quick start](/docs/quick-start) gets you from `npm install` to typed queries in a few minutes, and the [ClickHouse query builder guide](/clickhouse-query-builder) covers the rest of the builder surface.
 
 This post covers what `LIMIT BY` actually does, the two scenarios where it shines, how it interacts with the final `LIMIT`, and when you should reach for `row_number()` instead.
+
+## Quick answers
+
+These were checked on ClickHouse 25.8.
+
+### What is the LIMIT BY syntax in ClickHouse?
+
+`LIMIT n BY expr[, expr...]` after `ORDER BY`, and before any final `LIMIT`. To skip rows per group, use `LIMIT n OFFSET m BY expr` or the short form `LIMIT m, n BY expr`; both return the second row per group when n is 1 and m is 1.
+
+### How do I keep one row per key with LIMIT 1 BY?
+
+Sort so the row you want comes first in each group, then add `LIMIT 1 BY key`: `ORDER BY user_id, ts DESC LIMIT 1 BY user_id` returns the latest row for each user.
+
+### Does LIMIT BY need ORDER BY?
+
+It runs without one, but then which rows survive in each group is arbitrary. Add `ORDER BY` whenever "first" should mean latest, largest or any other specific row.
 
 ## What LIMIT BY Does
 
