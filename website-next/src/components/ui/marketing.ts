@@ -12,7 +12,7 @@ export const marketing = {
   card: 'rounded-xl border border-border bg-bg-card p-6 shadow-card',
   band: 'border-y border-border bg-bg-alt/60',
   /** The space above every homepage section, the hero included (below the navigation), so every gap is equal. Sections add no bottom padding. */
-  homeSectionSpacing: 'pt-16 sm:pt-28',
+  homeSectionSpacing: 'pt-8 sm:pt-28',
   primaryButton:
     'inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90 dark:text-[#0c0e14]',
   secondaryButton:
