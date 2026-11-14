@@ -27,7 +27,7 @@ cd "$HQ_ROOT"
 HQ_PACKAGES=(protocol datasets mcp-server)
 if [[ "$HQ_CLI_MODE" == '--cli' ]]; then
   pnpm --filter '@hypequery/cli...' -r build
-  HQ_PACKAGES+=(clickhouse serve deployment cli)
+  HQ_PACKAGES+=(clickhouse serve deployment cloud-client cli)
 else
   pnpm --filter '@hypequery/mcp...' -r build
 fi

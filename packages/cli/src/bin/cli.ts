@@ -13,7 +13,7 @@ import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
-import { cloudOperationOf, isCloudOperationGroup } from '../commands/cloud-operations.js';
+import { cloudOperationOf, cloudOperationValueFlags, isCloudOperationGroup } from '../commands/cloud-operations.js';
 
 /** Commander errors must reach the handler below at every depth (`hypequery releases rollback`). */
 function overrideExits(command: Command): void {
@@ -48,6 +48,9 @@ async function main() {
   const lifecycle = new CommandLifecycle(args, {
     telemetry: args.includes('--no-telemetry') ? false : undefined,
   });
+  // Set from the raw arguments, not in preAction: Commander can reject an
+  // operation command's arguments before any hook runs.
+  lifecycle.skipValuesOf(cloudOperationValueFlags(program, args));
   let selected: Command | undefined;
   let finishing: Promise<void> | undefined;
   const finish = (exit: CommandExit) => {
