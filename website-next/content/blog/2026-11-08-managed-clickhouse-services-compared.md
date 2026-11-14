@@ -33,6 +33,8 @@ Each row comes from the vendor's pricing page or docs, linked in the sections be
 
 ## ClickHouse Cloud
 
+**How much does ClickHouse Cloud cost?** Compute is billed per minute in units of 8 GiB RAM and 2 vCPUs: on AWS us-east-1, $0.2181 per unit-hour on Basic, $0.2985 on Scale and $0.3903 on Enterprise, plus $25.30 per TB-month of compressed storage. The smallest Basic service running all month is about $160 of compute (730 hours × $0.2181), idle services scale to zero, and new organizations get $300 of credits for 30 days. Prices from the [pricing page](https://clickhouse.com/pricing), checked 8 November 2026.
+
 ClickHouse Cloud is the managed service run by ClickHouse, Inc., the company behind the open-source database, and it bills compute and storage separately by usage. Its [compatibility guide](https://clickhouse.com/docs/products/cloud/guides/cloud-compatibility) says it is "based on the open-source ClickHouse distribution" with "a curated set of capabilities", and that MergeTree-family tables are automatically created as SharedMergeTree, an engine family that [powers ClickHouse Cloud](https://clickhouse.com/docs/products/cloud/features/infrastructure/shared-merge-tree) on shared object storage.
 
 - Deployment: ClickHouse's cloud on AWS, Google Cloud and Azure, with 38 region codes on the [supported regions page](https://clickhouse.com/docs/products/cloud/reference/supported-regions), 21 of them public. [BYOC](https://clickhouse.com/docs/products/cloud/guides/infrastructure/deployment-options/byoc/overview) is generally available on all three clouds but "requires customers to sign a committed contract", and BYOC doesn't yet include the SQL console, ClickPipes or autoscaling.
