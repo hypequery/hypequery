@@ -26,6 +26,8 @@ import { analytics } from './seed';
 export const TENANT_TOOLS = ['list_datasets', 'get_dataset_schema', 'query_dataset'];
 export const PROJECT = 'demo:in-app-agent';
 export const PERMISSION_SET = 'customers';
+/** Cloud's ceiling on an agent token's lifetime. */
+const MAX_LIFETIME_SECONDS = 15 * 60;
 
 export interface VerifiedCall {
   subject: string;
@@ -78,8 +80,11 @@ export async function startFakeTenantEndpoint(): Promise<FakeTenantEndpoint> {
             if (protectedHeader.kid !== kid) throw new joseErrors.JWKSNoMatchingKey();
             return publicKey;
           },
-          { algorithms: ['EdDSA'], audience: `hypequery-agent:${PROJECT}`, requiredClaims: ['sub', 'iat', 'exp'], maxTokenAge: 900 },
+          { algorithms: ['EdDSA'], audience: `hypequery-agent:${PROJECT}`, requiredClaims: ['sub', 'iat', 'exp'], maxTokenAge: MAX_LIFETIME_SECONDS },
         );
+        // `maxTokenAge` bounds how long ago the token was issued, not how long
+        // it lives. Cloud also refuses a lifetime (`exp` - `iat`) over 15 minutes.
+        if (payload.exp! - payload.iat! > MAX_LIFETIME_SECONDS) throw new Error('token lifetime exceeds 15 minutes');
         if (payload.permission_set !== PERMISSION_SET) throw new Error('unknown permission set');
         const call = { subject: String(payload.sub), tenant: String(payload.tenant), permissionSet: PERMISSION_SET };
         verified.push(call);
