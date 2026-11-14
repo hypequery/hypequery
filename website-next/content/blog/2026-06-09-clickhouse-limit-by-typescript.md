@@ -232,6 +232,7 @@ This is a recurring theme with ClickHouse: the features that make it worth choos
 
 ## Where to Go From Here
 
+- [ClickHouse GROUP BY in TypeScript](/blog/clickhouse-group-by-typescript) — aggregations, `HAVING` and `WITH TOTALS`, when you want one row per group rather than the first N rows.
 - [ClickHouse window functions in TypeScript](/blog/clickhouse-window-functions-typescript) — when you need ranks, lag/lead, or running totals instead of a top-N slice.
 - [Top N per group recipe](/recipes/top-n-per-group-limit-by) — LIMIT BY measured against row_number() and rank() on the same data.
 - [ClickHouse pagination in TypeScript](/blog/clickhouse-pagination-typescript) — combining `LIMIT`, `OFFSET`, and cursors for API responses.

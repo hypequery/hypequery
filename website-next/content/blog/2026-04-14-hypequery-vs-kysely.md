@@ -156,6 +156,8 @@ npx hypequery generate --output analytics/schema.ts
 
 If you're evaluating both tools, start with the [Quick Start](https://hypequery.com/docs/quick-start) and then compare the generated schema flow against your current hand-written interfaces. After that, read [ClickHouse analytics](/clickhouse-analytics) if the bigger question is how those queries get reused across APIs, dashboards, and services.
 
+Already on Kysely? The [Kysely to hypequery migration guide](/blog/migrating-kysely-to-hypequery) maps each Kysely pattern to its hypequery equivalent.
+
 ## Sources checked
 
 - Kysely: [official and community dialects](https://www.kysely.dev/docs/dialects), [generating types](https://www.kysely.dev/docs/generating-types), and the [community ClickHouse dialect](https://github.com/founderpathcom/kysely-clickhouse)
