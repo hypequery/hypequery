@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse MCP Server for Python Backends';
 const DESCRIPTION =
-  'Give Claude, Cursor, and other MCP clients your Python-defined ClickHouse datasets. Python keeps the SQL, auth, and tenant; agents only see the endpoints they are allowed to call.';
+  'Give Claude, Cursor and other MCP clients your Python-defined ClickHouse datasets. Python keeps the SQL, auth and tenant; agents see only allowed endpoints.';
 
 export const metadata: Metadata = {
   title: TITLE,

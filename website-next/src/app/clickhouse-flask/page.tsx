@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse with Flask: Shared Analytics Definitions';
 const DESCRIPTION =
-  'Serve ClickHouse analytics from Flask without copying SQL between routes. Define measures once in Python, query them per customer, and turn results into typed DataFrames for exports.';
+  'Serve ClickHouse analytics from Flask without copying SQL between routes. Define measures once in Python, query them per customer, export typed DataFrames.';
 
 export const metadata: Metadata = {
   title: TITLE,

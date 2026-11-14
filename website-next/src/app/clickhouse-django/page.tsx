@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse with Django: Governed Analytics in Your Views';
 const DESCRIPTION =
-  'Query ClickHouse from Django with shared, tenant-scoped definitions. Define measures once in Python, call them from views and tasks, and keep the Django ORM for your transactional data.';
+  'Query ClickHouse from Django with shared, tenant-scoped definitions. Define measures once in Python, call them from views, and keep the ORM for app data.';
 
 export const metadata: Metadata = {
   title: TITLE,

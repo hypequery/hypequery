@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse with SQLAlchemy: Where a Semantic Layer Fits';
 const DESCRIPTION =
-  'SQLAlchemy builds queries. hypequery defines what your metrics mean. Use both against ClickHouse: SQLAlchemy for ad hoc SQL, hypequery for shared, tenant-scoped measures.';
+  'SQLAlchemy builds queries; hypequery defines what your metrics mean. Use SQLAlchemy for ad hoc ClickHouse SQL and hypequery for shared, tenant-scoped measures.';
 
 export const metadata: Metadata = {
   title: TITLE,

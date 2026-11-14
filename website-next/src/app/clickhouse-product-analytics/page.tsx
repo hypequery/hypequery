@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Product Analytics in TypeScript',
   description:
-    'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+    'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-product-analytics'),
   },
@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-product-analytics'),
     title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
 };
 

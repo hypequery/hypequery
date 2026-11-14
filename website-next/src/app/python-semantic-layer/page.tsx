@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'A Python Semantic Layer for ClickHouse: Analytics as Code',
   description:
-    'Define measures, dimensions, relationships, and tenant rules as Python code. An open-source semantic layer that runs inside your app, with no YAML and no separate server.',
+    'Define measures, dimensions, relationships and tenant rules as Python code: an open-source semantic layer inside your app, with no YAML and no extra server.',
   alternates: { canonical: absoluteUrl('/python-semantic-layer') },
   openGraph: {
     images: ogImage('A Python Semantic Layer for ClickHouse: Analytics as Code'),
