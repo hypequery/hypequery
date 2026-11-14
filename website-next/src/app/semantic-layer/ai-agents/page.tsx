@@ -15,7 +15,7 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/ai-agents';
-const TITLE = 'Semantic Layer for AI Agents: Governed Metrics over MCP (2026)';
+const TITLE = 'AI Semantic Layer: Governed Metrics for AI Agents over MCP (2026)';
 const DESCRIPTION =
   'Why AI agents need a semantic layer instead of raw text-to-SQL, what to look for in one (named metrics, no raw SQL tool, tenant scope, query limits), and how hypequery, Cube, dbt, AtScale, Snowflake and others expose metrics to agents over MCP.';
 const UPDATED = updatedFor(PATH);
@@ -244,11 +244,11 @@ export default function SemanticLayerAiAgentsPage() {
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('AI agents')}
       eyebrow="Semantic layer"
-      title="A semantic layer for AI agents"
+      title="An AI semantic layer: governed metrics for agents"
       updated={UPDATED}
       lead={
         <p>
-          Why agents answer data questions more reliably through named metrics than through raw SQL, what to check
+          An AI semantic layer gives agents named, governed metrics instead of raw tables. Why agents answer data questions more reliably through named metrics than through raw SQL, what to check
           before you connect one to your data, and how the main semantic layers expose their models to agents over MCP.
         </p>
       }
