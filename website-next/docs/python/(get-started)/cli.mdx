@@ -252,8 +252,9 @@ an agent gets exactly the endpoints, fields and tenant that credential's princip
 
 ## `hypequery skill install`
 
-Writes hypequery's agent skills where coding agents load them: `hypequery-datasets` (authoring datasets) and
-`hypequery-query` (querying through MCP or HTTP). Works on the base install.
+Writes hypequery's agent skills where coding agents load them: `hypequery-datasets` (authoring datasets),
+`hypequery-query` (querying through MCP or HTTP) and `hypequery-onboard` (onboarding a ClickHouse database end to
+end; its analysis steps run the TypeScript CLI through `npx`, so they need Node.js). Works on the base install.
 
 | Option | Description |
 | --- | --- |
