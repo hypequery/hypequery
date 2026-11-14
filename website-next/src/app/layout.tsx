@@ -30,7 +30,7 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | Open-source semantic layer for ClickHouse",
+    default: "hypequery | Semantic layer for embedded analytics on ClickHouse",
     template: "%s | hypequery",
   },
   description: "hypequery is an open-source semantic layer for TypeScript and Python teams building embedded analytics, APIs and AI agents on ClickHouse.",
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | Open-source semantic layer for ClickHouse',
+    title: 'hypequery | Semantic layer for embedded analytics on ClickHouse',
     description: 'Define governed metrics and tenant rules in TypeScript or Python, then serve embedded analytics, APIs and AI agents from your own backend.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | Open-source semantic layer for ClickHouse',
+    title: 'hypequery | Semantic layer for embedded analytics on ClickHouse',
     description: 'Define governed metrics and tenant rules in TypeScript or Python, then serve embedded analytics, APIs and AI agents from your own backend.',
   },
   manifest: "/site.webmanifest",

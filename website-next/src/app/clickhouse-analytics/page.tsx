@@ -145,8 +145,8 @@ export default function ClickHouseAnalyticsPage() {
         },
         {
           href: '/clickhouse-semantic-layer',
-          title: 'ClickHouse semantic layer alternative',
-          description: 'The honest positioning page: what hypequery does today, what a full semantic layer would mean, and where Cube fits.',
+          title: 'ClickHouse semantic layer',
+          description: 'How hypequery works as a semantic layer inside your codebase, and when a separate platform such as Cube fits better.',
         },
         {
           href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases',

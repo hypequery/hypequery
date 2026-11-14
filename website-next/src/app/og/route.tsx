@@ -1,6 +1,6 @@
 import { renderBrandImage } from '@/lib/og/brand-card';
 
-const DEFAULT_TITLE = 'Embedded analytics on ClickHouse';
+const DEFAULT_TITLE = 'Semantic layer for embedded analytics on ClickHouse';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
