@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
@@ -45,6 +46,8 @@ export default async function BlogPage({
     (post) => !(post.slug in comparePageBySlug) && !retiredBlogSlugs.has(post.slug),
   );
   const totalPages = Math.ceil(posts.length / 10);
+  // A page past the end (or not a page number) is a 404, not an empty listing search engines can index.
+  if (!Number.isInteger(pageNumber) || pageNumber < 1 || (totalPages > 0 && pageNumber > totalPages)) notFound();
 
   const startIndex = (pageNumber - 1) * 10;
   const endIndex = startIndex + 10;
@@ -57,7 +60,7 @@ export default async function BlogPage({
           Insights
         </p>
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl mb-4">
-          ClickHouse and TypeScript implementation guides
+          ClickHouse implementation guides for TypeScript and Python
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Deep dives, architecture notes, and product guidance from the hypequery team.
