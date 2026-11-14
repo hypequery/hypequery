@@ -6,8 +6,9 @@
  * content, not for layout or styling tweaks.
  */
 const pageUpdated: Record<string, string> = {
-  '/embedded-analytics': '2026-11-12',
-  '/compare/embedded-analytics-platforms': '2026-11-12',
+  '/embedded-analytics': '2026-11-14',
+  '/compare/embedded-analytics-typescript': '2026-11-14',
+  '/compare/embedded-analytics-platforms': '2026-11-14',
   '/compare/embedded-analytics-pricing': '2026-11-12',
   '/compare/luzmo-alternatives': '2026-11-12',
   '/compare/hypequery-vs-embeddable': '2026-11-12',

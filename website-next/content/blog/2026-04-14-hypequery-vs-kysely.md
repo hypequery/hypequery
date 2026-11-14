@@ -4,11 +4,13 @@ description: "Kysely is an excellent TypeScript query builder. On ClickHouse, th
 seoTitle: "hypequery vs Kysely for ClickHouse (2026)"
 seoDescription: "Compare hypequery and Kysely for ClickHouse projects. Learn where Kysely shines, where ClickHouse type mapping gets tricky, and when hypequery is the better fit."
 pubDate: 2026-04-14
-updatedAt: 2026-11-08
+updatedAt: 2026-11-14
 heroImage: ""
 slug: hypequery-vs-kysely
 status: published
 ---
+
+**Short answer:** Kysely is the broader and more composable TypeScript SQL builder, with official relational dialects and a community ClickHouse dialect. hypequery is ClickHouse-only, but generates runtime-accurate types from the live schema and adds datasets, tenant rules, HTTP and OpenAPI serving, React hooks, and MCP tools. Choose based on whether you need a query builder alone or a governed product-analytics layer.
 
 Kysely is one of the best TypeScript query builders available. If you're on Postgres, MySQL, SQLite, or SQL Server, it's a serious option, possibly the best one. It's composable, well-typed, has an active community, and a growing ecosystem of dialects.
 
@@ -153,3 +155,8 @@ npx hypequery generate --output analytics/schema.ts
 ```
 
 If you're evaluating both tools, start with the [Quick Start](https://hypequery.com/docs/quick-start) and then compare the generated schema flow against your current hand-written interfaces. After that, read [ClickHouse analytics](/clickhouse-analytics) if the bigger question is how those queries get reused across APIs, dashboards, and services.
+
+## Sources checked
+
+- Kysely: [official and community dialects](https://www.kysely.dev/docs/dialects), [generating types](https://www.kysely.dev/docs/generating-types), and the [community ClickHouse dialect](https://github.com/founderpathcom/kysely-clickhouse)
+- hypequery: [schema generation](/docs/schemas), [query basics](/docs/query-building/basics), [datasets](/docs/datasets/overview), and [HTTP and OpenAPI](/docs/http-openapi)

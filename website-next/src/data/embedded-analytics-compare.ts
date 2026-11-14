@@ -10,6 +10,12 @@ export type EmbeddedAnalyticsComparePage = {
 
 export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
   {
+    href: '/compare/embedded-analytics-typescript',
+    title: "Embedded analytics buyer's guide for TypeScript teams",
+    description:
+      'Compare architectures by metric governance, tenant isolation, type safety, change control and UI ownership, with a proof-based evaluation checklist.',
+  },
+  {
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description:
