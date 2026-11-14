@@ -399,6 +399,14 @@ describe('--input-json through the command parser', () => {
 });
 
 describe('exit codes follow Cloud\'s category', () => {
+  it('refuses a non-local HTTP endpoint without sending the token', async () => {
+    vi.stubEnv('HYPEQUERY_DEPLOYMENT_ENDPOINT', 'http://cloud.example.com/v1/deployments/submissions');
+    const result = await run(['projects', 'list']);
+    expect(result.exitCode).toBe(1);
+    expect(result.document!.error).toMatchObject({ code: 'CLOUD_ENDPOINT_INSECURE', category: 'correctable_input' });
+    expect(requests).toEqual([]);
+  });
+
   it.each([
     [401, 'unauthenticated', 2],
     [403, 'forbidden', 2],
