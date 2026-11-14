@@ -153,7 +153,7 @@ const daily = await db
     tagline: 'Round a date down to the start of its week. Mode 0, the default, starts weeks on Sunday; mode 1 starts them on Monday.',
     metaTitle: 'ClickHouse toStartOfWeek: Sunday or Monday (mode 0 vs mode 1)',
     metaDescription:
-      'toStartOfWeek(d) starts weeks on Sunday by default (mode 0). Use toStartOfWeek(d, 1) or toMonday(d) for Monday weeks. Return type, TypeScript example and gotchas.',
+      'toStartOfWeek(d) starts weeks on Sunday by default (mode 0). Use toStartOfWeek(d, 1) or toMonday(d) for Monday weeks. Return type and gotchas.',
     signature: 'toStartOfWeek(t: Date | DateTime, mode?: UInt8, timezone?: String): Date',
     description:
       'Rounds a Date or DateTime down to the nearest Sunday (mode 0, the default) or Monday (mode 1), and returns a Date.',
@@ -579,7 +579,7 @@ const recent = await db
     tagline: 'Convert a DateTime, string or number to a Date, and know which inputs it clamps.',
     metaTitle: 'ClickHouse toDate: strings, DateTime and the 1970–2149 range',
     metaDescription:
-      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those. With examples.',
+      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those.',
     signature: 'toDate(value: String | DateTime | DateTime64 | Int [, timezone]): Date',
     description:
       'Converts a DateTime, a date string or a number to a Date. Date covers 1970-01-01 to 2149-06-06; values outside that range are clamped without an error.',
@@ -692,7 +692,7 @@ print(two_days.data)  # ({'events': 288},)`,
     tagline: 'Format a date as a string with MySQL-style % directives. %M is the month name; %i is minutes.',
     metaTitle: 'ClickHouse formatDateTime: %M is month, %i is minutes, ISO weeks',
     metaDescription:
-      'In ClickHouse formatDateTime, %M prints the month name and %i prints minutes. How to format ISO weeks with %G-W%V, weekday names with %W, and time zones, with TypeScript examples.',
+      'In ClickHouse formatDateTime, %M prints the month name and %i prints minutes. How to format ISO weeks with %G-W%V, weekday names with %W, and time zones.',
     signature: 'formatDateTime(t: Date | DateTime, format: String, [timezone: String]): String',
     description:
       'Formats a Date or DateTime as a String using % directives. Two differ from strftime: %M is the full month name and %i is minutes.',
@@ -806,7 +806,7 @@ for row in result.named_results():
     tagline: 'Count rows or non-NULL values — ClickHouse\'s fastest aggregate.',
     metaTitle: 'ClickHouse count() — row counting in TypeScript',
     metaDescription:
-      'ClickHouse count() counts rows or non-NULL values. Learn how to use count(), count(x), and countIf() in TypeScript with hypequery for event tracking and analytics.',
+      'ClickHouse count() counts rows or non-NULL values. How count(), count(x) and countIf() differ, with TypeScript examples for event analytics.',
     signature: 'count() | count(column) | countIf(condition)',
     description:
       'Counts the number of rows (count()), non-NULL values in a column (count(col)), or rows matching a condition (countIf). The most common aggregate in analytics queries.',
@@ -1081,7 +1081,7 @@ for row in result.data:
     tagline: 'Conditional aggregation with the -If combinator: sumIf, countIf, avgIf, quantileIf.',
     metaTitle: 'ClickHouse sumIf and the -If combinator: countIf, avgIf, quantileIf',
     metaDescription:
-      'sumIf(col, cond) sums only rows where cond is true. How the -If combinator works for countIf, avgIf and quantileIf, and how to fix "Illegal type Array" errors with sumArrayIf.',
+      'sumIf(col, cond) sums only rows where cond is true. The -If combinator for countIf, avgIf and quantileIf, and the sumArrayIf fix for "Illegal type Array".',
     signature: 'sumIf(column, condition)',
     description:
       'Sums only the rows where the condition is true. -If is a combinator, so countIf, avgIf, uniqIf and quantileIf work the same way.',
@@ -1263,7 +1263,7 @@ const aov = await db
     tagline: 'Approximate percentiles (p50, p95, p99) for latency and performance metrics.',
     metaTitle: 'ClickHouse percentile: quantile() vs quantileExact (p95, p99)',
     metaDescription:
-      'ClickHouse quantile() estimates percentiles from a sample of up to 8,192 values, so it is approximate. When to use quantileExact, quantileTDigest or quantiles(), with TypeScript examples.',
+      'ClickHouse quantile() is approximate: it samples up to 8,192 values per group. When to use quantileExact, quantileTDigest or quantiles() instead.',
     signature: 'quantile(level)(column): Float64',
     description:
       'Estimates the quantile at a level between 0 and 1 from a reservoir sample of up to 8,192 values. quantile(0.95)(latency) is an approximate p95.',
@@ -1383,7 +1383,7 @@ for row in result.data:
     tagline: 'Collect a group\'s values into an array. Row order is not guaranteed, so sort explicitly.',
     metaTitle: 'ClickHouse groupArray: keep row order, cap size, type the result',
     metaDescription:
-      'groupArray() does not guarantee row order, and arraySort(groupArray(x)) sorts values, not rows. How to collect values in timestamp order, cap the array size, and type the result in TypeScript.',
+      'groupArray() does not guarantee row order, and arraySort(groupArray(x)) sorts values, not rows. How to keep timestamp order, cap the size, and type the result.',
     signature: 'groupArray([max_size])(column): Array',
     description:
       'Collects the values of a column within each group into an Array. ClickHouse documents the order of the values as indeterminate, and NULL values are skipped.',
@@ -1508,7 +1508,7 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
     tagline: 'Convert any ClickHouse value to a String, including dates in a chosen time zone.',
     metaTitle: 'ClickHouse toString: numbers, dates and time zones to String',
     metaDescription:
-      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone), and a second argument picks the time zone.',
+      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone); a second argument sets the time zone.',
     signature: 'toString(value [, timezone]): String',
     description:
       'Converts a value of any type to its String form. For Date and DateTime it accepts a time zone as a second argument.',
@@ -1759,7 +1759,7 @@ const classified = await db
     tagline: 'ClickHouse\'s CASE WHEN: return the value for the first true condition, with a default.',
     metaTitle: 'ClickHouse multiIf: CASE WHEN, NULL conditions and mixed types',
     metaDescription:
-      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false, and mixing String and number branches returns a Variant.',
+      'multiIf(c1, v1, c2, v2, default) returns the first true condition's value. NULL conditions count as false; mixing String and number branches returns a Variant.',
     signature: 'multiIf(cond1, then1, cond2, then2, ..., else)',
     description:
       'Evaluates conditions from left to right and returns the value paired with the first true one, or the last argument if none is true. It is the ClickHouse form of CASE WHEN ... THEN ... ELSE.',
