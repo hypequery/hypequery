@@ -14,7 +14,10 @@ export type HypequeryToken = string | (() => string | Promise<string>);
 export type HypequeryFetch = (url: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface HypequeryToolsOptions {
-  /** The tenant MCP endpoint, e.g. `https://<environment>.hypequery.app/mcp`. */
+  /**
+   * The tenant MCP endpoint, e.g. `https://<environment>.hypequery.app/mcp`.
+   * https only, except on localhost: anything else throws a `TypeError`.
+   */
   url: string | URL;
   /** Sent as `Authorization: Bearer <token>` on every request. */
   token: HypequeryToken;

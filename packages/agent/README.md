@@ -116,6 +116,9 @@ const result = await run(agent, 'How many shipments were late last month?');
   `HypequeryToolsError` instead.
 - **Request ids.** Use `onResult` to capture the request id of each call,
   which you can then look up in hypequery Cloud.
+- **https only.** `url` must use https, so the token is never sent
+  unencrypted. Plain http is allowed for localhost only. Any other URL throws
+  a `TypeError` before a request is made.
 - **Short-lived tokens.** `token` can be a string or a function, sync or
   async, that returns the current token. The function is called before each
   request.
