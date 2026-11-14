@@ -64,7 +64,11 @@ async function compareEntries(): Promise<MetadataRoute.Sitemap> {
 function docsEntries(): MetadataRoute.Sitemap {
   return source.generateParams().map((params) => {
     const slug = Array.isArray(params.slug) ? params.slug : [];
-    return { url: absoluteUrl(slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs').toString() };
+    const lastModified = source.getPage(slug)?.data.lastModified;
+    return {
+      url: absoluteUrl(slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs').toString(),
+      lastModified: lastModified ? new Date(lastModified) : undefined,
+    };
   });
 }
 

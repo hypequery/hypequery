@@ -12,6 +12,9 @@ export const docs = defineDocs({
     postprocess: {
       includeProcessedMarkdown: true,
     },
+    // Each page's last Git commit, for the docs sitemap <lastmod>. On a shallow clone,
+    // pages outside the fetched history get no date; VERCEL_DEEP_CLONE=true fills them in.
+    lastModified: true,
   },
 });
 
