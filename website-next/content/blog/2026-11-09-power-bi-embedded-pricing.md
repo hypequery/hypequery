@@ -210,6 +210,6 @@ All checked on 9 November 2026. Prices are East US, USD, list.
 ## Related
 
 - [Embedded analytics for developers: build vs buy](/embedded-analytics)
-- [hypequery vs Metabase](/compare/hypequery-vs-metabase)
+- [Metabase alternative for embedded analytics](/compare/hypequery-vs-metabase)
 - [Embedded analytics with ClickHouse: multi-tenant dashboards](/blog/embedded-analytics-clickhouse-multi-tenant-dashboards)
 - [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics)
