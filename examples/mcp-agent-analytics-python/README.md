@@ -146,4 +146,4 @@ query_dataset { dataset, dimensions, measures } ▶ ApiContractBackend ─▶ Ap
 - [mcp-agent-analytics](../mcp-agent-analytics): the same governed MCP server in TypeScript, with a Docker image.
 - [fastapi-analytics-api](../fastapi-analytics-api): the same Python datasets served over HTTP with signed tokens.
 
-Tested on ClickHouse 25.8 with `hypequery` 0.1.0b3 from the monorepo (the `mcp` extra; not yet on PyPI), `mcp` 2.3, Python 3.12 and uv 0.12; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).
+Versions used: ClickHouse 25.8, `hypequery` 0.1.0b3 from the monorepo (the `mcp` extra; not yet on PyPI), `mcp` 2.3, Python 3.12 and uv 0.12; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).

@@ -113,4 +113,4 @@ your app writes events straight to ClickHouse; account rows can follow via CDC (
 - [materialized-view-rollups](../materialized-view-rollups): pre-aggregate the events once they outgrow raw queries.
 - [nextjs-dashboard](../nextjs-dashboard): typed React hooks over hypequery datasets.
 
-Tested on ClickHouse 25.8 and Postgres 17 (and PGlite 0.5) with `@hypequery/datasets` 0.29, `@hypequery/clickhouse` 2.14, Drizzle ORM 0.45 and Hono 4.
+Versions used: ClickHouse 25.8 and Postgres 17 (and PGlite 0.5), `@hypequery/datasets` 0.29, `@hypequery/clickhouse` 2.14, Drizzle ORM 0.45 and Hono 4.

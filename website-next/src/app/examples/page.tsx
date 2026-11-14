@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const title = 'hypequery examples: runnable ClickHouse analytics apps';
 const description =
-  'Runnable ClickHouse examples in TypeScript: dashboards, materialized views, multi-tenant analytics and more, each tested against one seeded dataset.';
+  'Runnable ClickHouse examples in TypeScript: dashboards, materialized views, multi-tenant analytics and more, each running against one seeded dataset.';
 
 export const metadata: Metadata = {
   title: 'Examples',

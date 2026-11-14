@@ -29,6 +29,7 @@ export function HubShell({
   lead,
   primaryCta,
   secondaryCta,
+  heroExtra,
   definition,
   jsonLd,
   updated,
@@ -40,8 +41,11 @@ export function HubShell({
   eyebrow?: string;
   title: string;
   lead: ReactNode;
-  primaryCta: Cta;
+  /** Omit both CTAs when `heroExtra` carries the page's own action. */
+  primaryCta?: Cta;
   secondaryCta?: Cta;
+  /** Rendered under the lead, after any CTAs: a page-specific hero action. */
+  heroExtra?: ReactNode;
   /** Answer-first definition shown right under the hero. */
   definition?: { term: string; body: ReactNode };
   jsonLd?: object[];
@@ -70,7 +74,9 @@ export function HubShell({
               </p>
             ) : null}
             <div className={`mt-5 max-w-[720px] text-pretty ${marketing.heroLead}`}>{lead}</div>
+            {primaryCta || secondaryCta ? (
             <div className="mt-7 flex flex-wrap items-center gap-3">
+              {primaryCta ? (
               <Link
                 href={primaryCta.href}
                 data-umami-event="cta_click"
@@ -80,6 +86,7 @@ export function HubShell({
               >
                 {primaryCta.label} <span aria-hidden="true">→</span>
               </Link>
+              ) : null}
               {secondaryCta ? (
                 <Link
                   href={secondaryCta.href}
@@ -92,6 +99,8 @@ export function HubShell({
                 </Link>
               ) : null}
             </div>
+            ) : null}
+            {heroExtra}
             {definition ? <HubDefinition term={definition.term}>{definition.body}</HubDefinition> : null}
           </div>
         </section>
@@ -151,7 +160,7 @@ export function HubLinkGrid({ links, columns = 3 }: { links: HubLink[]; columns?
         >
           <h3 className="text-[17px] font-medium tracking-tight text-text">{link.title}</h3>
           <p className="mt-2 text-sm leading-6 text-text-muted">{link.description}</p>
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent group-hover:opacity-70">
+          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent underline-offset-4 group-hover:underline">
             Read <span aria-hidden="true">→</span>
           </p>
         </Link>

@@ -121,4 +121,4 @@ GET /reports/top-paths  ─────────────▶   current_ten
 - [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): the same datasets and token flow in TypeScript with `@hypequery/serve`.
 - [mcp-agent-analytics](../mcp-agent-analytics): the semantic layer exposed to agents over MCP.
 
-Tested on ClickHouse 25.8 with `hypequery` 0.1.0b3 (PyPI), FastAPI 0.162 and Python 3.13.
+Versions used: ClickHouse 25.8, `hypequery` 0.1.0b3 (PyPI), FastAPI 0.162 and Python 3.13.

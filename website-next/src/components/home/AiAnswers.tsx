@@ -329,7 +329,7 @@ export function AppChat({ elapsed, reduced, className = 'h-[480px]' }: PanelProp
     <div className={`flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card shadow-card ${className}`}>
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-bg"><HypequeryMascotIcon className="h-4 w-4" /></span>
-        <span className="text-xs font-medium text-text">Northwind Analytics</span>
+        <span className="text-xs font-medium text-text">Acme</span>
       </div>
 
       <div ref={ref} className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-2 pt-5 [scrollbar-width:none]">

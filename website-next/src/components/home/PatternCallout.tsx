@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import { marketing } from '@/components/ui/marketing';
 
 /** The problem, stated once, with the companies that built this layer themselves as proof. */
 export function PatternCallout() {
   return (
-    <section aria-labelledby="pattern-callout-title" className="mx-auto max-w-[1280px] px-5 pt-6 sm:px-8">
+    <section aria-labelledby="pattern-callout-title" className={`mx-auto max-w-[1280px] px-5 sm:px-8 ${marketing.homeSectionSpacing}`}>
       <div className="grid items-center gap-x-12 gap-y-4 border-y border-border max-md:py-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:py-7">
         <h2 id="pattern-callout-title" className="font-normal leading-snug tracking-[-0.02em] text-text max-md:text-lg md:text-xl">
           Give your agents numbers you can trust.

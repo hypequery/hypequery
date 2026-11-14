@@ -133,4 +133,4 @@ POST /datasets/events/query ┘   (datasets.py)                (typed params, re
 - [fastapi-analytics-api](../fastapi-analytics-api): the same kind of datasets served from FastAPI on a ClickHouse server, with tenant-scoped tokens.
 - [mcp-agent-analytics](../mcp-agent-analytics): the semantic layer exposed to agents over MCP.
 
-Tested on chDB 4.4.0 (ClickHouse engine embedded) and ClickHouse 25.8 with `hypequery` 0.1.0b3 and Python 3.12.
+Versions used: chDB 4.4.0 (ClickHouse engine embedded) and ClickHouse 25.8, `hypequery` 0.1.0b3 and Python 3.12.
