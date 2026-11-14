@@ -139,6 +139,61 @@ describe('management token store', () => {
     await expect(stat(dependencies.file)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('keeps every entry when several sign-ins save at once', async () => {
+    const dependencies = await store();
+    const origins = Array.from({ length: 8 }, (_unused, index) => `https://cloud-${index}.example.test`);
+    await Promise.all(origins.map((cloudUrl, index) => saveManagementCredential(credential({
+      cloudUrl,
+      token: `hqmt_v1_${String(index).repeat(43)}`,
+      deploymentEndpoint: `${cloudUrl}/v1/deployments/submissions`,
+    }), dependencies)));
+
+    const all = await loadAllManagementCredentials(dependencies);
+    expect(all.unreadable).toBe(0);
+    expect(all.credentials.map(stored => stored.cloudUrl).sort()).toEqual(origins);
+    await expect(stat(`${dependencies.file}.lock`)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps the other origin when a save and a delete run at once', async () => {
+    const dependencies = await store();
+    const local = credential({
+      cloudUrl: 'http://localhost:3000',
+      deploymentEndpoint: 'http://localhost:3000/v1/deployments/submissions',
+    });
+    await saveManagementCredential(credential(), dependencies);
+    await Promise.all([
+      saveManagementCredential(local, dependencies),
+      deleteManagementCredentials({ cloudUrl: 'https://cloud.example.test' }, dependencies),
+    ]);
+    const all = await loadAllManagementCredentials(dependencies);
+    expect(all.credentials).toEqual([local]);
+    expect([...dependencies.passwords.keys()]).toEqual(['management:http://localhost:3000']);
+  });
+
+  it('clearDefault stops another origin being the default, and keeps its token', async () => {
+    const dependencies = await store();
+    await saveManagementCredential(credential(), dependencies);
+
+    // A sign-in to another Cloud that stored no management token.
+    await deleteManagementCredentials({ cloudUrl: 'https://other.example.test', clearDefault: true }, dependencies);
+    await expect(loadManagementCredential({}, dependencies)).resolves.toBeNull();
+    await expect(loadManagementCredential({ cloudUrl: 'https://cloud.example.test' }, dependencies))
+      .resolves.toEqual(credential());
+    expect(dependencies.passwords.size).toBe(1);
+
+    // Without it, deleting an origin that isn't stored changes nothing.
+    await saveManagementCredential(credential(), dependencies);
+    await deleteManagementCredentials({ cloudUrl: 'https://other.example.test' }, dependencies);
+    await expect(loadManagementCredential({}, dependencies)).resolves.toEqual(credential());
+  });
+
+  it('does not create the config directory to delete from a store that is not there', async () => {
+    const dependencies = await store();
+    const configDirectory = path.join(dependencies.configDirectory, 'never-created');
+    await deleteManagementCredentials({}, { ...dependencies, configDirectory });
+    await expect(stat(configDirectory)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('removes a malformed store so logout always works', async () => {
     const dependencies = await store();
     await saveManagementCredential(credential(), dependencies);

@@ -42,8 +42,8 @@ npx hypequery login --device --project shop --capabilities workspace:view,deploy
 
 The browser opens by itself only when a person is at the terminal and
 `--no-input` is not set. The CLI polls until the code is approved, denied or
-expires (10 minutes), and prints the code on stderr so `--json` output stays
-one document.
+expires (10 minutes). The code and URL always go to stderr, so `--json` output
+stays one document and redirecting stdout never hides them.
 
 | Option | Description |
 | --- | --- |
@@ -57,10 +57,11 @@ Both sign-ins store a management token (`hqmt_`): user-bound, re-checked
 against your role on every call, valid for 30 days, and listed under Settings ›
 CLI sign-ins where you can revoke it. Browser sign-in also stores the 12-hour
 deploy credential it always has. Tokens go to the operating-system credential
-vault. Where there is none (common on headless Linux), the token is kept in an
-owner-only file (`0600`) in the CLI's config directory, and the CLI says so.
-One token is kept per Cloud origin. `hypequery logout` revokes and removes all
-of them.
+vault. Where there is none (common on headless Linux), the management token is
+kept in an owner-only file (`0600`) in the CLI's config directory, and the CLI
+says so; the deploy credential is never written to a file, so browser sign-in
+then keeps only the management token. One management token is kept per Cloud
+origin. `hypequery logout` revokes and removes all of them.
 
 Device sign-in doesn't save a deployment target yet, so pass `--project` and
 `--environment` to deploy, status, pull and diff after it.
@@ -74,8 +75,10 @@ Every command that talks to Cloud picks its credential in this order:
    `HYPEQUERY_CLOUD_URL` (default `https://cloud.hypequery.com`), unless
    `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names another endpoint. Any
    other token needs that explicit endpoint.
-2. The management token stored by `hypequery login` or `hypequery login --device`.
-3. The deploy credential stored by browser sign-in.
+2. The management token stored by `hypequery login` or `hypequery login --device`,
+   for `HYPEQUERY_CLOUD_URL` when it is set, otherwise for your latest sign-in.
+3. The deploy credential stored by browser sign-in. With `HYPEQUERY_CLOUD_URL`
+   set, it is used only when it was issued by that Cloud.
 
 <CodeBlock>
 ```bash

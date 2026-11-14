@@ -21,6 +21,7 @@ import { isUnattended } from '../utils/input-mode.js';
 import { parseCapabilityList } from '../utils/capability-list.js';
 import { DEFAULT_CLOUD_URL } from '../utils/cloud-origin.js';
 import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
+import { VaultUnavailableError } from '../utils/cloud-vault.js';
 import {
   pollDeviceAuthorization,
   startDeviceAuthorization,
@@ -244,21 +245,37 @@ function defaultIsInteractive() {
 }
 
 /**
+ * What a person must read to finish signing in. Always stderr, in every
+ * output mode: `hypequery login --device > login.log` must still show the
+ * code, and stdout stays free for the command's result.
+ */
+function instruct(message: string) {
+  console.error(`  ${message}`);
+}
+
+/**
  * Browser sign-in also asks for a management token (AG-04). A Cloud without
- * them ignores the request and returns only the deploy credential; then any
- * older management token for this origin is dropped, so it can't outrank the
- * sign-in that just happened.
+ * them ignores the request and returns only the deploy credential. Then any
+ * older management token for this origin is dropped and no other origin's
+ * stays the default, so neither can outrank the sign-in that just happened.
+ *
+ * `deployCredentialError` is why the deploy credential could not be stored (no
+ * operating-system vault). The management token can still go to its owner-only
+ * file; when there is none to store, the sign-in fails with that error and the
+ * stored management tokens are left as they were.
  */
 async function storeBrowserManagementToken(
   body: unknown,
   origin: string,
   now: number,
   dependencies: LoginDependencies,
+  deployCredentialError?: VaultUnavailableError,
 ): Promise<StoredManagementCredential | null> {
   let management: StoredManagementCredential | null = null;
   try {
     management = managementCredentialFromResponse(body, { origin, now, signedInWith: 'browser' });
   } catch {
+    if (deployCredentialError) throw deployCredentialError;
     logger.warn('Cloud returned a management token the CLI could not use; continuing with the deploy credential.');
   }
   if (management) {
@@ -268,11 +285,13 @@ async function storeBrowserManagementToken(
         logger.warn(`The operating-system credential vault is unavailable, so the management token is stored in ${saved.path} (readable only by you).`);
       }
       return management;
-    } catch {
+    } catch (error) {
+      if (deployCredentialError) throw error;
       logger.warn('The management token could not be stored; continuing with the deploy credential.');
     }
   }
-  await (dependencies.deleteManagementCredentials ?? deleteManagementCredentials)({ cloudUrl: origin })
+  if (deployCredentialError) throw deployCredentialError;
+  await (dependencies.deleteManagementCredentials ?? deleteManagementCredentials)({ cloudUrl: origin, clearDefault: true })
     .catch(() => undefined);
   return null;
 }
@@ -306,11 +325,11 @@ async function deviceLogin(
     ...(capabilities ? { capabilities } : {}),
   }, flow);
   const minutes = Math.max(1, Math.round((authorization.expiresAt - (dependencies.now ?? Date.now)()) / 60_000));
-  logger.info(`To sign in to Hypequery Cloud, open ${authorization.verificationUri} and enter the code: ${authorization.userCode}`);
+  instruct(`To sign in to Hypequery Cloud, open ${authorization.verificationUri} and enter the code: ${authorization.userCode}`);
   if (authorization.verificationUriComplete) {
-    logger.info(`Or open this link, which fills in the code: ${authorization.verificationUriComplete}`);
+    instruct(`Or open this link, which fills in the code: ${authorization.verificationUriComplete}`);
   }
-  logger.info(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. Waiting for approval…`);
+  instruct(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. Waiting for approval…`);
   if ((dependencies.isInteractive ?? defaultIsInteractive)()) {
     await (dependencies.openBrowser ?? open)(authorization.verificationUriComplete ?? authorization.verificationUri)
       .catch(() => undefined);
@@ -436,21 +455,34 @@ export async function loginCommand(
     const body = await boundedJsonResponse(response);
     const now = (dependencies.now ?? Date.now)();
     const credential = tokenResponse(body, origin, now);
-    await (dependencies.saveCredential ?? saveCloudCredential)(credential);
-    const management = await storeBrowserManagementToken(body, origin, now, dependencies);
+    // The deploy credential lives only in the operating-system vault. Without
+    // one, the sign-in still succeeds when Cloud issued a management token,
+    // which has an owner-only file to fall back to and outranks the deploy
+    // credential in every command anyway.
+    let deployCredentialError: VaultUnavailableError | undefined;
+    try {
+      await (dependencies.saveCredential ?? saveCloudCredential)(credential);
+    } catch (error) {
+      if (!(error instanceof VaultUnavailableError)) throw error;
+      deployCredentialError = error;
+    }
+    const management = await storeBrowserManagementToken(body, origin, now, dependencies, deployCredentialError);
+    // What commands will use: the deploy credential, or the management token
+    // when it is the only one stored.
+    const stored = deployCredentialError && management ? management : credential;
     logger.success('Logged in to Hypequery Cloud');
     // Cloud resolves the target, so print what was actually issued rather than
     // what was requested.
-    if (credential.target) {
+    if (stored.target) {
       logger.info(
-        `Deployments target ${credential.target.project} / ${credential.target.environment}`,
+        `Deployments target ${stored.target.project} / ${stored.target.environment}`,
       );
     }
-    logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
+    logger.info(`Credential expires ${new Date(stored.expiresAt).toLocaleString()}`);
     emitResult({
       signedIn: true,
-      target: credential.target ?? null,
-      expiresAt: credential.expiresAt,
+      target: stored.target ?? null,
+      expiresAt: stored.expiresAt,
       managementTokenExpiresAt: management?.expiresAt ?? null,
     });
   } finally {

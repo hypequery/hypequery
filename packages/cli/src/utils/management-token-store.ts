@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   validateProtocolDeploymentReleaseTarget,
@@ -16,6 +16,7 @@ import {
   VaultUnavailableError,
   type CreateKeyringEntry,
 } from './cloud-vault.js';
+import { withFileLock } from './file-lock.js';
 
 /**
  * Management tokens (`hqmt_`), one per Cloud origin. Like the browser sign-in
@@ -23,6 +24,10 @@ import {
  * disk. Device sign-in exists for machines without a desktop, which often have
  * no vault either, so when the vault is unavailable the token is kept in this
  * file instead: owner-only (0600) in an owner-only directory (0700).
+ *
+ * Every change reads the file, updates the vault and writes the file back
+ * while holding the file's lock, so two sign-ins at once (to different Cloud
+ * origins, say) can't drop each other's entry.
  */
 const STORE_FILE = 'cloud-management-tokens.json';
 const VAULT_ACCOUNT_PREFIX = 'management:';
@@ -211,58 +216,60 @@ export async function saveManagementCredential(
   if (!isManagementTokenValue(credential.token) || !Number.isFinite(Date.parse(credential.expiresAt))) {
     throw new Error('Cannot store an invalid Hypequery Cloud management token.');
   }
-  let previous: StoreFile | null;
-  try {
-    previous = await readStore(file);
-  } catch {
-    // A new sign-in must be able to replace a malformed store.
-    previous = null;
-  }
-
-  let storage: ManagementTokenStorage = 'vault';
-  let previousPassword: string | null = null;
-  let vault: Awaited<ReturnType<typeof openVaultEntry>> | null = null;
-  try {
-    vault = await openVaultEntry(vaultAccount(origin), dependencies.createKeyringEntry);
-    previousPassword = await vault.getPassword();
-    await vault.setPassword(credential.token);
-  } catch (error) {
-    if (!(error instanceof VaultUnavailableError)) throw error;
-    storage = 'file';
-    vault = null;
-  }
-
-  const entry: StoredEntry = {
-    expiresAt: credential.expiresAt,
-    deploymentEndpoint: normalizeCloudDeploymentEndpoint(credential.deploymentEndpoint, origin),
-    ...(credential.organizationId !== undefined ? { organizationId: credential.organizationId } : {}),
-    ...(credential.project !== undefined ? { project: credential.project } : {}),
-    projectLimited: credential.projectLimited,
-    ...(credential.capabilities !== undefined ? { capabilities: [...credential.capabilities] } : {}),
-    ...(credential.target ? { target: credential.target } : {}),
-    signedInWith: credential.signedInWith,
-    storage,
-    ...(storage === 'file' ? { token: credential.token } : {}),
-  };
-  const next: StoreFile = {
-    version: 1,
-    current: origin,
-    origins: { ...(previous?.origins ?? {}), [origin]: entry },
-  };
-  try {
-    await writeStore(directory, file, next);
-  } catch (error) {
-    if (vault) {
-      if (previousPassword === null) await vault.deletePassword().catch(() => undefined);
-      else await vault.setPassword(previousPassword).catch(() => undefined);
+  return withFileLock(file, async () => {
+    let previous: StoreFile | null;
+    try {
+      previous = await readStore(file);
+    } catch {
+      // A new sign-in must be able to replace a malformed store.
+      previous = null;
     }
-    throw error;
-  }
-  // A token that moved from the vault to the file must not linger in the vault.
-  if (storage === 'file' && previous?.origins[origin]?.storage === 'vault') {
-    await deleteVaultToken(origin, dependencies);
-  }
-  return { storage, path: file };
+
+    let storage: ManagementTokenStorage = 'vault';
+    let previousPassword: string | null = null;
+    let vault: Awaited<ReturnType<typeof openVaultEntry>> | null = null;
+    try {
+      vault = await openVaultEntry(vaultAccount(origin), dependencies.createKeyringEntry);
+      previousPassword = await vault.getPassword();
+      await vault.setPassword(credential.token);
+    } catch (error) {
+      if (!(error instanceof VaultUnavailableError)) throw error;
+      storage = 'file';
+      vault = null;
+    }
+
+    const entry: StoredEntry = {
+      expiresAt: credential.expiresAt,
+      deploymentEndpoint: normalizeCloudDeploymentEndpoint(credential.deploymentEndpoint, origin),
+      ...(credential.organizationId !== undefined ? { organizationId: credential.organizationId } : {}),
+      ...(credential.project !== undefined ? { project: credential.project } : {}),
+      projectLimited: credential.projectLimited,
+      ...(credential.capabilities !== undefined ? { capabilities: [...credential.capabilities] } : {}),
+      ...(credential.target ? { target: credential.target } : {}),
+      signedInWith: credential.signedInWith,
+      storage,
+      ...(storage === 'file' ? { token: credential.token } : {}),
+    };
+    const next: StoreFile = {
+      version: 1,
+      current: origin,
+      origins: { ...(previous?.origins ?? {}), [origin]: entry },
+    };
+    try {
+      await writeStore(directory, file, next);
+    } catch (error) {
+      if (vault) {
+        if (previousPassword === null) await vault.deletePassword().catch(() => undefined);
+        else await vault.setPassword(previousPassword).catch(() => undefined);
+      }
+      throw error;
+    }
+    // A token that moved from the vault to the file must not linger in the vault.
+    if (storage === 'file' && previous?.origins[origin]?.storage === 'vault') {
+      await deleteVaultToken(origin, dependencies);
+    }
+    return { storage, path: file };
+  });
 }
 
 async function materialize(
@@ -353,45 +360,61 @@ function salvageOrigins(text: string): string[] {
 /**
  * Removes the management token for `cloudUrl`, or every stored management
  * token when it is omitted. A malformed store is still removed.
+ *
+ * `clearDefault` is for a sign-in to `cloudUrl` that left no management token
+ * (a Cloud without them): no other origin's token stays the default either,
+ * so commands follow the sign-in that just happened, not an older one to
+ * another Cloud. Other origins' tokens stay stored for `HYPEQUERY_CLOUD_URL`.
  */
 export async function deleteManagementCredentials(
-  options: { readonly cloudUrl?: string } = {},
+  options: { readonly cloudUrl?: string; readonly clearDefault?: boolean } = {},
   dependencies: ManagementTokenStoreDependencies = {},
 ): Promise<void> {
   const { directory, file } = location(dependencies);
-  let text: string;
-  try {
-    text = await readFile(file, 'utf8');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
-    throw error;
-  }
-  if (options.cloudUrl !== undefined) {
-    const origin = normalizeCloudOrigin(options.cloudUrl);
-    let store: StoreFile | null = null;
+  // Nothing stored: don't create the config directory just to hold a lock.
+  if (!await exists(file)) return;
+  await withFileLock(file, async () => {
+    let text: string;
     try {
-      store = parseStore(text);
-    } catch {
-      store = null;
+      text = await readFile(file, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
     }
-    if (store) {
-      if (!(origin in store.origins)) return;
-      await deleteVaultToken(origin, dependencies);
-      const origins = Object.fromEntries(Object.entries(store.origins).filter(([key]) => key !== origin));
-      if (Object.keys(origins).length > 0) {
-        await writeStore(directory, file, {
-          version: 1,
-          current: store.current === origin ? null : store.current,
-          origins,
-        });
+    if (options.cloudUrl !== undefined) {
+      const origin = normalizeCloudOrigin(options.cloudUrl);
+      let store: StoreFile | null = null;
+      try {
+        store = parseStore(text);
+      } catch {
+        store = null;
+      }
+      if (store) {
+        const current = options.clearDefault || store.current === origin ? null : store.current;
+        if (!(origin in store.origins) && current === store.current) return;
+        if (origin in store.origins) await deleteVaultToken(origin, dependencies);
+        const origins = Object.fromEntries(Object.entries(store.origins).filter(([key]) => key !== origin));
+        if (Object.keys(origins).length > 0) {
+          await writeStore(directory, file, { version: 1, current, origins });
+          return;
+        }
+        await unlink(file).catch(ignoreMissing);
         return;
       }
-      await unlink(file).catch(ignoreMissing);
-      return;
     }
+    for (const origin of salvageOrigins(text)) await deleteVaultToken(origin, dependencies);
+    await unlink(file).catch(ignoreMissing);
+  });
+}
+
+async function exists(file: string): Promise<boolean> {
+  try {
+    await stat(file);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
   }
-  for (const origin of salvageOrigins(text)) await deleteVaultToken(origin, dependencies);
-  await unlink(file).catch(ignoreMissing);
 }
 
 function ignoreMissing(error: unknown) {

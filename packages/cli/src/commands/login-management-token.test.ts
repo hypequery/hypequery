@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../utils/logger.js', () => ({
@@ -6,7 +9,15 @@ vi.mock('../utils/logger.js', () => ({
 
 import { logger } from '../utils/logger.js';
 import { setUnattended } from '../utils/input-mode.js';
-import type { StoredManagementCredential } from '../utils/management-token-store.js';
+import { resolveDeploymentCredential } from '../utils/cloud-deployment-access.js';
+import { VaultUnavailableError } from '../utils/cloud-vault.js';
+import type { StoredCloudCredential } from '../utils/cloud-credential-store.js';
+import {
+  deleteManagementCredentials as deleteStoredManagementCredentials,
+  loadManagementCredential,
+  saveManagementCredential as saveStoredManagementCredential,
+  type StoredManagementCredential,
+} from '../utils/management-token-store.js';
 import { loginCommand, logoutCommand, type LoginDependencies } from './login.js';
 
 const ORIGIN = 'https://cloud.example.test';
@@ -86,14 +97,22 @@ describe('hypequery login --device', () => {
       () => approved(),
     );
     const dependencies = deviceDependencies(cloud);
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     await loginCommand({ cloudUrl: ORIGIN, device: true, project: 'shop', capabilities: 'workspace:view,deployment:publish' }, dependencies);
+    // The code is for a person: stderr in every output mode, so redirecting
+    // stdout (`login --device > login.log`) never hides it.
+    const printed = stderr.mock.calls.map(([line]) => String(line)).join('\n');
+    expect(stdout).not.toHaveBeenCalled();
+    expect(vi.mocked(logger.info).mock.calls.join('\n')).not.toContain('BCDF-GHJK');
+    stderr.mockRestore();
+    stdout.mockRestore();
 
     expect(cloud.requests[0]).toEqual({
       path: '/api/cli/device/code',
       body: { client_id: 'hypequery-cli', project: 'shop', capabilities: ['workspace:view', 'deployment:publish'] },
     });
     expect(dependencies.sleep.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([5_000, 5_000, 10_000]);
-    const printed = vi.mocked(logger.info).mock.calls.map(([line]) => String(line)).join('\n');
     expect(printed).toContain('BCDF-GHJK');
     expect(printed).toContain(`${ORIGIN}/cli/device`);
     expect(printed).not.toContain(MANAGEMENT_TOKEN);
@@ -226,7 +245,115 @@ describe('hypequery login (browser) and management tokens', () => {
     });
     expect(saveCredential).toHaveBeenCalledWith(expect.objectContaining({ token: DEPLOY_TOKEN }));
     expect(saveManagementCredential).not.toHaveBeenCalled();
-    expect(deleteManagementCredentials).toHaveBeenCalledWith({ cloudUrl: ORIGIN });
+    expect(deleteManagementCredentials).toHaveBeenCalledWith({ cloudUrl: ORIGIN, clearDefault: true });
+  });
+
+  it('makes a browser sign-in to a Cloud without management tokens the one commands use', async () => {
+    const configDirectory = await mkdtemp(path.join(tmpdir(), 'hypequery-login-test-'));
+    try {
+      const passwords = new Map<string, string>();
+      const store = {
+        configDirectory,
+        createKeyringEntry: (_service: string, account: string) => ({
+          setPassword: (password: string) => {
+            passwords.set(account, password);
+          },
+          getPassword: () => passwords.get(account) ?? null,
+          deletePassword: () => passwords.delete(account),
+        }),
+      };
+      // An earlier device sign-in to another Cloud is the default.
+      const other = 'https://other.example.test';
+      await saveStoredManagementCredential({
+        cloudUrl: other,
+        token: MANAGEMENT_TOKEN,
+        expiresAt: '2030-01-30T12:00:00.000Z',
+        deploymentEndpoint: `${other}/v1/deployments/submissions`,
+        projectLimited: false,
+        target: { project: 'acme:other', environment: 'production' },
+        signedInWith: 'device',
+      }, store);
+
+      let saved: StoredCloudCredential | null = null;
+      await loginCommand({ cloudUrl: ORIGIN }, {
+        fetch: vi.fn(async () => json(200, tokenResponse())) as typeof fetch,
+        now: () => NOW,
+        openBrowser: authorizeInBrowser,
+        saveCredential: async (credential) => {
+          saved = credential;
+        },
+        saveManagementCredential: credential => saveStoredManagementCredential(credential, store),
+        deleteManagementCredentials: options => deleteStoredManagementCredentials(options, store),
+        timeoutMs: 2_000,
+      });
+
+      const access = {
+        loadCredential: async () => saved && { ...saved, expiresAt: new Date(Date.now() + 60_000).toISOString() },
+        loadManagementCredential: (options: { readonly cloudUrl?: string }) => loadManagementCredential(options, store),
+      };
+      // With no target flags and no HYPEQUERY_CLOUD_URL, commands go to the
+      // Cloud just signed in to, not the older device sign-in's.
+      await expect(resolveDeploymentCredential(undefined, { env: {}, ...access })).resolves.toMatchObject({
+        source: 'login',
+        endpoint: `${ORIGIN}/v1/deployments/submissions`,
+        token: DEPLOY_TOKEN,
+        target: { project: 'acme:shop', environment: 'production' },
+      });
+      // The other Cloud's token is still there when it is asked for by name.
+      await expect(resolveDeploymentCredential(undefined, { env: { HYPEQUERY_CLOUD_URL: other }, ...access }))
+        .resolves.toMatchObject({ source: 'management-token', endpoint: `${other}/v1/deployments/submissions` });
+    } finally {
+      await rm(configDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('signs in with only the management token where there is no vault for the deploy credential', async () => {
+    const saveManagementCredential = vi.fn(async () => ({ storage: 'file' as const, path: '/config/cloud-management-tokens.json' }));
+    const deleteManagementCredentials = vi.fn(async () => undefined);
+    await expect(loginCommand({ cloudUrl: ORIGIN }, {
+      fetch: vi.fn(async () => json(200, tokenResponse({
+        management_token: MANAGEMENT_TOKEN,
+        management_token_expires_at: '2030-01-30T12:00:00.000Z',
+      }))) as typeof fetch,
+      now: () => NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(async () => {
+        throw new VaultUnavailableError(new Error('no Secret Service'));
+      }),
+      saveManagementCredential,
+      deleteManagementCredentials,
+      timeoutMs: 2_000,
+    })).resolves.toBeUndefined();
+    expect(saveManagementCredential).toHaveBeenCalledWith(expect.objectContaining({
+      token: MANAGEMENT_TOKEN,
+      target: { project: 'acme:shop', environment: 'production' },
+    }));
+    expect(deleteManagementCredentials).not.toHaveBeenCalled();
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(expect.stringContaining('/config/cloud-management-tokens.json'));
+    expect(vi.mocked(logger.success)).toHaveBeenCalledWith('Logged in to Hypequery Cloud');
+    // The expiry reported is the stored credential's, not the deploy credential's.
+    expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+      `Credential expires ${new Date('2030-01-30T12:00:00.000Z').toLocaleString()}`,
+    );
+  });
+
+  it('fails without a vault when Cloud issued no management token, leaving stored tokens alone', async () => {
+    const saveManagementCredential = vi.fn();
+    const deleteManagementCredentials = vi.fn(async () => undefined);
+    await expect(loginCommand({ cloudUrl: ORIGIN }, {
+      fetch: vi.fn(async () => json(200, tokenResponse())) as typeof fetch,
+      now: () => NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(async () => {
+        throw new VaultUnavailableError(new Error('no Secret Service'));
+      }),
+      saveManagementCredential,
+      deleteManagementCredentials,
+      timeoutMs: 2_000,
+    })).rejects.toBeInstanceOf(VaultUnavailableError);
+    expect(saveManagementCredential).not.toHaveBeenCalled();
+    expect(deleteManagementCredentials).not.toHaveBeenCalled();
+    expect(vi.mocked(logger.success)).not.toHaveBeenCalled();
   });
 });
 

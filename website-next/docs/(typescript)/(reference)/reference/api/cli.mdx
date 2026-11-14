@@ -454,11 +454,12 @@ npx hypequery login --device --project shop --capabilities workspace:view,deploy
 Both store a management token (`hqmt_`, 30 days) per Cloud origin, in the
 operating-system credential vault or, where there is none, an owner-only
 (`0600`) file in the CLI's config directory. `hypequery logout` revokes and
-removes every stored token. Device sign-in doesn't save a deployment target
+removes every stored token. `--device` prints its code and URL on stderr. Device sign-in doesn't save a deployment target
 yet, so pass `--project` and `--environment` to the deploy commands after it.
 
 Commands that talk to Cloud use `HYPEQUERY_API_TOKEN` first, then the stored
-management token, then browser sign-in's deploy credential. `HYPEQUERY_API_TOKEN`
+management token (for `HYPEQUERY_CLOUD_URL` when it is set, otherwise for the
+latest sign-in), then browser sign-in's deploy credential. `HYPEQUERY_API_TOKEN`
 may hold a management token (`hqmt_…`) or a deploy key (`hqdp_…`); either goes to
 `HYPEQUERY_CLOUD_URL` unless `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names
 another endpoint. Any other token needs that explicit endpoint.
