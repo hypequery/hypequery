@@ -55,7 +55,7 @@ const alternativeRows = [
   ['ClickHouse Cloud', 'Usage: compute-unit-hours plus storage', '$300 in credits for 30 days, then pay as you go', <Link key="mcs" href="/blog/managed-clickhouse-services-compared" className={extLink}>managed services compared</Link>],
   ['Tinybird', 'Plan sized in vCPUs plus overages', 'Free plan; Developer from $25/month', <Link key="tb" href="/compare/clickhouse-cloud-vs-tinybird" className={extLink}>ClickHouse Cloud vs Tinybird</Link>],
   ['Aiven for ClickHouse', 'Hourly rate per service plan', 'Developer tier $43/month', <Link key="ai" href="/blog/managed-clickhouse-services-compared" className={extLink}>managed services compared</Link>],
-  ['Altinity.Cloud', 'Per server, vCPU and storage; BYOC per vCPU-hour', '14-day trial; BYOC from $0.0625 per vCPU-hour', <Link key="al" href="/blog/managed-clickhouse-services-compared" className={extLink}>managed services compared</Link>],
+  ['Altinity.Cloud', 'Hourly per server and per vCPU, plus storage per GB, by provider and region', 'Free trial; rates from the calculator on its pricing page', <Link key="al" href="/blog/managed-clickhouse-services-compared" className={extLink}>managed services compared</Link>],
   ['Self-hosted ClickHouse', 'Open source (Apache 2.0)', 'No licence fee; you pay for servers and operations', <a key="oss" href="https://github.com/ClickHouse/ClickHouse" rel="noopener nofollow" className={extLink}>github.com/ClickHouse</a>],
 ];
 
@@ -97,12 +97,13 @@ const faqItems: FaqItem[] = [
   },
 ];
 
-// ClickHouse, Tinybird and Aiven figures were checked for this page on VERIFIED_ON. The Altinity row
-// comes from the managed services comparison (checked 8 November 2026).
+// Every vendor row was checked for this page on VERIFIED_ON; Altinity publishes rates only through its
+// calculator, so its row describes the billing units rather than a figure.
 const sources = [
   { vendor: 'ClickHouse', urls: [PRICING_URL] },
   { vendor: 'Tinybird', urls: ['https://www.tinybird.co/pricing'] },
   { vendor: 'Aiven', urls: ['https://aiven.io/clickhouse'] },
+  { vendor: 'Altinity', urls: ['https://altinity.com/clickhouse-pricing/'] },
 ];
 
 export default function ClickHouseCloudPricingPage() {
@@ -199,8 +200,7 @@ export default function ClickHouseCloudPricingPage() {
         title="ClickHouse Cloud vs other ways to run ClickHouse"
         intro={
           <p>
-            Entry points from each vendor’s own pricing page: ClickHouse Cloud, Tinybird and Aiven checked on{' '}
-            {VERIFIED_ON}, Altinity as recorded on 8 November 2026 in our{' '}
+            Entry points from each vendor’s own pricing page, checked on {VERIFIED_ON}. For more on each, see our{' '}
             <Link href="/blog/managed-clickhouse-services-compared" className={inlineLink}>
               managed ClickHouse services comparison
             </Link>
