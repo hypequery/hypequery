@@ -46,9 +46,9 @@ function packageNameFromSpecifier(specifier: string): string {
   return separatorIndex === -1 ? specifier : specifier.slice(0, separatorIndex);
 }
 
-async function readProjectPackageJson(): Promise<PackageJson | null> {
+async function readProjectPackageJson(directory = process.cwd()): Promise<PackageJson | null> {
   try {
-    const file = await readFile(path.join(process.cwd(), 'package.json'), 'utf8');
+    const file = await readFile(path.join(directory, 'package.json'), 'utf8');
     return JSON.parse(file) as PackageJson;
   } catch {
     return null;
@@ -64,7 +64,7 @@ async function readCliPackageJson(): Promise<PackageJson | null> {
   }
 }
 
-function detectPackageManager(pkgJson: PackageJson | null): PackageManager {
+function detectPackageManager(pkgJson: PackageJson | null, cwd = process.cwd()): PackageManager {
   const userAgent = process.env.npm_config_user_agent ?? '';
   if (userAgent.includes('pnpm')) return 'pnpm';
   if (userAgent.includes('yarn')) return 'yarn';
@@ -75,7 +75,6 @@ function detectPackageManager(pkgJson: PackageJson | null): PackageManager {
   if (declared.startsWith('yarn')) return 'yarn';
   if (declared.startsWith('bun')) return 'bun';
 
-  const cwd = process.cwd();
   if (existsSync(path.join(cwd, 'pnpm-lock.yaml'))) return 'pnpm';
   if (existsSync(path.join(cwd, 'yarn.lock'))) return 'yarn';
   if (existsSync(path.join(cwd, 'bun.lockb'))) return 'bun';
@@ -253,3 +252,34 @@ export async function installScaffoldDependencies(
 }
 
 export const installServeDependencies = installScaffoldDependencies;
+
+const DEV_FLAG: Record<PackageManager, string> = { pnpm: '-D', yarn: '-D', npm: '-D', bun: '-d' };
+
+/** The command that adds `specifier` as a dev dependency of the project in `directory`. */
+export async function devDependencyInstallCommand(specifier: string, directory = process.cwd()): Promise<string[]> {
+  const pkgJson = await readProjectPackageJson(directory);
+  const manager = detectPackageManager(pkgJson, directory);
+  return [manager, manager === 'npm' ? 'install' : 'add', DEV_FLAG[manager], specifier];
+}
+
+/**
+ * Add one dev dependency with the project's package manager. Resolves to false
+ * (after saying why) when the install fails, so the caller can explain the
+ * manual step instead.
+ */
+export async function installDevDependency(specifier: string, directory = process.cwd()): Promise<boolean> {
+  const [command, ...args] = await devDependencyInstallCommand(specifier, directory);
+  logger.info(`Installing ${specifier} with ${command}...`);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(command!, args, { cwd: directory, stdio: childProcessStdio() });
+      child.on('error', reject);
+      child.on('close', code => (code === 0 ? resolve() : reject(new Error(`${command} exited with code ${code}`))));
+    });
+    logger.success(`Installed ${specifier}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to install ${specifier}: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
+}

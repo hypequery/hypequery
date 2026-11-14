@@ -394,3 +394,18 @@ export async function confirmTakeOwnership(project: string): Promise<boolean> {
   }, '--take-ownership');
   return confirmed === true;
 }
+
+/**
+ * Before installing `@hypequery/onboard-engine` into the project, which
+ * `schema inspect` and `onboard` load at runtime. Defaults to yes: the
+ * command can't run without it.
+ */
+export async function confirmInstallOnboardEngine(command: string): Promise<boolean> {
+  const { install } = await ask({
+    type: 'confirm',
+    name: 'install',
+    message: `Install it now (${command})?`,
+    initial: true,
+  }, '--no-input, after installing @hypequery/onboard-engine yourself');
+  return install === true;
+}
