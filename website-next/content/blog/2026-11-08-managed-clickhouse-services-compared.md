@@ -4,7 +4,7 @@ description: "Every active way to run ClickHouse without operating it yourself, 
 seoTitle: "Managed ClickHouse Services Compared: Best Platforms 2026"
 seoDescription: "ClickHouse Cloud, Tinybird, Altinity.Cloud, Aiven, Instaclustr, Elestio, Alibaba and Yandex compared on deployment, pricing and fit. DoubleCloud closed."
 pubDate: 2026-11-08
-updatedAt: 2026-11-08
+updatedAt: 2026-11-14
 heroImage: ""
 slug: managed-clickhouse-services-compared
 status: published
@@ -64,6 +64,8 @@ Altinity.Cloud is a managed service from Altinity that runs unmodified open-sour
 It suits teams that want open-source ClickHouse, hands-on support, or a managed service inside their own cloud account.
 
 ## Aiven for ClickHouse
+
+**Can Aiven run managed ClickHouse on Google Cloud?** Yes. Aiven for ClickHouse runs on Google Cloud as well as AWS, Azure, DigitalOcean and OVH, and can run in your own GCP account through BYOC with a commitment deal. There is no free ClickHouse plan; the cheapest is the $43/month Developer tier, on DigitalOcean.
 
 Aiven for ClickHouse is a managed service "based on open source ClickHouse" ([docs](https://aiven.io/docs/products/clickhouse)) from Aiven, which also runs managed Kafka and PostgreSQL. Its pitch is a flat, predictable hourly price per plan.
 
