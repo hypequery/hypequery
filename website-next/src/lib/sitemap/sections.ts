@@ -11,6 +11,7 @@ import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 import { getCompareArticle } from '@/lib/compare-article';
 import { maybeUpdatedFor } from '@/data/page-dates';
+import { blogLastModified } from './dates';
 
 /**
  * One child sitemap per page type. `/sitemap.xml` is the index
@@ -44,7 +45,9 @@ async function blogEntries(): Promise<MetadataRoute.Sitemap> {
   const posts = (await getPosts()).filter((post) => !redirectedBlogSlugs.has(post.slug));
   const entries = posts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`).toString(),
-    lastModified: post.data.date ? new Date(post.data.date) : undefined,
+    // The last update when a post has one (`updatedAt` frontmatter), so refreshed posts
+    // tell crawlers they changed; otherwise the publish date.
+    lastModified: blogLastModified(post.data.updated, post.data.date),
   }));
   // The hub changes whenever a post is published.
   return [{ url: absoluteUrl('/blog').toString(), lastModified: latest(entries) }, ...entries];
