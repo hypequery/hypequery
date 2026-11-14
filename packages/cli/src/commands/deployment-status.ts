@@ -27,7 +27,7 @@ export async function deploymentStatusCommand(
   dependencies: DeploymentStatusDependencies = {},
 ): Promise<void> {
   const access = await resolveDeploymentCredential(options.endpoint, dependencies);
-  const target = deploymentTargetFromOptions(options, access.storedCredential);
+  const target = deploymentTargetFromOptions(options, access);
   const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
     endpoint: access.endpoint,
     token: access.token,

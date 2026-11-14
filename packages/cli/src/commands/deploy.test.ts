@@ -139,7 +139,7 @@ describe('deploy command', () => {
         environment: undefined,
         output: 'analytics/hypequery-deployment.release.json',
       },
-      { loadCredential, outputFlagLabel: '--release-output' },
+      { env: {}, loadCredential, loadManagementCredential: undefined, outputFlagLabel: '--release-output' },
     );
     expect(submitDeployment).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
@@ -247,7 +247,12 @@ describe('deploy command', () => {
         environment: 'staging',
         output: 'dist/cloud-release.json',
       },
-      { loadCredential: undefined, outputFlagLabel: '--release-output' },
+      {
+        env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+        loadCredential: undefined,
+        loadManagementCredential: undefined,
+        outputFlagLabel: '--release-output',
+      },
     );
     expect(submitDeployment).toHaveBeenCalledWith(
       'dist/cloud-bundle',
@@ -305,7 +310,7 @@ describe('deploy command', () => {
       env: {},
       loadCredential,
       buildDeployment,
-    })).rejects.toThrow(/Missing deployment endpoint/);
+    })).rejects.toThrow(/Missing deployment credential/);
 
     expect(loadCredential).toHaveBeenCalled();
     expect(buildDeployment).not.toHaveBeenCalled();
@@ -670,7 +675,7 @@ describe('deploy command', () => {
       env: { HYPEQUERY_API_TOKEN: 'explicit-token' },
       loadCredential,
     })).rejects.toThrow(
-      /HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT/,
+      /HYPEQUERY_API_TOKEN is not a hypequery Cloud token.*requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT/s,
     );
 
     expect(loadCredential).not.toHaveBeenCalled();
@@ -698,7 +703,7 @@ describe('deploy command', () => {
     await expect(submitDeploymentCommand('dist/bundle', { release: release.path }, {
       env: {},
       loadCredential: async () => null,
-    })).rejects.toThrow(/Missing deployment endpoint/);
+    })).rejects.toThrow(/Missing deployment credential/);
     await expect(submitDeploymentCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',

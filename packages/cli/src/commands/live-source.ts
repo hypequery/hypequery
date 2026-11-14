@@ -47,7 +47,7 @@ async function liveSource(
       'The stored CLI credential cannot read deployed source. Run `hypequery login` again.',
     );
   }
-  const target = deploymentTargetFromOptions(options, access.storedCredential);
+  const target = deploymentTargetFromOptions(options, access);
   const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
     endpoint: access.endpoint,
     token: access.token,

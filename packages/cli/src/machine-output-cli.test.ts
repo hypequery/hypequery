@@ -171,7 +171,8 @@ describe('compiled CLI machine output (--json, exit codes, no TTY)', { timeout: 
   it('an endpoint or token alone is a configuration error to correct', async () => {
     const endpoint = await runJson(['deployment:status'], { env: { HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://cloud.example.test/api/deployments/submissions' } });
     expect(endpoint.document.error.code).toBe('CLOUD_ENDPOINT_WITHOUT_TOKEN');
-    const token = await runJson(['deployment:status'], { env: { HYPEQUERY_API_TOKEN: 'hqdp_xxxxxxxxxxxxxxxxxxxx' } });
+    // An hqmt_ or hqdp_ token finds its own endpoint; any other needs one named.
+    const token = await runJson(['deployment:status'], { env: { HYPEQUERY_API_TOKEN: 'not-a-cloud-token' } });
     expect(token.document.error.code).toBe('CLOUD_TOKEN_WITHOUT_ENDPOINT');
   });
 
