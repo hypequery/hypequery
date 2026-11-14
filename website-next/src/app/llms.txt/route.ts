@@ -6,6 +6,7 @@ import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
 import { PRODUCT_DEFINITION } from '@/data/product';
 import { docsPageTitle } from '@/lib/docs-section-label';
+import { HTML_TWIN_ROOT } from '@/lib/markdown-twin';
 
 // Static, regenerated only at build time.
 export const revalidate = false;
@@ -20,9 +21,10 @@ function sectionOf(url: string): string {
   return parts.length > 1 ? parts[0] : 'Guides';
 }
 
-// Product pages that answer "which tool should I use" questions. These have no
-// Markdown copy, so they link to the HTML page.
+// Product pages that answer "which tool should I use" questions. Each links to its
+// Markdown twin, converted from the rendered page (src/app/llms.mdx/pages).
 const PRODUCT_PAGES: Entry[] = [
+  { title: 'hypequery homepage', url: '/', description: 'Overview: define metrics once in TypeScript or Python, then serve dashboards, APIs and agents from ClickHouse.' },
   { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and 8 tools compared on embed model, licensing, self-hosting and pricing.' },
   { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
   ...semanticLayerPages.map((page) => ({ title: page.label, url: page.href, description: page.description })),
@@ -101,7 +103,7 @@ export function GET() {
     '',
     `> ${PRODUCT_DEFINITION}`,
     '',
-    `Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
+    `Each link below points to the clean Markdown version of the page where one exists. Any page under /docs, /blog, /compare, /examples, /recipes or /guides, and the homepage and product pages, also serves Markdown when requested with a .md suffix (/index.md for the homepage) or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
     '',
     '## Start here',
     '',
@@ -129,7 +131,7 @@ export function GET() {
   }
   lines.push('', '## Alternatives and use cases', '');
   for (const e of PRODUCT_PAGES) {
-    lines.push(entryLine({ ...e, url: absoluteUrl(e.url).toString() }));
+    lines.push(entryLine({ ...e, url: absoluteUrl(e.url === '/' ? HTML_TWIN_ROOT : `${HTML_TWIN_ROOT}${e.url}`).toString() }));
   }
   lines.push('');
 
