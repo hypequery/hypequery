@@ -4,6 +4,7 @@ description: "Prisma has no ClickHouse connector, and the MySQL-compat-port work
 seoTitle: "Does Prisma Support ClickHouse? No — Here's What to Use Instead"
 seoDescription: "No: Prisma has no ClickHouse connector. Why the MySQL port 9004 workaround fails, and how to pair Prisma with a type-safe ClickHouse layer instead."
 pubDate: 2026-07-01
+updatedAt: 2026-11-14
 heroImage: ""
 slug: does-prisma-support-clickhouse
 status: published
@@ -12,7 +13,7 @@ tags:
   - TypeScript
 ---
 
-No — Prisma does not support ClickHouse. There is no ClickHouse connector, and the feature requests tracking one ([#16174](https://github.com/prisma/prisma/issues/16174) and [#23292](https://github.com/prisma/prisma/issues/23292)) have been open for years without a connector on the roadmap.
+No — Prisma does not support ClickHouse. There is no ClickHouse connector, and the main feature request ([#16174](https://github.com/prisma/orm/issues/16174), open since November 2022) has no connector on the roadmap. A second request ([#23292](https://github.com/prisma/orm/issues/23292)) was closed as not planned in February 2024.
 
 **Short answer:** you cannot point Prisma at ClickHouse and expect it to work. The one workaround people try — Prisma's MySQL provider against ClickHouse's MySQL compatibility port (9004) — breaks quickly on real workloads because ClickHouse only speaks a subset of MySQL's SQL and none of Prisma's assumptions about migrations, transactions, or types hold. The pattern that actually works in production is to keep Prisma for your transactional Postgres or MySQL database and add a ClickHouse-native TypeScript layer for analytics. That's the setup this post walks through, with both clients living in the same service.
 
