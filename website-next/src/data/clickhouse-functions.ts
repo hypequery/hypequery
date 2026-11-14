@@ -1228,7 +1228,7 @@ print(result.data[0])  # {'period': '2026-03-09 00:00:00', 'paid_cents': 4780, '
     description:
       'Returns the arithmetic mean (sum / count) of non-NULL values in a numeric column. Always returns Float64. Use avgIf(col, cond) for conditional averages in a single pass.',
     longDescription:
-      'avg() is the standard mean aggregate for ClickHouse analytics: average order value, average session length, average response time (though quantile() is usually better for latency). It is implemented as sum(col) / count(col) internally. For weighted averages use sumProduct(col, weight) / sum(weight) with raw SQL.',
+      'avg() is the standard mean aggregate for ClickHouse analytics: average order value, average session length, average response time (though quantile() is usually better for latency). It is implemented as sum(col) / count(col) internally. For weighted averages use avgWeighted(col, weight), or sum(col * weight) / sum(weight).',
     exampleSql: `SELECT
   toStartOfDay(created_at) AS day,
   avg(order_value) AS aov,
