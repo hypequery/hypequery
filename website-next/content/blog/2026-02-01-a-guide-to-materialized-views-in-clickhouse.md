@@ -577,6 +577,7 @@ Skip the view when the raw query is already fast enough for how often it runs. C
 - [Refreshable materialized views in ClickHouse](/blog/clickhouse-refreshable-materialized-views): `REFRESH EVERY`, `APPEND`, `DEPENDS ON` and monitoring
 - [Create a materialized view with a TO table and backfill it](/blog/clickhouse-create-materialized-view-to-table-backfill)
 - [Projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views)
+- Runnable versions: [incremental vs refreshable rollups](/examples/materialized-view-rollups) and [refreshable materialized views end to end](/guides/refreshable-materialized-views)
 - [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)
 - [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)
 - [ClickHouse with TypeScript](/clickhouse-typescript) and [ClickHouse with Python](/clickhouse-python)

@@ -219,6 +219,7 @@ Window functions earn their keep when the row-relative value itself matters: ran
 ## Where to go from here
 
 - [ClickHouse LIMIT BY in TypeScript](/blog/clickhouse-limit-by-typescript) — the ClickHouse-native alternative for top-N-per-group
+- [Sessionization with lagInFrame](/recipes/sessionization) — a runnable recipe that splits events into sessions with a window function
 - [ClickHouse query builder](/clickhouse-query-builder) — what hypequery's builder covers natively, and where the escape hatches are
 - [ClickHouse with TypeScript](/clickhouse-typescript) — the full picture: generated types, runtime type mappings, and the query builder
 - [quantile()](/clickhouse/functions/quantile) — percentile aggregates without window functions

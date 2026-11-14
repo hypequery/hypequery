@@ -230,6 +230,7 @@ print(sunday.data)  # ({'period': '2026-03-01', 'events': 500},)`,
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
+      { href: '/recipes/iso-week-bucketing', label: 'Recipe: ISO week buckets and %G-W%V labels' },
     ],
     searchIntentCards: [
       {
@@ -762,6 +763,7 @@ for row in result.named_results():
       { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
+      { href: '/recipes/iso-week-bucketing', label: 'Recipe: ISO week buckets and %G-W%V labels' },
     ],
     searchIntentCards: [
       {
@@ -1339,6 +1341,7 @@ for row in result.data:
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
+      { href: '/recipes/p95-latency', label: 'Recipe: p95 latency per event type' },
     ],
     searchIntentCards: [
       {
@@ -1462,6 +1465,7 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/blog/clickhouse-array-functions-typescript', label: 'ClickHouse array functions' },
+      { href: '/recipes/grouparray-user-timelines', label: 'Recipe: ordered per-user timelines with groupArray' },
     ],
     searchIntentCards: [
       {
@@ -1841,6 +1845,7 @@ print(result.result_rows)  # [('A', 30), ('B', 30), ('C', 30), ('D', 30), ('F', 
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
+      { href: '/recipes/multiif-bucketing', label: 'Recipe: latency and status buckets with multiIf' },
     ],
     searchIntentCards: [
       {

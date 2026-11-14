@@ -217,5 +217,6 @@ The nice thing about having `.final()`, `.argMax()`, and `.limitBy()` as first-c
 
 - [LIMIT BY in TypeScript](/blog/clickhouse-limit-by-typescript) — the full guide to top-N-per-group queries, including pagination interactions.
 - [A guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse) — precompute deduped state instead of paying at query time.
+- [Upserts and deletes with ReplacingMergeTree](/recipes/replacingmergetree-upserts) — a runnable recipe with a typed dataset over the deduplicated table.
 - [ClickHouse for real-time analytics](/clickhouse-real-time-analytics) — where merge-time semantics fit in a streaming ingest architecture.
 - [Quick start](/docs/quick-start) — generate types from your schema and run your first typed query in about five minutes.
