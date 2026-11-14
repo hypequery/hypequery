@@ -38,6 +38,10 @@ PR #963 fixed what existing pages could fix. These three clusters have real dema
 
 **Links in:** the chDB tutorial (rename its section to point here), `/clickhouse-python`, and `/guides/clickhouse-vs-postgres-app-analytics`.
 
+## After the 2026-12-01 recheck
+
+- `/compare/clickhouse-cloud-vs-tinybird` is titled "Is Tinybird More Expensive Than ClickHouse Cloud? (2026)" (224 impressions for that question). It also ranks ~6–7 for "clickhouse vs tinybird" (140/mo, KD 0), which the title doesn't contain. If the November rewrite hasn't lifted CTR by then, try "ClickHouse Cloud vs Tinybird: Is Tinybird More Expensive? (2026)". It's left alone for now so the recheck can measure the rewrite on its own.
+
 ## Not worth a page
 
 - **"Agentic AI"** (90k, KD 58): generic intent and unwinnable.
