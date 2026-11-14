@@ -4,6 +4,7 @@ description: "Looking for executeTakeFirst in ClickHouse? If you're coming from 
 seoTitle: "ClickHouse executeTakeFirst Alternative — hypequery vs Kysely"
 seoDescription: "Looking for executeTakeFirst in ClickHouse? If you're coming from Kysely, here's how hypequery handles single-row queries and what the equivalent patterns look like."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-executetakefirst-hypequery
 status: published
