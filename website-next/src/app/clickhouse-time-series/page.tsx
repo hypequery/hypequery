@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Time-Series Queries for TypeScript Apps',
+  title: 'ClickHouse Time Series Queries in TypeScript',
   description:
     'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-time-series'),
   },
   openGraph: {
-    images: ogImage('ClickHouse Time-Series Queries for TypeScript Apps'),
+    images: ogImage('ClickHouse Time Series Queries in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-time-series'),
-    title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',
+    title: 'ClickHouse Time Series Queries in TypeScript | hypequery',
     description:
       'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',
+    title: 'ClickHouse Time Series Queries in TypeScript | hypequery',
     description:
       'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   },
