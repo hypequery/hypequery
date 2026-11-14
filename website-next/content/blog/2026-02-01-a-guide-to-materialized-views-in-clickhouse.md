@@ -39,6 +39,10 @@ Incremental views keep a target up to date within seconds and suit single-table 
 
 A refreshable view reruns on its schedule, or now with `SYSTEM REFRESH VIEW name`. An incremental view has no refresh command: it is already current for every insert, and to recompute it you truncate the target and reload it with `INSERT ... SELECT`. Both are covered in [how to refresh a materialized view](#how-to-refresh-a-materialized-view).
 
+### How do I list materialized views in ClickHouse?
+
+There is no `SHOW MATERIALIZED VIEWS`; it is a syntax error on 25.8 and 26.6. Views appear in `SHOW TABLES`, and `SELECT name, as_select FROM system.tables WHERE database = currentDatabase() AND engine = 'MaterializedView'` lists only materialized views with their queries. See [show, list and drop materialized views](/blog/clickhouse-create-materialized-view-to-table-backfill#how-do-you-show-list-and-drop-materialized-views).
+
 ### How do I drop a materialized view?
 
 `DROP VIEW IF EXISTS events_daily_mv` (`DROP TABLE` works on views too). If the view writes `TO` a target table, the target and its rows stay; if it uses an implicit `.inner_id` table, dropping the view deletes that data. Drop the view before its target, or inserts into the source table start failing. See [show, list and drop materialized views](/blog/clickhouse-create-materialized-view-to-table-backfill#how-do-you-show-list-and-drop-materialized-views).
