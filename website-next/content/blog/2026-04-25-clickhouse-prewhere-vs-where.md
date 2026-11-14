@@ -2,7 +2,7 @@
 title: "ClickHouse PREWHERE vs WHERE: When PREWHERE Helps"
 description: "PREWHERE filters before reading all columns, WHERE filters after. Learn when PREWHERE actually improves ClickHouse performance, when it does not matter, and how to approach it from a TypeScript app using hypequery."
 seoTitle: "ClickHouse PREWHERE vs WHERE: When PREWHERE Helps"
-seoDescription: "PREWHERE reads the filter columns first and skips the rest of the row for non-matching data. ClickHouse moves WHERE conditions to PREWHERE automatically, so add it by hand only when profiling shows a win."
+seoDescription: "PREWHERE reads the filter columns first and skips non-matching rows. ClickHouse moves WHERE conditions to PREWHERE automatically; add it only when profiling helps."
 pubDate: 2026-04-25
 heroImage: ""
 slug: clickhouse-prewhere-vs-where

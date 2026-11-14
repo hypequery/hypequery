@@ -2,7 +2,7 @@
 title: "Introducing hypequery for Python: A Semantic Layer for ClickHouse"
 description: "Define ClickHouse measures, dimensions, and tenant rules once in Python, query them by name, serve them from FastAPI, Django, or Flask, and use them from type-safe React hooks and AI agents."
 seoTitle: "hypequery for Python: a ClickHouse semantic layer"
-seoDescription: "hypequery for Python brings code-first datasets to ClickHouse: typed definitions, tenant-safe queries, result caching, and authenticated endpoints you mount in FastAPI, Django, Flask, or any ASGI or WSGI app."
+seoDescription: "hypequery for Python brings code-first datasets to ClickHouse: typed definitions, tenant-safe queries, caching, and endpoints for FastAPI, Django or Flask."
 pubDate: 2026-10-30
 heroImage: ""
 slug: introducing-hypequery-python

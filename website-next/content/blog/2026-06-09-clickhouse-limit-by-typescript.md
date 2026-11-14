@@ -2,7 +2,7 @@
 title: "ClickHouse LIMIT BY — Top-N-Per-Group Queries in TypeScript"
 description: "LIMIT BY is ClickHouse's built-in answer to top-N-per-group: latest 3 events per user, top 5 products per category. Learn how it works, how it differs from LIMIT and row_number(), and how to write it in TypeScript with hypequery's native .limitBy()."
 seoTitle: "ClickHouse LIMIT BY and LIMIT 1 BY: Top-N Per Group"
-seoDescription: "ClickHouse LIMIT BY returns the first N rows per group — no window functions needed. Syntax, semantics, LIMIT BY vs LIMIT, row_number() comparison, and type-safe TypeScript examples."
+seoDescription: "ClickHouse LIMIT BY returns the first N rows per group without window functions. Syntax, LIMIT 1 BY for dedup, LIMIT BY vs row_number(), with TypeScript examples."
 pubDate: 2026-06-09
 heroImage: ""
 slug: clickhouse-limit-by-typescript
