@@ -4,6 +4,7 @@ import PageWrapper from '@/components/PageWrapper';
 import ExampleDetail from '@/components/examples/ExampleDetail';
 import { getEntry, guides } from '@/lib/examples';
 import { absoluteUrl, ogImage } from '@/lib/site';
+import { exampleSearchTitle } from '@/lib/example-titles';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const entry = getEntry('guide', slug);
   if (!entry) return {};
   const url = absoluteUrl(`/guides/${slug}`);
-  const title = entry.manifest.title;
+  const title = exampleSearchTitle(entry.manifest.title);
   const description = entry.manifest.outcome;
   return {
     title,
