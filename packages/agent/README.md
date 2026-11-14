@@ -143,6 +143,6 @@ seconds).
 dependencies. Install only the SDK you use. The Anthropic adapter imports
 nothing from its SDK at runtime.
 
-### License
+## License
 
 Apache-2.0

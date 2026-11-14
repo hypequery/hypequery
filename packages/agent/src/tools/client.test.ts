@@ -165,6 +165,62 @@ describe('createHypequeryToolsClient', () => {
     expect(server.sessionsOpened()).toBe(2);
   });
 
+  it('does not call an empty token retryable', async () => {
+    const error = await connect({ token: () => '  ' }).listTools().catch(caught => caught);
+    expect(error).toBeInstanceOf(HypequeryToolsError);
+    expect(error).toMatchObject({ code: 'MCP_UNAUTHORIZED', category: 'unauthorized', retryable: false });
+    expect(server.authorizations).toEqual([]);
+  });
+
+  describe('an aborted call', () => {
+    // An endpoint that accepts the connection and never answers.
+    const release: Array<(reason: Error) => void> = [];
+    let hang = false;
+    const hanging: typeof fetch = (url, init) => (hang
+      ? new Promise((_resolve, reject) => { release.push(reject); })
+      : fetch(url, init));
+    afterEach(() => {
+      hang = false;
+      for (const reject of release.splice(0)) reject(new Error('released'));
+    });
+
+    it('rejects with the signal\u2019s reason while the session is still opening', async () => {
+      hang = true;
+      const client = connect({ fetch: hanging });
+      const listing = AbortSignal.timeout(20);
+      const reason = await client.listTools({ signal: listing }).catch(caught => caught);
+      expect(reason).toBe(listing.reason);
+      expect(reason).toMatchObject({ name: 'TimeoutError' });
+      const calling = new AbortController();
+      const call = client.callTool('list_datasets', {}, { signal: calling.signal });
+      calling.abort();
+      await expect(call).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('rejects with the signal\u2019s reason during a tool call, and leaves the session usable', async () => {
+      const client = connect({ fetch: hanging });
+      await client.listTools();
+      hang = true;
+      const controller = new AbortController();
+      const call = client.callTool('list_datasets', {}, { signal: controller.signal });
+      controller.abort();
+      await expect(call).rejects.toMatchObject({ name: 'AbortError' });
+      hang = false;
+      for (const reject of release.splice(0)) reject(new Error('released'));
+      expect((await client.callTool('list_datasets', {})).ok).toBe(true);
+    });
+
+    it('does not fail another caller waiting on the same tool list', async () => {
+      const client = connect();
+      const controller = new AbortController();
+      const aborted = client.listTools({ signal: controller.signal });
+      const waiting = client.listTools();
+      controller.abort();
+      await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+      expect((await waiting).map(tool => tool.name)).toEqual(TENANT_TOOLS);
+    });
+  });
+
   it('rejects options without a usable token', () => {
     expect(() => createHypequeryToolsClient({ url: server.url, token: 42 as never })).toThrow(TypeError);
   });
