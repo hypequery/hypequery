@@ -215,9 +215,9 @@ claude mcp list`,
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse MCP server',
+          title: 'Is there an official ClickHouse MCP server?',
           copy:
-            'Use a semantic tool surface when agents need ClickHouse analytics but should not receive general database access.',
+            'Yes. ClickHouse maintains mcp-clickhouse, which gives agents a read-only SQL tool, and ClickHouse Cloud offers a remote MCP server. A governed server like this one is the alternative when agents should call named datasets and metrics instead of writing SQL.',
         },
         {
           title: 'Semantic layer for AI agents',
@@ -225,14 +225,14 @@ claude mcp list`,
             'Datasets give humans, APIs, dashboards, and agents one definition for business metrics.',
         },
         {
-          title: 'MCP for multi-tenant SaaS',
+          title: 'How do I keep an AI agent to one tenant’s data?',
           copy:
             'The server accepts tenant identity from trusted host configuration and rejects unscoped tenant datasets.',
         },
         {
-          title: 'Claude and Cursor analytics',
+          title: 'Can Claude or Cursor query ClickHouse?',
           copy:
-            'Any MCP-compatible client can discover approved datasets and measures without learning your schema or credentials.',
+            'Yes, through an MCP server. With this one, Claude, Cursor, Codex and other MCP clients discover approved datasets and measures without learning your schema or credentials.',
         },
       ]}
       readingLinks={[
