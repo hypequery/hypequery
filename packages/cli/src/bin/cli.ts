@@ -13,6 +13,13 @@ import { withCommandTelemetry } from '../utils/telemetry/command-context.js';
 import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
+import { cloudOperationOf, isCloudOperationGroup } from '../commands/cloud-operations.js';
+
+/** Commander errors must reach the handler below at every depth (`hypequery releases rollback`). */
+function overrideExits(command: Command): void {
+  command.exitOverride();
+  for (const subcommand of command.commands) overrideExits(subcommand);
+}
 
 async function loadEnv() {
   try {
@@ -60,11 +67,11 @@ async function main() {
   installCommandExitFinalizer(finish);
   const crash = (error: Error) => lifecycle.crash(error);
   process.on('uncaughtExceptionMonitor', crash);
-  program.exitOverride();
-  for (const command of program.commands) command.exitOverride();
+  overrideExits(program);
   program.hook('preAction', async (_root, command) => {
     selected = command;
-    await lifecycle.begin(command.name(), command.opts().database);
+    // Every Cloud operation command is recorded as one command; which operation is never sent.
+    await lifecycle.begin(cloudOperationOf(command) ? 'cloud-operation' : command.name(), command.opts().database);
   });
   const observeSignal = (signal: 'SIGINT' | 'SIGTERM') => {
     lifecycle.markInterrupted();
@@ -82,8 +89,10 @@ async function main() {
   } catch (error) {
     const commander = error as { code?: string; exitCode?: number };
     if (commander.code === 'commander.helpDisplayed' || commander.code === 'commander.help') {
-      const topic = selected?.name() === 'help' ? selected.args[0] : selected?.name()
+      const named = selected?.name() === 'help' ? selected.args[0] : selected?.name()
         ?? program.commands.find(command => requested === command.name())?.name();
+      // Help for any Cloud operation group is one topic, like the commands themselves.
+      const topic = named && isCloudOperationGroup(named) ? 'cloud-operation' : named;
       await lifecycle.begin('help');
       const code = commander.exitCode ?? 0;
       await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic)
@@ -101,7 +110,9 @@ async function main() {
     if (!selected) {
       // Commander rejects bad options and arguments before preAction runs.
       const registered = program.commands.map(command => command.name());
-      await lifecycle.begin(requestedCommand(requested, registered));
+      await lifecycle.begin(requested && isCloudOperationGroup(requested)
+        ? 'cloud-operation'
+        : requestedCommand(requested, registered));
       const suggestion = suggestedCommand(error, registered);
       if (suggestion) lifecycle.update('unknown', { suggested_command: suggestion });
     }
