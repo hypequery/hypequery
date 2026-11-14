@@ -4,12 +4,13 @@ import { useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database, MessagesSquare } from 'lucide-react';
-import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript, SiVercel } from 'react-icons/si';
+import { ArrowUpRight, Bot, Braces, ChevronDown, Cloud, Code2, Database, MessagesSquare } from 'lucide-react';
+import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript, SiVercel, SiAnthropic } from 'react-icons/si';
+import { FaSlack } from 'react-icons/fa6';
 import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
+import { DeployWaitlist } from './DeployWaitlist';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
-import { marketing } from '../ui/marketing';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
@@ -37,6 +38,27 @@ const ENTRANCE = {
 const PREVIEW_HEIGHT = 'h-[300px]';
 const PANEL_SCALE = 0.8;
 const PANEL_HEIGHT = `${300 / PANEL_SCALE}px`;
+
+// The second row's previews are shorter, so the three newer surfaces read as a smaller tier.
+const COMPACT_PREVIEW_HEIGHT = 'h-[220px]';
+const COMPACT_PANEL_HEIGHT = `${220 / PANEL_SCALE}px`;
+
+const AI_SDK_CODE = `const tools = await hypequeryTools({
+  executor: createMCPExecutor({
+    datasets,
+    analytics,
+    tenantId: session.tenantId,
+  }),
+});
+
+streamText({ model, tools, messages });`;
+
+// Matches the dashboard's September figures.
+const SLACK_ROWS = [['GB', '64,000'], ['US', '48,000'], ['DE', '16,000']] as const;
+
+function ComingSoon() {
+  return <span className="ml-auto rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent">Coming soon</span>;
+}
 
 const SOURCE_FIELDS = {
   orders: 'amount · created_at · customer_id',
@@ -197,20 +219,47 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <Link href="/docs/mcp/quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Connect Claude in 5 minutes <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
-      <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.08} className="mt-4 grid overflow-hidden rounded-2xl border border-border bg-bg-card/40 md:mt-2 md:grid-cols-[0.9fr_1.1fr]">
-        <div className="flex flex-col justify-center p-5 sm:p-6">
-          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span title="Vercel AI SDK" data-tooltip="Vercel AI SDK" aria-label="Vercel AI SDK" className="logo-tooltip framework-logo ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card text-text shadow-card"><SiVercel className="h-3.5 w-3.5" aria-hidden="true" /></span></div>
-          <p className="mt-3 max-w-[440px] text-sm leading-6 text-text-muted">Let your customers ask questions about their own data, inside your app, with the Vercel AI SDK. Chat answers from the same model as your dashboards, APIs and agents: the same question gets the same number everywhere.</p>
-          <Link href="/clickhouse-ai-sdk#quickstart" className={`${marketing.secondaryButton} mt-5 min-h-10 self-start text-xs`}>Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
-        </div>
-        <div className="border-t border-border bg-bg-alt/60 p-4 md:border-l md:border-t-0">
-          <div className="h-[240px]">
-            <div style={{ zoom: PANEL_SCALE, height: `${240 / PANEL_SCALE}px` }}>
+      <div className="grid border-border md:grid-cols-3 md:divide-x md:divide-border md:border-t">
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.0} className="min-w-0 pb-7 md:pr-6 md:pt-7 lg:pr-8">
+          <div className="flex items-center gap-2.5"><Bot className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">AI SDK tools</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="Vercel AI SDK, Anthropic SDK or OpenAI Agents SDK">
+            {([
+              ['Vercel AI SDK', SiVercel, 'text-text'],
+              ['Anthropic SDK', SiAnthropic, 'text-[#d97757]'],
+              ['OpenAI Agents SDK', RiOpenaiFill, 'text-text'],
+            ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-3.5 w-3.5" aria-hidden="true" /></span>)}
+          </div></div>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Give your own agent the model as tools, scoped to the signed-in customer. It never writes SQL.</p>
+          <div className={`mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.6] shadow-card ${COMPACT_PREVIEW_HEIGHT}`} aria-label="Example AI SDK route handler using hypequery tools">
+            <div className="border-b border-border px-4 py-2.5 text-[10px] text-text-dim">app/api/chat/route.ts</div>
+            <pre className="m-0 min-h-0 flex-1 overflow-hidden px-4 py-3 text-text-muted">{AI_SDK_CODE}</pre>
+          </div>
+          <Link href="/clickhouse-ai-sdk#quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+        </motion.article>
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} className="min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
+          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><ComingSoon /></div>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Let customers ask about their own data inside your app, answered from the same model.</p>
+          <div className={`mt-6 ${COMPACT_PREVIEW_HEIGHT}`}>
+            <div style={{ zoom: PANEL_SCALE, height: COMPACT_PANEL_HEIGHT }}>
               <AppChat elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
             </div>
           </div>
-        </div>
-      </motion.div>
+          <DeployWaitlist location="home-embedded-chat" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Join the waitlist <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></DeployWaitlist>
+        </motion.article>
+        <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} className="min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
+          <div className="flex items-center gap-2.5"><FaSlack className="h-5 w-5 text-[#e01e5a]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Slack</h3><ComingSoon /></div>
+          <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Ask in a channel and get the same number your dashboard shows, without leaving Slack.</p>
+          <div className={`mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card text-[11px] shadow-card ${COMPACT_PREVIEW_HEIGHT}`} aria-label="Illustrative Slack thread asking hypequery for revenue by country">
+            <div className="border-b border-border px-4 py-2.5 font-medium text-text"># revenue</div>
+            <div className="flex flex-1 flex-col gap-3 px-4 py-3">
+              <div className="flex gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-alt text-[10px] font-semibold text-text-muted">AK</span><div><div className="font-semibold text-text">Ana</div><div className="text-text-muted"><span className="rounded bg-accent-soft px-1 text-accent">@hypequery</span> revenue by country last month?</div></div></div>
+              <div className="flex gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-text text-bg"><HypequeryMascotIcon className="h-4 w-4" aria-hidden="true" /></span><div className="min-w-0 flex-1"><div className="font-semibold text-text">hypequery <span className="ml-1 rounded bg-bg-alt px-1 text-[9px] font-medium text-text-dim">APP</span></div><div className="text-text-muted">September revenue was <strong className="font-semibold text-text">$128,000</strong>.</div>
+                <div className="mt-2 space-y-1 font-mono text-[10px]">{SLACK_ROWS.map(([country, value]) => <div key={country} className="flex max-w-[180px] justify-between text-text-muted"><span>{country}</span><span className="text-text">${value}</span></div>)}</div>
+              </div></div>
+            </div>
+          </div>
+          <DeployWaitlist location="home-slack" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Join the waitlist <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></DeployWaitlist>
+        </motion.article>
+      </div>
     </section>
   );
 }
