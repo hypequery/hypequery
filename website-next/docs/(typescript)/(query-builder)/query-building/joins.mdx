@@ -162,6 +162,7 @@ This maps directly to ClickHouse `LEFT ARRAY JOIN`.
 <CodeBlock>
 
 ```typescript
+// joinType stands for innerJoin, leftJoin, rightJoin or fullJoin
 db.table('table_name')
   .joinType('other_table', 'left_column', 'right_table.right_column')
 ```
