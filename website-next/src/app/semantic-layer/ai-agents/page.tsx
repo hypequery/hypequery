@@ -290,6 +290,13 @@ export default function SemanticLayerAiAgentsPage() {
               one customer&rsquo;s rows, and a prompt should never be able to change which customer that is. With raw
               SQL, that rule lives in the prompt. With a semantic layer, it lives in code the agent cannot edit.
             </p>
+            <p>
+              For agents that plan and run a whole analysis rather than one query, see{' '}
+              <Link href="/semantic-layer/agentic-analytics" className={inlineLink}>
+                agentic analytics
+              </Link>
+              .
+            </p>
           </>
         }
       />

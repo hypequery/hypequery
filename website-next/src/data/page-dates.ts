@@ -21,6 +21,7 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/open-semantic-interchange': '2026-11-10',
   '/semantic-layer/open-source-tools': '2026-11-13',
   '/semantic-layer/ai-agents': '2026-11-14',
+  '/semantic-layer/agentic-analytics': '2026-11-14',
   '/semantic-layer/access-control': '2026-11-14',
   '/semantic-layer/analytics-mcp-server': '2026-11-14',
   '/semantic-layer/dbt-semantic-layer-alternatives': '2026-11-14',

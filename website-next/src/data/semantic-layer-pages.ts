@@ -47,6 +47,11 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     description: 'Why agents need named metrics instead of raw SQL, what to check (no SQL tool, tenant scope, query limits) and how each semantic layer exposes MCP tools.',
   },
   {
+    href: '/semantic-layer/agentic-analytics',
+    label: 'Agentic analytics',
+    description: 'What agentic analytics is, how it differs from dashboards and text-to-SQL, three ways to build it, and a pre-launch checklist.',
+  },
+  {
     href: '/semantic-layer/analytics-mcp-server',
     label: 'Analytics MCP server',
     description: 'Database MCP servers that run SQL versus semantic layer servers that query named metrics, what to check before production, and how the main servers compare.',
