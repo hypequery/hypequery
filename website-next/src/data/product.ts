@@ -6,7 +6,7 @@ import { absoluteUrl } from '@/lib/site';
  * docs/(getting-started)/what-is-hypequery.mdx and the root README.md word-for-word identical to this string.
  */
 export const PRODUCT_DEFINITION =
-  'hypequery is an open-source embedded analytics toolkit for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.';
+  'hypequery is an open-source semantic layer for teams building embedded analytics and AI agents on ClickHouse in TypeScript or Python (beta). You define datasets, dimensions, measures, metrics, relationships, and tenant rules in code, then use the same governed model in your backend or serve it as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. hypequery runs inside your own application and is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. It is not a hosted BI tool, a database, or a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.';
 
 export const WHAT_IS_URL = '/docs/what-is-hypequery';
 
