@@ -28,7 +28,7 @@ export const EXAMPLE_SLUGS = [
   'materialized-view-rollups', 'mcp-agent-analytics', 'mcp-agent-analytics-python', 'multi-tenant-embedded-analytics',
   'multiif-bucketing', 'nextjs-dashboard', 'p95-latency', 'postgres-app-clickhouse-analytics',
   'projection-for-dataset-queries', 'refreshable-materialized-views', 'replacingmergetree-upserts', 'retention-cohorts',
-  'sessionization', 'streamlit-dashboard', 'top-n-per-group-limit-by', 'ttl-data-retention', 'usage-based-billing',
+  'sessionization', 'slack-analytics-bot', 'streamlit-dashboard', 'top-n-per-group-limit-by', 'ttl-data-retention', 'usage-based-billing',
   'other',
 ] as const;
 export const EXAMPLE_KINDS = ['example', 'recipe', 'guide'] as const;

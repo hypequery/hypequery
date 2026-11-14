@@ -1,0 +1,30 @@
+{
+  "name": "@hypequery-examples/slack-analytics-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Slack analytics bot for your team: governed hypequery datasets over your ClickHouse, answered in channels and DMs with channel-ceiling access",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "manifest": "hypequery slack init --socket",
+    "dev": "npm run build && node --env-file-if-exists=.env dist/src/main.js",
+    "start": "node dist/src/main.js",
+    "test": "npm run build && vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.104",
+    "@ai-sdk/openai": "^4.0.117",
+    "@hypequery/agent": "workspace:*",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/datasets": "workspace:*",
+    "@hypequery/mcp": "workspace:*",
+    "@hypequery/slack": "workspace:*",
+    "ai": "^7.0.172"
+  },
+  "devDependencies": {
+    "@hypequery/cli": "workspace:*",
+    "@types/node": "^22.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

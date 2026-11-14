@@ -1,0 +1,39 @@
+{
+  "$schema": "https://hypequery.com/schemas/example.schema.json",
+  "slug": "slack-analytics-bot",
+  "kind": "example",
+  "title": "A Slack analytics bot for your team over ClickHouse",
+  "outcome": "Let your team ask data questions in Slack: answers come from governed datasets over your ClickHouse, and revenue never lands in a channel that shouldn't see it.",
+  "language": "typescript",
+  "stack": ["slack", "ai-sdk", "nodejs"],
+  "useCases": ["ai-agents", "internal-analytics"],
+  "packages": ["@hypequery/slack", "@hypequery/agent", "@hypequery/datasets", "@hypequery/mcp"],
+  "keyFile": "lib/agent.ts",
+  "env": [
+    { "name": "SLACK_BOT_TOKEN", "description": "Bot User OAuth Token (xoxb-…), from OAuth & Permissions after installing the app", "required": true },
+    { "name": "SLACK_APP_TOKEN", "description": "Socket Mode: app-level token (xapp-…) with connections:write. Set this or SLACK_SIGNING_SECRET.", "required": false },
+    { "name": "SLACK_SIGNING_SECRET", "description": "HTTP mode: the app's Signing Secret (Basic Information)", "required": false },
+    { "name": "SLACK_MEMBERS", "description": "Who may ask, as <slack user id>:<analyst|admin>, comma-separated", "required": true },
+    { "name": "SLACK_CHANNELS", "description": "Channels the bot answers in, with each channel's ceiling role, as <channel id>:<analyst|admin>", "required": false },
+    { "name": "AI_MODEL", "description": "Chat model as <provider>:<model id> (default anthropic:claude-opus-5-5; openai:<id> also works)", "required": false },
+    { "name": "ANTHROPIC_API_KEY", "description": "Anthropic API key, for the default model. Use OPENAI_API_KEY with an openai: model instead.", "required": false },
+    { "name": "CLICKHOUSE_URL", "description": "Your ClickHouse HTTP endpoint (default http://localhost:8123, the seed)", "required": false },
+    { "name": "CLICKHOUSE_USERNAME", "description": "ClickHouse user (default: default)", "required": false },
+    { "name": "CLICKHOUSE_PASSWORD", "description": "ClickHouse password (default: hypequery, the seed's password)", "required": false },
+    { "name": "CLICKHOUSE_DATABASE", "description": "Database holding the seed tables (default hypequery_examples)", "required": false },
+    { "name": "PORT", "description": "HTTP mode: port for /slack/events (default 3000)", "required": false }
+  ],
+  "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
+  "exampleRequest": "In Slack: @hypequery events by type last month",
+  "related": ["mcp-agent-analytics", "in-app-analytics-agent"],
+  "leadPages": ["/clickhouse-mcp"],
+  "functionPages": ["count", "uniq", "quantile"],
+  "keywords": [
+    "slack analytics bot",
+    "clickhouse slack bot",
+    "ai sdk slack bot",
+    "ask data questions in slack",
+    "self-hosted slack analytics"
+  ],
+  "minVersion": "2.15.0"
+}
