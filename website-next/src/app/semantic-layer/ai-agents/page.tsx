@@ -111,7 +111,7 @@ const optionsRows = [
     'Cube',
     'Hosted MCP server in Cube Cloud',
     '30 tools, including tools that edit the data model',
-    'Not covered in sources checked',
+    '`runQuery` takes Cube SQL (Postgres dialect) against the semantic SQL API, not the database directly',
     'Viewer role or higher; tools shown by role; tokens can be limited to named tools',
     'Many sources, including ClickHouse',
     'All Cube Cloud plans',
