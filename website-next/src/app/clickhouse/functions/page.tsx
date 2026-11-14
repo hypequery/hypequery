@@ -7,21 +7,21 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, functionsByCluster } from '@/data/clickhouse-functions';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Functions — TypeScript Examples',
+  title: 'ClickHouse Functions: SQL, TypeScript and Python Examples',
   description:
-    'Curated TypeScript examples for common ClickHouse functions: date functions, aggregates, strings, conditionals, and math — with hypequery query-builder examples.',
+    'Common ClickHouse functions with SQL, TypeScript and Python examples: date functions, aggregates, conditionals, strings and math, with return types and gotchas.',
   alternates: { canonical: absoluteUrl('/clickhouse/functions') },
   openGraph: {
-    images: ogImage('ClickHouse Functions — TypeScript Examples'),
+    images: ogImage('ClickHouse Functions Reference'),
     type: 'website',
     url: absoluteUrl('/clickhouse/functions'),
-    title: 'ClickHouse Functions — TypeScript Examples with hypequery',
+    title: 'ClickHouse Functions: SQL, TypeScript and Python Examples | hypequery',
     description:
       'TypeScript examples for common ClickHouse analytics functions. Date bucketing, aggregates, conditionals, and string manipulation with hypequery queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Functions — TypeScript Examples with hypequery',
+    title: 'ClickHouse Functions: SQL, TypeScript and Python Examples | hypequery',
     description:
       'TypeScript examples for ClickHouse date, aggregate, string, conditional, and math functions with hypequery.',
   },
@@ -128,7 +128,7 @@ export default function ClickHouseFunctionsIndexPage() {
               ClickHouse Functions
             </p>
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              ClickHouse function reference for TypeScript developers
+              ClickHouse function reference for TypeScript and Python developers
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               A curated set of common ClickHouse functions for analytics, with SQL and hypequery examples for date

@@ -237,6 +237,11 @@ claude mcp list`,
       ]}
       readingLinks={[
         {
+          href: '/blog/clickhouse-mcp-servers-compared',
+          title: 'Official ClickHouse MCP vs governed MCP',
+          description: 'What the official mcp-clickhouse server, the ClickHouse Cloud remote MCP server and a governed MCP server each expose to agents.',
+        },
+        {
           href: '/blog/clickhouse-mcp-claude-code',
           title: 'ClickHouse MCP in Claude Code',
           description: 'Set up a governed ClickHouse MCP server in Claude Code, step by step, with verification and troubleshooting.',
