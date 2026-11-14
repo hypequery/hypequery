@@ -35,6 +35,7 @@
     "@clickhouse/client": "^1.24.1",
     "@hypequery/deployment": "workspace:*",
     "@hypequery/protocol": "workspace:*",
+    "@hypequery/slack": "workspace:*",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
     "dotenv": "^18.0.9",

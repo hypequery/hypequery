@@ -26,3 +26,4 @@ export * from './blocks.js';
 export * from './bot.js';
 export * from './utils/history.js';
 export * from './utils/tool-steps.js';
+export * from './manifest.js';

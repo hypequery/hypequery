@@ -13,7 +13,7 @@ export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
-  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'unknown',
+  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'slack', 'examples', 'create', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 /**
@@ -55,6 +55,7 @@ export const COMMAND_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope', '--force', '--check'],
+  slack: ['--url', '--socket', '--name', '--thread-history', '--output', '--force'],
   examples: ['--kind'],
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],
@@ -82,6 +83,7 @@ export const VALUE_FLAGS = {
   pull: ['--output', '--project', '--environment', '--endpoint'],
   diff: ['--project', '--environment', '--endpoint'],
   skill: ['--agent', '--scope'],
+  slack: ['--url', '--name', '--output'],
   examples: ['--kind'],
   create: ['--dir', '--tag'],
   help: [], version: [], telemetry: [], unknown: [],

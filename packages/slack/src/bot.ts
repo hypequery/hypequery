@@ -170,7 +170,11 @@ export function createSlackBot<TAccess>(options: SlackBotOptions<TAccess>): Slac
   }
 
   async function loadHistory(slack: SlackClient, event: QuestionEvent): Promise<SlackConversationTurn[]> {
-    const messages = await slack.threadReplies({ channel: event.channelId, ts: event.threadTs, limit: historyLimit + 5 });
+    // Channel threads need channels:history / groups:history, which an app may
+    // not request. Without them, answer without context rather than fail.
+    const messages = await slack
+      .threadReplies({ channel: event.channelId, ts: event.threadTs, limit: historyLimit + 5 })
+      .catch(() => []);
     return threadToTurns(messages, { botUserId: event.botUserId, currentTs: event.ts, limit: historyLimit });
   }
 

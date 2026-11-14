@@ -191,6 +191,7 @@ jobs:
           "@hypequery/protocol": patch
           "@hypequery/protocol-conformance": patch
           "@hypequery/react": patch
+          "@hypequery/slack": patch
           ---
 
           Temporary canary snapshot release.
@@ -218,7 +219,9 @@ jobs:
               packages/protocol-conformance/package.json \
               packages/protocol-conformance/CHANGELOG.md \
               packages/react/package.json \
-              packages/react/CHANGELOG.md 2>/dev/null || true
+              packages/react/CHANGELOG.md \
+              packages/slack/package.json \
+              packages/slack/CHANGELOG.md 2>/dev/null || true
             rm -f .changeset/canary-release.md
           }
 

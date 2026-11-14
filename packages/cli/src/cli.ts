@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { skillCommand, type SkillOptions } from './commands/skill.js';
+import { slackCommand, type SlackOptions } from './commands/slack.js';
 import { examplesListCommand, type ExamplesListOptions } from './commands/examples.js';
 import { createCommand, type CreateOptions } from './commands/create.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
@@ -320,6 +321,19 @@ program
   .option('--check', 'Exit 1 if a skill is missing or out of date, without writing')
   .action(runCommand(async (action: string | undefined, options: SkillOptions) => {
     await skillCommand(action, options);
+  }));
+
+program
+  .command('slack [action]')
+  .description('Set up a Slack analytics bot: write a Slack app manifest (init)')
+  .option('--url <url>', 'Public https Request URL for Events and Interactivity')
+  .option('--socket', 'Use Socket Mode instead of a Request URL')
+  .option('--name <name>', 'App and bot name (default: hypequery)')
+  .option('--thread-history', 'Read channel threads for follow-up context (adds channels:history, groups:history)')
+  .option('-o, --output <file>', 'Where to write the manifest (default: slack-app-manifest.json)')
+  .option('--force', 'Replace an existing manifest that differs')
+  .action(runCommand(async (action: string | undefined, options: SlackOptions) => {
+    await slackCommand(action, options);
   }));
 
 // Generate command

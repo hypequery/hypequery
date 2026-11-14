@@ -230,3 +230,16 @@ describe('channelCeiling', () => {
     expect(channelCeiling({ access: { role: 'analyst' } as Access, ceiling: null, source: 'mention', fits })).toMatchObject({ allow: false });
   });
 });
+
+describe('createSlackBot history scopes', () => {
+  it('answers without history when the app cannot read the thread', async () => {
+    const { slack, posts } = fakeSlack();
+    (slack.threadReplies as any).mockRejectedValueOnce(new Error('missing_scope'));
+    const answer = vi.fn(() => 'ok');
+    const bot = createSlackBot<Access>({ slack, resolveAccess: () => allowThread, answer });
+    const event = mention('and EU?', { thread_ts: '10.0' });
+    await bot.onEvent(event, ctx(event));
+    expect((answer.mock.calls[0] as any)[0].history).toEqual([]);
+    expect(posts()[0]!.method).toBe('chat.postMessage');
+  });
+});

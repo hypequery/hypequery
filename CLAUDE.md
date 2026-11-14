@@ -65,7 +65,7 @@ pnpm examples:validate  # validate every example.json / recipe.json
   `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/cloud-client`, `@hypequery/datasets`,
   `@hypequery/deployment`, `@hypequery/serve`, `@hypequery/cli`,
   `@hypequery/mcp`, `@hypequery/protocol`,
-  `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.
+  `@hypequery/protocol-conformance`, `@hypequery/react`, and `@hypequery/slack`. No manual steps.
 - **Stable**: Changesets-driven. Any user-facing change to a published package needs a changeset (`pnpm changeset`) in the PR. Full flow in `release-commands.md`.
 
 ## Testing philosophy
