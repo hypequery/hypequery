@@ -24,7 +24,9 @@ A draft of this page, with every ClickHouse figure re-checked on clickhouse.com/
 
 **Links in:** the managed services post's ClickHouse Cloud section, the Tinybird comparison, `/tinybird-alternative` and `/clickhouse`.
 
-## 2. Agentic analytics (`/semantic-layer/agentic-analytics`, or a top-level `/agentic-analytics`)
+## 2. Agentic analytics (`/semantic-layer/agentic-analytics`): draft ready
+
+A draft is on branch `seo/agentic-analytics-draft` (no PR). It merges cleanly with `main` and with this PR. It makes no new vendor claims; the vendor-by-vendor table stays on `/semantic-layer/ai-agents`, which links to it. Add the measured results from `semantic-layer-for-agents-clickhouse` once that post is published.
 
 **Intent:** a definition plus vendor evaluation. Page one has Tellius, Databricks, AtScale, Sigma and Gartner, all enterprise BI vendors. None takes the code-first or ClickHouse angle, which is hypequery's.
 
