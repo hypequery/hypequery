@@ -14,6 +14,7 @@ const pageUpdated: Record<string, string> = {
   '/compare/hypequery-vs-embeddable': '2026-11-12',
   '/cube-js-alternative': '2026-11-12',
   '/clickhouse-saas-analytics': '2026-11-12',
+  '/clickhouse-cloud-pricing': '2026-11-14',
   '/semantic-layer': '2026-11-10',
   '/semantic-layer/dbt-metricflow': '2026-11-10',
   '/semantic-layer/snowflake-semantic-views': '2026-11-10',
@@ -25,7 +26,6 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/analytics-mcp-server': '2026-11-14',
   '/semantic-layer/dbt-semantic-layer-alternatives': '2026-11-14',
   '/compare/build-vs-buy-embedded-analytics': '2026-11-14',
-  '/clickhouse-cloud-pricing': '2026-11-14',
 };
 
 /** The page's last update (YYYY-MM-DD). Throws at build time when a page is missing from the map. */
