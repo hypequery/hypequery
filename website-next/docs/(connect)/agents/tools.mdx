@@ -1,17 +1,19 @@
 ---
 title: Tools for your agent
-description: Give the agent in your product hypequery's tenant-scoped analytics tools, using the AI SDK, the Anthropic SDK or the OpenAI Agents SDK.
+description: Give the agent in your product hypequery's tenant-scoped ClickHouse analytics tools, using the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK, from hypequery Cloud or your own backend.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 If your product already has an agent, `@hypequery/agent` adds hypequery's analytics tools to it. It reads the tools
-your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema` and `query_dataset`) and returns them as tools
-for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. You don't need an MCP client, and you don't write
-any tools.
+your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema` and `query_dataset`) and returns them as tools for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK.
+You don't need an MCP client, and you don't write any tools.
 
 The token decides the tenant. The model never chooses it, so a prompt asking for another customer's data has nothing
 to change.
+
+The examples on this page use hypequery Cloud's endpoint. To run the same tools inside your own backend instead, with
+no endpoint and no token, see [Tools in your own backend](/docs/agents/self-hosted).
 
 <CodeBlock>
 ```bash
@@ -180,6 +182,8 @@ and JSON Schema. `callTool(name, input)` returns `{ ok: true, data, requestId }`
 
 ## Related
 
+- [Tools in your own backend](/docs/agents/self-hosted): the same tools in process, with `{ executor }`
+- [Business context](/docs/agents/business-context): KPI definitions, glossary and caveats the agent reads
 - [In-app analytics agent](/examples/in-app-analytics-agent): a Next.js starter with minting, `hypequeryTools` and two
   demo customers
 - [In-app agents](/docs/cloud/in-app-agents): minting end-user tokens

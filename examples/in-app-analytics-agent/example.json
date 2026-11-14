@@ -23,7 +23,7 @@
   "run": { "install": "pnpm install", "dev": "pnpm dev", "test": "pnpm test" },
   "exampleRequest": "curl -s -c /tmp/hq-session -X POST localhost:3000/api/session -H 'content-type: application/json' -d '{\"userId\":\"ada\"}' && curl -s -b /tmp/hq-session -X POST localhost:3000/api/chat -H 'content-type: application/json' -d '{\"messages\":[{\"id\":\"m1\",\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"text\":\"How many events did we have by type?\"}]}]}'",
   "related": ["multi-tenant-embedded-analytics", "mcp-agent-analytics", "nextjs-dashboard"],
-  "leadPages": ["/clickhouse-mcp", "/clickhouse-multi-tenant-analytics", "/clickhouse-nextjs", "/clickhouse-saas-analytics", "/embedded-analytics"],
+  "leadPages": ["/clickhouse-ai-sdk", "/clickhouse-ai-agents", "/clickhouse-mcp", "/clickhouse-multi-tenant-analytics", "/clickhouse-nextjs", "/clickhouse-saas-analytics", "/embedded-analytics"],
   "functionPages": ["count", "uniq", "quantile"],
   "keywords": [
     "clickhouse ai agent",

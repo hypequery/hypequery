@@ -66,6 +66,7 @@
   ],
   "leadPages": [
     "/clickhouse-mcp",
+    "/clickhouse-ai-agents",
     "/clickhouse-multi-tenant-analytics",
     "/clickhouse-semantic-layer",
     "/clickhouse-nodejs"
