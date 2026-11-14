@@ -1,7 +1,7 @@
 ---
 title: "hypequery vs Drizzle: There Is No Drizzle for ClickHouse"
 description: "Drizzle ORM does not support ClickHouse. If you are looking for a Drizzle-style TypeScript experience for ClickHouse analytics, this explains what hypequery offers instead."
-seoTitle: "hypequery vs Drizzle for ClickHouse (2026)"
+seoTitle: "Drizzle ClickHouse: Does Drizzle ORM Support ClickHouse? (2026)"
 seoDescription: "Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative — schema generation, composable queries, and typed HTTP APIs built specifically for ClickHouse."
 pubDate: 2026-04-25
 updatedAt: 2026-11-14
