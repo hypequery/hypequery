@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
-const TITLE = 'ClickHouse Python Clients: clickhouse-connect vs driver';
+const TITLE = 'Best ClickHouse Python Client: clickhouse-connect vs driver';
 const DESCRIPTION =
   'clickhouse-connect is the official ClickHouse Python client. Compare it with clickhouse-driver, clickhouse-sqlalchemy and hypequery, with safe dynamic queries.';
 
