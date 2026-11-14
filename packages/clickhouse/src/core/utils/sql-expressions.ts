@@ -204,6 +204,23 @@ export function toStartOfYear(field: string, alias?: string): SqlExpression<Date
     : toStartOfUnit<Date>('toStartOfYear', field);
 }
 
+type DatePart = 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second';
+
+/**
+ * ClickHouse function for each `datePart` unit. Spelled out because the names
+ * are not uniform: ClickHouse has no `toDay`, so `day` maps to `toDayOfMonth`.
+ */
+const DATE_PART_FUNCTIONS: Record<DatePart, string> = {
+  year: 'toYear',
+  quarter: 'toQuarter',
+  month: 'toMonth',
+  week: 'toWeek',
+  day: 'toDayOfMonth',
+  hour: 'toHour',
+  minute: 'toMinute',
+  second: 'toSecond',
+};
+
 /**
  * Extracts the specified part from a date/time value
  * @param part The part to extract (year, month, day, etc.)
@@ -225,7 +242,7 @@ export function datePart(
   field: string,
   alias?: string
 ): SqlExpression<number> | AliasedExpression<number> {
-  const functionName = `to${part.charAt(0).toUpperCase() + part.slice(1)}`;
+  const functionName = DATE_PART_FUNCTIONS[part];
   return alias
     ? rawAs<number>(`${functionName}(${field})`, alias)
     : raw<number>(`${functionName}(${field})`);
