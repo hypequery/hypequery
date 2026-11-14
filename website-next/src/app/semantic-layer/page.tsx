@@ -7,6 +7,7 @@ import { marketing } from '@/components/ui/marketing';
 import { semanticLayerSpokes } from '@/data/semantic-layer-pages';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer';
 const TITLE = 'What Is a Semantic Layer? Examples and Options Compared';
@@ -278,7 +279,7 @@ const articleJsonLd = {
   headline: TITLE,
   description: DESCRIPTION,
   url: absoluteUrl(PATH).toString(),
-  dateModified: '2026-11-10',
+  dateModified: updatedFor(PATH),
   author: { '@type': 'Organization', name: 'hypequery' },
   publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
 };
@@ -448,7 +449,11 @@ export default function SemanticLayerPage() {
             </li>
             <li>
               <strong className="text-text">You need a serving layer with caching</strong> and APIs in front of any
-              warehouse: a standalone service such as Cube.
+              warehouse: a standalone service such as Cube. If Cube is close but not quite right, the{' '}
+              <Link href="/cube-js-alternative" className={inlineLink}>
+                Cube alternatives comparison
+              </Link>{' '}
+              lays out the other semantic layers by how and where their models are defined.
             </li>
             <li>
               <strong className="text-text">The metrics power your own product</strong>, behind your API and in

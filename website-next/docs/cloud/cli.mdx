@@ -48,6 +48,7 @@ provide endpoint details leaves deploy output unchanged.
 | `--mcp-config` | Also print MCP client configuration for the hosted endpoint. It reads the key from `${HYPEQUERY_API_KEY}` and never contains a credential |
 | `--project`, `--environment` | Override the target from `hypequery login` |
 | `--replace-restored` | Replace a live release that was restored from history |
+| `--take-ownership` | Replace a live model built in hypequery Cloud. The project is then managed in code. Without it, the CLI asks in a terminal and refuses in CI |
 | `--no-source` | Leave project source files out of the bundle |
 
 ## `hypequery deployment:status`

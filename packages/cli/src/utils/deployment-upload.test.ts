@@ -212,6 +212,7 @@ describe('deployment upload transport', () => {
       token: 'secret-token',
       expectedActivationRevision: 'c'.repeat(64),
       replaceRestored: true,
+      takeOwnership: false,
       fetch,
     });
 
@@ -227,6 +228,8 @@ describe('deployment upload transport', () => {
     expect(request?.headers['X-HypeQuery-Expected-Activation-Revision'])
       .toBe('c'.repeat(64));
     expect(request?.headers['X-HypeQuery-Replace-Restored']).toBe('true');
+    // Sent as false too, so Cloud can tell this CLI from one that predates the option.
+    expect(request?.headers['X-HypeQuery-Take-Ownership']).toBe('false');
     expect(request?.headers['Content-Length']).toBe(String(requestBytes?.byteLength));
     expect(request?.duplex).toBe('half');
     expect(request?.redirect).toBe('error');

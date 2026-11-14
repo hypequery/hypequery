@@ -7,6 +7,7 @@ export interface DraftDeploymentResult {
 export function validateDraftDeploymentOptions(options: {
   draft?: string;
   replaceRestored?: boolean;
+  takeOwnership?: boolean;
 }): void {
   if (options.draft === undefined) return;
   if (options.draft.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(options.draft)) {
@@ -14,6 +15,9 @@ export function validateDraftDeploymentOptions(options: {
   }
   if (options.replaceRestored) {
     throw new Error('--draft cannot be combined with --replace-restored; draft uploads do not replace Production.');
+  }
+  if (options.takeOwnership) {
+    throw new Error('--draft cannot be combined with --take-ownership; draft uploads do not replace Production. Publishing the draft in Cloud asks to confirm.');
   }
 }
 

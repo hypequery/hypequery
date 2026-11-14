@@ -78,6 +78,12 @@ export interface HttpDeploymentUploadTransportOptions {
   readonly token: string;
   readonly expectedActivationRevision?: string | null;
   readonly replaceRestored?: boolean;
+  /**
+   * Whether the user agreed to replace a model built in hypequery Cloud
+   * (decision 0020). Sent as true or false so Cloud can tell this CLI from
+   * one that predates the option.
+   */
+  readonly takeOwnership?: boolean;
   readonly draft?: string;
   readonly timeoutMs?: number;
   readonly fetch?: DeploymentFetch;
@@ -495,6 +501,9 @@ export function createHttpDeploymentUploadTransport(
               : {}),
             ...(options.replaceRestored
               ? { 'X-HypeQuery-Replace-Restored': 'true' }
+              : {}),
+            ...(options.takeOwnership !== undefined
+              ? { 'X-HypeQuery-Take-Ownership': options.takeOwnership ? 'true' : 'false' }
               : {}),
           },
           body: multipartBody(boundary, parts),

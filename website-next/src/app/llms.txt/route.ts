@@ -1,10 +1,12 @@
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { comparePages } from '@/data/compare-pages';
+import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
 import { semanticLayerPages } from '@/data/semantic-layer-pages';
 import { exampleEntries, formatEntries, functionEntries, guideEntries, recipeEntries } from '@/lib/llms-index';
 import { PRODUCT_DEFINITION } from '@/data/product';
 import { docsPageTitle } from '@/lib/docs-section-label';
+import { HTML_TWIN_ROOT } from '@/lib/markdown-twin';
 
 // Static, regenerated only at build time.
 export const revalidate = false;
@@ -19,14 +21,16 @@ function sectionOf(url: string): string {
   return parts.length > 1 ? parts[0] : 'Guides';
 }
 
-// Product pages that answer "which tool should I use" questions. These have no
-// Markdown copy, so they link to the HTML page.
+// Product pages that answer "which tool should I use" questions. Each links to its
+// Markdown twin, converted from the rendered page (src/app/llms.mdx/pages).
 const PRODUCT_PAGES: Entry[] = [
+  { title: 'hypequery homepage', url: '/', description: 'Overview: define metrics once in TypeScript or Python, then serve dashboards, APIs and agents from ClickHouse.' },
   { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and 8 tools compared on embed model, licensing, self-hosting and pricing.' },
   { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
   ...semanticLayerPages.map((page) => ({ title: page.label, url: page.href, description: page.description })),
   { title: 'ClickHouse semantic layer', url: '/clickhouse-semantic-layer', description: 'What a semantic layer is, and how to define one for ClickHouse in TypeScript or Python with typed datasets, tenant keys and time keys.' },
-  { title: 'Cube.js alternative for ClickHouse', url: '/cube-js-alternative', description: 'A Cube.js alternative for ClickHouse with no Cube server, Redis cache, or YAML: hypequery is a TypeScript or Python library that lives in your codebase.' },
+  ...embeddedAnalyticsComparePages.map((page) => ({ title: page.title, url: page.href, description: page.description })),
+  { title: 'Embedded analytics for SaaS on ClickHouse', url: '/clickhouse-saas-analytics', description: 'How hypequery serves in-app dashboards, customer-facing APIs and AI agents from one typed, tenant-scoped model on ClickHouse.' },
   { title: 'Tinybird alternative', url: '/tinybird-alternative', description: 'hypequery and your own ClickHouse give you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.' },
   { title: 'Multi-tenant SaaS analytics', url: '/use-cases/multi-tenant-saas', description: 'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.' },
   { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
@@ -99,7 +103,7 @@ export function GET() {
     '',
     `> ${PRODUCT_DEFINITION}`,
     '',
-    `Each link below points to the clean Markdown version of the page where one exists. Any page under /examples, /recipes, /guides, /blog, /docs or /compare also serves Markdown when requested with a .md suffix or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
+    `Each link below points to the clean Markdown version of the page where one exists. Any page under /docs, /blog, /compare, /examples, /recipes or /guides, and the homepage and product pages, also serves Markdown when requested with a .md suffix (/index.md for the homepage) or \`Accept: text/markdown\`. The full corpus is one file: [llms-full.txt](${absoluteUrl('/llms-full.txt').toString()}). hypequery cloud, a planned hosted service, is not live yet.`,
     '',
     '## Start here',
     '',
@@ -127,7 +131,7 @@ export function GET() {
   }
   lines.push('', '## Alternatives and use cases', '');
   for (const e of PRODUCT_PAGES) {
-    lines.push(entryLine({ ...e, url: absoluteUrl(e.url).toString() }));
+    lines.push(entryLine({ ...e, url: absoluteUrl(e.url === '/' ? HTML_TWIN_ROOT : `${HTML_TWIN_ROOT}${e.url}`).toString() }));
   }
   lines.push('');
 

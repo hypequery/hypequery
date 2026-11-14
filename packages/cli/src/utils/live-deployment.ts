@@ -37,6 +37,8 @@ export type LiveDeployment = {
     readonly releaseIdentity: string;
     readonly activatedAt: string;
     readonly restored: boolean;
+    /** Where the live model was authored; absent from Cloud versions that predate it. */
+    readonly authoredIn?: 'code' | 'cloud';
     readonly hasSource: boolean;
     readonly source?: LiveDeploymentSource;
   };
@@ -190,6 +192,7 @@ function parseResponse(
     || !Number.isFinite(Date.parse(active.activatedAt))
     || typeof active.restored !== 'boolean'
     || typeof active.hasSource !== 'boolean'
+    || (active.authoredIn !== undefined && active.authoredIn !== 'code' && active.authoredIn !== 'cloud')
     || (active.source !== undefined && !active.hasSource)) {
     throw new Error('Cloud returned an invalid live deployment response.');
   }
@@ -200,6 +203,7 @@ function parseResponse(
       releaseIdentity: active.releaseIdentity,
       activatedAt: active.activatedAt,
       restored: active.restored,
+      ...(active.authoredIn !== undefined ? { authoredIn: active.authoredIn as 'code' | 'cloud' } : {}),
       hasSource: active.hasSource,
       ...(active.source !== undefined ? { source: parseSource(active.source) } : {}),
     }),

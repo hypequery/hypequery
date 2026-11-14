@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import { comparePages } from '@/data/compare-pages';
+import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -114,24 +115,49 @@ export default function CompareIndexPage() {
         </section>
 
         <section className={`${marketing.container} pb-14 sm:pb-20`}>
+          <p className="font-mono text-xs text-accent">Customer-facing dashboards</p>
+          <h2 className={`mt-3 ${marketing.sectionTitle}`}>Embedded analytics</h2>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted">
+            Choosing how to put analytics inside your product: embedded BI platforms, BI tools with embedding, and
+            code-first layers you build on. Each page has a dated vendor table and says where hypequery is the wrong fit.
+            For the build-or-buy question itself, start with{' '}
+            <Link href="/embedded-analytics" className="text-text underline decoration-border-strong underline-offset-4 hover:text-accent">
+              embedded analytics for developers
+            </Link>
+            .
+          </p>
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {embeddedAnalyticsComparePages.map((page) => (
+              <Link
+                key={page.href}
+                href={page.href}
+                className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
+              >
+                <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">{page.title}</h3>
+                <p className="mt-4 text-sm leading-6 text-text-muted">{page.description}</p>
+                <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">Open comparison</p>
+              </Link>
+            ))}
+            <Link
+              href="/clickhouse-saas-analytics"
+              className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
+            >
+              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Embedded analytics for SaaS</h3>
+              <p className="mt-4 text-sm leading-6 text-text-muted">
+                How hypequery serves in-app dashboards, customer APIs and AI agents from one tenant-scoped model on ClickHouse.
+              </p>
+              <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">Open page</p>
+            </Link>
+          </div>
+        </section>
+
+        <section className={`${marketing.container} pb-14 sm:pb-20`}>
           <p className="font-mono text-xs text-accent">Switching tools?</p>
           <h2 className={`mt-3 ${marketing.sectionTitle}`}>Alternative guides</h2>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted">
             If you are moving away from a platform rather than evaluating from scratch, these guides cover why teams switch, what the migration looks like, and where the incumbent is still the right call.
           </p>
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Link
-              href="/cube-js-alternative"
-              className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
-            >
-              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Cube.js alternative</h3>
-              <p className="mt-4 text-sm leading-6 text-text-muted">
-                Replace the Cube server, cache layer, and YAML modelling with a typed TypeScript library that lives in your own codebase.
-              </p>
-              <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">
-                Open guide
-              </p>
-            </Link>
             <Link
               href="/tinybird-alternative"
               className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"

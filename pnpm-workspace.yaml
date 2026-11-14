@@ -1,6 +1,8 @@
 packages:
+  - 'packages/agent'
   - 'packages/cli'
   - 'packages/clickhouse'
+  - 'packages/cloud-client'
   - 'packages/react'
   - 'packages/datasets'
   - 'packages/deployment'

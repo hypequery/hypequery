@@ -9,6 +9,7 @@ pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list
 | Path | What it is |
 |------|------------|
 | `packages/clickhouse` | Core query builder (`@hypequery/clickhouse`) |
+| `packages/cloud-client` | Typed client for hypequery Cloud's `/v1` operations, generated from `specs/cloud-api/operations-v1.json` (Cloud's copy is the source) |
 | `packages/datasets` | Semantic layer: datasets, measures, dimensions |
 | `packages/serve` | `defineServe`, router, HTTP adapters |
 | `packages/react` | TanStack Query hooks |
@@ -61,7 +62,7 @@ pnpm examples:validate  # validate every example.json / recipe.json
 ## Releases
 
 - **Canary**: every push to `main` auto-publishes snapshot builds to the npm
-  `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/datasets`,
+  `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/cloud-client`, `@hypequery/datasets`,
   `@hypequery/deployment`, `@hypequery/serve`, `@hypequery/cli`,
   `@hypequery/mcp`, `@hypequery/protocol`,
   `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.

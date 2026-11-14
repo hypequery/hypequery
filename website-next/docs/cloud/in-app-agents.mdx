@@ -1,0 +1,88 @@
+---
+title: In-app agents
+description: Mint end-user tokens for your own agent locally, with a project signing key, and connect it to the tenant MCP endpoint.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+If your product has its own assistant, it can query your published datasets as the signed-in end user. Your backend
+signs a short-lived token for each session with a project **signing key**, then the agent sends it to the project's
+tenant MCP endpoint. Minting happens in your process with no network call, so it costs nothing per session.
+
+The tenant comes from the signed token, never from the model. A prompt asking for another customer's data has
+nothing to change.
+
+## Create a signing key
+
+Under **Settings → Customer access → Signing keys for in-app agents**, create a key. Cloud shows the private key once,
+as JSON. Store it as a secret named `HYPEQUERY_AGENT_KEY`. Cloud keeps only the public key.
+
+The JSON also names the project (`hq_project`, its protocol name, such as `acme:logistics`) and its customer endpoint
+(`hq_endpoint`, `https://<endpoint>.hypequery.app`), so minting needs nothing else from Cloud.
+
+## Mint a token
+
+<CodeBlock>
+```ts
+// npm install @hypequery/agent
+import { mintAgentToken } from '@hypequery/agent';
+
+const { token, mcpUrl, expiresAt } = await mintAgentToken({
+  signingKey: process.env.HYPEQUERY_AGENT_KEY!,
+  tenant: session.orgId,
+  subject: session.userId,
+  permissionSet: 'customers',
+});
+```
+</CodeBlock>
+
+<CodeBlock>
+```python
+# pip install "hypequery[jwt]"
+import os
+from hypequery.agent import mint_agent_token
+
+minted = mint_agent_token(
+    signing_key=os.environ["HYPEQUERY_AGENT_KEY"],
+    tenant=session.org_id,
+    subject=session.user_id,
+    permission_set="customers",
+)
+# minted.token, minted.mcp_url, minted.expires_at
+```
+</CodeBlock>
+
+Your agent's MCP client connects to `mcpUrl` and sends `Authorization: Bearer <token>`. It sees the datasets the
+permission set allows, and only that tenant's rows.
+
+| Option | |
+| --- | --- |
+| `tenant` | The end user's customer. Every query is scoped to it. |
+| `subject` | The end user, as your app identifies them. |
+| `permissionSet` | The permission set the end user acts with, by name. Required. |
+| `constraints` | Optional filters every query carries, at most 8: `{ filter, operator: 'eq', value }` or `{ filter, operator: 'in', value: [...] }`. Each names a filter the dataset declares; a dataset without it refuses the query. |
+| `expiresInSeconds` | Lifetime, 1 to 900 seconds. Defaults to 900. |
+| `project` | The project's protocol name. Defaults to the key's `hq_project`. |
+| `endpoint` | The customer endpoint (its origin or `/mcp` URL). Defaults to the key's `hq_endpoint`. Must be `https`, except on `localhost`. |
+
+An explicit `project` or `endpoint` wins over the key's own, for example to point a key at a local gateway in
+development. If neither gives one, minting throws `AgentTokenError` naming it.
+
+Tokens live at most 15 minutes. Mint a new one before `expiresAt`, for example on each request. An option Cloud would
+refuse throws `AgentTokenError` (`AgentTokenError` in Python too, a `ValueError`) naming the option, rather than
+minting a token the endpoint rejects.
+
+## Rotate and revoke
+
+Several keys can be active at once. To rotate, create a new key, move minting to it, then revoke the old one.
+Revoking a key refuses its tokens immediately, so it also works as a kill switch.
+
+## The token
+
+For anyone verifying tokens themselves: it's an EdDSA (Ed25519) JWT. The `kid` header names the key (`hqsk_…`), the
+audience is `hypequery-agent:<project>`, and the claims are `sub`, `tenant`, `permission_set`, optional `constraints`,
+`iat` and `exp`. Cloud refuses a lifetime over 15 minutes and an `iat` in the future. The TypeScript and Python
+minters produce the same token for the same input.
