@@ -17,6 +17,7 @@ import {
 } from './utils/execution-budget.js';
 import { buildMCPQueryResult } from './utils/query-result.js';
 import { createMCPToolResponse } from './utils/tool-response.js';
+import { tenantFieldFilterError } from './utils/tenant-filter.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
@@ -85,7 +86,9 @@ export async function queryDatasetTool(
     }),
     executionBudget,
     options.signal,
-  );
+  ).catch((error: unknown) => {
+    throw tenantFieldFilterError(error, options.tenantId) ?? error;
+  });
 
   // Format the response with proper types
   const response = buildMCPQueryResult(result, options.includeSql);

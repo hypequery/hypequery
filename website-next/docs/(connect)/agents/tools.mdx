@@ -1,0 +1,184 @@
+---
+title: Tools for your agent
+description: Give the agent in your product hypequery's tenant-scoped analytics tools, using the AI SDK, the Anthropic SDK or the OpenAI Agents SDK.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+If your product already has an agent, `@hypequery/agent` adds hypequery's analytics tools to it. It reads the tools
+your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema` and `query_dataset`) and returns them as tools
+for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. You don't need an MCP client, and you don't write
+any tools.
+
+The token decides the tenant. The model never chooses it, so a prompt asking for another customer's data has nothing
+to change.
+
+<CodeBlock>
+```bash
+npm install @hypequery/agent
+```
+</CodeBlock>
+
+Install the SDK you use alongside it. `ai`, `@anthropic-ai/sdk` and `@openai/agents` are optional peer dependencies.
+
+## AI SDK
+
+`hypequeryTools` is exported from `@hypequery/agent/ai-sdk` and returns a tool set you can pass to `streamText` or
+`generateText`:
+
+<CodeBlock>
+```ts
+import { streamText } from 'ai';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const tools = await hypequeryTools({ url: mcpUrl, token });
+const result = streamText({ model, tools, messages });
+```
+</CodeBlock>
+
+## Anthropic SDK
+
+`@hypequery/agent/anthropic` returns tool definitions for `messages.create` and helpers that run the model's
+`tool_use` blocks:
+
+<CodeBlock>
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+import { hypequeryTools } from '@hypequery/agent/anthropic';
+
+const anthropic = new Anthropic();
+const hq = await hypequeryTools({ url: mcpUrl, token });
+
+for (;;) {
+  const response = await anthropic.messages.create({
+    model,
+    max_tokens: 1024,
+    tools: hq.tools,
+    messages,
+  });
+  messages.push({ role: 'assistant', content: response.content });
+  if (response.stop_reason !== 'tool_use') break;
+  messages.push({ role: 'user', content: await hq.toolResults(response.content) });
+}
+await hq.close();
+```
+</CodeBlock>
+
+`toolResults` handles only hypequery's tools. If you pass your own tools in the same request, answer their `tool_use`
+blocks yourself. `hq.runTool(name, input)` calls one tool directly. `hq.toolResult(block)` answers one block.
+
+## OpenAI Agents SDK
+
+`@hypequery/agent/openai-agents` returns function tools:
+
+<CodeBlock>
+```ts
+import { Agent, run } from '@openai/agents';
+import { hypequeryTools } from '@hypequery/agent/openai-agents';
+
+const agent = new Agent({
+  name: 'Analyst',
+  instructions: 'Answer questions about shipments from hypequery.',
+  tools: await hypequeryTools({ url: mcpUrl, token }),
+});
+const result = await run(agent, 'How many shipments were late last month?');
+```
+</CodeBlock>
+
+The tools are not `strict`. Strict mode requires every property to be required, which would mean changing the
+server's schemas.
+
+## Same schemas, same errors
+
+Each `hypequeryTools()` call lists the tools once. The input schemas the model sees are the ones the server lists,
+unchanged, so they match what an MCP client would get.
+
+When a tool call fails, for example with a bad argument, an unknown dataset, a timeout or a rate limit, the model gets
+hypequery's error envelope, the same one MCP clients see:
+
+<CodeBlock>
+```json
+{
+  "error": {
+    "code": "MCP_RATE_LIMITED",
+    "category": "budget",
+    "message": "Too many queries for this tenant",
+    "retryable": true,
+    "correctable": false,
+    "hint": "Wait 30 seconds, then retry the same query.",
+    "docsUrl": "https://hypequery.com/docs/...",
+    "requestId": "req_..."
+  }
+}
+```
+</CodeBlock>
+
+With the AI SDK and the OpenAI Agents SDK, this envelope is the tool's output. With the Anthropic SDK, it is a
+`tool_result` with `is_error: true`. Either way the model can read the hint, fix its input and retry.
+
+Some failures are for you to fix, not the model: the endpoint refused the token, or it can't be reached. Those throw
+`HypequeryToolsError`, which carries the same `code`, `hint` and `requestId`, plus the HTTP `status`.
+
+## Tokens
+
+The endpoint `url` must use https, so the token is never sent unencrypted. Plain http is allowed for localhost only;
+any other URL throws a `TypeError` before a request is made.
+
+Tokens minted for your agent last at most 15 minutes. If a conversation can run longer than that, pass a function as
+the token instead of a string. It is called before every request:
+
+<CodeBlock>
+```ts
+const tools = await hypequeryTools({
+  url: mcpUrl,
+  token: async () => getTokenForCurrentUser(), // return a cached token until it nears expiry
+});
+```
+</CodeBlock>
+
+Use `headers` for any other header the endpoint expects, such as `x-hypequery-tenant-id` for a key that can access
+several tenants.
+
+## Request ids
+
+Every result has the request id hypequery logged it under. Use `onResult` to record the ids so you can look up the
+exact query behind an answer later:
+
+<CodeBlock>
+```ts
+const tools = await hypequeryTools({
+  url: mcpUrl,
+  token,
+  onResult: (result) => {
+    console.log(result.tool, result.ok ? 'ok' : result.error.code, result.requestId);
+  },
+});
+```
+</CodeBlock>
+
+## Sessions and other agent loops
+
+`hypequeryTools()` opens one MCP session when it is first needed and reuses it for every call. The session closes
+after `idleTimeoutMs` with no calls (60 seconds by default), and the next call opens a new one. To close it yourself,
+create the client, pass it to `hypequeryTools`, and close it when the conversation ends:
+
+<CodeBlock>
+```ts
+import { createHypequeryToolsClient } from '@hypequery/agent';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const client = createHypequeryToolsClient({ url: mcpUrl, token });
+const tools = await hypequeryTools(client);
+// ...
+await client.close();
+```
+</CodeBlock>
+
+You can also use the client on its own with any other agent loop. `listTools()` returns each tool's name, description
+and JSON Schema. `callTool(name, input)` returns `{ ok: true, data, requestId }` or
+`{ ok: false, error, requestId }`.
+
+## Related
+
+- [Tools reference](/docs/mcp/tools): what each tool does and its arguments
+- [Cloud MCP](/docs/cloud/mcp): the hosted endpoint and its tenant rules

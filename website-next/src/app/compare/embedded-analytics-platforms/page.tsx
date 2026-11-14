@@ -510,53 +510,64 @@ export default function EmbeddedAnalyticsPlatformsPage() {
         eyebrow="Decision guide"
         title="Which embedded analytics platform should you choose?"
         intro={
-          <ul className="list-disc space-y-2 pl-5">
-            <li>
-              <strong className="text-text">Non-engineers must build and edit customer dashboards:</strong> Luzmo,
-              GoodData or Embeddable, which all have builders.
-            </li>
-            <li>
-              <strong className="text-text">Customers want to explore, not just view:</strong> Sigma or ThoughtSpot, or
-              Metabase with interactive SSO embeds.
-            </li>
-            <li>
-              <strong className="text-text">The lowest licence cost:</strong> Superset or Metabase open source if you can
-              host them; see{' '}
-              <Link href="/compare/embedded-analytics-pricing" className={inlineLink}>
-                embedded analytics pricing
-              </Link>{' '}
-              for a 1,000-viewer worked example.
-            </li>
-            <li>
-              <strong className="text-text">You already report in Power BI or Looker:</strong> embed what you have.
-            </li>
-            <li>
-              <strong className="text-text">Many databases behind one model:</strong> Cube. See{' '}
-              <Link href="/cube-js-alternative" className={inlineLink}>
-                Cube alternatives
-              </Link>{' '}
-              for other semantic layers, and what headless BI means.
-            </li>
-            <li>
-              <strong className="text-text">You are on ClickHouse and want the same metrics in your UI, API and agents:</strong>{' '}
-              hypequery. See{' '}
-              <Link href="/clickhouse-saas-analytics" className={inlineLink}>
-                embedded analytics for SaaS on ClickHouse
+          <>
+            <p>
+              For a proof-based governance and metric-consistency checklist, start with the{' '}
+              <Link href="/compare/embedded-analytics-typescript" className={inlineLink}>
+                embedded analytics buyer&apos;s guide for TypeScript teams
               </Link>
-              .
-            </li>
-            <li>
-              <strong className="text-text">Leaving a vendor:</strong> see{' '}
-              <Link href="/compare/luzmo-alternatives" className={inlineLink}>
-                Luzmo alternatives
-              </Link>{' '}
-              and{' '}
-              <Link href="/compare/hypequery-vs-embeddable" className={inlineLink}>
-                hypequery vs Embeddable
-              </Link>
-              .
-            </li>
-          </ul>
+              . Then use the fit questions below to narrow the vendor list.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                <strong className="text-text">Non-engineers must build and edit customer dashboards:</strong> Luzmo,
+                GoodData or Embeddable, which all have builders.
+              </li>
+              <li>
+                <strong className="text-text">Customers want to explore, not just view:</strong> Sigma or ThoughtSpot,
+                or Metabase with interactive SSO embeds.
+              </li>
+              <li>
+                <strong className="text-text">The lowest licence cost:</strong> Superset or Metabase open source if you
+                can host them; see{' '}
+                <Link href="/compare/embedded-analytics-pricing" className={inlineLink}>
+                  embedded analytics pricing
+                </Link>{' '}
+                for a 1,000-viewer worked example.
+              </li>
+              <li>
+                <strong className="text-text">You already report in Power BI or Looker:</strong> embed what you have.
+              </li>
+              <li>
+                <strong className="text-text">Many databases behind one model:</strong> Cube. See{' '}
+                <Link href="/cube-js-alternative" className={inlineLink}>
+                  Cube alternatives
+                </Link>{' '}
+                for other semantic layers, and what headless BI means.
+              </li>
+              <li>
+                <strong className="text-text">
+                  You are on ClickHouse and want the same metrics in your UI, API and agents:
+                </strong>{' '}
+                hypequery. See{' '}
+                <Link href="/clickhouse-saas-analytics" className={inlineLink}>
+                  embedded analytics for SaaS on ClickHouse
+                </Link>
+                .
+              </li>
+              <li>
+                <strong className="text-text">Leaving a vendor:</strong> see{' '}
+                <Link href="/compare/luzmo-alternatives" className={inlineLink}>
+                  Luzmo alternatives
+                </Link>{' '}
+                and{' '}
+                <Link href="/compare/hypequery-vs-embeddable" className={inlineLink}>
+                  hypequery vs Embeddable
+                </Link>
+                .
+              </li>
+            </ul>
+          </>
         }
       />
 

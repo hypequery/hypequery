@@ -19,6 +19,7 @@ from typing import cast
 
 #: Combined statement + branch coverage floors, in percent.
 FLOORS: Mapping[str, float] = {
+    "agent": 95.0,
     "datasets": 95.0,
     "serve": 94.0,
     "cli": 90.0,

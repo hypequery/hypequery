@@ -29,6 +29,7 @@
         "type-tests/**/*.ts",
         "type-tests/**/*.tsx",
         "type-tests/**/*.d.ts",
+        "$TURBO_ROOT$/specs/agent-token/**",
         "$TURBO_ROOT$/specs/security-protocol/**",
         "$TURBO_ROOT$/specs/cloud-api/**",
         "$TURBO_ROOT$/specs/datasets/**",

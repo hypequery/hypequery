@@ -174,3 +174,56 @@ dataset sample on S2 was type-checked against `@hypequery/datasets@0.31.0` from 
 - **Cube Cloud free plan**: not re-checked for this page; S1 says only that the MCP server is on all plans.
 - **Databricks Genie and metric views** (docs now say "Genie Agents"): not used on S2; the Databricks spoke covers it.
 - **Accuracy statistics for text-to-SQL vs semantic layers**: no primary source; none are on either page.
+
+# SEO verification log: Cube gap pages (2026-11-14)
+
+Same rules as above. Gap analysis: `docs/aeo/cube-gap-analysis.md`.
+
+| # | Page | URL |
+|---|---|---|
+| G1 | Data access control | /semantic-layer/access-control |
+| G2 | Analytics MCP server | /semantic-layer/analytics-mcp-server |
+| G3 | dbt Semantic Layer alternatives | /semantic-layer/dbt-semantic-layer-alternatives |
+| G4 | Build vs buy embedded analytics | /compare/build-vs-buy-embedded-analytics |
+
+hypequery claims were checked against this repository on 2026-11-14. G1's code was type-checked against
+`@hypequery/datasets@0.31.0`, `@hypequery/serve@0.26.0` and `@hypequery/clickhouse@2.15.0` from npm, and its SQL
+comment is the actual `toSQL()` output. A dataset with a `tenantKey` and no runtime tenant was confirmed to throw
+"requires runtime tenant scoping". Specifics:
+
+- Trusted per-call `constraints` (RFC 0019 comparisons via `context.runtime.constraints`): `packages/datasets/CHANGELOG.md` (3492dc9), `src/utils/row-scope.ts`
+- Tenant and constraints in cache keys: `docs/(typescript)/(datasets)/datasets/caching.mdx`, datasets CHANGELOG
+- Field visibility only in the deployment data plane, not self-hosted Serve: commit e0f9c6e2 (K-07); no masking anywhere
+- `requiredRoles` (OR) / `requiredScopes` (AND), `createJwtStrategy` (secret or JWKS), `createAnalyticsTokenIssuer`: `docs/(typescript)/(serve)/authentication.mdx`
+- MCP tools, no SQL tool, 100-row default: as logged for S2 on 2026-11-13
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| G1, G3 | dbt SL platforms: Snowflake, BigQuery, Databricks, Redshift, Postgres, Trino; "other data platforms ... isn't available at this time" | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1, G3 | dbt SL on Starter, Enterprise, Enterprise+; caching (result + declarative, in the data platform, client opt-in) and multiple credentials on Enterprise and Enterprise+; local MetricFlow has no APIs or integrations | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1 | dbt SL auth: service tokens mapped to warehouse credentials, or personal tokens; "physical access policies ... will be respected"; no row-level security in the model | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1 | Cube access policies: `member_level`, `row_level`, `member_masking`, per group, can reference `userAttributes`; combined with `query_rewrite` | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/data-modeling/data-access-policies.mdx | 2026-11-14 |
+| G1 | Cube multitenancy: with `queryRewrite` only, query queue and pre-aggregations are shared; `pre_aggregations_schema` and `context_to_orchestrator_id` isolate them | https://github.com/cube-js/cube/blob/master/docs-mintlify/embedding/multitenancy.mdx | 2026-11-14 |
+| G1 | Snowflake row access policies and masking policies | https://docs.snowflake.com/en/user-guide/security-row-intro | 2026-11-14 |
+| G1 | ClickHouse row policy: a filter determining which rows a user can read | https://clickhouse.com/docs/sql-reference/statements/create/row-policy | 2026-11-14 |
+| G2 | mcp-clickhouse: tools `run_query`, `list_databases`, `list_tables`, `run_chdb_select_query` (chDB); read-only by default via `readonly=1`; `CLICKHOUSE_ALLOW_WRITE_ACCESS`, `CLICKHOUSE_ALLOW_DROP` ("best-effort guard", not a security boundary; restrict grants); stdio and Streamable HTTP (SSE deprecated); HTTP needs bearer token or OAuth by default; Apache 2.0 | https://github.com/ClickHouse/mcp-clickhouse | 2026-11-14 |
+| G2, S2 | Cube MCP: all plans, Viewer role or higher, 30 tools, HTTPS + OAuth, `tool:<name>` scopes; `runQuery` runs Cube SQL (PostgreSQL dialect) against the SQL API | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/integrations/mcp-server.mdx | 2026-11-14 |
+| G2, G3 | dbt MCP: Apache 2.0; `execute_sql`, `text_to_sql`, `query_metrics`; CLI `show` "Executes SQL against the database"; `DISABLE_SQL` setting present in `src/dbt_mcp/config/settings.py` | https://github.com/dbt-labs/dbt-mcp | 2026-11-14 |
+| G2, G3 | Snowflake MCP, AtScale MCP and integrations, Lightdash, Wren AI, Boring Semantic Layer, Malloy, AtScale SML, MetricFlow licence, Cube Core licence and APIs | As logged for S1/S2 | 2026-11-13 |
+
+G3's HubSources line reads "November 13 and 14, 2026" because its non-dbt, non-Cube-MCP rows reuse the S1/S2
+checks from 2026-11-13.
+
+## Corrections made on 2026-11-14
+
+- **S2 (ai-agents)**: Cube's raw SQL cell changed from "Not covered in sources checked" to `runQuery` taking Cube
+  SQL against the semantic SQL API. The MCP doc's tool table says so.
+- **Cube's own dbt-alternatives article** says the dbt Semantic Layer has no built-in caching. dbt's FAQ documents
+  result and declarative caches on Enterprise plans, so G3 says that instead.
+
+## Cut from G1–G4
+
+- **Cube Cloud UI for access policies**: from a Cube blog post in search results, not the docs; left out.
+- **Cube "sits on top of dbt models"**: only in Cube's marketing articles; G3 says only that dbt keeps building the
+  tables, which is true of every option.
+- **Any build-time or cost figures for building embedded analytics**: no primary source; G4 gives none.

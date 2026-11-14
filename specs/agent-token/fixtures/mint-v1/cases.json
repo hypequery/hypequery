@@ -1,0 +1,981 @@
+{
+  "description": "Agent tokens minted locally with a managed signing key (AG-18a/AG-18b). Both mintAgentToken() (@hypequery/agent) and mint_agent_token() (hypequery.agent) must mint each accepted case byte for byte, and refuse each refused case naming its field. In a refused case, input patches the base options (project acme:logistics, endpoint https://acme-logistics-1f2e3d4c.hypequery.app, tenant northwind, subject user_42, permissionSet customers, now 1763000000) and null means the option is left out (TypeScript) or None (Python). Option names are TypeScript's; Python's are their snake_case. keyMembers, when present, are added to signingKey (Cloud adds hq_project and hq_endpoint); an explicit project or endpoint wins over the key's. The key is a fixture key generated for these tests only.",
+  "signingKey": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A",
+    "d": "WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ",
+    "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+    "alg": "EdDSA",
+    "use": "sig"
+  },
+  "accepted": [
+    {
+      "name": "minimal, default 15-minute lifetime",
+      "now": 1763000000,
+      "input": {
+        "project": "acme:logistics",
+        "endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app",
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    },
+    {
+      "name": "constraints of each kind, a shorter lifetime and the /mcp URL as endpoint",
+      "now": 1763000123,
+      "input": {
+        "project": "acme:logistics",
+        "endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+        "tenant": "org_9f8e:eu-west.1",
+        "subject": "user_42",
+        "permissionSet": "regional-managers",
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": [
+              "emea",
+              "apac"
+            ]
+          },
+          {
+            "filter": "carrier_id",
+            "operator": "eq",
+            "value": 42
+          },
+          {
+            "filter": "is_active",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "filter": "warehouse",
+            "operator": "in",
+            "value": [
+              1,
+              "two",
+              false,
+              -9007199254740991
+            ]
+          }
+        ],
+        "expiresInSeconds": 300
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000423,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "org_9f8e:eu-west.1",
+        "permission_set": "regional-managers",
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": [
+              "emea",
+              "apac"
+            ]
+          },
+          {
+            "filter": "carrier_id",
+            "operator": "eq",
+            "value": 42
+          },
+          {
+            "filter": "is_active",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "filter": "warehouse",
+            "operator": "in",
+            "value": [
+              1,
+              "two",
+              false,
+              -9007199254740991
+            ]
+          }
+        ],
+        "iat": 1763000123,
+        "exp": 1763000423
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoib3JnXzlmOGU6ZXUtd2VzdC4xIiwicGVybWlzc2lvbl9zZXQiOiJyZWdpb25hbC1tYW5hZ2VycyIsImNvbnN0cmFpbnRzIjpbeyJmaWx0ZXIiOiJyZWdpb24iLCJvcGVyYXRvciI6ImluIiwidmFsdWUiOlsiZW1lYSIsImFwYWMiXX0seyJmaWx0ZXIiOiJjYXJyaWVyX2lkIiwib3BlcmF0b3IiOiJlcSIsInZhbHVlIjo0Mn0seyJmaWx0ZXIiOiJpc19hY3RpdmUiLCJvcGVyYXRvciI6ImVxIiwidmFsdWUiOnRydWV9LHsiZmlsdGVyIjoid2FyZWhvdXNlIiwib3BlcmF0b3IiOiJpbiIsInZhbHVlIjpbMSwidHdvIixmYWxzZSwtOTAwNzE5OTI1NDc0MDk5MV19XSwiaWF0IjoxNzYzMDAwMTIzLCJleHAiOjE3NjMwMDA0MjN9.8FBX7KAaNPzhxYRQNPRQ6Wc0SQ5z4vNdD-A4XZmXRn3eKq7wP-VlTlmRQysjj9q8AsW3nwP975XA6S-ENVgvBA"
+    },
+    {
+      "name": "JSON escaping: quotes, backslashes, control and non-ASCII characters",
+      "now": 1763000000.75,
+      "input": {
+        "project": "acme:logistics",
+        "endpoint": "https://ACME-Logistics-1F2E3D4C.HypeQuery.App:443/",
+        "tenant": "northwind",
+        "subject": "auth0|a\"b\\c/d",
+        "permissionSet": "customers",
+        "constraints": [
+          {
+            "filter": "city",
+            "operator": "eq",
+            "value": "Zürich \"HQ\"\n\t\u0001 🚚  "
+          }
+        ]
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "auth0|a\"b\\c/d",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "constraints": [
+          {
+            "filter": "city",
+            "operator": "eq",
+            "value": "Zürich \"HQ\"\n\t\u0001 🚚  "
+          }
+        ],
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJhdXRoMHxhXCJiXFxjL2QiLCJ0ZW5hbnQiOiJub3J0aHdpbmQiLCJwZXJtaXNzaW9uX3NldCI6ImN1c3RvbWVycyIsImNvbnN0cmFpbnRzIjpbeyJmaWx0ZXIiOiJjaXR5Iiwib3BlcmF0b3IiOiJlcSIsInZhbHVlIjoiWsO8cmljaCBcIkhRXCJcblx0XHUwMDAxIPCfmpog4oCoIn1dLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.F05kfEJgQnJOnbpyoH3tvH4sQHfM5nO0htQlmYOhPfJrmitQLBTDpsh6M6E17y08bOL0NbIos5SImBv-BP4pAQ"
+    },
+    {
+      "name": "loopback http endpoint with a port, a one-second lifetime, empty constraints omitted",
+      "now": 1763000000,
+      "input": {
+        "project": "acme:logistics",
+        "endpoint": "http://localhost:8787",
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers",
+        "constraints": [],
+        "expiresInSeconds": 1
+      },
+      "mcpUrl": "http://localhost:8787/mcp",
+      "expiresAt": 1763000001,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000001
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDAwMX0.wRw9wyMKo0TZCwWVwvp22vvXhWA6_-14CBymA4QSXvVJz5RUhiivyuOkLJ0XoEdIUBUv0_pCcHawRQ1mUwxeCQ"
+    },
+    {
+      "name": "longest tenant, subject and permission set",
+      "now": 1763000000,
+      "input": {
+        "project": "Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "endpoint": "http://127.0.0.1:80/mcp",
+        "tenant": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+        "subject": "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+        "permissionSet": "paaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "mcpUrl": "http://127.0.0.1/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sub": "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+        "tenant": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+        "permission_set": "paaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6QWJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJzdWIiOiJ-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fn5-fiIsInRlbmFudCI6InR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0IiwicGVybWlzc2lvbl9zZXQiOiJwYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwiaWF0IjoxNzYzMDAwMDAwLCJleHAiOjE3NjMwMDA5MDB9.ahYgzi1e5sTxKIzJmuiJ8DGBHXgVokMdYiwYd6xB5eqXeOCepYM_t0AfJOgztk8UEkf2JbNSQJncNYmFCEA8AA"
+    },
+    {
+      "name": "project and endpoint from the key",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_project": "acme:logistics",
+        "hq_endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    },
+    {
+      "name": "explicit project and endpoint win over the key's",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_project": "acme:old-logistics",
+        "hq_endpoint": "https://acme-old-0a0b0c0d.hypequery.app"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers",
+        "project": "acme:logistics",
+        "endpoint": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    },
+    {
+      "name": "the key's endpoint as an /mcp URL with only the project explicit",
+      "now": 1763000000,
+      "keyMembers": {
+        "hq_endpoint": "https://ACME-Logistics-1f2e3d4c.hypequery.app/mcp"
+      },
+      "input": {
+        "tenant": "northwind",
+        "subject": "user_42",
+        "permissionSet": "customers",
+        "project": "acme:logistics"
+      },
+      "mcpUrl": "https://acme-logistics-1f2e3d4c.hypequery.app/mcp",
+      "expiresAt": 1763000900,
+      "header": {
+        "alg": "EdDSA",
+        "kid": "hqsk_dZw-PiCHhuio4fz5lhSNmg",
+        "typ": "JWT"
+      },
+      "payload": {
+        "aud": "hypequery-agent:acme:logistics",
+        "sub": "user_42",
+        "tenant": "northwind",
+        "permission_set": "customers",
+        "iat": 1763000000,
+        "exp": 1763000900
+      },
+      "token": "eyJhbGciOiJFZERTQSIsImtpZCI6Imhxc2tfZFp3LVBpQ0hodWlvNGZ6NWxoU05tZyIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJoeXBlcXVlcnktYWdlbnQ6YWNtZTpsb2dpc3RpY3MiLCJzdWIiOiJ1c2VyXzQyIiwidGVuYW50Ijoibm9ydGh3aW5kIiwicGVybWlzc2lvbl9zZXQiOiJjdXN0b21lcnMiLCJpYXQiOjE3NjMwMDAwMDAsImV4cCI6MTc2MzAwMDkwMH0.MUy31zaVjSvsI7zGcnxeKaQKNDttsK39XjnflL3Pki5pkQpN0HF9FjDOGUHlfDLq2dqKjJNIYncfLo7pj5Z9Dw"
+    }
+  ],
+  "refused": [
+    {
+      "name": "lifetime over 15 minutes",
+      "input": {
+        "expiresInSeconds": 901
+      },
+      "field": "expiresInSeconds"
+    },
+    {
+      "name": "zero lifetime",
+      "input": {
+        "expiresInSeconds": 0
+      },
+      "field": "expiresInSeconds"
+    },
+    {
+      "name": "fractional lifetime",
+      "input": {
+        "expiresInSeconds": 1.5
+      },
+      "field": "expiresInSeconds"
+    },
+    {
+      "name": "lifetime as a string",
+      "input": {
+        "expiresInSeconds": "900"
+      },
+      "field": "expiresInSeconds"
+    },
+    {
+      "name": "tenant with a space",
+      "input": {
+        "tenant": "north wind"
+      },
+      "field": "tenant"
+    },
+    {
+      "name": "empty tenant",
+      "input": {
+        "tenant": ""
+      },
+      "field": "tenant"
+    },
+    {
+      "name": "tenant over 128 characters",
+      "input": {
+        "tenant": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      },
+      "field": "tenant"
+    },
+    {
+      "name": "subject with a space",
+      "input": {
+        "subject": "user 42"
+      },
+      "field": "subject"
+    },
+    {
+      "name": "empty subject",
+      "input": {
+        "subject": ""
+      },
+      "field": "subject"
+    },
+    {
+      "name": "non-ASCII subject",
+      "input": {
+        "subject": "jürgen"
+      },
+      "field": "subject"
+    },
+    {
+      "name": "subject over 128 characters",
+      "input": {
+        "subject": "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+      },
+      "field": "subject"
+    },
+    {
+      "name": "uppercase permission set",
+      "input": {
+        "permissionSet": "Customers"
+      },
+      "field": "permissionSet"
+    },
+    {
+      "name": "missing permission set",
+      "input": {
+        "permissionSet": null
+      },
+      "field": "permissionSet"
+    },
+    {
+      "name": "empty project",
+      "input": {
+        "project": ""
+      },
+      "field": "project"
+    },
+    {
+      "name": "project starting with a dash",
+      "input": {
+        "project": "-logistics"
+      },
+      "field": "project"
+    },
+    {
+      "name": "project with a slash",
+      "input": {
+        "project": "acme/logistics"
+      },
+      "field": "project"
+    },
+    {
+      "name": "project over 128 characters",
+      "input": {
+        "project": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+      },
+      "field": "project"
+    },
+    {
+      "name": "plain http to a remote host",
+      "input": {
+        "endpoint": "http://acme.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with another path",
+      "input": {
+        "endpoint": "https://acme.hypequery.app/api/mcp"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with credentials",
+      "input": {
+        "endpoint": "https://user@acme.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with a query",
+      "input": {
+        "endpoint": "https://acme.hypequery.app/mcp?x=1"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with port 0",
+      "input": {
+        "endpoint": "https://acme.hypequery.app:0"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with port over 65535",
+      "input": {
+        "endpoint": "https://acme.hypequery.app:65536"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with an empty label",
+      "input": {
+        "endpoint": "https://acme..hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with a label ending in a dash",
+      "input": {
+        "endpoint": "https://acme-.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "endpoint with a non-http scheme",
+      "input": {
+        "endpoint": "wss://acme.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "missing endpoint",
+      "input": {
+        "endpoint": null
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "nine constraints",
+      "input": {
+        "constraints": [
+          {
+            "filter": "f0",
+            "operator": "eq",
+            "value": 0
+          },
+          {
+            "filter": "f1",
+            "operator": "eq",
+            "value": 1
+          },
+          {
+            "filter": "f2",
+            "operator": "eq",
+            "value": 2
+          },
+          {
+            "filter": "f3",
+            "operator": "eq",
+            "value": 3
+          },
+          {
+            "filter": "f4",
+            "operator": "eq",
+            "value": 4
+          },
+          {
+            "filter": "f5",
+            "operator": "eq",
+            "value": 5
+          },
+          {
+            "filter": "f6",
+            "operator": "eq",
+            "value": 6
+          },
+          {
+            "filter": "f7",
+            "operator": "eq",
+            "value": 7
+          },
+          {
+            "filter": "f8",
+            "operator": "eq",
+            "value": 8
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a filter constrained twice",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": "a"
+          },
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": [
+              "b"
+            ]
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an unsupported operator",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "gt",
+            "value": 1
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an empty in list",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": []
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an in list of 101 values",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36,
+              37,
+              38,
+              39,
+              40,
+              41,
+              42,
+              43,
+              44,
+              45,
+              46,
+              47,
+              48,
+              49,
+              50,
+              51,
+              52,
+              53,
+              54,
+              55,
+              56,
+              57,
+              58,
+              59,
+              60,
+              61,
+              62,
+              63,
+              64,
+              65,
+              66,
+              67,
+              68,
+              69,
+              70,
+              71,
+              72,
+              73,
+              74,
+              75,
+              76,
+              77,
+              78,
+              79,
+              80,
+              81,
+              82,
+              83,
+              84,
+              85,
+              86,
+              87,
+              88,
+              89,
+              90,
+              91,
+              92,
+              93,
+              94,
+              95,
+              96,
+              97,
+              98,
+              99,
+              100
+            ]
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a fractional value",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": 1.5
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an integer beyond 2^53 - 1",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": 9007199254740992
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an empty string value",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": ""
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a string value over 256 characters",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a null value",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": null
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an eq value that is a list",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": [
+              "a"
+            ]
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a nested list in an in list",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "in",
+            "value": [
+              [
+                "a"
+              ]
+            ]
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "an unknown constraint member",
+      "input": {
+        "constraints": [
+          {
+            "filter": "region",
+            "operator": "eq",
+            "value": "a",
+            "negate": true
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a filter name starting with a digit",
+      "input": {
+        "constraints": [
+          {
+            "filter": "1region",
+            "operator": "eq",
+            "value": "a"
+          }
+        ]
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "constraints that are not a list",
+      "input": {
+        "constraints": {
+          "filter": "region",
+          "operator": "eq",
+          "value": "a"
+        }
+      },
+      "field": "constraints"
+    },
+    {
+      "name": "a signing key that is not JSON",
+      "signingKey": "not json",
+      "field": "signingKey"
+    },
+    {
+      "name": "the public key only",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "an X25519 key",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"X25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key for another algorithm",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"RS256\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key for encryption",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"enc\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key without a kid",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose kid is not a hypequery key id",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"my-key-1\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose x is another key's",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"wHhuUjrrb2k9pnJNwzscRUtzjsSq3q63xDbfrVpdDgg\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a JSON array",
+      "signingKey": "[]",
+      "field": "signingKey"
+    },
+    {
+      "name": "a signing key with a byte order mark",
+      "signingKey": "\ufeff{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a signing key padded with a non-JSON space",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}\u00a0",
+      "field": "signingKey"
+    },
+    {
+      "name": "a signing key with a NaN member",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\",\"extra\":NaN}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose d is not canonical base64url",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGR\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose x is not canonical base64url",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7B\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "no project, given or in the key",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {},
+      "field": "project"
+    },
+    {
+      "name": "no endpoint, given or in the key",
+      "input": {
+        "endpoint": null
+      },
+      "keyMembers": {},
+      "field": "endpoint"
+    },
+    {
+      "name": "the key's hq_project is not a protocol name",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {
+        "hq_project": "acme/logistics"
+      },
+      "field": "project"
+    },
+    {
+      "name": "the key's hq_project is not a string",
+      "input": {
+        "project": null
+      },
+      "keyMembers": {
+        "hq_project": 42
+      },
+      "field": "project"
+    },
+    {
+      "name": "the key's hq_endpoint is plain http to a remote host",
+      "input": {
+        "endpoint": null
+      },
+      "keyMembers": {
+        "hq_endpoint": "http://acme.hypequery.app"
+      },
+      "field": "endpoint"
+    },
+    {
+      "name": "an explicit endpoint is checked even when the key has a good one",
+      "input": {
+        "endpoint": "http://acme.hypequery.app"
+      },
+      "keyMembers": {
+        "hq_endpoint": "https://acme.hypequery.app"
+      },
+      "field": "endpoint"
+    }
+  ]
+}

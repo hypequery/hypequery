@@ -6,8 +6,9 @@
  * content, not for layout or styling tweaks.
  */
 const pageUpdated: Record<string, string> = {
-  '/embedded-analytics': '2026-11-12',
-  '/compare/embedded-analytics-platforms': '2026-11-12',
+  '/embedded-analytics': '2026-11-14',
+  '/compare/embedded-analytics-typescript': '2026-11-14',
+  '/compare/embedded-analytics-platforms': '2026-11-14',
   '/compare/embedded-analytics-pricing': '2026-11-12',
   '/compare/luzmo-alternatives': '2026-11-12',
   '/compare/hypequery-vs-embeddable': '2026-11-12',
@@ -19,7 +20,11 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/databricks-metric-views': '2026-11-10',
   '/semantic-layer/open-semantic-interchange': '2026-11-10',
   '/semantic-layer/open-source-tools': '2026-11-13',
-  '/semantic-layer/ai-agents': '2026-11-13',
+  '/semantic-layer/ai-agents': '2026-11-14',
+  '/semantic-layer/access-control': '2026-11-14',
+  '/semantic-layer/analytics-mcp-server': '2026-11-14',
+  '/semantic-layer/dbt-semantic-layer-alternatives': '2026-11-14',
+  '/compare/build-vs-buy-embedded-analytics': '2026-11-14',
 };
 
 /** The page's last update (YYYY-MM-DD). Throws at build time when a page is missing from the map. */

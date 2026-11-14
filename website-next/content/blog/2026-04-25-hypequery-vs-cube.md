@@ -10,9 +10,11 @@ slug: hypequery-vs-cube
 status: published
 ---
 
+**Short answer:** choose Cube when a data team needs one semantic layer across several databases, BI tools, embedded dashboards, and agents, with managed pre-aggregations and caching. Choose hypequery when a TypeScript or Python product team wants ClickHouse metrics, tenant rules, APIs, React hooks, and agent tools to live with the application code it already deploys.
+
 Cube (formerly Cube.js) is a semantic layer platform: central metric definitions, multiple consumption surfaces, and access control around them. It supports ClickHouse and has a much broader analytics-platform scope than hypequery.
 
-hypequery is a semantic layer too, but a different shape: it lives in your codebase, in TypeScript or Python, instead of running as a separate platform. It ships typed datasets, a composable query builder, typed HTTP APIs, React hooks, and MCP tools for agents. The center of gravity is product code, not a separate semantic-layer server. You run it in your own backend, or on hypequery cloud if you want it hosted.
+hypequery is a semantic layer too, but a different shape: it lives in your codebase, in TypeScript or Python, instead of running as a separate platform. It ships typed datasets, a composable query builder, typed HTTP APIs, React hooks, and MCP tools for agents. The center of gravity is product code, not a separate semantic-layer server. You run it in your own backend. A hosted hypequery cloud option is on a waitlist and is not live.
 
 So this is less a feature checklist than a fit question. The tools solve adjacent problems for different team shapes.
 
@@ -30,7 +32,7 @@ These are powerful features for data teams serving multiple internal and externa
 
 ## Where Cube becomes a constraint
 
-Cube is not a lightweight tool. Running Cube adds infrastructure: Cube API instances, a refresh worker, and Cube Store router and worker nodes, or a Cube Cloud plan. (Older guides mention Redis; Cube removed Redis support in v0.36.) The configuration-first YAML/JavaScript schema can feel distant from the TypeScript codebase that engineers are working in day-to-day.
+Cube is not a lightweight tool. Running Cube adds infrastructure: Cube API instances, a refresh worker, and Cube Store router and worker nodes, or a Cube Cloud plan. The configuration-first YAML/JavaScript schema can feel distant from the TypeScript codebase that engineers are working in day-to-day.
 
 For product engineering teams building ClickHouse-powered features into their TypeScript application, Cube can feel like bringing a warehouse-scale tool to a product engineering problem. If you just need typed ClickHouse queries serving a dashboard and an API, Cube's setup cost is high relative to the problem size.
 
@@ -39,25 +41,39 @@ For product engineering teams building ClickHouse-powered features into their Ty
 hypequery is optimised for product engineering teams building ClickHouse-backed features in TypeScript. The workflow is code-first:
 
 1. Generate TypeScript types from your ClickHouse schema
-2. Define analytics queries in TypeScript using the query builder
-3. Serve those queries as typed REST endpoints with OpenAPI docs
-4. Consume them in React dashboard components via typed hooks
+2. Define datasets, measures, dimensions, relationships, and tenant rules in TypeScript
+3. Query those datasets in process or serve them as typed HTTP endpoints with OpenAPI docs
+4. Consume the same definitions from React hooks or expose them as MCP tools for agents
 
 The entire stack lives in your existing TypeScript codebase. There is no separate infrastructure to run, no YAML schema to maintain, and no context switch out of the language your team works in. The same datasets can also be defined and served from Python.
 
-## The honest tradeoff
+## The fact-based comparison
 
-| | Cube | hypequery |
+| Criterion | Cube | hypequery |
 |---|---|---|
-| Best for | Centralised metrics for multiple consumers | Product engineers building ClickHouse-backed features |
-| Setup | Separate infrastructure and config | npm install, one generate command |
-| Type safety | Configuration-defined | Generated from live ClickHouse schema |
-| BI tool support | Yes — Tableau, Metabase, etc. | No |
-| Caching / pre-aggregations | First-class, in Cube Store | Optional query result cache; ClickHouse materialized views for rollups |
-| Code-first workflow | Partial | Fully code-first |
-| ClickHouse support | Yes, among many SQL sources | Yes — ClickHouse native |
-| MCP and agents | MCP server and agents in Cube Cloud | `@hypequery/mcp` over your datasets |
-| Pricing | Cube Core is Apache 2.0; Cube Cloud has a Free plan, then $40 or $80 per developer per month | Free and open source (Apache 2.0) |
+| Best fit | A central semantic layer for many consumers and data sources | Product engineers building ClickHouse-backed features |
+| Model location | YAML or JavaScript model in a Cube deployment | TypeScript or Python modules in the application repository |
+| Metric consistency | One Cube model serves REST, GraphQL, SQL, BI tools, embeds, and agents | One dataset model serves in-process calls, HTTP, React hooks, and MCP tools |
+| TypeScript types | API clients consume Cube's semantic query contract | Table types are generated from the live ClickHouse schema; dataset fields are typed in code |
+| Tenant and access rules | Security context, access policies, and query rewriting in Cube | Dataset `tenantKey`, with tenant context supplied by the backend and missing context rejected |
+| Change workflow | Model changes deploy to Cube separately from the product application | Model changes follow the application's pull request, test, and deploy workflow |
+| BI tool support | Yes — including Tableau, Power BI, Metabase, and Superset | No BI-tool SQL interface |
+| Embedded UI | Hosted dashboards and React Embed SDK on Cube Cloud Premium and Enterprise | No chart components or dashboard builder; use your own UI |
+| Caching / pre-aggregations | Cube Store caching and managed pre-aggregations | Optional result cache; ClickHouse materialized views or projections for rollups |
+| Operations | Run Cube Core and Cube Store, or use Cube Cloud | Run the libraries in your existing backend and operate ClickHouse |
+| Databases | ClickHouse and many other SQL sources | ClickHouse only |
+| MCP and agents | Hosted MCP server and agents in Cube Cloud | `@hypequery/mcp` or the Python MCP server over datasets |
+| Pricing | Cube Core is Apache 2.0; Cube Cloud has a Free plan, then $40 or $80 per developer per month | Apache 2.0 libraries are free; the hosted option is not live |
+
+The table was rechecked against Cube's data-modeling, access-control, embedding, MCP, and pricing pages on 14 November 2026. hypequery capability links point to the shipped documentation and source below.
+
+## Governance test: change one metric once
+
+Do not evaluate either option only by building a chart. Define one metric with a real rule — for example, net revenue excluding refunds — and use it from a dashboard, an HTTP client, and an agent. Then change the rule once.
+
+With Cube, the test passes when all three consumers query the same deployed Cube measure and inherit the same security context. With hypequery, it passes when all three consumers use the same dataset definition and the backend supplies the same trusted tenant context. If any consumer carries its own SQL or tenant filter, the architecture has not delivered metric consistency yet.
+
+The [TypeScript embedded analytics buyer's guide](/compare/embedded-analytics-typescript) turns that test into a reusable governance, type-safety, and isolation checklist.
 
 ## When to choose Cube
 
@@ -82,3 +98,8 @@ Some teams use both. Cube handles the centralised metrics layer for BI and data 
 If hypequery is the right fit for your use case, the [quick start](/docs/quick-start) covers schema generation, your first typed query, and serving it as a REST endpoint.
 
 For the broader TypeScript options on ClickHouse, read the [ClickHouse TypeScript](/clickhouse-typescript) guide and the [ClickHouse analytics](/clickhouse-analytics) pillar page.
+
+## Sources checked
+
+- Cube: [data modeling](https://cube.dev/docs/product/data-modeling), [data access control](https://cube.dev/product/data-access-control), [embedding](https://cube.dev/docs/product/embedding), [MCP server](https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/integrations/mcp-server.mdx), [ClickHouse data source](https://github.com/cube-js/cube/blob/master/docs-mintlify/admin/connect-to-data/data-sources/clickhouse.mdx), and [pricing](https://cube.dev/pricing)
+- hypequery: [datasets overview](/docs/datasets/overview), [dataset multi-tenancy](/docs/datasets/multi-tenancy), [HTTP and OpenAPI](/docs/http-openapi), [React hooks](/docs/react/getting-started), and [MCP safety](/docs/mcp/safety)
