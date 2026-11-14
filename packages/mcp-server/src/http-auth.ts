@@ -86,9 +86,15 @@ export interface MCPServeAuthContext {
   [key: string]: unknown;
 }
 
-/** The request shape `@hypequery/serve` auth strategies read. */
+/** The HTTP methods `@hypequery/serve`'s `ServeRequest.method` admits (serve's `HttpMethod`). */
+export type MCPServeHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS';
+
+/**
+ * The request shape `@hypequery/serve` auth strategies read. Field types match serve's
+ * `ServeRequest`, so a serve `AuthStrategy` is assignable to `MCPServeAuthStrategy`.
+ */
 export interface MCPServeAuthRequest {
-  method: string;
+  method: MCPServeHttpMethod;
   path: string;
   query: Record<string, string | string[] | undefined>;
   headers: Record<string, string | undefined>;
@@ -126,7 +132,9 @@ function serveRequest(request: Request): MCPServeAuthRequest {
     const existing = query[name];
     query[name] = existing === undefined ? value : Array.isArray(existing) ? [...existing, value] : [existing, value];
   });
-  return { method: request.method, path: url.pathname, query, headers, raw: request };
+  // Uppercased and cast, as serve's own fetch and Node adapters do.
+  const method = request.method.toUpperCase() as MCPServeHttpMethod;
+  return { method, path: url.pathname, query, headers, raw: request };
 }
 
 /**
