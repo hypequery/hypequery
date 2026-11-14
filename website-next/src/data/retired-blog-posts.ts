@@ -17,7 +17,9 @@ const TYPES = '/blog/clickhouse-typescript-type-problem';
 export const retiredBlogPosts: RetiredBlogPost[] = [
   // Duplicates of the page Google ranks for the same searches (November 2026).
   { slug: 'does-clickhouse-have-an-orm', destination: '/clickhouse-orm' },
-  { slug: 'clickhouse-query-builder-typescript', destination: '/clickhouse-query-builder' },
+  // Search Console (Aug-Nov 2026): 60 impressions for 'typescript client for clickhouse cloud'
+  // against 5 for 'clickhouse query builder', so send it to the page titled for the first.
+  { slug: 'clickhouse-query-builder-typescript', destination: '/clickhouse-typescript' },
   { slug: 'clickhouse-react-hooks', destination: '/clickhouse-react' },
   { slug: 'clickhouse-materialized-views-typescript', destination: '/blog/a-guide-to-materialized-views-in-clickhouse' },
   // Under 50 impressions and no clicks (Search Console, August to November
