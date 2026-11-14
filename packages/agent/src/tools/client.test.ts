@@ -110,6 +110,32 @@ describe('createHypequeryToolsClient', () => {
     expect(error).toMatchObject({ code: 'MCP_UNAUTHORIZED', category: 'unauthorized', status: 401 });
   });
 
+  it('keeps a refusal\u2019s retry delay, relist flag and reason on the thrown error', async () => {
+    const refusal = {
+      code: 'MCP_RATE_LIMITED',
+      category: 'budget',
+      message: 'Too many requests for this project',
+      retryable: true,
+      correctable: false,
+      retryAfterSeconds: 30,
+      relist: true,
+      reason: 'HQ_PROJECT_QUOTA',
+      hint: 'Wait 30 seconds.',
+      requestId: 'req_refused',
+    };
+    const client = connect({
+      fetch: async () => new Response(JSON.stringify({ error: refusal }), {
+        status: 429,
+        headers: { 'content-type': 'application/json' },
+      }),
+    });
+    const error = await client.listTools().catch(caught => caught);
+    expect(error).toBeInstanceOf(HypequeryToolsError);
+    expect(error).toMatchObject({ ...refusal, status: 429 });
+    expect((error as HypequeryToolsError).toJSON()).toEqual(refusal);
+    expect(JSON.parse(JSON.stringify(error))).toEqual(refusal);
+  });
+
   it('reuses one session, and opens a new one after the idle timeout', async () => {
     const client = connect({ idleTimeoutMs: 20 });
     await client.callTool('list_datasets', {});

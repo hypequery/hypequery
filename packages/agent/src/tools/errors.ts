@@ -17,6 +17,12 @@ export class HypequeryToolsError extends Error {
   readonly category: HypequeryToolErrorCategory | (string & {});
   readonly retryable: boolean;
   readonly correctable: boolean;
+  /** How long to wait before retrying, when the endpoint said. */
+  readonly retryAfterSeconds?: number;
+  /** Re-read discovery (`list_datasets`, schemas) before retrying. */
+  readonly relist?: boolean;
+  /** The host's own stable code for this failure. */
+  readonly reason?: string;
   readonly hint?: string;
   readonly docsUrl?: string;
   readonly requestId?: string;
@@ -30,6 +36,9 @@ export class HypequeryToolsError extends Error {
     this.category = details.category;
     this.retryable = details.retryable;
     this.correctable = details.correctable;
+    if (details.retryAfterSeconds !== undefined) this.retryAfterSeconds = details.retryAfterSeconds;
+    if (details.relist !== undefined) this.relist = details.relist;
+    if (details.reason !== undefined) this.reason = details.reason;
     if (details.hint !== undefined) this.hint = details.hint;
     if (details.docsUrl !== undefined) this.docsUrl = details.docsUrl;
     if (details.requestId !== undefined) this.requestId = details.requestId;
@@ -44,6 +53,9 @@ export class HypequeryToolsError extends Error {
       message: this.message,
       retryable: this.retryable,
       correctable: this.correctable,
+      ...(this.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: this.retryAfterSeconds }),
+      ...(this.relist === undefined ? {} : { relist: this.relist }),
+      ...(this.reason === undefined ? {} : { reason: this.reason }),
       ...(this.hint === undefined ? {} : { hint: this.hint }),
       ...(this.docsUrl === undefined ? {} : { docsUrl: this.docsUrl }),
       ...(this.requestId === undefined ? {} : { requestId: this.requestId }),
