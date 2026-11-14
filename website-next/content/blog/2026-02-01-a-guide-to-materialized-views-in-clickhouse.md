@@ -4,7 +4,7 @@ description: "A ClickHouse materialized view is an insert trigger: it runs its S
 seoTitle: "ClickHouse Materialized Views: How They Work, With Examples"
 seoDescription: "A ClickHouse materialized view runs its SELECT on each insert and writes to a target table. Incremental vs refreshable, how to refresh, backfills, engines."
 pubDate: 2026-01-11
-updatedAt: 2026-11-12
+updatedAt: 2026-11-14
 heroImage: ""
 slug: a-guide-to-materialized-views-in-clickhouse
 status: published
@@ -38,6 +38,14 @@ Incremental views keep a target up to date within seconds and suit single-table 
 ### How do I refresh a materialized view?
 
 A refreshable view reruns on its schedule, or now with `SYSTEM REFRESH VIEW name`. An incremental view has no refresh command: it is already current for every insert, and to recompute it you truncate the target and reload it with `INSERT ... SELECT`. Both are covered in [how to refresh a materialized view](#how-to-refresh-a-materialized-view).
+
+### How do I drop a materialized view?
+
+`DROP VIEW IF EXISTS events_daily_mv` (`DROP TABLE` works on views too). If the view writes `TO` a target table, the target and its rows stay; if it uses an implicit `.inner_id` table, dropping the view deletes that data. Drop the view before its target, or inserts into the source table start failing. See [show, list and drop materialized views](/blog/clickhouse-create-materialized-view-to-table-backfill#how-do-you-show-list-and-drop-materialized-views).
+
+### How do I change or replace a materialized view?
+
+`ALTER TABLE events_daily_mv MODIFY QUERY SELECT ...` swaps the query, and `CREATE OR REPLACE MATERIALIZED VIEW events_daily_mv TO events_daily AS SELECT ...` replaces the whole definition in one statement. With `TO`, neither touches rows already in the target; both apply only to future inserts. See [changing a materialized view](/blog/clickhouse-create-materialized-view-to-table-backfill).
 
 ### Materialized view or projection?
 
