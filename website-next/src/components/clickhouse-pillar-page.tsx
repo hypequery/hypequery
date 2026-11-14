@@ -8,7 +8,7 @@ import { DeployWaitlist } from '@/components/home/DeployWaitlist';
 import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand, type Language } from '@/components/home/SetupCommand';
 import { marketing } from '@/components/ui/marketing';
-import { faqPageSchema, type FaqItem } from '@/lib/faq-schema';
+import { faqPageSchema, questionCardsAsFaq, uniqueFaq, type FaqItem } from '@/lib/faq-schema';
 import { breadcrumbJsonLd } from '@/lib/structured-data';
 import { absoluteUrl } from '@/lib/site';
 import { maybeUpdatedFor } from '@/data/page-dates';
@@ -225,6 +225,8 @@ export function ClickhousePillarPage({
   relatedPillars,
   nextStep,
 }: ClickhousePillarPageProps) {
+  // The FAQ section plus any question-shaped intent cards, both visible on the page.
+  const faqSchemaItems = uniqueFaq([...(faq ?? []), ...questionCardsAsFaq(searchIntentCards)]);
   const updated = leadPage ? maybeUpdatedFor(leadPage) : undefined;
   // The page as a dated article plus a Home > page trail, so search engines and
   // AI answers see what the page is, when it last changed, and where it sits.
@@ -253,8 +255,8 @@ export function ClickhousePillarPage({
           />
         </>
       ) : null}
-      {faq && faq.length > 0 ? (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faq)) }} />
+      {faqSchemaItems.length > 0 ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faqSchemaItems)) }} />
       ) : null}
       <Navigation />
       <main className="min-h-screen bg-bg pt-[62px] text-text">
