@@ -131,22 +131,22 @@ export default function ClickHouseOrmPage() {
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse ORM TypeScript',
+          title: 'Is there an ORM for ClickHouse in TypeScript?',
           copy:
             'There is no Prisma or Drizzle for ClickHouse — the data model is too different. hypequery is the schema-driven, type-safe query layer that fills that gap, built specifically for ClickHouse analytics workloads.',
         },
         {
-          title: 'Prisma alternative for ClickHouse',
+          title: 'Does Prisma support ClickHouse?',
           copy:
             'Prisma does not support ClickHouse. hypequery gives you the same schema-first experience — generate types from your database, build typed queries, and get autocomplete — without needing a relational data model.',
         },
         {
-          title: 'Drizzle alternative for ClickHouse',
+          title: 'Does Drizzle support ClickHouse?',
           copy:
             'Drizzle does not support ClickHouse. hypequery is the TypeScript-first ClickHouse alternative — schema generation, a composable query builder, and typed HTTP APIs designed for analytics-heavy applications.',
         },
         {
-          title: 'TypeORM alternative for ClickHouse',
+          title: 'Does TypeORM support ClickHouse?',
           copy:
             'TypeORM does not support ClickHouse, and its entity and decorator model is built for transactional row stores. The usual setup keeps TypeORM on Postgres or MySQL and uses hypequery for the ClickHouse side, with types generated from the live schema.',
         },
