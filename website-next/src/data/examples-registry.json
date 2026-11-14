@@ -1015,6 +1015,8 @@
           "nextjs-dashboard"
         ],
         "leadPages": [
+          "/clickhouse-ai-sdk",
+          "/clickhouse-ai-agents",
           "/clickhouse-mcp",
           "/clickhouse-multi-tenant-analytics",
           "/clickhouse-nextjs",
@@ -1283,6 +1285,7 @@
         ],
         "leadPages": [
           "/clickhouse-mcp",
+          "/clickhouse-ai-agents",
           "/clickhouse-multi-tenant-analytics",
           "/clickhouse-semantic-layer",
           "/clickhouse-nodejs"

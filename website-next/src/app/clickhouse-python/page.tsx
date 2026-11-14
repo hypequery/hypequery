@@ -292,7 +292,7 @@ export default function ClickHousePythonPage() {
       eyebrow="ClickHouse Python clients"
       title="ClickHouse Python clients compared: clickhouse-connect, clickhouse-driver, SQLAlchemy and hypequery"
       description="For most Python code, use clickhouse-connect: it is the client ClickHouse maintains, it talks to the HTTP interface, binds `{name:Type}` parameters on the server, and returns pandas, NumPy or Arrow. clickhouse-driver is the community client for the native TCP protocol, clickhouse-sqlalchemy is a SQLAlchemy dialect built on it, and hypequery runs on top of clickhouse-connect to add named, validated, tenant-scoped analytics queries."
-      primaryCta={{ href: '/docs/python/quick-start', label: 'Start with Python' }}
+      primaryCta={{ href: '/docs/quick-start#python', label: 'Start with Python' }}
       secondaryCta={{ href: '/clickhouse-fastapi', label: 'See the FastAPI guide' }}
       language="python"
       stats={[
@@ -643,7 +643,7 @@ export default function ClickHousePythonPage() {
         title: 'Keep your client and model one table',
         description:
           'Pick the ClickHouse query your services copy most often, define it as a dataset, and run it through the same clickhouse-connect connection settings you use today.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Start with Python' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Start with Python' },
         secondaryCta: { href: '/docs/python', label: 'Read the Python docs' },
       }}
     />

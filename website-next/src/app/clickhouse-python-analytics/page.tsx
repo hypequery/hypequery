@@ -123,7 +123,7 @@ export default function ClickHousePythonAnalyticsPage() {
       eyebrow="ClickHouse Python analytics"
       title="Build ClickHouse analytics in Python once, then use it everywhere"
       description="Revenue, paying customers, and average order value start in one script and end up in jobs, notebooks, customer dashboards, and AI agents. hypequery lets you define each metric once in Python, next to your application code, so every consumer gets the same number."
-      primaryCta={{ href: '/docs/python/quick-start', label: 'Start with Python' }}
+      primaryCta={{ href: '/docs/quick-start#python', label: 'Start with Python' }}
       secondaryCta={{ href: '/clickhouse-fastapi', label: 'Serve it with FastAPI' }}
       language="python"
       stats={[
@@ -220,7 +220,7 @@ export default function ClickHousePythonAnalyticsPage() {
         eyebrow: 'Next step',
         title: 'Move one shared metric into a dataset',
         description: 'Pick the number your team argues about most, define it once, and point one job and one dashboard at it.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/datasets/overview', label: 'Datasets docs' },
       }}
     />

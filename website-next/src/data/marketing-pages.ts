@@ -45,6 +45,8 @@ export const marketingPages: readonly string[] = [
   '/clickhouse-query-builder',
   '/type-safe-sql-typescript',
   '/clickhouse-mcp',
+  '/clickhouse-ai-sdk',
+  '/clickhouse-ai-agents',
   '/clickhouse-react',
   '/clickhouse-nextjs',
   '/clickhouse-analytics',

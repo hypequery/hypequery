@@ -75,7 +75,7 @@ export default function ClickHouseDjangoPage() {
       title="Use ClickHouse from Django without raw SQL in every view"
       description="The Django ORM is built for your transactional database. For analytics in ClickHouse, hypequery gives your views and tasks named measures and dimensions, scoped to the signed-in customer, from definitions you write once in Python."
       primaryCta={{ href: '/docs/python/django', label: 'Django guide' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start' }}
       language="python"
       stats={[
         { label: 'Works in', value: 'Sync and async views' },
@@ -140,7 +140,7 @@ export default function ClickHouseDjangoPage() {
       ]}
       readingLinks={[
         { href: '/docs/python/django', title: 'Django guide', description: 'Settings, middleware, async views, and tasks.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/multi-tenancy', title: 'Multi-tenancy', description: 'Tenant keys and tenant-bound clients.' },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Typed DataFrames for reports and exports.' },
       ]}
@@ -156,7 +156,7 @@ export default function ClickHouseDjangoPage() {
         title: 'Replace one raw SQL view',
         description: 'Define the dataset behind one Django report, then swap its SQL for a scoped dataset query.',
         primaryCta: { href: '/docs/python/django', label: 'Django guide' },
-        secondaryCta: { href: '/docs/python/quick-start', label: 'Python quick start' },
+        secondaryCta: { href: '/docs/quick-start#python', label: 'Python quick start' },
       }}
     />
   );

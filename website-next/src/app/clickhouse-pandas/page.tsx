@@ -139,7 +139,7 @@ export default function ClickHousePandasPage() {
           description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
         },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Column types, timezones, and exact decimals.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/time-grains', title: 'Time grains', description: 'Bucket measures by day, week, or month.' },
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Reuse results across notebook runs.' },
       ]}
@@ -154,7 +154,7 @@ export default function ClickHousePandasPage() {
         eyebrow: 'Next step',
         title: 'Rebuild one notebook query on a dataset',
         description: 'Pick the query behind your most-shared chart, define it as a dataset, and compare the numbers.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/datasets/measures', label: 'Measures docs' },
       }}
     />

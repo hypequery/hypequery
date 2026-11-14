@@ -4,7 +4,7 @@ import { marketing } from '@/components/ui/marketing';
 
 const QUICK_START: Record<Language, { href: string; target: string }> = {
   typescript: { href: '/docs/quick-start', target: 'docs_quick_start' },
-  python: { href: '/docs/python/quick-start', target: 'docs_python_quick_start' },
+  python: { href: '/docs/quick-start#python', target: 'docs_python_quick_start' },
 };
 
 /** One line under a blog post's intro that names the product and links to the quick start. */

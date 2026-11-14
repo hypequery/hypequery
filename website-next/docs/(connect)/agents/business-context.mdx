@@ -1,0 +1,141 @@
+---
+title: Business context
+description: Give your analytics agent your KPI definitions, glossary, reporting conventions and data caveats, so it answers ClickHouse questions the way your business means them.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Datasets tell an agent what it can query. Business context tells it what the numbers mean here: which KPI a question
+is about and how it is defined, what your terms mean, which time zone and currency you report in, and which data
+quirks to warn about.
+
+You write it once, next to your datasets. Agents read it through the tools, so it works with the AI SDK, the Anthropic
+SDK, the OpenAI Agents SDK and any MCP client, with no prompt work. It is guidance only: it never changes what a query
+returns.
+
+## Define it
+
+<CodeBlock>
+```ts
+// analytics/business-context.ts
+import { defineBusinessContext } from '@hypequery/datasets';
+
+export const businessContext = defineBusinessContext({
+  summary: 'A B2B analytics product. Each customer is a company whose team uses the web app and the API.',
+  audience: 'Customer admins asking about their own team’s usage and reliability.',
+  kpis: [
+    { name: 'Active users', definition: 'Distinct users with at least one event in the period.' },
+    { name: 'Error rate', definition: 'HTTP 5xx events divided by all events. Report it as a percentage.' },
+  ],
+  glossary: [
+    { term: 'Customer', meaning: 'The company the signed-in user belongs to.' },
+  ],
+  conventions: 'Times are UTC. Weeks start on Monday.',
+  caveats: ['4xx responses are client errors and are not counted in the error rate.'],
+});
+```
+</CodeBlock>
+
+Every field is optional. `defineBusinessContext` validates the document and throws, naming the field, for an unknown
+field, a glossary term or KPI defined twice, or a value over the limits (4,096 characters per value, 100 items per
+list).
+
+| Field | What to put in it |
+|---|---|
+| `summary` | What the business does, in a few sentences |
+| `industry`, `businessModel`, `customers`, `audience` | Who the business serves and who asks the questions |
+| `goals` | Decisions and recurring questions the data should help with |
+| `kpis` | The numbers the business watches, each with its definition |
+| `glossary` | Business terms and what they mean in your organisation |
+| `conventions` | Currency, time zone, fiscal year, week start |
+| `caveats` | Known data quirks: test orders, late-arriving events, refunds stored elsewhere |
+
+## Publish it
+
+### In your own backend
+
+Pass it to the executor:
+
+<CodeBlock>
+```ts
+import { createMCPExecutor } from '@hypequery/mcp';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId, businessContext });
+const tools = await hypequeryTools({ executor });
+```
+</CodeBlock>
+
+An MCP server you build with `createMCPServer` takes the same option, so Claude, Cursor and other MCP clients read it
+too.
+
+### In hypequery Cloud
+
+Export a publication from your deployment entrypoint instead of a bare `publishToCloud(...)`:
+
+<CodeBlock>
+```ts
+// analytics/cloud.ts
+import { defineCloudPublication, publishToCloud } from '@hypequery/datasets';
+import { businessContext } from './business-context';
+import { Events } from './datasets';
+
+export const cloud = defineCloudPublication({
+  deployment: publishToCloud({ datasets: { events: Events }, access: { roles: [], scopes: [] } }),
+  businessContext,
+});
+```
+</CodeBlock>
+
+`hypequery deploy analytics/cloud.ts` puts the context in the same release as the datasets, so activating or rolling
+back a release moves both together. A glossary-only edit is a new release.
+
+<Callout type="info">
+Cloud stores the context with each release today. Serving it to agents through the tenant endpoint (in
+`list_datasets` and `get_business_context`) is rolling out; until then, add it to your agent's instructions with
+`formatBusinessContext` (below), or run the tools [in your own backend](/docs/agents/quickstart).
+</Callout>
+
+## What the agent sees
+
+When the server has a context, `list_datasets` returns it beside the datasets. Agents call `list_datasets` first, so
+they read your definitions before they choose measures:
+
+<CodeBlock>
+```json
+{
+  "datasets": [{ "name": "events", "description": "Product events for the signed-in customer…", "dimensionCount": 9, "measureCount": 5, "metricCount": 0 }],
+  "total": 1,
+  "businessContext": {
+    "summary": "A B2B analytics product…",
+    "kpis": [{ "name": "Error rate", "definition": "HTTP 5xx events divided by all events…" }],
+    "conventions": "Times are UTC. Weeks start on Monday."
+  }
+}
+```
+</CodeBlock>
+
+A `get_business_context` tool returns the whole document. It is listed only when there is a context. If the context
+is over 32 KB, `list_datasets` carries the summary only, with `truncated: true` and a hint to call
+`get_business_context`, so a large glossary never pushes the dataset list over its result budget.
+
+Without a context, the tools and their output are unchanged.
+
+## In a system prompt
+
+To put the context in your agent's instructions as well, render it as Markdown:
+
+<CodeBlock>
+```ts
+import { formatBusinessContext } from '@hypequery/mcp';
+
+const instructions = `You are the analytics assistant inside our product.\n\n${formatBusinessContext(businessContext)}`;
+```
+</CodeBlock>
+
+## Related
+
+- [Tools in your own backend](/docs/agents/quickstart)
+- [Tools for your agent](/docs/agents/tools)
+- [In-app analytics agent](/examples/in-app-analytics-agent): a starter with business context in both modes

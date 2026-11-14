@@ -1,0 +1,141 @@
+---
+title: Add AI chat to your app
+seoTitle: 'Quick start: ClickHouse tools for the Vercel AI SDK, Anthropic and OpenAI agents'
+description: Give the AI chat in your product tenant-safe ClickHouse analytics tools with the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. No text-to-SQL, no MCP server to host, every query scoped to the signed-in customer.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+This page gives the agent in your product tools over the `orders` dataset from [Model your data](/docs/quick-start).
+The model calls `list_datasets`, `get_dataset_schema` and `query_dataset` instead of writing SQL, and every query is
+scoped to the customer who is signed in.
+
+`hypequeryTools({ executor })` runs those tools inside your own backend, against your own ClickHouse: no MCP server to
+host, no token, and no network hop between your route and the tools. Use it wherever your app already holds the
+ClickHouse connection and the user's session: a Next.js route handler, an Express or Hono server, or a job.
+
+<Callout type="info" title="TypeScript only, for now">
+  `@hypequery/agent` is a TypeScript package. From Python today, serve the dataset over MCP
+  ([Connect Claude and Cursor](/docs/mcp/quickstart)) and connect your agent framework's MCP client to it: the OpenAI
+  Agents SDK, Pydantic AI and LangChain all have one.
+</Callout>
+
+<CodeBlock>
+```bash
+npm install ai @hypequery/agent @hypequery/mcp
+```
+</CodeBlock>
+
+It builds on the packages from Model your data (`@hypequery/datasets` and `@hypequery/clickhouse`).
+
+## Create the tools for one request
+
+The executor is bound to one tenant, so create it per request, with the tenant from your server-side session:
+
+<CodeBlock>
+```ts
+// app/api/chat/route.ts
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+import { publishDatasets } from '@hypequery/datasets';
+import { createMCPExecutor } from '@hypequery/mcp';
+import { convertToModelMessages, streamText } from 'ai';
+import { analytics } from '@/analytics/client';
+import { Orders } from '@/analytics/datasets';
+
+const datasets = publishDatasets().publish(Orders).build();
+
+export async function POST(request: Request) {
+  const session = await getSession(request); // your auth
+  if (!session) return new Response('Sign in first.', { status: 401 });
+
+  const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId });
+  const tools = await hypequeryTools({ executor });
+
+  const { messages } = await request.json();
+  const result = streamText({ model, tools, messages: await convertToModelMessages(messages) });
+  return result.toUIMessageStreamResponse();
+}
+```
+</CodeBlock>
+
+On the client, `useChat` from `@ai-sdk/react` renders the streamed answer and each tool call. The
+[in-app analytics agent](/examples/in-app-analytics-agent) starter wires up both, with two demo customers.
+
+The same `{ executor }` source works with every adapter:
+
+<CodeBlock>
+```ts
+import { hypequeryTools as anthropicTools } from '@hypequery/agent/anthropic';
+import { hypequeryTools as openaiTools } from '@hypequery/agent/openai-agents';
+
+const hq = await anthropicTools({ executor });   // hq.tools for messages.create, hq.toolResults(...)
+const agentTools = await openaiTools({ executor }); // tools for new Agent({ tools })
+```
+</CodeBlock>
+
+## Tenant isolation
+
+The tenant comes from the `tenantId` you pass to `createMCPExecutor`, which you take from your server-side session.
+Never read it from the request body, a header the browser sets, or the model.
+
+For a dataset with a `tenantKey`, the executor fails closed:
+
+- `createMCPExecutor` throws if a tenant-scoped dataset is registered without a `tenantId`;
+- every query gets `WHERE <tenantKey> = <tenantId>`, so grouping by the tenant field returns one row;
+- a filter on the tenant field is refused with a non-retryable `MCP_INVALID_ARGUMENTS`, so the model does not retry;
+- the tool input schemas have no tenant argument, so a `tenantId` the model invents is rejected.
+
+The [in-app analytics agent](/examples/in-app-analytics-agent) starter tests this against ClickHouse with a model
+scripted to try each of these.
+
+## Choose which tools the agent gets
+
+By default the agent gets every tool the executor lists, including `query_metric`. Pass `tools` to list only some;
+the rest are neither listed nor callable:
+
+<CodeBlock>
+```ts
+const tools = await hypequeryTools({
+  executor,
+  tools: ['list_datasets', 'get_dataset_schema', 'query_dataset', 'get_business_context'],
+});
+```
+</CodeBlock>
+
+`onResult` works as it does with an endpoint: it is called with each tool's result.
+
+## Business context
+
+Pass `businessContext` to the executor and the agent reads your KPI definitions, glossary, conventions and caveats
+from `list_datasets` and `get_business_context`:
+
+<CodeBlock>
+```ts
+const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId, businessContext });
+```
+</CodeBlock>
+
+See [Business context](/docs/agents/business-context).
+
+## In your backend or in hypequery Cloud
+
+| | Your backend (`{ executor }`) | hypequery Cloud (`{ url, token }`) |
+|---|---|---|
+| Where queries run | Your server, your ClickHouse connection | Cloud, with the connection your project holds |
+| Tenant from | `tenantId` from your session | The minted token's `tenant` claim |
+| Credentials | Your ClickHouse credentials in your server | None in your app, only the signing key |
+| Access rules | Your datasets and your code | Permission sets and customer access in Cloud |
+| Business context | Passed to the executor | Published with each release, rolls back with it |
+| Request logs | Yours, via `onResult` | Logged per request id in Cloud |
+
+Both give the model the same tools, schemas and error envelope, so you can start in your backend and move to Cloud
+later without changing your agent loop. The starter switches between them with `HYPEQUERY_MODE`.
+
+## Related
+
+- [Tools for your agent](/docs/agents/tools): the same tools from hypequery Cloud
+- [Connect Claude and Cursor](/docs/mcp/quickstart): the same dataset for MCP clients
+- [Business context](/docs/agents/business-context)
+- [Programmatic MCP](/docs/mcp/programmatic): `createMCPExecutor` and its options
+- [MCP safety model](/docs/mcp/safety)

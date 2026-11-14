@@ -31,7 +31,7 @@ const COMPARE_HUB: Link = {
 export function compareLinksFor(slug: string): CompareLinks {
   if (PYTHON_SLUGS.has(slug)) {
     return {
-      primary: { href: '/docs/python/quick-start', label: 'Start with the Python quick start', target: 'docs_python_quick_start' },
+      primary: { href: '/docs/quick-start#python', label: 'Start with the Python quick start', target: 'docs_python_quick_start' },
       secondary: { href: '/clickhouse-python', label: 'ClickHouse with Python' },
       body: { href: '/python-semantic-layer', label: 'Python semantic layer' },
       nextStep: {
@@ -39,7 +39,7 @@ export function compareLinksFor(slug: string): CompareLinks {
         description: 'Define a dataset over a table you already have, query it by name, and serve it from FastAPI, Django, or Flask.',
       },
       related: [
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Define a dataset and run your first semantic query from Python.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Define a dataset and run your first semantic query from Python.' },
         { href: '/clickhouse-python', title: 'ClickHouse with Python', description: 'How hypequery fits next to the driver you already use.' },
         { href: '/python-semantic-layer', title: 'Python semantic layer', description: 'Datasets served from FastAPI, Django, or Flask, and used from notebooks.' },
         COMPARE_HUB,

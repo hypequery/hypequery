@@ -199,6 +199,16 @@ const servingLinks: HubLink[] = [
     title: 'ClickHouse MCP from Python',
     description: 'Give MCP clients your Python datasets. Python keeps the SQL, auth and tenant.',
   },
+  {
+    href: '/clickhouse-ai-sdk',
+    title: 'ClickHouse + Vercel AI SDK',
+    description: 'Analytics chat with streamText: tenant-safe tools, no text-to-SQL.',
+  },
+  {
+    href: '/clickhouse-ai-agents',
+    title: 'ClickHouse AI agents',
+    description: 'Agentic analytics with the AI SDK, the Anthropic SDK or the OpenAI Agents SDK.',
+  },
 ];
 
 const comparisonLinks: HubLink[] = [
@@ -260,7 +270,7 @@ export default function ClickHouseHubPage() {
         </p>
       }
       primaryCta={{ href: '/docs/quick-start', label: 'TypeScript quick start', target: 'docs_quick_start' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start', target: 'docs_python_quick_start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start', target: 'docs_python_quick_start' }}
       definition={{
         term: 'What does using ClickHouse from application code involve?',
         body: (

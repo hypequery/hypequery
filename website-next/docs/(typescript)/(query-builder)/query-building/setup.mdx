@@ -1,0 +1,126 @@
+---
+title: Set up the query builder
+seoTitle: 'ClickHouse query builder setup (TypeScript)'
+description: Install @hypequery/clickhouse, generate TypeScript types from your ClickHouse schema, and run a first type-safe query, without defining datasets.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Use the query builder on its own when you want type-safe ClickHouse queries in your application code and don't need a
+semantic layer. Table names, columns, filter values and result rows are all checked against a schema generated from
+your database.
+
+If the same numbers should be shared across APIs, dashboards and agents, start with
+[Model your data](/docs/quick-start) instead: datasets are built on this same builder.
+
+<Callout type="info" title="Runs on embedded ClickHouse too">
+  The same builder code runs on [chDB](/docs/chdb), ClickHouse embedded in your Node process:
+  `createQueryBuilder({ adapter: chdbAdapter({ session }) })`.
+</Callout>
+
+<Steps>
+  <Step>
+    Install the packages
+
+    <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+      <Tab value="npm" label="npm">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/clickhouse
+          npm install -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="pnpm" label="pnpm">
+        <CodeBlock>
+          ```bash
+          pnpm add @hypequery/clickhouse
+          pnpm add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="yarn" label="yarn">
+        <CodeBlock>
+          ```bash
+          yarn add @hypequery/clickhouse
+          yarn add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="bun" label="bun">
+        <CodeBlock>
+          ```bash
+          bun add @hypequery/clickhouse
+          bun add -D @hypequery/cli
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    Configure your ClickHouse env vars
+
+    Create `.env`:
+
+    <CodeBlock>
+      ```bash
+      CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
+      CLICKHOUSE_DATABASE=default
+      CLICKHOUSE_USERNAME=cli_user
+      CLICKHOUSE_PASSWORD=super-secret
+      ```
+    </CodeBlock>
+
+    `hypequery generate` uses these values to connect to ClickHouse during schema introspection.
+  </Step>
+
+  <Step>
+    Generate your schema types
+
+    Use the CLI to introspect ClickHouse and write your TypeScript schema:
+
+    <CodeBlock>
+      ```bash
+      npx hypequery generate
+      ```
+    </CodeBlock>
+
+    This writes `analytics/schema.ts`, matching the CLI default and the import below. Re-run it anytime your ClickHouse schema changes.
+  </Step>
+
+  <Step>
+    Connect and run a typed query
+
+    <CodeBlock>
+      ```typescript
+      // analytics/client.ts
+      import { createQueryBuilder } from '@hypequery/clickhouse';
+      import type { IntrospectedSchema } from './schema.js';
+
+      export const db = createQueryBuilder<IntrospectedSchema>({
+        url: process.env.CLICKHOUSE_URL!,
+        username: process.env.CLICKHOUSE_USERNAME,
+        password: process.env.CLICKHOUSE_PASSWORD,
+        database: process.env.CLICKHOUSE_DATABASE,
+      });
+
+      const users = await db
+        .table('users')
+        .select(['id', 'email', 'created_at'])
+        .where('status', 'eq', 'active')
+        .orderBy('created_at', 'DESC')
+        .limit(10)
+        .execute();
+      ```
+    </CodeBlock>
+  </Step>
+</Steps>
+
+Next, learn the builder in [Query basics](/docs/query-building/basics), or read more about [connecting to ClickHouse](/docs/reference/connection).
