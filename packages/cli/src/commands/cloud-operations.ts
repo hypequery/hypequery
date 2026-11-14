@@ -176,7 +176,7 @@ function describeField(field: CloudCommandField, shape: CloudCommandShape): stri
   if (field.kind === 'list') notes.push('repeat the flag for each value');
   if (field.kind === 'json') notes.push('JSON');
   if (field.nullable) notes.push('null for none');
-  if (field.required) notes.push('required');
+  if (field.required) notes.push(field.placement === 'argument' ? 'required, here or in --input-json' : 'required');
   return notes.join('; ') || field.property;
 }
 
@@ -184,7 +184,9 @@ function addField(command: Command, field: CloudCommandField, shape: CloudComman
   const description = describeField(field, shape);
   switch (field.placement) {
     case 'argument':
-      command.argument(field.flag, description);
+      // Optional to Commander, so `--input-json` alone can carry the whole
+      // input; buildOperationInput refuses when neither supplies the field.
+      command.argument(`[${field.flag.slice(1, -1)}]`, description);
       return;
     case 'project':
       command.option('--project <slug>', description);
@@ -231,6 +233,23 @@ export function isCloudOperationGroup(name: string): boolean {
   return groupNames.has(name);
 }
 
+/**
+ * The options of the operation command `args` names that take a value, for
+ * telemetry: it reports only the flags every operation shares, but must step
+ * over every option's value so a value is never read as a flag
+ * (`feedback create --summary '--yes'`). Empty when `args` names no operation.
+ */
+export function cloudOperationValueFlags(program: Command, args: readonly string[]): string[] {
+  // Nothing before the action takes a value, so the first two words are the group and the action.
+  const [groupName, actionName] = args.filter(arg => !arg.startsWith('-'));
+  const group = program.commands.find(command => command.name() === groupName);
+  const command = group?.commands.find(candidate => candidate.name() === actionName);
+  if (!command || !operationCommands.has(command)) return [];
+  return command.options
+    .filter(option => option.required || option.optional)
+    .flatMap(option => option.long ? [option.long] : []);
+}
+
 /** The operation a Commander command runs, if it is one of these commands. */
 export function cloudOperationOf(command: Command): CloudCommandShape | undefined {
   return operationCommands.get(command);
@@ -254,6 +273,8 @@ export function registerCloudOperationCommands(
     group.actions.push(shape.action);
     const command = group.command.command(shape.action).description(shape.operation.summary);
     for (const field of shape.fields) addField(command, field, shape);
+    // Help still shows path parameters as required: `releases get [options] <version>`.
+    command.usage(['[options]', ...shape.fields.filter(field => field.placement === 'argument').map(field => field.flag)].join(' '));
     command.option('--input-json <json>', 'The whole input as a JSON object (inline, @<file>, or - for stdin); flags override its fields');
     if (shape.confirmation !== 'none') command.option('-y, --yes', 'Confirm the change without a prompt');
     command.addHelpText('after', helpFooter(shape));

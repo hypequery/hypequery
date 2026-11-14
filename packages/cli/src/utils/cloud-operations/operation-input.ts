@@ -159,7 +159,10 @@ export async function buildOperationInput(
       }
       case 'secret': {
         if (options[field.key] === true) {
-          input[field.property] = stripTrailingNewline(await context.readStdin());
+          // At a terminal, stdin would echo the secret as it is typed: ask for it hidden instead.
+          input[field.property] = context.promptSecret
+            ? await context.promptSecret(field)
+            : stripTrailingNewline(await context.readStdin());
         } else if (input[field.property] === undefined && field.required && context.promptSecret) {
           input[field.property] = await context.promptSecret(field);
         }

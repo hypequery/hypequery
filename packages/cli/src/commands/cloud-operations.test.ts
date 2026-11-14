@@ -5,7 +5,8 @@ import { program } from '../cli.js';
 import { CommandExit } from '../utils/command-exit.js';
 import type { CloudCommandField, CloudCommandShape } from '../utils/cloud-operations/command-shape.js';
 import { disableJsonOutput, enableJsonOutput } from '../utils/machine-output.js';
-import { CLOUD_COMMAND_SHAPES, cloudOperationOf, runCloudOperation } from './cloud-operations.js';
+import { CLOUD_COMMAND_SHAPES, cloudOperationOf, cloudOperationValueFlags, runCloudOperation } from './cloud-operations.js';
+import { flagNames } from '../utils/telemetry/flags.js';
 
 /**
  * AG-09f: `hypequery <group> <action>` for every Cloud operation, against a
@@ -367,6 +368,36 @@ describe('a representative command per group', () => {
   });
 });
 
+describe('--input-json through the command parser', () => {
+  it('takes path parameters from --input-json alone', async () => {
+    const result = await run(['releases', 'get', '--input-json', '{"project":"shop","version":"v12"}']);
+    expect(result.exitCode).toBe(0);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]!.url.pathname).toBe('/v1/projects/shop/releases/v12');
+  });
+
+  it('lets a positional argument override the same field in --input-json', async () => {
+    const result = await run(['releases', 'get', 'v13', '--input-json', '{"project":"shop","version":"v12"}']);
+    expect(result.exitCode).toBe(0);
+    expect(requests[0]!.url.pathname).toBe('/v1/projects/shop/releases/v13');
+  });
+
+  it('still refuses when neither names the path parameter, before calling Cloud', async () => {
+    const result = await run(['releases', 'get', '--input-json', '{"project":"shop"}']);
+    expect(result.exitCode).toBe(1);
+    expect(result.document!.error).toMatchObject({
+      code: 'MISSING_INPUT',
+      issues: [{ path: '<version>', message: 'required' }],
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it('shows path parameters as required in help', () => {
+    const command = commandFor(CLOUD_COMMAND_SHAPES.find(shape => shape.operation.name === 'releases.get')!);
+    expect(command.helpInformation()).toContain('releases get [options] <version>');
+  });
+});
+
 describe('exit codes follow Cloud\'s category', () => {
   it.each([
     [401, 'unauthenticated', 2],
@@ -491,6 +522,16 @@ describe('runCloudOperation', () => {
     expect(requests[0]!.body).toMatchObject({ password: 'hunter2', username: 'reader' });
   });
 
+  it('asks for the secret hidden when --<field>-stdin is used at a terminal, where stdin would echo it', async () => {
+    const streams = io();
+    const promptSecret = vi.fn(async () => 'typed-hidden');
+    await runCloudOperation(shapeOf('connections.save'), [], {
+      project: 'shop', host: 'https://ch.example.com:8443', database: 'default', username: 'reader', passwordStdin: true,
+    }, { ...streams, stdin: terminal('echoed-if-read\n'), promptSecret });
+    expect(promptSecret).toHaveBeenCalledWith('password (hidden)');
+    expect(requests[0]!.body).toMatchObject({ password: 'typed-hidden' });
+  });
+
   it('prompts for a required secret at a terminal, and refuses without one', async () => {
     const streams = io();
     const promptSecret = vi.fn(async () => 'from-prompt');
@@ -579,6 +620,27 @@ describe('runCloudOperation', () => {
 
     await expect(runCloudOperation(shapeOf('members.invite'), [], { inputJson: '[1]' }, { ...streams, stdin: pipe('') }))
       .rejects.toMatchObject({ code: 'INVALID_OPTION' });
+  });
+
+  it('never reads an option value as a telemetry flag', () => {
+    const flags = (args: readonly string[]) => flagNames('cloud-operation', args, cloudOperationValueFlags(program, args));
+    // Values that look like the shared flags are values, whichever option they follow.
+    expect(flags(['feedback', 'create', '--kind', 'bug', '--summary', '--yes'])).toEqual([]);
+    expect(flags(['feedback', 'create', '--kind', 'bug', '--summary', '-y'])).toEqual([]);
+    expect(flags(['--json', 'feedback', 'create', '--summary', '--project', '--kind', '--input-json'])).toEqual(['--json']);
+    expect(flags(['members', 'invite', '--email', '--yes', '--role', '--no-telemetry'])).toEqual([]);
+    // The shared flags themselves are still reported, and only those.
+    expect(flags(['releases', 'rollback', 'v12', '--project', 'shop', '--expected-revision', 'abc', '--yes']))
+      .toEqual(['--project', '--yes']);
+    expect(flags(['feedback', 'create', '--summary=--yes', '--input-json', '--yes', '-y'])).toEqual(['--input-json', '--yes']);
+    // Only value-taking options are stepped over: a boolean field's flag takes none.
+    const tenantsUpdate = shapeOf('tenants.update');
+    const boolean = tenantsUpdate.fields.find(field => field.placement === 'option' && field.kind === 'boolean');
+    if (boolean) {
+      expect(flags(['tenants', 'update', 'acme', boolean.flag, '--yes'])).toEqual(['--yes']);
+    }
+    expect(cloudOperationValueFlags(program, ['deploy', 'cloud.ts'])).toEqual([]);
+    expect(cloudOperationValueFlags(program, ['releases', '--help'])).toEqual([]);
   });
 
   it('is recorded under one telemetry command', () => {
