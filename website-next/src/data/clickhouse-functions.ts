@@ -1466,6 +1466,7 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/blog/clickhouse-array-functions-typescript', label: 'ClickHouse array functions' },
       { href: '/recipes/grouparray-user-timelines', label: 'Recipe: ordered per-user timelines with groupArray' },
+      { href: '/blog/postgres-mysql-to-clickhouse-sql-equivalents', label: 'GROUP_CONCAT and other Postgres/MySQL equivalents' },
     ],
     searchIntentCards: [
       {
@@ -1846,6 +1847,7 @@ print(result.result_rows)  # [('A', 30), ('B', 30), ('C', 30), ('D', 30), ('F', 
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
       { href: '/recipes/multiif-bucketing', label: 'Recipe: latency and status buckets with multiIf' },
+      { href: '/blog/postgres-mysql-to-clickhouse-sql-equivalents', label: 'CASE WHEN and other Postgres/MySQL equivalents' },
     ],
     searchIntentCards: [
       {

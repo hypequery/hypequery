@@ -163,6 +163,7 @@ export default function ClickHouseSchemaPage() {
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-orm', label: 'ClickHouse ORM' },
+        { href: '/blog/clickhouse-schema-design-for-application-developers', label: 'ClickHouse schema design for app developers' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
