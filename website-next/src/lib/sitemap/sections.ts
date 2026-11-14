@@ -12,6 +12,7 @@ import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
 import { getCompareArticle } from '@/lib/compare-article';
 import { maybeUpdatedFor } from '@/data/page-dates';
 import { blogLastModified } from './dates';
+import { gitLastModified } from './git-dates';
 
 /**
  * One child sitemap per page type. `/sitemap.xml` is the index
@@ -83,9 +84,24 @@ function functionEntries(): MetadataRoute.Sitemap {
 }
 
 function exampleEntries(): MetadataRoute.Sitemap {
+  const hubs = [
+    { kind: 'example', href: '/examples' },
+    { kind: 'recipe', href: '/recipes' },
+    { kind: 'guide', href: '/guides' },
+  ] as const;
+  // Each entry is dated by its source directory's last commit, when the build has full Git history.
+  const entries = registryEntries.map((entry) => ({
+    kind: entry.manifest.kind,
+    url: absoluteUrl(entryHref(entry)).toString(),
+    lastModified: gitLastModified(entry.dir),
+  }));
   return [
-    ...['/examples', '/recipes', '/guides'].map(staticEntry),
-    ...registryEntries.map((entry) => ({ url: absoluteUrl(entryHref(entry)).toString() })),
+    // A hub changes whenever one of its entries does.
+    ...hubs.map((hub) => ({
+      url: absoluteUrl(hub.href).toString(),
+      lastModified: latest(entries.filter((entry) => entry.kind === hub.kind)),
+    })),
+    ...entries.map(({ url, lastModified }) => ({ url, lastModified })),
   ];
 }
 
