@@ -15,6 +15,7 @@ import {
 import { logger } from './logger.js';
 import type { CloudErrorDetails } from './cli-error.js';
 import { parseCloudErrorBody } from './cloud-error-body.js';
+import { deploymentBundleFiles } from '@hypequery/deployment';
 import type { DeploymentSubmissionResponse as BaseDeploymentSubmissionResponse } from '@hypequery/deployment';
 import { parseDraftDeploymentResult, validateDraftDeploymentOptions, type DraftDeploymentResult } from './draft-deployment.js';
 
@@ -180,11 +181,8 @@ function multipartBundlePath(input: string): string {
 }
 
 function validateMultipartBundlePaths(bundle: VerifiedDeploymentBundle): void {
-  multipartBundlePath(bundle.manifest.deployment.path);
+  for (const file of deploymentBundleFiles(bundle.manifest)) multipartBundlePath(file.path);
   for (const artifact of bundle.manifest.artifacts) multipartBundlePath(artifact.path);
-  for (const source of bundle.manifest.source?.files ?? []) {
-    multipartBundlePath(`${bundle.manifest.source!.root}/${source.path}`);
-  }
 }
 
 function partHeader(boundary: string, part: UploadPart): Uint8Array {
@@ -223,16 +221,17 @@ function uploadParts(
       bundlePath: DEPLOYMENT_BUNDLE_MANIFEST,
       bytes: textEncoder.encode(`${manifest.canonical}\n`),
     },
-    {
-      kind: 'file',
-      name: 'bundle',
-      filename: path.basename(manifest.manifest.deployment.path),
-      contentType: 'application/json',
-      absolutePath: path.join(root, ...manifest.manifest.deployment.path.split('/')),
-      bundlePath: manifest.manifest.deployment.path,
-      byteLength: manifest.manifest.deployment.byteLength,
-      sha256: manifest.manifest.deployment.sha256,
-    },
+    // Intake expects bundle files in the order deploymentBundleFiles defines.
+    ...deploymentBundleFiles(manifest.manifest).map(file => ({
+      kind: 'file' as const,
+      name: 'bundle' as const,
+      filename: path.basename(file.path),
+      contentType: file.contentType,
+      absolutePath: path.join(root, ...file.path.split('/')),
+      bundlePath: file.path,
+      byteLength: file.byteLength,
+      sha256: file.sha256,
+    })),
     ...manifest.manifest.artifacts.map(artifact => ({
       kind: 'file' as const,
       name: 'bundle' as const,
@@ -243,19 +242,6 @@ function uploadParts(
       byteLength: artifact.byteLength,
       sha256: artifact.sha256,
     })),
-    ...(manifest.manifest.source?.files.map(source => {
-      const bundlePath = `${manifest.manifest.source!.root}/${source.path}`;
-      return {
-        kind: 'file' as const,
-        name: 'bundle' as const,
-        filename: path.basename(source.path),
-        contentType: 'application/octet-stream',
-        absolutePath: path.join(root, ...bundlePath.split('/')),
-        bundlePath,
-        byteLength: source.byteLength,
-        sha256: source.sha256,
-      };
-    }) ?? []),
   ]);
 }
 

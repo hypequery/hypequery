@@ -8,6 +8,11 @@ export interface ProtocolDeploymentBundleDeployment extends ProtocolDeploymentBu
   readonly identity: string;
 }
 
+/** Reviewed business context file (bundle v2). Its identity is the document identity. */
+export interface ProtocolDeploymentBundleBusinessContext extends ProtocolDeploymentBundleFile {
+  readonly identity: string;
+}
+
 export interface ProtocolDeploymentBundleArtifact extends ProtocolDeploymentBundleFile {
   readonly runtime: 'node' | 'python';
 }
@@ -29,10 +34,19 @@ export interface ProtocolDeploymentBundleSource {
   readonly revision?: ProtocolDeploymentBundleSourceRevision;
 }
 
+/**
+ * Deployment bundle manifest.
+ *
+ * Version 1 carries only the executable contract. Version 2 additionally
+ * requires `businessContext`; a bundle without business context is always
+ * encoded as version 1 so each bundle has exactly one canonical identity.
+ */
 export interface ProtocolDeploymentBundleManifest {
   readonly kind: 'hypequery-deployment-bundle';
-  readonly version: 1;
+  readonly version: 1 | 2;
   readonly deployment: ProtocolDeploymentBundleDeployment;
+  /** Present exactly when `version` is 2. */
+  readonly businessContext?: ProtocolDeploymentBundleBusinessContext;
   readonly artifacts: readonly ProtocolDeploymentBundleArtifact[];
   readonly source?: ProtocolDeploymentBundleSource;
 }
@@ -42,6 +56,7 @@ export interface ProtocolDeploymentBundleLimits {
   readonly maxSourceFiles: number;
   readonly maxPathBytes: number;
   readonly maxDeploymentBytes: number;
+  readonly maxBusinessContextBytes: number;
   readonly maxArtifactBytes: number;
   readonly maxSourceFileBytes: number;
   readonly maxSourceBytes: number;

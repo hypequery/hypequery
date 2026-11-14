@@ -187,6 +187,28 @@ export {
 } from './bundles/index.js';
 
 export {
+  DEFAULT_PROTOCOL_BUSINESS_CONTEXT_LIMITS,
+  PROTOCOL_BUSINESS_CONTEXT_IDENTITY_DOMAIN,
+  ProtocolBusinessContextError,
+  encodeProtocolBusinessContext,
+  encodeProtocolBusinessContextToString,
+  hashProtocolBusinessContext,
+  isEmptyProtocolBusinessContext,
+  prepareProtocolBusinessContext,
+  validateProtocolBusinessContext,
+} from './business-context/index.js';
+
+export type {
+  PreparedProtocolBusinessContext,
+  ProtocolBusinessContext,
+  ProtocolBusinessContextErrorCode,
+  ProtocolBusinessContextGlossaryTerm,
+  ProtocolBusinessContextKpi,
+  ProtocolBusinessContextLimits,
+  ProtocolBusinessContextOptions,
+} from './business-context/index.js';
+
+export {
   DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS,
   PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN,
   ProtocolDeploymentReleaseError,
@@ -210,6 +232,7 @@ export type {
 export type {
   PreparedProtocolDeploymentBundleManifest,
   ProtocolDeploymentBundleArtifact,
+  ProtocolDeploymentBundleBusinessContext,
   ProtocolDeploymentBundleDeployment,
   ProtocolDeploymentBundleErrorCode,
   ProtocolDeploymentBundleFile,
