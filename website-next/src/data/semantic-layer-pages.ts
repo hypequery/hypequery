@@ -46,6 +46,21 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     label: 'Semantic layer for AI agents',
     description: 'Why agents need named metrics instead of raw SQL, what to check (no SQL tool, tenant scope, query limits) and how each semantic layer exposes MCP tools.',
   },
+  {
+    href: '/semantic-layer/analytics-mcp-server',
+    label: 'Analytics MCP server',
+    description: 'Database MCP servers that run SQL versus semantic layer servers that query named metrics, what to check before production, and how the main servers compare.',
+  },
+  {
+    href: '/semantic-layer/access-control',
+    label: 'Data access control',
+    description: 'Tenant isolation, row-level and column-level rules, cache scoping and a pre-launch test list for dashboards, embedded analytics and agents.',
+  },
+  {
+    href: '/semantic-layer/dbt-semantic-layer-alternatives',
+    label: 'dbt Semantic Layer alternatives',
+    description: 'Nine alternatives compared by model format, databases (including ClickHouse), APIs, MCP and licence, and when to stay on dbt.',
+  },
 ];
 
 export const semanticLayerPages: SemanticLayerPage[] = [semanticLayerHub, ...semanticLayerSpokes];
