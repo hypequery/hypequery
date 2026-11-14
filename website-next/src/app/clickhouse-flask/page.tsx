@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
-const TITLE = 'ClickHouse with Flask: Shared Analytics Definitions for Your Routes';
+const TITLE = 'ClickHouse with Flask: Shared Analytics Definitions';
 const DESCRIPTION =
   'Serve ClickHouse analytics from Flask without copying SQL between routes. Define measures once in Python, query them per customer, and turn results into typed DataFrames for exports.';
 

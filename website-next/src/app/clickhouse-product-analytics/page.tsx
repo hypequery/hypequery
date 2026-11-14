@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying',
+  title: 'ClickHouse Product Analytics in TypeScript',
   description:
     'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
   alternates: {

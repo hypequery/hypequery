@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database',
+  title: 'ClickHouse Schema to TypeScript Types',
   description:
     'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },

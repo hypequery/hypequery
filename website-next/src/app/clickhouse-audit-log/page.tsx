@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs',
+  title: 'ClickHouse Audit Log Queries in TypeScript',
   description:
     'Build audit-log APIs on ClickHouse with typed filters, cursor pagination, and reviewable tenant scoping patterns for append-only event tables.',
   alternates: {

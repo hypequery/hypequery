@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse MCP Server: 5-Minute Quickstart for Claude, Cursor, Codex',
+  title: 'ClickHouse MCP Server for Claude, Cursor and Codex',
   description:
     'A governed ClickHouse MCP server: agents query named datasets and metrics, never raw SQL. Connect Claude, Cursor or Codex to your own ClickHouse in five minutes, from TypeScript or Python.',
   alternates: {
