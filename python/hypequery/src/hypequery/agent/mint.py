@@ -26,7 +26,8 @@ _MAX_CONSTRAINT_VALUES = 100
 _MAX_SAFE_INTEGER = 2**53 - 1
 
 _KID = re.compile(r"hqsk_[A-Za-z0-9_-]{22}")
-_KEY_BYTES = re.compile(r"[A-Za-z0-9_-]{43}")
+#: 32 bytes as canonical base64url: the last character carries four bits.
+_KEY_BYTES = re.compile(r"[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]")
 #: A protocol target token: the project's protocol name, at most 128 bytes.
 _PROJECT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 _SUBJECT = re.compile(r"[\x21-\x7e]{1,128}")
@@ -259,6 +260,10 @@ def _refuse_key(message: str) -> AgentTokenError:
     return AgentTokenError("signing_key", message)
 
 
+def _refuse_constant(name: str) -> object:
+    raise ValueError(f"{name} is not JSON")
+
+
 @dataclass(frozen=True, slots=True)
 class _SigningKey:
     kid: str
@@ -276,8 +281,10 @@ def _parse_signing_key(signing_key: object) -> _SigningKey:
     value: object = signing_key
     if isinstance(signing_key, str):
         try:
-            value = json.loads(signing_key.strip())
-        except ValueError:
+            # JSON.parse's grammar: no trimming beyond JSON's own whitespace,
+            # and no NaN or Infinity.
+            value = json.loads(signing_key, parse_constant=_refuse_constant)
+        except (ValueError, RecursionError):
             raise _refuse_key(
                 "The signing key is not valid JSON. Use the private key exactly as Cloud showed it."
             ) from None

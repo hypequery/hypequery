@@ -897,6 +897,31 @@
       "field": "signingKey"
     },
     {
+      "name": "a signing key with a byte order mark",
+      "signingKey": "\ufeff{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a signing key padded with a non-JSON space",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}\u00a0",
+      "field": "signingKey"
+    },
+    {
+      "name": "a signing key with a NaN member",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\",\"extra\":NaN}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose d is not canonical base64url",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7A\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGR\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
+      "name": "a key whose x is not canonical base64url",
+      "signingKey": "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"bvI-34t5zmhdoJE4wyJBHP2TqW0s5yZorONXDVUbj7B\",\"d\":\"WMeScJYDXqZCdeWjxQ-TlocYjRYGJ5tzq7O99LWpIGQ\",\"kid\":\"hqsk_dZw-PiCHhuio4fz5lhSNmg\",\"alg\":\"EdDSA\",\"use\":\"sig\"}",
+      "field": "signingKey"
+    },
+    {
       "name": "no project, given or in the key",
       "input": {
         "project": null
