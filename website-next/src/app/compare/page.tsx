@@ -17,9 +17,9 @@ export const metadata: Metadata = {
     images: ogImage('Compare hypequery'),
     type: 'website',
     url: absoluteUrl('/compare'),
-    title: 'Compare hypequery | ClickHouse TypeScript Tradeoffs',
+    title: 'hypequery vs Cube, Tinybird, Drizzle and More | hypequery',
     description:
-      'Compare hypequery with the main ClickHouse TypeScript options and move quickly from evaluation into a real implementation test.',
+      'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
   },
 };
 
