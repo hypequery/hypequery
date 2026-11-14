@@ -30,24 +30,24 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "hypequery | Embedded analytics on ClickHouse",
+    default: "hypequery | Open-source semantic layer for ClickHouse",
     template: "%s | hypequery",
   },
-  description: "hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.",
+  description: "hypequery is an open-source semantic layer for TypeScript and Python teams building embedded analytics, APIs and AI agents on ClickHouse.",
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/'),
-    title: 'hypequery | Embedded analytics on ClickHouse',
-    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
+    title: 'hypequery | Open-source semantic layer for ClickHouse',
+    description: 'Define governed metrics and tenant rules in TypeScript or Python, then serve embedded analytics, APIs and AI agents from your own backend.',
     siteName: 'hypequery',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hypequery | Embedded analytics on ClickHouse',
-    description: 'hypequery (not hyperquery) is an open-source embedded analytics toolkit for ClickHouse: define metrics once in TypeScript or Python, serve dashboards, APIs and agents.',
+    title: 'hypequery | Open-source semantic layer for ClickHouse',
+    description: 'Define governed metrics and tenant rules in TypeScript or Python, then serve embedded analytics, APIs and AI agents from your own backend.',
   },
   manifest: "/site.webmanifest",
   icons: {

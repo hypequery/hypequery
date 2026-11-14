@@ -31,7 +31,11 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
           </span>{' '}
           <span className="whitespace-nowrap">Ship analytics.</span>
         </h1>
-        <p className="text-body-lg mt-5 max-w-[660px] text-text-muted">Embedded analytics and agents on a semantic layer you define in code. Run it in your own backend today. hypequery cloud, the hosted option, is in early access.</p>
+        <p className="text-body-lg mt-5 max-w-[720px] text-text-muted">
+          hypequery is an open-source semantic layer for TypeScript and Python teams building embedded analytics and AI
+          agents on ClickHouse. Define metrics and tenant rules in code, then serve the same governed model through
+          APIs, React hooks, and MCP tools from your own backend.
+        </p>
         {/* Lead with what works today: the open-source path. Cloud is waitlist-only, so it's the second button. */}
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link href="/docs" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
