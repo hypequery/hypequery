@@ -1,7 +1,7 @@
 ---
 title: "Your Agent Doesn't Need SQL Access to ClickHouse. It Needs a Semantic Layer."
 description: "Text-to-SQL on ClickHouse fails in ways specific to ClickHouse: unmerged ReplacingMergeTree rows, aggregate states, uniq vs uniqExact, timezone day boundaries. And a prompt is not a tenant boundary. We ran the same questions through a raw SQL MCP server and a governed one to measure the difference."
-seoTitle: "A Semantic Layer for AI Agents on ClickHouse (Raw SQL MCP vs Governed MCP)"
+seoTitle: "ClickHouse AI Agents: Raw SQL MCP vs a Semantic Layer"
 seoDescription: "We compared a raw SQL ClickHouse MCP server with a governed semantic-layer MCP server on correctness, run-to-run consistency, tenant leaks, rows read, and tokens. Harness and questions included."
 pubDate: 2026-11-05
 heroImage: ""

@@ -1,7 +1,7 @@
 ---
 title: "ClickHouse JOIN Types in TypeScript — LEFT, RIGHT, INNER, and ARRAY JOIN"
 description: "How ClickHouse handles RIGHT JOIN, LEFT JOIN, INNER JOIN, and ARRAY JOIN — with performance notes and TypeScript examples using hypequery."
-seoTitle: "ClickHouse RIGHT JOIN, LEFT JOIN, INNER JOIN — TypeScript Guide"
+seoTitle: "ClickHouse JOIN Types: LEFT, RIGHT, INNER in TypeScript"
 seoDescription: "How ClickHouse handles RIGHT JOIN, LEFT JOIN, INNER JOIN, and ARRAY JOIN — with performance notes and TypeScript examples using hypequery."
 pubDate: 2026-04-25
 heroImage: ""
