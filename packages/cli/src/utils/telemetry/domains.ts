@@ -13,7 +13,7 @@ export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
-  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'unknown',
+  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'schema', 'onboard', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 /**
@@ -57,6 +57,8 @@ export const COMMAND_FLAGS = {
   skill: ['--agent', '--scope', '--force', '--check'],
   examples: ['--kind'],
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
+  schema: ['--databases', '--tables', '--samples'],
+  onboard: ['--databases', '--tables', '--samples', '--no-query-history', '--join'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
 export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--no-input', '--help', '--version'] as const;
@@ -84,6 +86,8 @@ export const VALUE_FLAGS = {
   skill: ['--agent', '--scope'],
   examples: ['--kind'],
   create: ['--dir', '--tag'],
+  schema: ['--databases', '--tables', '--samples'],
+  onboard: ['--databases', '--tables', '--samples', '--join'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];

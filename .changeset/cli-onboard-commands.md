@@ -1,0 +1,5 @@
+---
+"@hypequery/cli": minor
+---
+
+Add `hypequery schema inspect`, `hypequery onboard analyze` and `hypequery onboard check`: hypequery Cloud's onboarding analysis against your own ClickHouse. `schema inspect` reports tables, columns and engine metadata; `onboard analyze` adds first-pass findings and the questions to ask, grain checks, measured join candidates, column role hints, access-profile risks, grants, query-history observations and possible tenant columns (reported, never applied); `onboard check` verifies a datasets file's measures and joins against the data and exits 1 with `ONBOARD_CHECK_FAILED` while anything fails. All three support `--json`. The analysis comes from `@hypequery/onboard-engine` (`^0.1.0`), which the CLI loads at runtime from the project (or beside the CLI with `npx -p`) rather than depending on it; without it the CLI offers to install it at a terminal, and fails with `ONBOARD_ENGINE_MISSING` under `--json`, `--no-input` or CI. Query history without its grant is a warning, not a failure.

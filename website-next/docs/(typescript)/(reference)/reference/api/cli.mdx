@@ -71,6 +71,9 @@ npx hypequery dev
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
 | `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery schema inspect` | Report tables, columns and engine metadata with the onboarding engine |
+| `hypequery onboard analyze` | Analyse ClickHouse for a semantic model: findings, grain checks, join candidates, column roles, query history |
+| `hypequery onboard check [source]` | Verify a datasets file's measures and joins against the data |
 | `hypequery generate:manifest <api>` | Write the route manifest React hooks use to call a TypeScript API |
 | `hypequery generate:client [contract]` | Generate typed React client types and routes from a TypeScript serve or Python client contract, or the live cloud release |
 | `hypequery export:client-contract <api>` | Export a TypeScript serve API's client contract for `hypequery generate:client` |
@@ -350,6 +353,71 @@ npx @hypequery/cli generate:datasets --path analytics --diff
 
 # Verify generated definitions in CI
 npx @hypequery/cli generate:datasets --path analytics --check
+```
+</CodeBlock>
+
+## `hypequery schema inspect` and `hypequery onboard`
+
+<CodeBlock>
+```bash
+npx hypequery schema inspect --json
+npx hypequery onboard analyze --json
+npx hypequery onboard check analytics/datasets.ts --json
+```
+</CodeBlock>
+
+These commands run hypequery Cloud's onboarding analysis against your own ClickHouse, so a coding agent (or you)
+can design datasets from evidence instead of guesses. They connect with the same `CLICKHOUSE_*` settings as
+`generate:datasets`, only read, and never write files.
+
+- **`schema inspect`** – tables and columns with engine metadata (sorting, primary and partition keys, version,
+  sign and deleted columns of `ReplacingMergeTree` and friends, TTL, last write) and a few sampled column stats.
+- **`onboard analyze`** – everything `schema inspect` reports, plus first-pass findings (aggregate-state tables,
+  versioned rows, status columns, mixed scales) with the questions to ask before drafting, grain checks, measured
+  join candidates, column role hints, the user's access profile (readonly level, risks and a fix), which grants are
+  present, query-history observations and possible tenant columns.
+- **`onboard check [source]`** – checks a model against the data: every measure is computed by an independent
+  second route, and every declared relationship (plus `--join` pairs) is measured for key coverage, uniqueness
+  and fan-out. Exits 1 with `ONBOARD_CHECK_FAILED` and one `issues` entry per failure; checks that can't run
+  (budget, unsupported measures) are reported as skipped, never as passes.
+
+`source` is a module exporting datasets (`analytics/datasets.ts`), a Cloud publication (`export const cloud =
+publishToCloud(...)`), a deployment bundle directory (Python's `write_dataset_bundle`) or deployment JSON. Without
+one, `analytics/cloud.ts`, `analytics/datasets.ts` and `analytics/hypequery-deployment` are tried in that order.
+
+| Option | Applies to | Description |
+| --- | --- | --- |
+| `--databases <names>` | all | Databases to read beyond `CLICKHOUSE_DATABASE` (comma-separated, at most 20 in total) |
+| `--tables <names>` | `schema inspect`, `onboard analyze` | Only these tables (comma-separated) |
+| `--samples <mode>` | `schema inspect`, `onboard analyze` | Sampled column values in the report: `detected` (default; withholds values that look personal or sensitive), `none` or `all` |
+| `--no-query-history` | `onboard analyze` | Don't read `system.query_log` |
+| `--join <pairs>` | `onboard check` | Also measure these joins, `child.column=parent.column` (comma-separated, child first) |
+
+**Possible tenant columns are only reported.** `onboard analyze` lists columns named like `tenant_id` or
+`org_id` under `tenantKeyCandidates`, for you to confirm; nothing sets `tenantKey` from a name match.
+
+**Query history is optional.** Without `SELECT` on `system.query_log` (or with `--no-query-history`), the
+analysis still succeeds: `queryHistory.status` is `skipped` and a `QUERY_HISTORY_UNAVAILABLE` warning names the
+grant that would add it. History is summarised (tables, joins, filters, counts); query text is never reported.
+
+**What the report leaves out.** Reports are meant to be read by coding agents, so measured proof (check SQL with
+its result rows) and example rows stay out of them, and sampled values follow `--samples`.
+
+### The onboarding engine
+
+The analysis lives in a separate Apache-2.0 package, `@hypequery/onboard-engine`, released on its own schedule
+from the hypequery Cloud repository. It is not a dependency of `@hypequery/cli`: these commands load it at
+runtime, within the range the CLI supports (`^0.1.0`), so engine fixes reach you without a CLI release.
+
+The CLI looks in the project's `node_modules` first, then beside the CLI itself. When neither has a compatible
+version, it offers to install it at a terminal; under `--json`, `--no-input`, CI or without a terminal it fails
+with `ONBOARD_ENGINE_MISSING` (or `ONBOARD_ENGINE_INCOMPATIBLE` for an out-of-range version) and the command to run:
+
+<CodeBlock>
+```bash
+npm i -D @hypequery/onboard-engine
+# or, outside a Node.js project (for example a Python one):
+npx -p @hypequery/cli -p @hypequery/onboard-engine hypequery onboard analyze --json
 ```
 </CodeBlock>
 
@@ -656,6 +724,11 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `NOT_FOUND` | `correctable_input` | 1 | An example or Cloud resource does not exist |
 | `ENTRYPOINT_NOT_FOUND` | `correctable_input` | 1 | No API file was found to serve |
 | `CLICKHOUSE_CONNECTION_FAILED` | `correctable_input` | 1 | `init --no-interactive` could not connect with the `CLICKHOUSE_*` settings |
+| `CLICKHOUSE_NOT_CONFIGURED` | `correctable_input` | 1 | `schema inspect` or `onboard` found no `CLICKHOUSE_URL` |
+| `CLICKHOUSE_ACCESS_DENIED`, `CLICKHOUSE_QUERY_FAILED` | `correctable_input` | 1 | ClickHouse refused the user or the discovery query; check credentials, database and grants |
+| `ONBOARD_ENGINE_MISSING`, `ONBOARD_ENGINE_INCOMPATIBLE` | `correctable_input` | 1 | `@hypequery/onboard-engine` is not installed, or not in the supported range; the hint names the install command |
+| `ONBOARD_CHECK_FAILED` | `correctable_input` | 1 | `onboard check` found failing measures, joins or missing tables; `issues` lists each |
+| `INVALID_INPUT` | `correctable_input` | 1 | A file or value could not be read, such as a deployment JSON or a `--join` pair |
 | `JSON_NOT_SUPPORTED` | `correctable_input` | 1 | `mcp` serves over stdout; use `--self-test` with `--json` |
 | `OUT_OF_DATE` | `stale_contract` | 1 | `--check` or `--diff` found generated output missing or out of date |
 | `CLOUD_STATE_CHANGED` | `stale_contract` | 1 | The live deployment changed since the command read it |
@@ -684,6 +757,9 @@ Fields are only ever added. Paths are absolute.
 | `generate:client` | `{ status, output, endpoints }` |
 | `export:client-contract` | `{ status, output }`, or the canonical contract itself with `--stdout` |
 | `skill install` | `{ installed, upToDate, files }` |
+| `schema inspect` | `{ engine, connection, schema, warnings }` |
+| `onboard analyze` | `{ engine, connection, tables, schema, findings, questions, grainChecks, joinCandidates, columnRoles, queryHistory, tenantKeyCandidates, warnings }` |
+| `onboard check` | `{ ok, engine, connection, source, summary, measureChecks, joinChecks, warnings }` |
 | `login` / `logout` | `{ signedIn, target, expiresAt }` / `{ signedIn: false, … }` |
 | `deployment:build` | `{ bundle, deployment, unscopedTenantCandidates }` |
 | `deployment:validate` | `{ valid, kind, path, deployment, bundle? }` |
