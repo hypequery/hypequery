@@ -45,7 +45,7 @@ A refreshable view reruns on its schedule, or now with `SYSTEM REFRESH VIEW name
 
 ### How do I change or replace a materialized view?
 
-`ALTER TABLE events_daily_mv MODIFY QUERY SELECT ...` swaps the query, and `CREATE OR REPLACE MATERIALIZED VIEW events_daily_mv TO events_daily AS SELECT ...` replaces the whole definition in one statement. With `TO`, neither touches rows already in the target; both apply only to future inserts. See [changing a materialized view](/blog/clickhouse-create-materialized-view-to-table-backfill).
+`ALTER TABLE events_daily_mv MODIFY QUERY SELECT ...` swaps the query, and `CREATE OR REPLACE MATERIALIZED VIEW events_daily_mv TO events_daily AS SELECT ...` replaces the whole definition in one statement. With `TO`, neither touches rows already in the target; both apply only to future inserts. `CREATE OR REPLACE MATERIALIZED VIEW` needs a 26.x server: on 25.8 LTS it is a syntax error, so use `MODIFY QUERY` there. See [changing a materialized view](/blog/clickhouse-create-materialized-view-to-table-backfill).
 
 ### Materialized view or projection?
 

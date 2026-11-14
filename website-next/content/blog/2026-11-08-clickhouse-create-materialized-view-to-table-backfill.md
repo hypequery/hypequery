@@ -4,7 +4,7 @@ description: "Create an incremental materialized view in ClickHouse the producti
 seoTitle: "ClickHouse Create Materialized View: TO Table and Backfill"
 seoDescription: "Create the target table, then CREATE MATERIALIZED VIEW ... TO it. The view only sees new inserts, so backfill old rows with INSERT ... SELECT and a cutoff."
 pubDate: 2026-11-08
-updatedAt: 2026-11-08
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-create-materialized-view-to-table-backfill
 status: published
@@ -317,6 +317,8 @@ GROUP BY day, page;
 ```
 
 Per the CREATE VIEW reference, `CREATE OR REPLACE MATERIALIZED VIEW` atomically replaces the view, and for a view without `TO` the old inner table is dropped and a new one created. With `TO`, only the definition changes and the target keeps its rows. `OR REPLACE` cannot be combined with `IF NOT EXISTS`.
+
+Check your server version first: on ClickHouse 25.8 LTS (25.8.33.6), `CREATE OR REPLACE MATERIALIZED VIEW` is a syntax error (`Expected one of: TABLE, ... VIEW, DICTIONARY, ...`), while it works on 26.6 and 26.10. On 25.8, use `ALTER TABLE ... MODIFY QUERY`, which works there, or drop and recreate the view and backfill any rows inserted in between.
 
 ## How do you show, list and drop materialized views?
 
