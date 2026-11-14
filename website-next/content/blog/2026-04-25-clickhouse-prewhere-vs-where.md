@@ -4,6 +4,7 @@ description: "PREWHERE filters before reading all columns, WHERE filters after. 
 seoTitle: "ClickHouse PREWHERE vs WHERE: When PREWHERE Helps"
 seoDescription: "PREWHERE reads the filter columns first and skips non-matching rows. ClickHouse moves WHERE conditions to PREWHERE automatically; add it only when profiling helps."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-prewhere-vs-where
 status: published
@@ -15,7 +16,25 @@ PREWHERE is a ClickHouse-specific optimization that can reduce reads when a sele
 
 If you are building with TypeScript, the shortest path is still to start with the typed hypequery builder for normal filters, then reach for explicit `PREWHERE` only when you have profiled a real query and know the extra control is worth it. If you want to start there, use the [quick start](/docs/quick-start) and then come back to `PREWHERE` as an optimization step rather than a default.
 
-This post explains the mechanics, shows where `PREWHERE` helps most, and gives a practical rule for when to stay with `WHERE`.
+This post explains the mechanics, shows where `PREWHERE` helps most, and gives a practical rule for when to stay with `WHERE`. The settings and `EXPLAIN` output below were checked on ClickHouse 25.8.
+
+## Quick answers
+
+### What is PREWHERE in ClickHouse?
+
+`PREWHERE` is a filter clause for MergeTree tables. ClickHouse reads the `PREWHERE` columns first, works out which rows match, and then reads the other columns only for the parts of the table that contain matching rows. It saves disk reads when the filter is selective and the other columns are large.
+
+### What is the difference between PREWHERE and WHERE?
+
+They return the same rows. The difference is the reading order: with `PREWHERE`, the filter columns are read and evaluated before the rest of the query's columns. With `WHERE` alone, ClickHouse would read every referenced column and then filter, except that it usually moves `WHERE` conditions to `PREWHERE` for you.
+
+### Does ClickHouse use PREWHERE automatically?
+
+Yes. `optimize_move_to_prewhere` is on by default and moves `WHERE` conditions to `PREWHERE` on MergeTree tables. On ClickHouse 25.8, `move_all_conditions_to_prewhere` is also on by default, so in our test both `tenant_id = 42` and `toDate(created_at) = today()` were moved. Check with `EXPLAIN actions = 1` and look for `Prewhere info`.
+
+### Does PREWHERE work on every table engine?
+
+No. It works on the MergeTree family. On a `Memory` table, ClickHouse 25.8 rejects it with `ILLEGAL_PREWHERE` ("does not support PREWHERE").
 
 ## How Columnar Storage Works (Briefly)
 
@@ -32,11 +51,11 @@ Standard WHERE:
 PREWHERE:
 1. Read only the PREWHERE column(s)
 2. Apply the PREWHERE filter — identify which rows pass
-3. Read the remaining columns, **but only for the rows that passed**
+3. Read the remaining columns, **but only for the granules (blocks of rows) that contain matching rows**
 4. Apply any WHERE filter on top
 5. Continue processing
 
-The IO saving is real when PREWHERE eliminates most rows before expensive columns are read. If your PREWHERE condition filters out 90% of rows, you read the remaining 90% of column data at 10% of the cost.
+The IO saving is real when PREWHERE eliminates most rows before expensive columns are read. If matching rows sit in about 10% of the granules, ClickHouse reads the other columns for about 10% of the table instead of all of it. If matching rows are spread across every granule, there is little to skip.
 
 ## When PREWHERE Helps
 
@@ -107,29 +126,30 @@ PREWHERE delivers the biggest gains when all of these are true:
 
 **The remaining columns are expensive.** If all your columns are small integers, PREWHERE doesn't help much because there's not much IO to avoid. The payoff is when you have wide rows with large string or JSON columns.
 
-**MergeTree tables.** PREWHERE is only available on MergeTree family engines (MergeTree, ReplacingMergeTree, AggregatingMergeTree, etc.). It's silently ignored or errors on other engines.
+**MergeTree tables.** PREWHERE is only available on MergeTree family engines (MergeTree, ReplacingMergeTree, AggregatingMergeTree, etc.). On other engines such as `Memory`, ClickHouse returns an `ILLEGAL_PREWHERE` error.
 
 ## When WHERE Is Enough
 
 Use `WHERE` instead of explicit `PREWHERE` when:
 
-- **Filtering on computed values**: `WHERE toDate(created_at) = today` — this requires reading `created_at` regardless, so PREWHERE on a computed value doesn't help.
+- **Filtering on computed values**: `WHERE toDate(created_at) = today()` still has to read `created_at`. ClickHouse 25.8 moves it to PREWHERE automatically anyway, so there is no reason to write that by hand.
 - **Multiple columns together**: conditions like `WHERE a = 1 AND b = 2` where both columns need to be read together. You could PREWHERE on the most selective one and WHERE on the rest.
 - **Nullable columns**: PREWHERE has edge cases with NULL handling in some ClickHouse versions — using WHERE is safer.
-- **The filter column is in the sort key and ClickHouse can skip granules**: ClickHouse's primary key skip index already handles the IO reduction in this case.
+- **The filter column is in the sort key and ClickHouse can skip granules**: ClickHouse's primary index already skips the granules that can't match, so there is less left for PREWHERE to save.
 
 ## Let ClickHouse Auto-Promote First
 
-Recent versions of ClickHouse (22.x+) automatically move some WHERE conditions to PREWHERE when it determines the optimisation is safe. You can check with `EXPLAIN` whether your WHERE was promoted:
+ClickHouse moves WHERE conditions to PREWHERE automatically on MergeTree tables (`optimize_move_to_prewhere`, on by default). On ClickHouse 25.8, `move_all_conditions_to_prewhere` is also on by default, so every condition that can move does. Plain `EXPLAIN` doesn't show this; use `EXPLAIN actions = 1`:
 
 ```sql
-EXPLAIN SELECT event_type, count()
+EXPLAIN actions = 1
+SELECT event_type, count()
 FROM events
 WHERE tenant_id = 42 AND toDate(created_at) = today()
 GROUP BY event_type;
 ```
 
-Look for `Prewhere info` in the output. If ClickHouse already promotes the condition, there may be no reason to add explicit raw SQL for PREWHERE in your application layer at all.
+On ClickHouse 25.8 the output includes a `Prewhere info` block whose `Prewhere filter column` holds both conditions. If ClickHouse already promotes the condition, there may be no reason to add explicit raw SQL for PREWHERE in your application layer at all.
 
 ## Combining PREWHERE and WHERE
 
