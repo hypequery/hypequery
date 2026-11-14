@@ -611,6 +611,9 @@ datasets and query them without guessing the API:
 
 - `hypequery-datasets`: defining datasets, measures, tenancy and relationships in TypeScript or Python.
 - `hypequery-query`: answering questions through the MCP tools or HTTP endpoints instead of writing SQL.
+- `hypequery-onboard`: onboarding a ClickHouse project end to end: `schema inspect` and `onboard analyze`, asking
+  the user which tables, questions and tenant column (never inferred), writing the datasets, `onboard check` until
+  clean, then optionally deploying and printing the MCP configuration.
 
 ```bash
 npx hypequery skill install

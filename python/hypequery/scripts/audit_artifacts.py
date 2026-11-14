@@ -64,6 +64,7 @@ REQUIRED_TEMPLATE_ENTRIES = tuple(
         "fastapi/app.py",
         "flask/app.py",
         "skills/hypequery-datasets/SKILL.md",
+        "skills/hypequery-onboard/SKILL.md",
         "skills/hypequery-query/SKILL.md",
     )
 )
