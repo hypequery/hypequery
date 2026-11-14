@@ -143,6 +143,7 @@ export default function ClickHousePythonMcpPage() {
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
+        { href: '/semantic-layer/ai-agents', label: 'AI semantic layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

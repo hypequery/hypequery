@@ -283,6 +283,8 @@ claude mcp list`,
         { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
+        { href: '/semantic-layer/ai-agents', label: 'AI semantic layer' },
+        { href: '/semantic-layer/analytics-mcp-server', label: 'Analytics MCP server' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
