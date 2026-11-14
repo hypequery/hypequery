@@ -3,7 +3,13 @@ export function readCookie(header: string | null, name: string): string | undefi
   if (!header) return undefined;
   for (const pair of header.split(';')) {
     const [key, ...value] = pair.trim().split('=');
-    if (key === name) return decodeURIComponent(value.join('='));
+    if (key !== name) continue;
+    try {
+      return decodeURIComponent(value.join('='));
+    } catch {
+      // A malformed escape (`%E0%A4`) is no session, not a server error.
+      return undefined;
+    }
   }
   return undefined;
 }
