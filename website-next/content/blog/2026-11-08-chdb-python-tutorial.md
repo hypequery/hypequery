@@ -407,7 +407,7 @@ A dataset over that view fails the same way. Copy the file into a MergeTree tabl
 
 ## chDB vs DuckDB: which embedded engine should you use?
 
-Choose chDB when your production data is in ClickHouse or will be, and DuckDB when it isn't and you want its dialect, ecosystem or Windows support. Both run analytical SQL inside the Python process ([DuckDB describes itself](https://duckdb.org/) as "in-process").
+Choose chDB when your production data is in ClickHouse or will be, and DuckDB when it isn't and you want its dialect, ecosystem or Windows support. Both run analytical SQL inside the Python process ([DuckDB describes itself](https://duckdb.org/) as "in-process"). If you are weighing ClickHouse against DuckDB more broadly, this is the like-for-like comparison: DuckDB runs inside one process, ClickHouse usually runs as a server (or ClickHouse Cloud) that many applications and users query at once, and chDB is ClickHouse in the in-process shape.
 
 | | chDB 4.4.0 | DuckDB |
 | --- | --- | --- |
