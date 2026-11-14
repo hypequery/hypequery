@@ -197,6 +197,7 @@ export default function PythonSemanticLayerPage() {
         { href: '/clickhouse-python-analytics', label: 'ClickHouse Python analytics' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
+        { href: '/semantic-layer', label: 'What is a semantic layer?' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
         { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
