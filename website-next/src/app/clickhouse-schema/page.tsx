@@ -121,6 +121,11 @@ export default function ClickHouseSchemaPage() {
       }}
       searchIntentCards={[
         {
+          title: 'How do I show a ClickHouse table schema?',
+          copy:
+            'DESCRIBE TABLE events lists each column with its type, default and comment; SHOW CREATE TABLE events prints the full DDL, including the engine and ORDER BY; system.columns has the same column data for every table. To turn that schema into TypeScript types, run npx hypequery generate against the same database.',
+        },
+        {
           title: 'Why this matters more than nicer query syntax',
           copy:
             'If the schema types are wrong, every nicer abstraction above them is built on sand. Fixing the type source is usually a better first move than introducing more wrappers.',
