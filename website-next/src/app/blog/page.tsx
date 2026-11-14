@@ -14,8 +14,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { page } = await searchParams;
   const pageNumber = Number(page) || 1;
-  const title = pageNumber > 1 ? `ClickHouse TypeScript Blog - Page ${pageNumber}` : 'ClickHouse TypeScript Blog';
-  const description = 'Deep dives, comparison posts, and implementation guidance for ClickHouse and TypeScript teams.';
+  const title = pageNumber > 1 ? `ClickHouse Blog for TypeScript and Python - Page ${pageNumber}` : 'ClickHouse Blog for TypeScript and Python';
+  const description = 'ClickHouse deep dives, comparisons and implementation guides for TypeScript and Python teams: materialized views, functions, MCP, multi-tenancy and more.';
   const canonicalPath = pageNumber > 1 ? `/blog?page=${pageNumber}` : '/blog';
 
   return {

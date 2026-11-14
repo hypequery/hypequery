@@ -7,9 +7,9 @@ import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Compare hypequery',
+  title: 'hypequery vs Cube, Tinybird, Drizzle and More',
   description:
-    'Compare hypequery against the main ClickHouse TypeScript options and start from the tradeoff closest to your current stack.',
+    'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
   alternates: {
     canonical: absoluteUrl('/compare'),
   },
