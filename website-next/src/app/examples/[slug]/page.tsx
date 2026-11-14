@@ -5,6 +5,7 @@ import ExampleDetail from '@/components/examples/ExampleDetail';
 import { getEntry, examples } from '@/lib/examples';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { exampleSearchTitle } from '@/lib/example-titles';
+import { searchTitle } from '@/lib/page-title';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = exampleSearchTitle(entry.manifest.title);
   const description = entry.manifest.outcome;
   return {
-    title,
+    title: searchTitle(title),
     description,
     keywords: entry.manifest.keywords,
     alternates: {

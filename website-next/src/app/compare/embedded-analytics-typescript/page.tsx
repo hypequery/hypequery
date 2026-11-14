@@ -4,7 +4,7 @@ import { HubFaq, HubSection, HubShell, HubTable } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
 import { updatedFor } from '@/data/page-dates';
 import { absoluteUrl, ogImage } from '@/lib/site';
-import { breadcrumbJsonLd, faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
 
 const PATH = '/compare/embedded-analytics-typescript';
 const TITLE = "Embedded Analytics Buyer's Guide for TypeScript Teams";
@@ -183,7 +183,6 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
         ),
       }}
       jsonLd={[
-        breadcrumbJsonLd(breadcrumbs, PATH),
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}

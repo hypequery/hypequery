@@ -12,6 +12,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 import { docsPageTitle } from '@/lib/docs-section-label';
 import { softwareApplicationSchema, softwareSourceCodeSchema, WHAT_IS_URL } from '@/data/product';
 import { breadcrumbJsonLd } from '@/lib/structured-data';
+import { searchTitle } from '@/lib/page-title';
 
 export async function generateMetadata({
   params,
@@ -32,7 +33,7 @@ export async function generateMetadata({
   const markdownUrl = `/llms.mdx${page.url}`;
 
   return {
-    title,
+    title: searchTitle(title, ' | hypequery docs'),
     description,
     alternates: {
       canonical: absoluteUrl(page.url),

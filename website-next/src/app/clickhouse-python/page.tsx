@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
+import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'Best ClickHouse Python Client: clickhouse-connect vs driver';
@@ -7,7 +8,7 @@ const DESCRIPTION =
   'clickhouse-connect is the official ClickHouse Python client. Compare it with clickhouse-driver, clickhouse-sqlalchemy and hypequery, with safe dynamic queries.';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: searchTitle(TITLE),
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl('/clickhouse-python') },
   openGraph: {

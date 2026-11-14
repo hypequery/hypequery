@@ -14,6 +14,7 @@ import { comparePageBySlug } from '@/data/compare-pages';
 import Newsletter from '@/components/Newsletter';
 import { DEFAULT_BLOG_AUTHOR, blogAuthorName } from '@/lib/blog-author';
 import { hubForPost } from '@/lib/blog-hub';
+import { searchTitle } from '@/lib/page-title';
 
 export async function generateStaticParams() {
   const posts = await getPosts();
@@ -143,7 +144,7 @@ export async function generateMetadata({
   const url = absoluteUrl(`/blog/${post.slug}`);
 
   return {
-    title,
+    title: searchTitle(title),
     description,
     alternates: {
       canonical: url,
