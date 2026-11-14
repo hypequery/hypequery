@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
-import CodeHighlight from '@/components/CodeHighlight';
+import { StaticCode } from '@/components/home/StaticCode';
 
 /**
  * Shared markdown renderer for blog posts, compare articles, and CMS previews.
@@ -28,7 +28,8 @@ export default function MarkdownContent({ content }: { content: string }) {
             );
           }
 
-          return <CodeHighlight code={code} language={match[1]} />;
+          // Highlighted on the server, so posts ship HTML rather than a Shiki instance per block.
+          return <StaticCode code={code} lang={match[1] === 'http' ? 'javascript' : match[1]} className="text-sm! leading-6!" />;
         },
         table({ children }) {
           return (
