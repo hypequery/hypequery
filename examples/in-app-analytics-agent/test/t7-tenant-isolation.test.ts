@@ -21,6 +21,7 @@ import { DEMO_USERS } from '@/lib/demo-users';
 import { SESSION_COOKIE } from '@/lib/session';
 import { startFakeTenantEndpoint, type FakeTenantEndpoint } from './fake-tenant-endpoint';
 import { scriptedModel, toolOutputs, type ScriptedCall, type ToolOutput } from './scripted-model';
+import { crossTenantScript, errors, rows } from './utils/t7';
 import { db, rawEventCount } from './seed';
 
 const state = vi.hoisted(() => ({ model: undefined as MockLanguageModelV4 | undefined }));
@@ -72,31 +73,6 @@ async function chat(options: ChatOptions) {
   const calls = model.doStreamCalls;
   const outputs: ToolOutput[] = calls.length > 0 ? toolOutputs(calls[calls.length - 1]!.prompt) : [];
   return { status: response.status, body, outputs, verified: endpoint.verified.slice(verifiedBefore) };
-}
-
-type Row = Record<string, unknown>;
-
-function rows(outputs: ToolOutput[]): Row[] {
-  return outputs
-    .filter((o) => o.toolName === 'query_dataset')
-    .flatMap((o) => ((o.output as { data?: Row[] } | undefined)?.data ?? []));
-}
-
-function errors(outputs: ToolOutput[]): unknown[] {
-  return outputs.map((o) => (o.output as { error?: unknown } | undefined)?.error).filter(Boolean);
-}
-
-/** The calls a prompt injection would make a model try. */
-function crossTenantScript(otherTenantId: string): ScriptedCall[] {
-  return [
-    { toolName: 'list_datasets', input: {} },
-    // Filter on the other customer's id.
-    { toolName: 'query_dataset', input: { dataset: 'events', measures: ['events'], filters: [{ field: 'tenantId', operator: 'eq', value: Number(otherTenantId) }] } },
-    // Pass the tenant as an argument.
-    { toolName: 'query_dataset', input: { dataset: 'events', measures: ['events'], tenant: otherTenantId, tenantId: otherTenantId } },
-    // Group by customer to see every tenant at once.
-    { toolName: 'query_dataset', input: { dataset: 'events', dimensions: ['tenantId'], measures: ['events', 'uniqueUsers'] } },
-  ];
 }
 
 describe('T7: in-app agent tenant isolation', () => {

@@ -124,9 +124,15 @@ importers:
       '@hypequery/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@hypequery/clickhouse':
+        specifier: workspace:*
+        version: link:../../packages/clickhouse
       '@hypequery/datasets':
         specifier: workspace:*
         version: link:../../packages/datasets
+      '@hypequery/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp-server
       ai:
         specifier: ^7.0.172
         version: 7.0.173(zod@4.6.7)
@@ -146,12 +152,6 @@ importers:
       '@hypequery/cli':
         specifier: workspace:*
         version: link:../../packages/cli
-      '@hypequery/clickhouse':
-        specifier: workspace:*
-        version: link:../../packages/clickhouse
-      '@hypequery/mcp':
-        specifier: workspace:*
-        version: link:../../packages/mcp-server
       '@types/node':
         specifier: ^22.5.0
         version: 22.20.5

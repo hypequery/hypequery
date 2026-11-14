@@ -1,17 +1,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport, StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {
-  HypequeryToolsError,
-  dataFromResult,
-  errorFromResult,
-  readRequestId,
-  toHypequeryToolsError,
-} from './errors.js';
+import { HypequeryToolsError, toHypequeryToolsError } from './errors.js';
 import { toolsEndpointUrl } from './endpoint-url.js';
+import { createInProcessToolsClient, isInProcessSource, looksLikeExecutor } from './in-process.js';
+import { untilAborted } from './utils/abort.js';
+import { toDefinition, toToolArguments, toToolResult } from './utils/tool-result.js';
 import type {
   HypequeryCallOptions,
   HypequeryFetch,
-  HypequeryJsonSchema,
   HypequeryToolDefinition,
   HypequeryToolResult,
   HypequeryToolsClient,
@@ -31,46 +27,23 @@ function isClient(source: HypequeryToolsSource): source is HypequeryToolsClient 
   return typeof (source as Partial<HypequeryToolsClient>).callTool === 'function';
 }
 
-/** The client behind an adapter: the one given, or a new one for the options. */
+/**
+ * The client behind an adapter: the one given, an in-process one for
+ * `{ executor }`, or an HTTP one for `{ url, token }`.
+ */
 export function resolveToolsClient(source: HypequeryToolsSource): HypequeryToolsClient {
-  return isClient(source) ? source : createHypequeryToolsClient(source);
-}
-
-function toDefinition(tool: {
-  name: string;
-  title?: string;
-  description?: string;
-  inputSchema: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
-  annotations?: Record<string, unknown>;
-}): HypequeryToolDefinition {
-  return {
-    name: tool.name,
-    ...(tool.title === undefined ? {} : { title: tool.title }),
-    description: tool.description ?? '',
-    inputSchema: tool.inputSchema as HypequeryJsonSchema,
-    ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema as HypequeryJsonSchema }),
-    ...(tool.annotations === undefined ? {} : { annotations: tool.annotations }),
-  };
+  if (isInProcessSource(source)) return createInProcessToolsClient(source);
+  if (looksLikeExecutor(source)) {
+    // An executor also has callTool, but it returns raw MCP results: reading it
+    // as a client would hand the model unparsed envelopes.
+    throw new TypeError('hypequeryTools: pass an MCP executor as { executor }, e.g. hypequeryTools({ executor: createMCPExecutor(...) }).');
+  }
+  return isClient(source) ? source : createHypequeryToolsClient(source as HypequeryToolsOptions);
 }
 
 /** The session is gone (expired, or the server restarted): reconnecting is safe. */
 function sessionLost(error: unknown): boolean {
   return error instanceof StreamableHTTPError && error.code === 404;
-}
-
-/** `promise`, or the signal's reason as soon as it aborts. The work behind `promise` goes on. */
-function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
-  if (signal === undefined) return promise;
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-    if (signal.aborted) {
-      onAbort();
-      return;
-    }
-    signal.addEventListener('abort', onAbort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
-  });
 }
 
 class HypequeryMCPToolsClient implements HypequeryToolsClient {
@@ -204,25 +177,13 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
   }
 
   async callTool(name: string, input: unknown, options: HypequeryCallOptions = {}): Promise<HypequeryToolResult> {
-    const args = input === undefined || input === null ? {} : input;
-    if (typeof args !== 'object' || Array.isArray(args)) {
-      throw new TypeError(`hypequeryTools: input for ${name} must be an object.`);
-    }
+    const args = toToolArguments(name, input);
     const raw = await this.run(client => client.callTool(
-      { name, arguments: args as Record<string, unknown> },
+      { name, arguments: args },
       undefined,
       { signal: options.signal },
     ), options.signal) as Record<string, unknown>;
-    const requestId = readRequestId(raw);
-    let result: HypequeryToolResult;
-    if (raw.isError === true) {
-      const error = errorFromResult(raw);
-      if (error.requestId === undefined && requestId !== undefined) error.requestId = requestId;
-      const id = requestId ?? error.requestId;
-      result = { ok: false, tool: name, error, ...(id === undefined ? {} : { requestId: id }), raw };
-    } else {
-      result = { ok: true, tool: name, data: dataFromResult(raw), ...(requestId === undefined ? {} : { requestId }), raw };
-    }
+    const result = toToolResult(name, raw);
     this.options.onResult?.(result);
     return result;
   }

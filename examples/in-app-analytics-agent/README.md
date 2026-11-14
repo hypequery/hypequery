@@ -43,6 +43,14 @@ prompt for a coding agent.
 5. **Model.** Add `ANTHROPIC_API_KEY` to `.env.local` (see `.env.example`), then `pnpm dev` and open
    http://localhost:3000.
 
+### Without Cloud (self-hosted)
+
+The same tools can run in this app's own backend, against your ClickHouse, with no Cloud project, signing
+key or MCP endpoint. Start the seed (`cd ../_seed && docker compose up -d`), then set
+`HYPEQUERY_MODE=self-hosted` and `ANTHROPIC_API_KEY` in `.env.local` and run `pnpm dev`. The tenant still
+comes only from the server session: `lib/agent-tools.ts` creates the executor per request with the
+session's `tenantId`.
+
 ## What it shows
 
 - **Minting in a route handler** (`app/api/chat/route.ts`): `mintAgentToken()` signs a 15-minute end-user
@@ -53,21 +61,29 @@ prompt for a coding agent.
   browser header or the model. Cloud scopes every query to the token's `tenant` claim and refuses a filter on
   the tenant field (`analytics/datasets.ts`, `tenantKey`).
 - **Tokens that refresh** (`lib/refreshing-token.ts`): `token` is a function that re-mints before expiry.
+- **Business context** (`analytics/business-context.ts`): KPI definitions, a glossary, reporting conventions
+  and data caveats, deployed with the dataset. The agent reads them from `list_datasets` and
+  `get_business_context`; they never change a query result.
+- **Self-hosted mode** (`lib/agent-tools.ts`): `hypequeryTools({ executor: createMCPExecutor({ datasets,
+  analytics, tenantId, businessContext }) })` serves the same tools in process.
 - **T7, proven locally** (`test/t7-tenant-isolation.test.ts`): the real route handler, a scripted model that
   tries the injection three ways, and an in-process tenant endpoint that enforces the token's tenant over the
-  seed. Only the signed-in customer's rows ever come back. No model, no Cloud.
+  seed. Only the signed-in customer's rows ever come back. No model, no Cloud. `test/t7-self-hosted.test.ts`
+  runs the same attempts in self-hosted mode.
 
 ## Key file
 
-`app/api/chat/route.ts`:
+`lib/agent-tools.ts`, called from `app/api/chat/route.ts` with the server session:
 
 ```ts
-export async function POST(request: Request) {
-  // Who is asking comes from your server-side session. The tenant is never
-  // read from the request body, a header the browser sets, or the model.
-  const session = getSession(request);
-  if (!session) return Response.json({ error: 'Sign in first.' }, { status: 401 });
+export async function agentTools(session: DemoUser): Promise<HypequeryAIToolSet> {
+  if (agentMode() === 'self-hosted') {
+    // In process: no token, no network hop. The executor is bound to this session's tenant.
+    const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId, businessContext });
+    return hypequeryTools({ executor, tools: AGENT_TOOLS });
+  }
 
+  // Cloud: a 15-minute end-user token, signed locally, re-minted before it expires.
   const { mcpUrl, token } = await refreshingToken(() =>
     mintAgentToken({
       signingKey: process.env.HYPEQUERY_AGENT_KEY!,
@@ -76,19 +92,11 @@ export async function POST(request: Request) {
       permissionSet: process.env.HYPEQUERY_PERMISSION_SET ?? 'customers',
     }),
   );
-  const tools = await hypequeryTools({ url: mcpUrl, token });
-
-  const { messages } = (await request.json()) as { messages: UIMessage[] };
-  const result = streamText({
-    model: chatModel(),
-    instructions: INSTRUCTIONS,
-    messages: await convertToModelMessages(messages),
-    tools,
-    stopWhen: isStepCount(8),
-  });
-  return result.toUIMessageStreamResponse();
+  return hypequeryTools({ url: mcpUrl, token });
 }
 ```
+
+The route passes the result straight to `streamText({ model, instructions, messages, tools })`.
 
 ## Architecture
 
@@ -109,7 +117,7 @@ useChat                     POST /api/chat
 - **Your auth.** Replace `getSession` in `lib/session.ts` with your session (NextAuth, Clerk, your own). Map
   your organisation id to `tenant` and your user id to `subject`; delete `app/api/session` and the switcher.
 - **Your data.** Point `analytics/datasets.ts` at your table, keep `tenantKey` on the column that holds the
-  customer id, and redeploy. Register your customers in Cloud with the ids your app uses.
+  customer id, and redeploy. Rewrite `analytics/business-context.ts` with your own KPIs, terms and caveats. Register your customers in Cloud with the ids your app uses.
 - **Another model.** Set `AI_MODEL=openai:<model id>` with `OPENAI_API_KEY`, or add any AI SDK provider to
   `lib/model.ts`.
 - **Narrower access.** Give a permission set fewer datasets or fields, or pass `constraints` to

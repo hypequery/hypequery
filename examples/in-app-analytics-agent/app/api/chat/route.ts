@@ -1,17 +1,17 @@
-import { mintAgentToken } from '@hypequery/agent';
-import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
 import { chatModel } from '@/lib/model';
-import { refreshingToken } from '@/lib/refreshing-token';
+import { agentTools } from '@/lib/agent-tools';
 import { getSession } from '@/lib/session';
 
 export const maxDuration = 60;
 
 const INSTRUCTIONS = `You are the analytics assistant inside our product.
 Answer questions about the signed-in customer's own product usage with the hypequery tools:
-list_datasets, then get_dataset_schema, then query_dataset. Quote numbers exactly as the
-tools return them. You can only ever see the signed-in customer's data; if asked about
-another customer, say you can't share it.`;
+list_datasets (it includes the business context: KPI definitions, glossary, conventions and
+caveats), then get_dataset_schema, then query_dataset. Use the KPI definitions and conventions
+when you choose measures and present results. Quote numbers exactly as the tools return them.
+You can only ever see the signed-in customer's data; if asked about another customer, say you
+can't share it.`;
 
 export async function POST(request: Request) {
   // Who is asking comes from your server-side session. The tenant is never
@@ -19,20 +19,9 @@ export async function POST(request: Request) {
   const session = getSession(request);
   if (!session) return Response.json({ error: 'Sign in first.' }, { status: 401 });
 
-  // An end-user token for this session, signed locally with the project's
-  // signing key (no network call). It names the tenant; Cloud enforces it.
-  const { mcpUrl, token } = await refreshingToken(() =>
-    mintAgentToken({
-      signingKey: process.env.HYPEQUERY_AGENT_KEY!,
-      tenant: session.tenantId,
-      subject: session.id,
-      permissionSet: process.env.HYPEQUERY_PERMISSION_SET ?? 'customers',
-    }),
-  );
-
-  // The tenant MCP endpoint's tools, as AI SDK tools. `token` is a function,
-  // so a long conversation gets a fresh token before the old one expires.
-  const tools = await hypequeryTools({ url: mcpUrl, token });
+  // Cloud: an end-user token for this session, signed locally. Self-hosted:
+  // the same tools in this process, bound to this session's tenant.
+  const tools = await agentTools(session);
 
   const { messages } = (await request.json()) as { messages: UIMessage[] };
   const result = streamText({

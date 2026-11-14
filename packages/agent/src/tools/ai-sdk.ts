@@ -5,6 +5,7 @@
  * import { hypequeryTools } from '@hypequery/agent/ai-sdk';
  *
  * const tools = await hypequeryTools({ url: mcpUrl, token });
+ * // or, in your own backend: hypequeryTools({ executor: createMCPExecutor({ datasets, analytics, tenantId }) })
  * const result = streamText({ model, tools, messages });
  * ```
  */
@@ -44,5 +45,6 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
 }
 
 export { createHypequeryToolsClient, toModelOutput } from './client.js';
+export { createInProcessToolsClient } from './in-process.js';
 export { HypequeryToolsError } from './errors.js';
 export type * from './types.js';
