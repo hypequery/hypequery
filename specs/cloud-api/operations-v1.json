@@ -119,7 +119,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -242,7 +241,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -251,7 +249,7 @@
       "name": "projects.create",
       "summary": "Create a project: one ClickHouse connection, one live data model, its own URLs.",
       "scope": "organization",
-      "capability": "environment:create",
+      "capability": "project:create",
       "destructive": false,
       "connector": true,
       "http": {
@@ -315,7 +313,7 @@
       "name": "projects.rename",
       "summary": "Change a project's display name; its slug and URLs stay the same.",
       "scope": "project",
-      "capability": "environment:create",
+      "capability": "project:create",
       "destructive": false,
       "connector": true,
       "http": {
@@ -367,7 +365,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -428,7 +425,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -549,7 +545,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -643,7 +638,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED",
         "VERSION_NOT_FOUND"
@@ -711,7 +705,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "RELEASE_CHANGE_REFUSED",
         "RELEASE_MOVED",
@@ -830,7 +823,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1027,7 +1019,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1106,7 +1097,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -1164,7 +1154,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "RELEASE_MOVED",
         "UNAUTHENTICATED"
@@ -1258,7 +1247,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1357,7 +1345,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "OWNERSHIP_CHANGE_REQUIRED",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "RELEASE_CHANGE_REFUSED",
         "RELEASE_MOVED",
@@ -1417,7 +1404,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1488,7 +1474,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1543,7 +1528,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -1600,7 +1584,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -1671,7 +1654,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -1735,7 +1717,454 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
+        "PROJECT_NOT_FOUND",
+        "RELEASE_MOVED",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "drafts.evidence",
+      "summary": "Read a draft's evidence ledger: what discovery found, the checks run, the user's decisions and confirmations, each with its confidence, status and what it applies to. Proof stays with the customer, and sample values the sample policy withholds are cut out and marked.",
+      "scope": "project",
+      "capability": "deployment:publish",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/projects/{project}/drafts/{draft}/evidence"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "draft": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "project",
+          "draft"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null for a draft with no working model."
+          },
+          "samplePolicy": {
+            "type": "string",
+            "enum": [
+              "all",
+              "detected",
+              "none"
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "logicalKey": {
+                  "type": "string"
+                },
+                "family": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "decision",
+                    "assumption",
+                    "rejected"
+                  ]
+                },
+                "claim": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string"
+                },
+                "impact": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "confidenceCeiling": {
+                  "type": "string",
+                  "enum": [
+                    "medium",
+                    "low"
+                  ]
+                },
+                "appliesTo": {
+                  "type": "object",
+                  "properties": {
+                    "tables": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "measures": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "tables",
+                    "measures"
+                  ],
+                  "additionalProperties": false
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "stale",
+                    "superseded"
+                  ]
+                },
+                "recordedAt": {
+                  "type": "string"
+                },
+                "requiredChecks": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "check": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "passed",
+                        "failed",
+                        "skipped"
+                      ]
+                    },
+                    "relationship": {
+                      "type": "string"
+                    },
+                    "applicable": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                },
+                "document": {
+                  "type": "object",
+                  "properties": {
+                    "proposalId": {
+                      "type": "string"
+                    },
+                    "document": {
+                      "type": "string"
+                    },
+                    "section": {
+                      "type": "string"
+                    },
+                    "change": {
+                      "type": "string"
+                    },
+                    "contradicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "proposalId",
+                    "document",
+                    "section",
+                    "change",
+                    "contradicts",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                },
+                "hasProof": {
+                  "type": "boolean",
+                  "description": "Measured proof exists; it stays with the customer."
+                },
+                "withheld": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "proof",
+                      "sample-values"
+                    ]
+                  },
+                  "description": "What was left out of this entry under the sample policy."
+                }
+              },
+              "required": [
+                "id",
+                "logicalKey",
+                "family",
+                "kind",
+                "claim",
+                "evidence",
+                "impact",
+                "confidence",
+                "appliesTo",
+                "status",
+                "recordedAt",
+                "hasProof",
+                "withheld"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "omitted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Entries of a kind not yet cleared for the model, left out entirely."
+          }
+        },
+        "required": [
+          "revision",
+          "samplePolicy",
+          "entries",
+          "omitted"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "DRAFT_NOT_FOUND",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "drafts.replay",
+      "summary": "Replay a few of the last week's queries on the datasets a saved draft changes, against Production and the draft, and say whether each answer is the same. Only statuses, row counts and outcomes are returned, never rows.",
+      "scope": "project",
+      "capability": "deployment:publish",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/projects/{project}/drafts/{draft}/replay"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "draft": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "releaseIdentity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The saved release you reviewed (releaseIdentity from drafts_impact)."
+          },
+          "publishedRevision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The Production it was compared with (publishedRevision from drafts_impact)."
+          }
+        },
+        "required": [
+          "project",
+          "draft",
+          "releaseIdentity",
+          "publishedRevision"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "replay": {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dataset": {
+                      "type": "string"
+                    },
+                    "published": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The HTTP status; null when it didn't run."
+                        },
+                        "rows": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "rows"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The HTTP status; null when it didn't run."
+                        },
+                        "rows": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "rows"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "same",
+                        "different",
+                        "truncated",
+                        "not-compared"
+                      ],
+                      "description": "truncated: a full page may be any subset of the result, so not compared."
+                    }
+                  },
+                  "required": [
+                    "dataset",
+                    "published",
+                    "draft",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "selected": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Queries chosen to replay."
+              },
+              "stopped": {
+                "type": "boolean",
+                "description": "The time limit stopped the replay early."
+              }
+            },
+            "required": [
+              "results",
+              "selected",
+              "stopped"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "replay"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "DRAFT_NOT_FOUND",
+        "DRAFT_NOT_READY",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
         "PROJECT_NOT_FOUND",
         "RELEASE_MOVED",
         "UNAUTHENTICATED"
@@ -1794,7 +2223,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED",
@@ -1928,7 +2356,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED",
@@ -2020,7 +2447,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -2229,7 +2655,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -2309,7 +2734,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -2425,7 +2849,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -2526,7 +2949,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -2641,7 +3063,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "RUN_CONFLICT",
         "STALE_REVISION",
@@ -2738,7 +3159,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -2841,7 +3261,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "NOTHING_TO_CONFIRM",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -2930,7 +3349,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3066,7 +3484,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3149,7 +3566,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3261,7 +3677,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3312,7 +3727,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3371,7 +3785,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3425,7 +3838,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3497,7 +3909,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -3644,8 +4055,70 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "logs.get",
+      "summary": "Explain one answer by its request ID: the customer, end user (as a pseudonym), dataset, release and version, semantic query, timing and row count.",
+      "scope": "project",
+      "capability": "workspace:view",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/projects/{project}/logs/{requestId}"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The x-hypequery-request-id header of a REST answer, or com.hypequery/requestId in an MCP result's _meta."
+          }
+        },
+        "required": [
+          "project",
+          "requestId"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "entry": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "retentionDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "entry",
+          "retentionDays"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "REQUEST_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
     },
@@ -3817,7 +4290,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -3880,7 +4352,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "TENANT_EXISTS",
         "UNAUTHENTICATED"
@@ -3949,7 +4420,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "TENANT_NOT_FOUND",
         "UNAUTHENTICATED"
@@ -4004,7 +4474,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "TENANT_NOT_FOUND",
         "UNAUTHENTICATED"
@@ -4058,7 +4527,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4168,7 +4636,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "PERMISSION_SET_EXISTS",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4284,7 +4751,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "PERMISSION_SET_NOT_FOUND",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -4340,7 +4806,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "PERMISSION_SET_NOT_FOUND",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4398,7 +4863,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4495,7 +4959,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4548,7 +5011,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4602,7 +5064,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4657,7 +5118,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4733,7 +5193,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4793,7 +5252,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4877,7 +5335,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -4888,7 +5345,7 @@
       "scope": "project",
       "capability": "credentials:manage",
       "destructive": false,
-      "connector": false,
+      "connector": true,
       "http": {
         "method": "POST",
         "path": "/projects/{project}/customers/access/prove"
@@ -4978,7 +5435,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -5028,7 +5484,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -5101,7 +5556,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -5189,7 +5643,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -5385,7 +5838,6 @@
         "INVALID_REQUEST_ORIGIN",
         "ISSUER_UNREADABLE",
         "NOT_CONFIGURED",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -5435,7 +5887,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "NOT_CONFIGURED",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -5498,7 +5949,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -5597,7 +6047,6 @@
         "ISSUER_REQUIRED",
         "ISSUER_UNREADABLE",
         "NOT_CONFIGURED",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "STALE_REVISION",
         "UNAUTHENTICATED"
@@ -5647,8 +6096,489 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "NOT_CONFIGURED",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "signingKeys.list",
+      "summary": "List the project's managed signing keys for in-app agent tokens (public keys only), with the audience and claims tokens carry.",
+      "scope": "project",
+      "capability": "embed:view",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/projects/{project}/customers/signing-keys"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kid": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "publicJwk": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "revokedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "kid",
+                "label",
+                "publicJwk",
+                "createdAt",
+                "revokedAt",
+                "active"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "audience": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "maxLifetimeSeconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "keys",
+          "audience",
+          "claims",
+          "maxLifetimeSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "signingKeys.create",
+      "summary": "Create a signing key your backend mints in-app agent tokens with. Its private key is returned once and never stored.",
+      "scope": "project",
+      "capability": "credentials:manage",
+      "destructive": false,
+      "connector": false,
+      "http": {
+        "method": "POST",
+        "path": "/projects/{project}/customers/signing-keys"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "roles": {
+            "default": [],
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9*._:-]+$"
+            }
+          },
+          "scopes": {
+            "default": [],
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9*._:-]+$"
+            }
+          },
+          "project": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kid": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "publicJwk": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "revokedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "kid",
+              "label",
+              "publicJwk",
+              "createdAt",
+              "revokedAt",
+              "active"
+            ],
+            "additionalProperties": false
+          },
+          "privateKey": {
+            "type": "string",
+            "description": "A private JWK (JSON). Store it in your server's secrets."
+          },
+          "audience": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "maxLifetimeSeconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "privateKey",
+          "audience",
+          "claims",
+          "maxLifetimeSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "SIGNING_KEY_LIMIT",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "signingKeys.revoke",
+      "summary": "Revoke a signing key; every token it signed is refused from the next request, even before it expires.",
+      "scope": "project",
+      "capability": "credentials:manage",
+      "destructive": true,
+      "connector": true,
+      "http": {
+        "method": "DELETE",
+        "path": "/projects/{project}/customers/signing-keys/{key}"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "project",
+          "key"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "SIGNING_KEY_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "customerApp.get",
+      "summary": "Show whether customers can find this company in the hypequery app, its display name and discovery email domains.",
+      "scope": "project",
+      "capability": "embed:view",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/projects/{project}/customers/app-listing"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "listing": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "discoveryDomains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "displayName",
+              "discoveryDomains",
+              "revision",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "listing"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "customerApp.set",
+      "summary": "List or unlist this company in the hypequery app, with the name customers search for and their email domains. Unlisting keeps existing connections.",
+      "scope": "project",
+      "capability": "embed:manage",
+      "destructive": true,
+      "connector": true,
+      "http": {
+        "method": "PUT",
+        "path": "/projects/{project}/customers/app-listing"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Customers can find this company in the hypequery app."
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80,
+            "description": "The company name customers search for and see."
+          },
+          "discoveryDomains": {
+            "default": [],
+            "description": "Email domains of your customers' users, such as northwind.com. No webmail.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "From customerApp.get; 0 before the first save."
+          },
+          "project": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "displayName",
+          "expectedRevision",
+          "project"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "listing": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "discoveryDomains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "displayName",
+              "discoveryDomains",
+              "revision",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "listing"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "NOT_CONFIGURED",
+        "PROJECT_NOT_FOUND",
+        "STALE_REVISION",
         "UNAUTHENTICATED"
       ]
     },
@@ -5709,11 +6639,11 @@
     },
     {
       "name": "members.invite",
-      "summary": "Invite someone by email as a Developer (member) or an Admin; they get an email to accept.",
+      "summary": "Invite someone by email as a Developer (member) or an Admin; they get an email to accept. The organisation's approved email domains apply.",
       "scope": "organization",
       "capability": "organization:manage",
       "destructive": false,
-      "connector": false,
+      "connector": true,
       "http": {
         "method": "POST",
         "path": "/org/members/invitations"
@@ -5762,7 +6692,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "SESSION_REQUIRED",
         "UNAUTHENTICATED"
       ]
     },
@@ -5772,7 +6701,7 @@
       "scope": "organization",
       "capability": "organization:manage",
       "destructive": true,
-      "connector": false,
+      "connector": true,
       "http": {
         "method": "DELETE",
         "path": "/org/members/invitations/{invitation}"
@@ -5812,7 +6741,116 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "MEMBER_NOT_FOUND",
-        "SESSION_REQUIRED",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "members.changeRole",
+      "summary": "Change a member's role: member (Developer), admin or owner. Only an Owner gives or takes the Owner role.",
+      "scope": "organization",
+      "capability": "organization:manage",
+      "destructive": true,
+      "connector": true,
+      "http": {
+        "method": "PATCH",
+        "path": "/org/members/{member}"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "member",
+              "admin",
+              "owner"
+            ]
+          }
+        },
+        "required": [
+          "member",
+          "role"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "member"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "MEMBER_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "members.remove",
+      "summary": "Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.",
+      "scope": "organization",
+      "capability": "organization:manage",
+      "destructive": true,
+      "connector": true,
+      "http": {
+        "method": "DELETE",
+        "path": "/org/members/{member}"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "member"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "MEMBER_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
     },
@@ -5996,7 +7034,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -6052,7 +7089,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -6107,7 +7143,6 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "KEY_NOT_FOUND",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -6171,7 +7206,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -6294,7 +7328,6 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
         "UNAUTHENTICATED"
       ]
@@ -6349,8 +7382,272 @@
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
         "KEY_NOT_FOUND",
-        "PROJECT_HAS_SEVERAL_TARGETS",
         "PROJECT_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "managementTokens.list",
+      "summary": "List your management tokens in this organisation (CLI sign-ins), with when each was last used.",
+      "scope": "organization",
+      "capability": "workspace:view",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "GET",
+        "path": "/org/management-tokens"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {}
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "tokenPrefix": {
+                  "type": "string"
+                },
+                "createdVia": {
+                  "type": "string"
+                },
+                "project": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "capabilities": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "expiresAt": {
+                  "type": "string"
+                },
+                "lastUsedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "revokedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "current": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "tokenPrefix",
+                "createdVia",
+                "project",
+                "capabilities",
+                "createdAt",
+                "expiresAt",
+                "lastUsedAt",
+                "revokedAt",
+                "current"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "managementTokens.revoke",
+      "summary": "Revoke one of your management tokens; the CLI using it is signed out on its next call.",
+      "scope": "organization",
+      "capability": "workspace:view",
+      "destructive": true,
+      "connector": true,
+      "http": {
+        "method": "DELETE",
+        "path": "/org/management-tokens/{token}"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "MANAGEMENT_TOKEN_NOT_FOUND",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "feedback.create",
+      "summary": "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.",
+      "scope": "organization",
+      "capability": "feedback:create",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "POST",
+        "path": "/feedback"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bug",
+              "confusing",
+              "missing",
+              "wrong_result",
+              "other"
+            ],
+            "description": "bug: something failed; confusing: a description, hint or error misled you; missing: a capability you needed; wrong_result: an answer looked wrong; other."
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "One sentence: what went wrong."
+          },
+          "details": {
+            "description": "What happened, including the error message or code you saw.",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "attempted": {
+            "description": "What you tried, in order.",
+            "type": "string",
+            "maxLength": 2000
+          },
+          "expected": {
+            "description": "What you expected to happen instead.",
+            "type": "string",
+            "maxLength": 2000
+          },
+          "tool": {
+            "description": "The tool or operation the report is about, e.g. query_dataset.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "errorCode": {
+            "description": "The error code you got, if any, e.g. MCP_INVALID_ARGUMENTS.",
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "severity": {
+            "description": "high: it blocked the task; medium: you worked around it; low: a papercut.",
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "project": {
+            "description": "The project's slug, from projects_list, when the report is about one project.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "kind",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "received": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "id",
+          "received"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "PROJECT_NOT_FOUND",
+        "RATE_LIMITED",
         "UNAUTHENTICATED"
       ]
     }
@@ -6408,13 +7705,6 @@
       "retryable": false,
       "hint": "List projects (`projects.list`) and use one of their slugs.",
       "docsUrl": "https://hypequery.com/docs/errors/project-not-found"
-    },
-    "PROJECT_HAS_SEVERAL_TARGETS": {
-      "status": 409,
-      "category": "unavailable",
-      "retryable": false,
-      "hint": "This project still has several environments; contact hypequery support to finish moving it to projects only.",
-      "docsUrl": "https://hypequery.com/docs/errors/project-has-several-targets"
     },
     "VERSION_NOT_FOUND": {
       "status": 404,
@@ -6500,6 +7790,13 @@
       "hint": "Read it again, then retry with the new expectedRevision.",
       "docsUrl": "https://hypequery.com/docs/errors/stale-revision"
     },
+    "REQUEST_NOT_FOUND": {
+      "status": 404,
+      "category": "correctable_input",
+      "retryable": false,
+      "hint": "Check the request ID and project: request history keeps seven days, and search it with `logs.query`.",
+      "docsUrl": "https://hypequery.com/docs/errors/request-not-found"
+    },
     "TENANT_NOT_FOUND": {
       "status": 404,
       "category": "correctable_input",
@@ -6577,6 +7874,27 @@
       "hint": "List keys (`apiKeys.list` or `deployKeys.list`) and use an active key's id.",
       "docsUrl": "https://hypequery.com/docs/errors/key-not-found"
     },
+    "SIGNING_KEY_NOT_FOUND": {
+      "status": 404,
+      "category": "correctable_input",
+      "retryable": false,
+      "hint": "List signing keys (`signingKeys.list`) and use an active key's id.",
+      "docsUrl": "https://hypequery.com/docs/errors/signing-key-not-found"
+    },
+    "SIGNING_KEY_LIMIT": {
+      "status": 409,
+      "category": "correctable_input",
+      "retryable": false,
+      "hint": "Revoke a signing key no longer in use (`signingKeys.revoke`), then create the new one.",
+      "docsUrl": "https://hypequery.com/docs/errors/signing-key-limit"
+    },
+    "MANAGEMENT_TOKEN_NOT_FOUND": {
+      "status": 404,
+      "category": "correctable_input",
+      "retryable": false,
+      "hint": "List your tokens with `managementTokens.list` and use an active token's id.",
+      "docsUrl": "https://hypequery.com/docs/errors/management-token-not-found"
+    },
     "MEMBER_NOT_FOUND": {
       "status": 404,
       "category": "correctable_input",
@@ -6646,6 +7964,13 @@
       "retryable": false,
       "hint": "Show the user what will change; once they agree, repeat the call with `confirm: true`.",
       "docsUrl": "https://hypequery.com/docs/errors/confirmation-required"
+    },
+    "RATE_LIMITED": {
+      "status": 429,
+      "category": "budget_exceeded",
+      "retryable": true,
+      "hint": "Wait before trying again; the message says how long. Carry on with the task meanwhile.",
+      "docsUrl": "https://hypequery.com/docs/errors/rate-limited"
     },
     "INTERNAL": {
       "status": 500,

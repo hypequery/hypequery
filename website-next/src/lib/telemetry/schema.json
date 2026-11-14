@@ -241,6 +241,7 @@
             "skill",
             "examples",
             "create",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -309,6 +310,7 @@
             "--no-install",
             "--no-seed",
             "--tag",
+            "--input-json",
             "--no-telemetry",
             "--json",
             "--no-input",
@@ -1059,6 +1061,7 @@
         "version": {},
         "telemetry": {},
         "skill": {},
+        "cloud-operation": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -1088,7 +1091,8 @@
               "telemetry",
               "skill",
               "examples",
-              "create"
+              "create",
+              "cloud-operation"
             ],
             "optional": true
           }
@@ -1124,6 +1128,7 @@
               "skill",
               "examples",
               "create",
+              "cloud-operation",
               "unknown"
             ],
             "optional": true
@@ -1651,6 +1656,7 @@
             "skill",
             "examples",
             "create",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -1851,6 +1857,11 @@
       "--no-install",
       "--no-seed",
       "--tag"
+    ],
+    "cloud-operation": [
+      "--project",
+      "--yes",
+      "--input-json"
     ],
     "help": [],
     "version": [],

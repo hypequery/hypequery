@@ -314,6 +314,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.24.1
         version: 1.24.1
+      '@hypequery/cloud-client':
+        specifier: workspace:*
+        version: link:../cloud-client
       '@hypequery/deployment':
         specifier: workspace:*
         version: link:../deployment

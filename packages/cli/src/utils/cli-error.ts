@@ -58,6 +58,8 @@ export interface CliErrorOptions {
   readonly issues?: readonly CliInputIssue[];
   /** Cloud's request ID, when the failure came from a Cloud response. */
   readonly requestId?: string;
+  /** The page about this error, when Cloud named one; otherwise the CLI's error reference. */
+  readonly docsUrl?: string;
 }
 
 /**
@@ -74,6 +76,7 @@ export class CliError extends Error {
   readonly category: CliErrorCategory;
   readonly issues?: readonly CliInputIssue[];
   readonly requestId?: string;
+  readonly docsUrl?: string;
 
   constructor(readonly code: string, message: string, options: CliErrorOptions = {}) {
     super(message);
@@ -83,6 +86,7 @@ export class CliError extends Error {
     this.category = options.category ?? DEFAULT_CATEGORY[this.exitClass];
     if (options.issues?.length) this.issues = options.issues;
     if (options.requestId) this.requestId = options.requestId;
+    if (options.docsUrl) this.docsUrl = options.docsUrl;
     this.telemetryCode = options.telemetryCode ?? (this.exitClass === 'auth' ? 'auth_failed' : 'validation_failed');
     this.retryable = options.retryable ?? this.exitClass === 'transient';
   }

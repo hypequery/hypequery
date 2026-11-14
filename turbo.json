@@ -39,7 +39,12 @@
     },
     "@hypequery/cli#test": {
       "dependsOn": ["build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/website-next/docs/telemetry.mdx"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/website-next/docs/**/telemetry.mdx",
+        "$TURBO_ROOT$/website-next/docs/cloud/cli-operations.mdx",
+        "$TURBO_ROOT$/specs/cloud-api/operations-v1.json"
+      ]
     },
     "@hypequery/examples-schema#lint": {
       "inputs": [
