@@ -1117,6 +1117,60 @@ slot has an active window, a new caller receives `503` until a slot expires;
 active counters are never reset to make room. For several
 processes, pass a `store` with an async `hit(key, window_seconds)` method.
 
+## Tools for your agent
+
+`hypequery.agent` gives the agent in your own product hypequery's tenant-safe analytics tools
+(`list_datasets`, `get_dataset_schema`, `query_metric` and `query_dataset`) as native tools for
+Anthropic, the OpenAI Agents SDK and Pydantic AI. The model never writes SQL, and every query is
+scoped to the signed-in user's tenant. It mirrors `@hypequery/agent` in TypeScript: the same
+tools, JSON Schemas and error envelope.
+
+In your own process, build the executor per request from the signed-in user's credential, so the
+API's own auth decides the tenant:
+
+```python
+from pydantic_ai import Agent
+
+from hypequery.agent.pydantic_ai import hypequery_tools
+from hypequery.mcp import ApiContractBackend, ClientContractExecutor
+
+executor = await ClientContractExecutor.create(
+    ApiContractBackend(api, headers={"Authorization": f"Bearer {user_token}"})
+)
+agent = Agent("anthropic:claude-opus-5-5", tools=await hypequery_tools(executor=executor))
+result = await agent.run("Which countries had the most revenue last month?")
+```
+
+The other adapters take the same arguments:
+
+```python
+from hypequery.agent.anthropic import hypequery_tools as anthropic_tools
+from hypequery.agent.openai_agents import hypequery_tools as openai_tools
+
+hq = await anthropic_tools(executor=executor)  # hq.tools for messages.create, hq.tool_results(...)
+tools = await openai_tools(executor=executor)  # for agents.Agent(tools=...)
+```
+
+For a tenant MCP endpoint such as hypequery Cloud's, pass `url=` and `token=` instead (needs the
+`mcp` extra). The token can be a function, sync or async; it is asked for before every call, so a
+token from `mint_agent_token()` can be re-minted before it expires:
+
+```python
+from hypequery.agent import mint_agent_token
+from hypequery.agent.openai_agents import hypequery_tools
+
+def token() -> str:
+    return mint_agent_token(signing_key=key, tenant=tenant, subject=user_id, permission_set="customers").token
+
+tools = await hypequery_tools(url=mcp_url, token=token)
+```
+
+A tool error (bad input, an unknown dataset, a timeout) is returned to the model as
+`{"error": {code, message, hint, ...}}` so it can correct itself. A refused token or an
+unreachable endpoint raises `HypequeryToolsError`. `tools=["list_datasets", "query_dataset"]`
+limits an executor to the tools you name, and `on_result=` is called with every result and its
+request id.
+
 ## ClickHouse execution
 
 The execution extra accepts `CompiledQuery` objects emitted by the planner.
