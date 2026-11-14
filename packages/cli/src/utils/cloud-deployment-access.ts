@@ -31,6 +31,8 @@ export interface ResolvedDeploymentCredential {
   readonly tokenKind: CloudTokenKind;
   /** The deployment target the credential names; --project and --environment override it. */
   readonly target?: ProtocolDeploymentReleaseTarget;
+  /** The Cloud project slug a stored management token is limited to or names, if any. */
+  readonly project?: string;
   /** Only for the browser sign-in's deploy credential. */
   readonly storedCredential?: StoredCloudCredential;
 }
@@ -121,6 +123,7 @@ export async function resolveDeploymentCredential(
       source: 'management-token',
       tokenKind: 'management',
       ...(management.target ? { target: management.target } : {}),
+      ...(management.project ? { project: management.project } : {}),
     };
   }
 

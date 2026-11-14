@@ -65,6 +65,18 @@ async function ask<T extends string = string>(
   return answers;
 }
 
+/** Ask a yes/no question; false unless the person answers yes. `flag` answers it without a prompt. */
+export async function promptConfirmation(message: string, flag: string): Promise<boolean> {
+  const { confirmed } = await ask({ type: 'confirm', name: 'confirmed', message, initial: false }, flag);
+  return confirmed === true;
+}
+
+/** Ask for a secret without echoing it. `flag` supplies it without a prompt. */
+export async function promptSecret(message: string, flag: string): Promise<string> {
+  const { secret } = await ask({ type: 'password', name: 'secret', message }, flag);
+  return typeof secret === 'string' ? secret : '';
+}
+
 /**
  * Prompt for ClickHouse connection details
  */
