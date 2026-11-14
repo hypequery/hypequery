@@ -10,16 +10,16 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
   openGraph: {
-    images: ogImage('ClickHouse MCP Server for Governed AI Analytics'),
+    images: ogImage('ClickHouse MCP Server for Claude, Cursor and Codex'),
     type: 'website',
     url: absoluteUrl('/clickhouse-mcp'),
-    title: 'ClickHouse MCP Server for AI Agents | hypequery',
+    title: 'ClickHouse MCP Server for Claude, Cursor and Codex | hypequery',
     description:
-      'Turn a TypeScript semantic layer into validated ClickHouse MCP tools for Claude, Cursor, and other AI agents.',
+      'Give Claude, Cursor and Codex named ClickHouse datasets and metrics as MCP tools, never raw SQL, from TypeScript or Python.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse MCP Server for AI Agents | hypequery',
+    title: 'ClickHouse MCP Server for Claude, Cursor and Codex | hypequery',
     description:
       'Give AI agents approved ClickHouse datasets instead of raw SQL access.',
   },
