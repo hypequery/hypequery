@@ -27,3 +27,12 @@ void client.close();
 void hypequeryTools({ url: mcpUrl });
 // @ts-expect-error token must be a string or a function returning one
 void hypequeryTools({ url: mcpUrl, token: 42 });
+
+// In your own backend: an executor in this process, no endpoint or token.
+import { createMCPExecutor } from '@hypequery/mcp';
+declare const executorConfig: Parameters<typeof createMCPExecutor>[0];
+const inProcess: Promise<HypequeryAIToolSet> = hypequeryTools({ executor: createMCPExecutor(executorConfig) });
+void inProcess;
+void hypequeryTools({ executor: createMCPExecutor(executorConfig), tools: ['list_datasets', 'query_dataset'] });
+// @ts-expect-error tools is a list of names
+void hypequeryTools({ executor: createMCPExecutor(executorConfig), tools: 'list_datasets' });

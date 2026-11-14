@@ -121,6 +121,12 @@ export type { BuildProtocolDeploymentContractOptions } from './protocol-deployme
 export { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 export { publishToCloud } from './cloud-publishing.js';
+export { defineBusinessContext, defineCloudPublication } from './cloud-publication.js';
+export type {
+  BusinessContextInput,
+  CloudPublication,
+  CloudPublicationOptions,
+} from './cloud-publication.js';
 export { buildClientContract } from './client-contract/build-from-deployment.js';
 export type { BuildClientContractOptions, ClientContractCapabilities } from './client-contract/build-from-deployment.js';
 export type { ClientContractProfile } from './client-contract/deployment-profile.js';

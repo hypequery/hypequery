@@ -116,5 +116,6 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
 }
 
 export { createHypequeryToolsClient, toModelOutput } from './client.js';
+export { createInProcessToolsClient } from './in-process.js';
 export { HypequeryToolsError } from './errors.js';
 export type * from './types.js';

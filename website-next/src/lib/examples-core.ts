@@ -143,6 +143,7 @@ export const LABELS: Record<string, string> = {
   chdb: 'chDB',
   fastapi: 'FastAPI',
   mcp: 'MCP',
+  'ai-sdk': 'AI SDK',
   postgres: 'Postgres',
   api: 'API',
   'analytics-api': 'Analytics API',

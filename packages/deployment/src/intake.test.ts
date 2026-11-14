@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   prepareProtocolDeploymentBundleManifest,
+  prepareProtocolBusinessContext,
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
   type ProtocolDeploymentBundleArtifact,
@@ -83,9 +84,16 @@ function submissionFixture(
   extraParts: readonly Part[] = [],
   deploymentPath = 'deployment.json',
   artifacts: readonly ProtocolDeploymentBundleArtifact[] = [],
+  businessContext?: unknown,
 ) {
   const preparedDeployment = prepareProtocolDeploymentContract(deployment());
   const deploymentBytes = Buffer.from(`${preparedDeployment.canonical}\n`);
+  const preparedContext = businessContext === undefined
+    ? undefined
+    : prepareProtocolBusinessContext(businessContext);
+  const contextBytes = preparedContext
+    ? Buffer.from(`${preparedContext.canonical}\n`)
+    : undefined;
   const sourceFiles = [
     {
       path: 'analytics/api.ts',
@@ -98,13 +106,21 @@ function submissionFixture(
   ];
   const preparedManifest = prepareProtocolDeploymentBundleManifest({
     kind: 'hypequery-deployment-bundle',
-    version: 1,
+    version: preparedContext ? 2 : 1,
     deployment: {
       path: deploymentPath,
       identity: preparedDeployment.identity,
       sha256: sha256(deploymentBytes),
       byteLength: deploymentBytes.byteLength,
     },
+    ...(preparedContext && contextBytes ? {
+      businessContext: {
+        path: 'business-context.json',
+        identity: preparedContext.identity,
+        sha256: sha256(contextBytes),
+        byteLength: contextBytes.byteLength,
+      },
+    } : {}),
     artifacts,
     source: {
       root: 'source',
@@ -143,6 +159,13 @@ function submissionFixture(
       bundlePath: deploymentPath,
       bytes: deploymentBytes,
     },
+    ...(contextBytes ? [{
+      name: 'bundle' as const,
+      filename: 'business-context.json',
+      contentType: 'application/json',
+      bundlePath: 'business-context.json',
+      bytes: contextBytes,
+    }] : []),
     ...sourceFiles.map(file => ({
       name: 'bundle' as const,
       filename: path.basename(file.path),
@@ -241,6 +264,46 @@ describe('deployment intake', () => {
     });
     expect(accept).toHaveBeenCalledOnce();
     expect(await readdir(temporary)).toEqual([]);
+  });
+
+  it('accepts a v2 bundle and hands the verified business context to the store', async () => {
+    const fixture = submissionFixture([], 'deployment.json', [], {
+      kind: 'hypequery-business-context',
+      version: 1,
+      glossary: [{ term: 'active customer', meaning: 'ordered in the last 30 days' }],
+    });
+    const temporary = await temporaryDirectory();
+    const accept = vi.fn<DeploymentSubmissionStore<string>['accept']>(async submission => {
+      expect(submission.bundle.manifest.version).toBe(2);
+      expect(submission.bundle.businessContext?.glossary).toEqual([
+        { term: 'active customer', meaning: 'ordered in the last 30 days' },
+      ]);
+      return 'accepted';
+    });
+    const intake = createDeploymentIntake({
+      authenticator: { authenticate: async () => 'principal' },
+      authorizer: { authorize: async () => true },
+      store: { accept },
+      temporaryDirectory: temporary,
+    });
+
+    const response = await intake.handle(fixture.request());
+
+    expect(response.status).toBe(202);
+    expect(accept).toHaveBeenCalledOnce();
+    expect(await readdir(temporary)).toEqual([]);
+  });
+
+  it('gives a glossary-only change a different bundle and release identity', () => {
+    const context = (meaning: string) => ({
+      kind: 'hypequery-business-context',
+      version: 1,
+      glossary: [{ term: 'active customer', meaning }],
+    });
+    const before = submissionFixture([], 'deployment.json', [], context('30 days'));
+    const after = submissionFixture([], 'deployment.json', [], context('90 days'));
+    expect(before.preparedManifest.identity).not.toBe(after.preparedManifest.identity);
+    expect(before.release.identity).not.toBe(after.release.identity);
   });
 
   it('returns the store idempotency result after complete revalidation', async () => {

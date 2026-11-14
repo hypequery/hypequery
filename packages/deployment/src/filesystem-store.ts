@@ -23,6 +23,7 @@ import type {
   VerifiedDeploymentSubmission,
 } from './types.js';
 import { readBoundedFile } from './utils/read-bounded-file.js';
+import { deploymentBundleFiles } from './utils/bundle-files.js';
 
 const RELEASE_FILE = 'release.json';
 const MAX_MANIFEST_BYTES = 1024 * 1024;
@@ -243,17 +244,12 @@ function bundleFilePaths(bundle: VerifiedDeploymentBundle): readonly {
   readonly path: string;
   readonly byteLength?: number;
 }[] {
-  const source = bundle.manifest.source;
   return Object.freeze([
     { path: DEPLOYMENT_BUNDLE_MANIFEST },
-    {
-      path: bundle.manifest.deployment.path,
-      byteLength: bundle.manifest.deployment.byteLength,
-    },
-    ...(source?.files.map(file => ({
-      path: `${source.root}/${file.path}`,
+    ...deploymentBundleFiles(bundle.manifest).map(file => ({
+      path: file.path,
       byteLength: file.byteLength,
-    })) ?? []),
+    })),
   ]);
 }
 
