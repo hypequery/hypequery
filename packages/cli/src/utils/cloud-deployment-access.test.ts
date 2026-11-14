@@ -119,6 +119,24 @@ describe('resolveDeploymentCredential', () => {
     expect(loadCredential).not.toHaveBeenCalled();
   });
 
+  it('refuses the stored login when HYPEQUERY_CLOUD_URL names another Cloud', async () => {
+    const dependencies = {
+      env: { HYPEQUERY_CLOUD_URL: 'https://staging.example.test' },
+      loadCredential: async () => login(),
+      loadManagementCredential: async () => null,
+    };
+    await expect(resolveDeploymentCredential(undefined, dependencies)).rejects.toMatchObject({
+      code: 'CLOUD_NOT_SIGNED_IN',
+      exitClass: 'auth',
+      message: expect.stringContaining('https://login.example.test'),
+    });
+    await expect(storedDeploymentTarget(dependencies)).rejects.toMatchObject({ code: 'CLOUD_NOT_SIGNED_IN' });
+
+    const matching = { ...dependencies, env: { HYPEQUERY_CLOUD_URL: 'https://login.example.test/' } };
+    await expect(resolveDeploymentCredential(undefined, matching)).resolves.toMatchObject({ source: 'login', token: DEPLOY_KEY });
+    await expect(storedDeploymentTarget(matching)).resolves.toEqual({ project: 'acme:login', environment: 'production' });
+  });
+
   it('reads the management token for HYPEQUERY_CLOUD_URL when it is set', async () => {
     const loadManagementCredential = vi.fn(async () => stored());
     await resolveDeploymentCredential(undefined, {

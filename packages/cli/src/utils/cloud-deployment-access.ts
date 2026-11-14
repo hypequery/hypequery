@@ -51,14 +51,41 @@ function notSignedIn(): CliError {
   );
 }
 
+/** The Cloud origin `HYPEQUERY_CLOUD_URL` names, when it is set. */
+function requestedOrigin(env: Readonly<Record<string, string | undefined>>): string | undefined {
+  return env.HYPEQUERY_CLOUD_URL ? cloudOriginFromEnv(env) : undefined;
+}
+
 function storedManagementCredential(
   env: Readonly<Record<string, string | undefined>>,
   dependencies: CloudDeploymentAccessDependencies,
 ): Promise<StoredManagementCredential | null> {
-  const cloudUrl = env.HYPEQUERY_CLOUD_URL ? cloudOriginFromEnv(env) : undefined;
+  const cloudUrl = requestedOrigin(env);
   const load = dependencies.loadManagementCredential
     ?? ((options: { readonly cloudUrl?: string }) => loadManagementCredential(options));
   return load(cloudUrl ? { cloudUrl } : {});
+}
+
+/**
+ * The browser sign-in's deploy credential, unless `HYPEQUERY_CLOUD_URL` names
+ * a different Cloud than the one it was issued by: a command told to use one
+ * Cloud must not quietly act on another.
+ */
+async function storedDeployCredential(
+  env: Readonly<Record<string, string | undefined>>,
+  dependencies: CloudDeploymentAccessDependencies,
+): Promise<StoredCloudCredential | null> {
+  const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
+  const origin = requestedOrigin(env);
+  if (credential && origin !== undefined && credential.cloudUrl !== origin) {
+    throw new CliError(
+      'CLOUD_NOT_SIGNED_IN',
+      `HYPEQUERY_CLOUD_URL is ${origin}, but the stored sign-in is for ${credential.cloudUrl}. `
+        + `Run \`hypequery login\` to sign in to ${origin}, or unset HYPEQUERY_CLOUD_URL.`,
+      { hint: 'Run `hypequery login` for the Cloud HYPEQUERY_CLOUD_URL names, or unset HYPEQUERY_CLOUD_URL.', exitClass: 'auth' },
+    );
+  }
+  return credential;
 }
 
 /**
@@ -72,7 +99,8 @@ function storedManagementCredential(
  * 2. The stored management token from `hypequery login` or
  *    `hypequery login --device`, for `HYPEQUERY_CLOUD_URL` or the latest
  *    sign-in's origin.
- * 3. The browser sign-in's stored deploy credential.
+ * 3. The browser sign-in's stored deploy credential, when it is for
+ *    `HYPEQUERY_CLOUD_URL` or that is unset.
  *
  * Nothing here prompts or opens a browser, so it runs the same headless.
  */
@@ -124,7 +152,7 @@ export async function resolveDeploymentCredential(
     };
   }
 
-  const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
+  const credential = await storedDeployCredential(env, dependencies);
   if (!credential) throw notSignedIn();
   if (Date.parse(credential.expiresAt) <= Date.now()) throw expiredCredential();
   return {
@@ -145,7 +173,8 @@ export async function resolveDeploymentCredential(
 export async function storedDeploymentTarget(
   dependencies: CloudDeploymentAccessDependencies,
 ): Promise<ProtocolDeploymentReleaseTarget | undefined> {
-  const management = await storedManagementCredential(dependencies.env ?? process.env, dependencies);
+  const env = dependencies.env ?? process.env;
+  const management = await storedManagementCredential(env, dependencies);
   if (management) return management.target;
-  return (await (dependencies.loadCredential ?? loadCloudCredential)())?.target;
+  return (await storedDeployCredential(env, dependencies))?.target;
 }

@@ -290,6 +290,8 @@
             "--endpoint",
             "--stdout",
             "--cloud-url",
+            "--device",
+            "--capabilities",
             "--bundle-output",
             "--release-output",
             "--no-source",
@@ -1781,7 +1783,10 @@
     ],
     "login": [
       "--cloud-url",
-      "--environment"
+      "--environment",
+      "--device",
+      "--project",
+      "--capabilities"
     ],
     "logout": [],
     "deploy": [
