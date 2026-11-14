@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import * as Popover from '@radix-ui/react-popover';
 import { ArrowUpRight, Braces, ChevronDown, Cloud, Code2, Database, MessagesSquare } from 'lucide-react';
-import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript } from 'react-icons/si';
+import { SiClaude, SiClickhouse, SiGooglegemini, SiModelcontextprotocol, SiOpenapiinitiative, SiPython, SiReact, SiTypescript, SiVercel } from 'react-icons/si';
 import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
-import { DeployWaitlist } from './DeployWaitlist';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
 import { marketing } from '../ui/marketing';
 import './ProductExplainer.css';
@@ -142,7 +141,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
 ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "${value}.00" }`).join(',\n')}
 ] }`}</pre>
           </div>
-          <Link href="/docs/http-openapi" aria-label="Read more about serving datasets over HTTP" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/quick-start" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Ship an analytics API <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
@@ -178,7 +177,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
             </div>
           </div>
           )}
-          <Link href="/docs/react/getting-started" aria-label="Read more about React dashboards" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/react/getting-started" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Build a customer dashboard <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
@@ -195,14 +194,14 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
               <ClaudeTerminal elapsed={answers.elapsed} reduced={answers.reduced} className="h-full" />
             </div>
           </div>
-          <Link href="/docs/mcp/overview" aria-label="Read more about MCP agents" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Read more <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/mcp/quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Connect Claude in 5 minutes <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
       </div>
       <motion.div variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.2 }} custom={0.08} className="mt-4 grid overflow-hidden rounded-2xl border border-border bg-bg-card/40 md:mt-2 md:grid-cols-[0.9fr_1.1fr]">
         <div className="flex flex-col justify-center p-5 sm:p-6">
-          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span className="rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent">Coming soon</span></div>
-          <p className="mt-3 max-w-[440px] text-sm leading-6 text-text-muted">Let your customers ask questions about their own data, inside your app. Chat answers from the same model as your dashboards, APIs and agents: the same question gets the same number everywhere.</p>
-          <DeployWaitlist location="home-embedded-chat" className={`${marketing.secondaryButton} mt-5 min-h-10 self-start text-xs`} />
+          <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><span title="Vercel AI SDK" data-tooltip="Vercel AI SDK" aria-label="Vercel AI SDK" className="logo-tooltip framework-logo ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card text-text shadow-card"><SiVercel className="h-3.5 w-3.5" aria-hidden="true" /></span></div>
+          <p className="mt-3 max-w-[440px] text-sm leading-6 text-text-muted">Let your customers ask questions about their own data, inside your app, with the Vercel AI SDK. Chat answers from the same model as your dashboards, APIs and agents: the same question gets the same number everywhere.</p>
+          <Link href="/clickhouse-ai-sdk#quickstart" className={`${marketing.secondaryButton} mt-5 min-h-10 self-start text-xs`}>Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </div>
         <div className="border-t border-border bg-bg-alt/60 p-4 md:border-l md:border-t-0">
           <div className="h-[240px]">
