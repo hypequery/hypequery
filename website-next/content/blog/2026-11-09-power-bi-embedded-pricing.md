@@ -153,9 +153,11 @@ Every price below was read on the vendor's own pricing page on 9 November 2026.
 - **[Sisense](https://www.sisense.com/plans/).** Self-serve and Enterprise plans; no prices published. Pricing on request. *Pick it when* you need regulated-industry compliance, on-prem deployment, or its Compose SDK.
 - **[GoodData](https://www.gooddata.ai/pricing/).** Professional is priced per workspace ("platform fee + number of workspaces") with unlimited users. Pricing on request. *Pick it when* you have many tenants with many users each and per-seat pricing would hurt.
 
+For more vendors priced side by side, including a 1,000-viewer scenario, see [embedded analytics pricing compared](/compare/embedded-analytics-pricing).
+
 ### The code-first route
 
-The other option is to skip the BI tool: put an API in front of your warehouse and draw the charts in your own React components. There are no viewer licenses or capacity SKUs. You pay for your database and your app servers, and you write the dashboard UI yourself. That trade is reasonable when analytics is a core product feature and your team already ships frontend code. It's a poor trade when you need non-developers to build reports.
+The other option is to skip the BI tool (see [build vs buy embedded analytics](/compare/build-vs-buy-embedded-analytics) for what that costs): put an API in front of your warehouse and draw the charts in your own React components. There are no viewer licenses or capacity SKUs. You pay for your database and your app servers, and you write the dashboard UI yourself. That trade is reasonable when analytics is a core product feature and your team already ships frontend code. It's a poor trade when you need non-developers to build reports.
 
 On ClickHouse, [hypequery](/embedded-analytics) is one way to build that layer. It's an open-source TypeScript and Python library that runs in your own backend. You define semantic datasets with measures and dimensions, serve them as typed HTTP endpoints with tenant scope taken from your auth context, read them with React hooks, and expose the same datasets to agents over MCP. It doesn't draw charts or host anything. See [hypequery vs Metabase](/compare/hypequery-vs-metabase) for an honest look at when a BI tool is the better choice, and [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) for the tenant isolation patterns.
 
