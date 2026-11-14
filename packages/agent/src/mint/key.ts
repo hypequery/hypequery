@@ -28,8 +28,12 @@ export interface ParsedSigningKey {
 
 /** Cloud's key ids: `hqsk_` and 16 random bytes, base64url. */
 const KID_PATTERN = /^hqsk_[A-Za-z0-9_-]{22}$/;
-/** An Ed25519 key, public or private, is 32 bytes: 43 base64url characters. */
-const KEY_BYTES_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+/**
+ * An Ed25519 key, public or private, is 32 bytes: 43 base64url characters,
+ * the last carrying four bits. Only the canonical encoding is taken, so both
+ * languages read the same bytes whatever their decoders do with the spare bits.
+ */
+const KEY_BYTES_PATTERN = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
 
 function refuse(message: string): never {
   throw new AgentTokenError('signingKey', message);
@@ -44,7 +48,8 @@ export function parseSigningKey(input: unknown): ParsedSigningKey {
   let value = input;
   if (typeof input === 'string') {
     try {
-      value = JSON.parse(input.trim());
+      // No trimming beyond JSON's own whitespace: Python's would differ.
+      value = JSON.parse(input);
     } catch {
       refuse('The signing key is not valid JSON. Use the private key exactly as Cloud showed it.');
     }

@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
+import ExampleCard from '@/components/examples/ExampleCard';
 import ExamplesGallery from '@/components/examples/ExamplesGallery';
 import ExamplePicker, { type ExamplePickerOption } from '@/components/examples/ExamplePicker';
 import { createCommand, type RegistryEntry } from '@/lib/examples';
@@ -54,7 +55,25 @@ export default function ExamplesHub({ kind, eyebrow, title, lead, entries, empty
         </div>
       </section>
       <section className={`${marketing.container} py-14 sm:py-20`}>
-        <Suspense fallback={<p className="font-mono text-xs text-text-dim">Loading…</p>}>
+        {/*
+          ExamplesGallery reads facets from the query string, so a static build
+          renders only this fallback into the HTML. Render every card here so
+          crawlers and no-JS readers see the full list; the client gallery
+          replaces it with the filterable version on hydration.
+        */}
+        <Suspense
+          fallback={
+            entries.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-8 text-sm leading-6 text-text-muted">{emptyCopy}</p>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-2">
+                {entries.map(({ manifest }) => (
+                  <ExampleCard key={manifest.slug} entry={{ manifest }} />
+                ))}
+              </div>
+            )
+          }
+        >
           <ExamplesGallery entries={entries.map(({ manifest }) => ({ manifest }))} emptyCopy={emptyCopy} />
         </Suspense>
       </section>

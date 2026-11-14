@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport, StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
+  HypequeryToolsError,
   dataFromResult,
   errorFromResult,
   readRequestId,
@@ -57,6 +58,20 @@ function sessionLost(error: unknown): boolean {
   return error instanceof StreamableHTTPError && error.code === 404;
 }
 
+/** `promise`, or the signal's reason as soon as it aborts. The work behind `promise` goes on. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 class HypequeryMCPToolsClient implements HypequeryToolsClient {
   private session: Promise<Session> | undefined;
   private tools: Promise<HypequeryToolDefinition[]> | undefined;
@@ -91,7 +106,14 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
   private async token(): Promise<string> {
     const token = typeof this.options.token === 'function' ? await this.options.token() : this.options.token;
     if (typeof token !== 'string' || token.trim().length === 0) {
-      throw new TypeError('hypequeryTools: token is empty.');
+      // Not retryable: the same call would send the same empty token.
+      throw new HypequeryToolsError({
+        code: 'MCP_UNAUTHORIZED',
+        category: 'unauthorized',
+        message: 'hypequeryTools: token is empty.',
+        retryable: false,
+        correctable: false,
+      });
     }
     return token.trim();
   }
@@ -120,8 +142,11 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
     await open.client.close().catch(() => undefined);
   }
 
-  /** Run one request on the session, reconnecting once if the server lost it. */
-  private async run<T>(operation: (client: Client) => Promise<T>): Promise<T> {
+  /**
+   * Run one request on the session, reconnecting once if the server lost it.
+   * An aborted `signal` rejects with its reason, also while the session opens.
+   */
+  private async run<T>(operation: (client: Client) => Promise<T>, signal?: AbortSignal): Promise<T> {
     this.inFlight += 1;
     if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
     this.idleTimer = undefined;
@@ -129,8 +154,9 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
       for (let attempt = 0; ; attempt += 1) {
         const session = this.connect();
         try {
-          return await operation((await session).client);
+          return await operation((await untilAborted(session, signal)).client);
         } catch (error) {
+          if (signal?.aborted) throw signal.reason;
           if (attempt === 0 && sessionLost(error)) {
             await this.drop(session);
             continue;
@@ -161,7 +187,7 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
         const tools: HypequeryToolDefinition[] = [];
         let cursor: string | undefined;
         do {
-          const page = await client.listTools(cursor === undefined ? {} : { cursor }, { signal: options.signal });
+          const page = await client.listTools(cursor === undefined ? {} : { cursor });
           tools.push(...page.tools.map(toDefinition));
           cursor = page.nextCursor;
         } while (cursor !== undefined);
@@ -172,7 +198,8 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
         if (this.tools === listing) this.tools = undefined;
       });
     }
-    return this.tools;
+    // The listing is shared, so one caller's abort ends only that caller's wait.
+    return untilAborted(this.tools, options.signal);
   }
 
   async callTool(name: string, input: unknown, options: HypequeryCallOptions = {}): Promise<HypequeryToolResult> {
@@ -184,7 +211,7 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
       { name, arguments: args as Record<string, unknown> },
       undefined,
       { signal: options.signal },
-    )) as Record<string, unknown>;
+    ), options.signal) as Record<string, unknown>;
     const requestId = readRequestId(raw);
     let result: HypequeryToolResult;
     if (raw.isError === true) {

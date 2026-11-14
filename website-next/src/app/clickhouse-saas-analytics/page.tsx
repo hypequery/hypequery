@@ -8,6 +8,7 @@ import { getGithubStars } from '@/lib/github-stars';
 import { getNpmDownloadCounts } from '@/lib/npm-downloads';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 // This page was the "ClickHouse SaaS analytics" pillar. It now targets the
 // "embedded analytics for SaaS" / "saas dashboard" cluster at the same URL,
@@ -17,7 +18,7 @@ const TITLE = 'Embedded Analytics for SaaS on ClickHouse';
 const DESCRIPTION =
   'Build multi-tenant SaaS dashboards, customer-facing APIs and AI agents on ClickHouse from one typed analytics layer, with tenant isolation built in.';
 const PUBLISHED = '2026-04-25';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 
 // Proof numbers are fetched at render time and cached for an hour; never hard-code them.
 export const revalidate = 3600;

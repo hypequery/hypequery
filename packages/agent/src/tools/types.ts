@@ -123,6 +123,7 @@ export interface HypequeryToolFailure extends HypequeryToolResultBase {
 export type HypequeryToolResult = HypequeryToolSuccess | HypequeryToolFailure;
 
 export interface HypequeryCallOptions {
+  /** Aborting rejects the call with the signal's reason (an `AbortError` by default). */
   signal?: AbortSignal;
 }
 
