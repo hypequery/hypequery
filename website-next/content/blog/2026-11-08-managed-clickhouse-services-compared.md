@@ -138,9 +138,9 @@ ClickPipes is ClickHouse Cloud's managed ingestion, so it only feeds ClickHouse 
 - **ClickHouse's own table engines.** These work on any server or service that allows them: `Kafka`, `RabbitMQ` and `NATS` consume from queues, `S3Queue` and `AzureQueue` pick up new files from object storage, and the `s3`, `url`, `postgresql` and `mysql` table functions read sources directly. Pair a queue engine with a materialized view that writes into a MergeTree table. All of these exist on ClickHouse 25.8 (checked in `system.table_engines` and `system.table_functions`).
 - **Kafka Connect.** ClickHouse maintains a Kafka Connect sink ([ClickHouse/clickhouse-kafka-connect](https://github.com/ClickHouse/clickhouse-kafka-connect)) that runs wherever your Kafka Connect cluster does.
 
-## Altinity.Cloud alternatives and ClickHouse Cloud alternatives
+## Altinity.Cloud, Instaclustr and ClickHouse Cloud alternatives
 
-The closest alternative to Altinity.Cloud is Aiven for ClickHouse or NetApp Instaclustr: all three run open-source ClickHouse on provisioned servers and offer BYOC. Aiven adds flat plan pricing and a self-serve Developer tier; Instaclustr adds on-premises support. ClickHouse Cloud is the alternative if usage billing and scale-to-zero matter more than open-source parity, and Altinity is the usual ClickHouse Cloud alternative for teams that want any ClickHouse version or published BYOC rates. If you are searching for an alternative to ClickHouse the database, every service on this page runs ClickHouse, so this list won't help you there.
+The closest alternative to Altinity.Cloud is Aiven for ClickHouse or NetApp Instaclustr: all three run open-source ClickHouse on provisioned servers and offer BYOC. Aiven adds flat plan pricing and a self-serve Developer tier; Instaclustr adds on-premises support, and the same three are each other's closest alternatives: someone leaving Instaclustr usually compares Altinity.Cloud and Aiven. ClickHouse Cloud is the alternative if usage billing and scale-to-zero matter more than open-source parity, and Altinity is the usual ClickHouse Cloud alternative for teams that want any ClickHouse version or published BYOC rates. If you are searching for an alternative to ClickHouse the database, every service on this page runs ClickHouse, so this list won't help you there.
 
 ## How to choose a managed ClickHouse service
 
