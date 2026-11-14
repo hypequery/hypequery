@@ -753,6 +753,7 @@ for row in result.named_results():
     returnType: 'String',
     notes: [
       '%M prints the full month name ("January"). Minutes are %i. Writing %H:%M:%S for a time is the most common mistake. Checked on ClickHouse 26.6.',
+      'Old servers differ: on ClickHouse 20.6, %M printed minutes (\'%H:%M:%S\' gave "09:05:07"). On 25.8 the setting formatdatetime_parsedatetime_m_is_month_name (default 1) makes it the month name; set it to 0 to get minutes back.',
       '%W prints the weekday name ("Friday"), not a week number.',
       'For ISO weeks, pair %V with %G, not %Y: formatDateTime(t, \'%G-W%V\') returns "2026-W53" for 2027-01-01.',
       'Sort on the underlying DateTime, or on toStartOfMonth, not on the formatted string.',
@@ -778,7 +779,7 @@ for row in result.named_results():
     faqItems: [
       {
         question: 'Is %M minutes or month in ClickHouse formatDateTime?',
-        answer: 'Month. %M prints the full month name, such as "January". Use %i for minutes: formatDateTime(t, \'%H:%i:%S\') returns "09:05:07".',
+        answer: 'Month, on current versions. %M prints the full month name, such as "January". Use %i for minutes: formatDateTime(t, \'%H:%i:%S\') returns "09:05:07". Older servers such as 20.6 printed minutes for %M; on 25.8, setting formatdatetime_parsedatetime_m_is_month_name = 0 restores that.',
       },
       {
         question: 'How do I format an ISO week with formatDateTime?',
