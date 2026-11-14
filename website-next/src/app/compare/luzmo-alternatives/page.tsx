@@ -5,6 +5,7 @@ import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 // Prices here repeat /compare/embedded-analytics-pricing. Re-verify both together, quarterly.
 const PATH = '/compare/luzmo-alternatives';
@@ -12,7 +13,7 @@ const TITLE = 'Best Luzmo Alternatives for SaaS Teams (2026)';
 const DESCRIPTION =
   'Compare Luzmo alternatives including Embeddable, Cube, Metabase and hypequery by pricing, multi-tenancy, UI ownership and ClickHouse support.';
 const PUBLISHED = '2026-11-12';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
