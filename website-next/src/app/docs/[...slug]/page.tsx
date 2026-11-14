@@ -11,6 +11,7 @@ import type { Metadata } from 'next';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { docsPageTitle } from '@/lib/docs-section-label';
 import { softwareApplicationSchema, softwareSourceCodeSchema, WHAT_IS_URL } from '@/data/product';
+import { breadcrumbJsonLd } from '@/lib/structured-data';
 
 export async function generateMetadata({
   params,
@@ -63,9 +64,31 @@ export default async function Page({
   if (!page) notFound();
 
   const Body = page.data.body;
+  // The page's last Git commit (source.config.ts), shown on the page and as dateModified.
+  const lastModified = page.data.lastModified ? new Date(page.data.lastModified) : undefined;
+  const title = docsPageTitle(page);
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: title,
+    description: page.data.description ?? 'Documentation for hypequery.',
+    url: absoluteUrl(page.url).toString(),
+    ...(lastModified ? { dateModified: lastModified.toISOString().slice(0, 10) } : {}),
+    author: { '@type': 'Organization', name: 'hypequery' },
+    publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
+  };
+  const breadcrumbSchema = breadcrumbJsonLd(
+    [{ label: 'Home', href: '/' }, { label: 'Docs', href: '/docs' }, { label: page.data.title }],
+    page.url,
+  );
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage toc={page.data.toc} full={page.data.full} lastUpdate={lastModified}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       {page.url === WHAT_IS_URL && (
         <script
           type="application/ld+json"
