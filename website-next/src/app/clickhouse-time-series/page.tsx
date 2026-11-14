@@ -275,6 +275,11 @@ export default function ClickHouseTimeSeriesPage() {
           description: 'Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
         },
         {
+          href: '/blog/clickhouse-datetime-vs-datetime64-time-zones',
+          title: 'ClickHouse DateTime vs DateTime64 and time zones',
+          description: 'Date, Date32, DateTime and DateTime64 precision, column time zones, DST and parsing the results in TypeScript.',
+        },
+        {
           href: '/blog/add-clickhouse-analytics-nodejs-backend#sampling-for-fast-prototyping',
           title: 'ClickHouse SAMPLE for fast prototyping',
           description: 'How SAMPLE BY works, scaling results with _sample_factor, and approximate aggregates from TypeScript.',
