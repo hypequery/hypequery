@@ -25,3 +25,10 @@ test('a colon too early to leave a useful title is ignored', () => {
   const title = 'ISO: weeks in ClickHouse with toMonday buckets and labels across the year boundary';
   assert.equal(exampleSearchTitle(title), title);
 });
+
+test('a trailing "compared with" clause is dropped when the title is long', () => {
+  assert.equal(
+    exampleSearchTitle('Top N per group in ClickHouse with LIMIT BY, compared with row_number() and rank()'),
+    'Top N per group in ClickHouse with LIMIT BY',
+  );
+});
