@@ -333,7 +333,7 @@ export default function ClickHousePythonPage() {
           },
           {
             label: 'Latest release on PyPI',
-            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b3, 5 Nov 2026 (beta)'],
+            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b4, 10 Nov 2026 (beta)'],
           },
           {
             label: 'Python',
@@ -386,7 +386,7 @@ export default function ClickHousePythonPage() {
           },
         ],
         footnote:
-          'Releases and Python ranges from PyPI on 8 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with the versions above.',
+          'Releases and Python ranges from PyPI, rechecked on 14 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with clickhouse-connect 1.12.0, clickhouse-driver 0.2.11, clickhouse-sqlalchemy 0.3.2 and hypequery 0.1.0b3.',
       }}
       problemsHeading={{
         eyebrow: 'The clients',
