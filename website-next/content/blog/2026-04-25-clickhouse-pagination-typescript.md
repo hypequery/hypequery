@@ -1,13 +1,16 @@
 ---
 title: "How to Paginate ClickHouse Results in TypeScript"
 description: "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Know when each applies and how to implement them."
-seoTitle: "ClickHouse Pagination in TypeScript — Offset, Cursor, and Keyset"
-seoDescription: "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client."
+seoTitle: "ClickHouse Pagination: Cursor (Keyset) vs LIMIT OFFSET"
+seoDescription: "Paginate ClickHouse with a cursor on the sort key, not a deep OFFSET: OFFSET still reads every skipped row. Offset, cursor and keyset patterns with TypeScript code."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-pagination-typescript
 status: published
 ---
+
+Short answer: for anything past the first few pages, paginate ClickHouse with a cursor on the table's sort key (`WHERE (created_at, id) < (last_created_at, last_id) ORDER BY created_at DESC, id DESC LIMIT 50`) rather than `LIMIT 50 OFFSET n`. ClickHouse still reads and discards every row before the offset, so deep OFFSET pages get slower as `n` grows, while a cursor lets the sort key skip straight to the next page. For a copy-paste version, see the [cursor pagination recipe](/recipes/cursor-pagination).
 
 Paginating ClickHouse results is straightforward at small scale and becomes a real problem at large scale. This post covers the three patterns you'll encounter — offset/limit, cursor-based, and keyset — and shows how to implement each with hypequery.
 
