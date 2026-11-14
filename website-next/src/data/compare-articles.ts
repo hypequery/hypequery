@@ -28,7 +28,7 @@ export const compareArticles: Record<string, CompareArticle> = {
     "title": "hypequery vs dbt: Transformation Layer or Application Layer?",
     "description": "dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time. Here is how the two fit together — and when one replaces the other.",
     "seoTitle": "hypequery vs dbt for ClickHouse (2026)",
-    "seoDescription": "dbt models data inside ClickHouse. hypequery gives TypeScript apps typed queries and APIs on top of it. Compare both and see when you need one, the other, or both.",
+    "seoDescription": "dbt models data inside ClickHouse; hypequery gives TypeScript apps typed queries and APIs on top of it. When you need one, the other, or both.",
     "date": "2026-07-03",
     "updated": "2026-11-08",
     "tags": [],
@@ -111,7 +111,7 @@ compareArticles['hypequery-vs-moose'] = {
     'MooseStack has reached end of life and is no longer maintained. See how its data models, query models, APIs and MCP tools map to hypequery in TypeScript or Python, then plan the migration.',
   seoTitle: 'MooseStack EOL: hypequery vs Moose (2026)',
   seoDescription:
-    'MooseStack is end of life and no longer maintained. Map Moose query models, APIs and MCP tools to hypequery in TypeScript or Python, and plan a ClickHouse migration.',
+    'MooseStack is end of life and no longer maintained. Map its query models, APIs and MCP tools to hypequery in TypeScript or Python, and plan the migration.',
   date: '2026-11-06',
   updated: '2026-11-08',
   tags: ['ClickHouse', 'TypeScript', 'Python', 'MooseStack', 'Migration'],
