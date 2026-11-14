@@ -138,6 +138,8 @@ dev = [
   # Only for the examples/marimo_chdb.py smoke test.
   "marimo>=0.25",
   "altair>=5",
+  "openai-agents>=0.4",
+  "pydantic-ai-slim>=1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -300,6 +302,23 @@ name = "Serve imports no web framework; Django and Flask adapters live in contri
 type = "forbidden"
 source_modules = ["hypequery.serve"]
 forbidden_modules = ["fastapi", "starlette", "django", "flask", "werkzeug", "asgiref"]
+
+# hypequery.agent's optional dependencies stay at its edges: only the remote
+# client imports the MCP SDK and httpx2, and only each framework's adapter
+# imports that framework, so the core imports, and tests, without any of them.
+[[tool.importlinter.contracts]]
+name = "The hypequery.agent core imports no MCP SDK or agent framework"
+type = "forbidden"
+source_modules = [
+  "hypequery.agent.types",
+  "hypequery.agent.errors",
+  "hypequery.agent.source",
+  "hypequery.agent.utils",
+  "hypequery.agent.clients.executor",
+  "hypequery.agent.mint",
+]
+forbidden_modules = ["mcp", "httpx2", "agents", "pydantic_ai", "anthropic"]
+allow_indirect_imports = true
 
 # The MCP SDK is optional and heavy (it brings starlette and uvicorn): only
 # the protocol adapter imports it, so the executor and both backends work, and
