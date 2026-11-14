@@ -417,7 +417,7 @@ Choose chDB when your production data is in ClickHouse or will be, and DuckDB wh
 | Python wheels | macOS and Linux, x86_64 and ARM64 | Includes Windows (`win_amd64`, `win_arm64` wheels for 2.0.0 on PyPI) |
 | Other languages | Go, Rust, Node.js, Bun, C and C++ ([ClickHouse docs](https://clickhouse.com/docs/chdb)) | See [duckdb.org](https://duckdb.org/) |
 
-The main reason to pick chDB is what this guide showed: a query you write and test against chDB is ClickHouse SQL, so it runs on a ClickHouse server without translation, and the `numbers()` and `toStartOfMonth` calls above need no changes. If you test against DuckDB and deploy to ClickHouse, you maintain two dialects. If you never touch ClickHouse, that advantage disappears, and DuckDB's Windows wheels and [extensions](https://duckdb.org/docs/stable/extensions/overview) may matter more. I didn't run benchmarks for this guide, so there are no speed claims here; measure on your own data.
+The main reason to pick chDB is what this guide showed: a query you write and test against chDB is ClickHouse SQL, so it runs on a ClickHouse server without translation, and the `numbers()` and `toStartOfMonth` calls above need no changes. If you test against DuckDB and deploy to ClickHouse, you maintain two dialects. If you never touch ClickHouse, that advantage disappears, and DuckDB's Windows wheels and [extensions](https://duckdb.org/docs/stable/extensions/overview) may matter more. I didn't run benchmarks for this guide, so there are no speed claims here; measure on your own data. For the server-side comparison, including DuckDB's new Quack server mode, see [ClickHouse vs DuckDB](/blog/clickhouse-vs-duckdb).
 
 ## How do you turn chDB metrics into an API?
 
