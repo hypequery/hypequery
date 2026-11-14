@@ -1,7 +1,7 @@
 ---
 title: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
 description: "How to build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed tenant-scoped API, dashboard performance, quotas, and tenant offboarding."
-seoTitle: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+seoTitle: "ClickHouse Multi-Tenant Embedded Analytics Architecture"
 seoDescription: "Multi-tenant embedded analytics architecture on ClickHouse: shared tables, row policies plus app-side tenant scoping, a typed API, quotas, fast dashboards."
 pubDate: 2026-04-30
 updated: 2026-11-09
