@@ -804,9 +804,9 @@ for row in result.named_results():
     name: 'count',
     cluster: 'aggregate',
     tagline: 'Count rows or non-NULL values — ClickHouse\'s fastest aggregate.',
-    metaTitle: 'ClickHouse count() — row counting in TypeScript',
+    metaTitle: 'ClickHouse count() — row counting in TypeScript and Python',
     metaDescription:
-      'ClickHouse count() counts rows or non-NULL values. How count(), count(x) and countIf() differ, with TypeScript examples for event analytics.',
+      'ClickHouse count() counts rows or non-NULL values. How count(), count(x) and countIf() differ, with TypeScript and Python examples.',
     signature: 'count() | count(column) | countIf(condition)',
     description:
       'Counts the number of rows (count()), non-NULL values in a column (count(col)), or rows matching a condition (countIf). The most common aggregate in analytics queries.',
@@ -841,6 +841,30 @@ const totals = await db
   .orderBy('event_count', 'DESC')
   .execute();`,
     hypequeryFilename: 'event-counts.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "orders": measure.count("order_id"),
+        # A measure filter compiles to countIf(status = 'refunded')
+        "refunded_orders": measure.count("order_id", filters=(filter.eq("status", "refunded"),)),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(dimensions=("status",), order_by=(order.asc("status"),)))
+
+for row in result.data:
+    print(row)  # {'status': 'paid', 'orders': 100, 'refunded_orders': 0}`,
+    pythonFilename: 'order_counts.py',
+    pythonNote:
+      'Both measures come from one scan: the refunded count compiles to countIf(order_id, status = ...), with the value bound as a parameter. UInt64 counts arrive as Python ints.',
     returnType: 'UInt64',
     notes: [
       'count() (no argument) is the fastest — reads from metadata, not data files.',
