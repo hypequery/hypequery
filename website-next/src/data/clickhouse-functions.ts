@@ -953,17 +953,17 @@ const dau = await db
     tagline: 'Sum a numeric column. Integer sums widen to Int64 or UInt64, which matters in TypeScript.',
     metaTitle: 'ClickHouse sum(): result types, NULLs, overflow and TypeScript',
     metaDescription:
-      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps on overflow. Looking for conditional totals? Use sumIf().',
+      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps on overflow. How each case reaches TypeScript and Python.',
     signature: 'sum(column)',
     description:
       'Returns the sum of the non-NULL values in a numeric column. Integer inputs widen to Int64 or UInt64, floats to Float64 and decimals to Decimal(38, S).',
     longDescription:
-      'sum() is the core aggregation behind revenue totals and metric roll-ups. Grouped by a date bucket it gives a revenue time series. Its result type is wider than the input, so sum() of an Int32 column is an Int64, and that changes how the value reaches a TypeScript app. For conditional totals use sumIf(), and for array columns use sumArray() or arraySum().',
+      'sum() is the core aggregation behind revenue totals and metric roll-ups. Grouped by a date bucket it gives a revenue time series. Its result type is wider than the input, so sum() of an Int32 column is an Int64, and that changes how the value reaches a TypeScript app. For array columns use sumArray() or arraySum().',
     exampleSql: `-- Daily revenue in cents (amount_cents is Int64)
 SELECT
   toStartOfDay(created_at) AS day,
   sum(amount_cents) AS revenue_cents,
-  sumIf(amount_cents, status = 'refunded') AS refunded_cents
+  count() AS orders
 FROM orders
 GROUP BY day
 ORDER BY day DESC
@@ -1000,7 +1000,7 @@ orders = dataset(
     dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
     measures={
         "revenue_cents": measure.sum("amount_cents"),
-        # A measure filter compiles to sumIf(amount_cents, status = 'refunded')
+        # A measure filter compiles to a conditional sum over the same scan
         "refunded_cents": measure.sum("amount_cents", filters=(filter.eq("status", "refunded"),)),
     },
 )
@@ -1035,8 +1035,8 @@ for row in result.data:
         copy: 'Store money as integer cents or Decimal, sum it grouped by day, and convert the Int64 string with BigInt() in TypeScript.',
       },
       {
-        title: 'Conditional sums in ClickHouse',
-        copy: 'sumIf(amount, status = \'paid\') and sumIf(amount, status = \'refunded\') give both totals in one scan. See the sumIf page for the -If combinator.',
+        title: 'Totals too large for Int64',
+        copy: 'Int64 and UInt64 sums wrap silently on overflow. Cast the column to Int128 or a wide Decimal before summing when totals can exceed 9.2 quintillion.',
       },
     ],
     faqItems: [
@@ -1059,7 +1059,7 @@ for row in result.data:
     ],
     tsType: 'string (Int64/UInt64) or number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/sum',
-    updated: '2026-11-08',
+    updated: '2026-11-14',
     seeAlso: {
       href: '/clickhouse/functions/sum-if',
       label: 'ClickHouse sumIf()',
@@ -1254,7 +1254,7 @@ const aov = await db
     name: 'quantile',
     cluster: 'aggregate',
     tagline: 'Approximate percentiles (p50, p95, p99) for latency and performance metrics.',
-    metaTitle: 'ClickHouse quantile(): approximate percentiles vs quantileExact',
+    metaTitle: 'ClickHouse percentile: quantile() vs quantileExact (p95, p99)',
     metaDescription:
       'ClickHouse quantile() estimates percentiles from a sample of up to 8,192 values, so it is approximate. When to use quantileExact, quantileTDigest or quantiles(), with TypeScript examples.',
     signature: 'quantile(level)(column): Float64',
@@ -1364,7 +1364,7 @@ for row in result.data:
     ],
     tsType: 'number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/quantile',
-    updated: '2026-11-08',
+    updated: '2026-11-14',
   },
 
   {
