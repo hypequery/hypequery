@@ -8,7 +8,9 @@ PR #963 fixed what existing pages could fix. These three clusters have real dema
 | Agentic analytics | agentic analytics (320, 4), analytics agent (210, 8), what is agentic analytics (140, 2), agentic bi (70, 14), agentic analytics platform (40, 11) | ~780 | Not in the top 20. Cube is #12 with a listicle. |
 | ClickHouse vs DuckDB | duckdb vs clickhouse (170, 0), clickhouse vs duckdb (140, 0), chdb vs duckdb (20) | ~330 | Not in the top 30. The chDB tutorial has a short chDB vs DuckDB section. |
 
-## 1. ClickHouse Cloud pricing (`/clickhouse-cloud-pricing`)
+## 1. ClickHouse Cloud pricing (`/clickhouse-cloud-pricing`): draft ready
+
+A draft of this page, with every ClickHouse figure re-checked on clickhouse.com/pricing on 2026-11-14, is on branch `seo/clickhouse-cloud-pricing-draft` (no PR). It merges cleanly with `main` and with this PR.
 
 **Intent:** "what will ClickHouse cost me". Page one has clickhouse.com/pricing, then thin aggregator pages (techbible, queryfanout, c3x, jusdb, selfhost.dev). A dated, worked-example page can rank.
 
@@ -37,6 +39,8 @@ PR #963 fixed what existing pages could fix. These three clusters have real dema
 **Angle:** a scale and deployment decision (one process vs a shared server), plus chDB as the "ClickHouse inside your process" answer that most comparisons miss. The chDB tutorial has measured chDB 4.4.0 results to reuse. Include a short "same metrics on chDB and on a ClickHouse server" example, since hypequery runs on both.
 
 **Links in:** the chDB tutorial (rename its section to point here), `/clickhouse-python`, and `/guides/clickhouse-vs-postgres-app-analytics`.
+
+**Check first:** DuckDB's site now describes the Quack protocol (introduced at AI Council 2026) as turning DuckDB into a client-server database (duckdb.org/quack). Most ranking comparisons predate it and frame the choice as in-process vs server. Read the Quack docs before writing, because that framing is now incomplete.
 
 ## After the 2026-12-01 recheck
 
