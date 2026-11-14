@@ -125,7 +125,7 @@ export default function ClickHouseSqlAlchemyPage() {
       ]}
       readingLinks={[
         { href: '/docs/python/sqlalchemy', title: 'SQLAlchemy guide', description: 'Engines, supported dialects, and URLs.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/cli', title: 'Python CLI', description: 'Generate datasets from your ClickHouse schema.' },
         { href: '/compare/hypequery-vs-clickhouse-connect', title: 'hypequery vs clickhouse-connect', description: 'Driver or semantic layer: what each one is for.' },
       ]}
@@ -140,7 +140,7 @@ export default function ClickHouseSqlAlchemyPage() {
         eyebrow: 'Next step',
         title: 'Move one shared number into a dataset',
         description: 'Find the aggregation you copy most often, define it as a measure, and query it by name.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/cli', label: 'Generate datasets' },
       }}
     />

@@ -70,7 +70,7 @@ export default function ClickHousePythonMultiTenantPage() {
       eyebrow="Python multi-tenancy"
       title="Multi-tenant ClickHouse analytics in Python, without a filter to forget"
       description="Declare the tenant column once on the dataset. Every query from your jobs, FastAPI endpoints, and agents runs inside one customer's data, and a query without a trusted tenant fails instead of returning everyone's rows."
-      primaryCta={{ href: '/docs/python/quick-start', label: 'Get started' }}
+      primaryCta={{ href: '/docs/quick-start#python', label: 'Get started' }}
       secondaryCta={{ href: '/docs/python/datasets/multi-tenancy', label: 'Read the tenancy docs' }}
       language="python"
       stats={[
@@ -163,7 +163,7 @@ export default function ClickHousePythonMultiTenantPage() {
         eyebrow: 'Next step',
         title: 'Add a tenant key to one dataset',
         description: 'Define one dataset with `tenant_key`, run a query without a tenant, and watch it refuse.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/datasets/multi-tenancy', label: 'Tenancy docs' },
       }}
     />

@@ -128,7 +128,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
           </Popover.Trigger>
           <Popover.Portal>
             <Popover.Content side="bottom" sideOffset={12} collisionPadding={{ top: 120, right: 16, bottom: 16, left: 16 }} className="z-40 max-h-[var(--radix-popover-content-available-height)] w-[min(460px,calc(100vw-32px))] overflow-auto rounded-xl border border-border-strong bg-bg-card p-4 shadow-xl outline-none">
-              <div className="mb-3 flex items-center justify-between font-mono text-[10px] text-text-dim"><span>analytics/orders.ts</span><Link href="/docs/datasets/defining-datasets" className="font-sans text-[11px] font-medium text-accent hover:underline">Defining datasets →</Link></div>
+              <div className="mb-3 flex items-center justify-between font-mono text-[10px] text-text-dim"><span>analytics/orders.ts</span><Link href="/docs/quick-start" className="font-sans text-[11px] font-medium text-accent hover:underline">Model your data →</Link></div>
               {modelCode}
             </Popover.Content>
           </Popover.Portal>
@@ -163,7 +163,7 @@ export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: Reac
 ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "${value}.00" }`).join(',\n')}
 ] }`}</pre>
           </div>
-          <Link href="/docs/quick-start" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Ship an analytics API <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/quick-start/api-and-dashboard" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Ship an analytics API <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} onMouseEnter={() => setActiveConnection(4)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(4)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
@@ -199,7 +199,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
             </div>
           </div>
           )}
-          <Link href="/docs/react/getting-started" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Build a customer dashboard <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/quick-start/api-and-dashboard#add-a-react-dashboard" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Build a customer dashboard <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} onMouseEnter={() => setActiveConnection(5)} onMouseLeave={() => setActiveConnection(null)} onFocusCapture={() => setActiveConnection(5)} onBlurCapture={() => setActiveConnection(null)} className="explainer-consumer min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
           <div className="explainer-link md:hidden" aria-hidden="true" />
@@ -233,7 +233,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
             <div className="border-b border-border px-4 py-2.5 text-[10px] text-text-dim">app/api/chat/route.ts</div>
             <pre className="m-0 min-h-0 flex-1 overflow-hidden px-4 py-3 text-text-muted">{AI_SDK_CODE}</pre>
           </div>
-          <Link href="/clickhouse-ai-sdk#quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+          <Link href="/docs/agents/quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.06} className="min-w-0 pb-7 md:px-6 md:pt-7 lg:px-8">
           <div className="flex items-center gap-2.5"><MessagesSquare className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Embedded chat</h3><ComingSoon /></div>

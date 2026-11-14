@@ -195,5 +195,5 @@ Both can run against the same ClickHouse during the transition, so there is no r
 
 For a new application on ClickHouse, use an actively maintained semantic layer rather than adopting an unmaintained framework. hypequery is the fit when you already have, or want to keep control of, ClickHouse and need typed datasets, multi-tenant analytics APIs, React hooks and MCP tools, from TypeScript or Python.
 
-If you need the full infrastructure scope Moose once provided, pair hypequery with the dedicated ingestion, workflow and migration tools your team is prepared to operate. Start with the [migration guide](/blog/migrating-moosestack-to-hypequery) for TypeScript or the [Python quick start](/docs/python/quick-start), check the [current capability matrix](/docs/capabilities), and test it against one real table.`,
+If you need the full infrastructure scope Moose once provided, pair hypequery with the dedicated ingestion, workflow and migration tools your team is prepared to operate. Start with the [migration guide](/blog/migrating-moosestack-to-hypequery) for TypeScript or the [Python quick start](/docs/quick-start#python), check the [current capability matrix](/docs/capabilities), and test it against one real table.`,
 };

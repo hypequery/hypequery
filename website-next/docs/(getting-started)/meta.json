@@ -4,9 +4,7 @@
   "pages": [
     "[Overview](/docs)",
     "what-is-hypequery",
-    "[Quick start: TypeScript](/docs/quick-start)",
-    "[Quick start: Python](/docs/python/quick-start)",
-    "[Quick start: MCP](/docs/mcp/quickstart)",
+    "quick-start",
     "why-hypequery",
     "core-concepts"
   ]

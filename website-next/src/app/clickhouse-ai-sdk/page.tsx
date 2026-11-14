@@ -85,7 +85,7 @@ export default function ClickHouseAiSdkPage() {
       title="Analytics chat on ClickHouse with the Vercel AI SDK"
       description="hypequery turns your ClickHouse datasets into AI SDK tools. Pass them to streamText and your chat answers questions about each customer's own data: no text-to-SQL, no database console for the model, and every query scoped to the signed-in tenant."
       primaryCta={{ href: '/examples/in-app-analytics-agent', label: 'Start from the Next.js starter' }}
-      secondaryCta={{ href: '/docs/agents/self-hosted', label: 'Read the docs' }}
+      secondaryCta={{ href: '/docs/agents/quickstart', label: 'Read the docs' }}
       quickstart={{
         eyebrow: 'Quickstart',
         title: 'Add ClickHouse tools to an AI SDK chat',
@@ -232,7 +232,7 @@ export default function ClickHouseAiSdkPage() {
           description: 'Next.js App Router, AI SDK and useChat, with a tenant-isolation test against ClickHouse.',
         },
         {
-          href: '/docs/agents/self-hosted',
+          href: '/docs/agents/quickstart',
           title: 'Tools in your own backend',
           description: 'hypequeryTools({ executor }), tenant isolation and which tools the agent gets.',
         },
@@ -260,7 +260,7 @@ export default function ClickHouseAiSdkPage() {
         description:
           'Clone the in-app analytics agent, point it at the seed ClickHouse, and ask it for the other customer’s numbers.',
         primaryCta: { href: '/examples/in-app-analytics-agent', label: 'Open the starter' },
-        secondaryCta: { href: '/docs/agents/self-hosted', label: 'Read the docs' },
+        secondaryCta: { href: '/docs/agents/quickstart', label: 'Read the docs' },
       }}
     />
   );

@@ -1,0 +1,321 @@
+---
+title: Serve an API and a dashboard
+seoTitle: 'Quick start: a ClickHouse analytics API and React dashboard'
+description: Serve your ClickHouse dataset as an authenticated HTTP endpoint with OpenAPI, from TypeScript or Python, then chart it in React with typed hooks.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { LanguageFromHash } from '@/components/docs/language-from-hash';
+
+<LanguageFromHash pythonAnchors={['scaffold-a-project']} />
+
+This page turns the `orders` dataset from [Model your data](/docs/quick-start) into an HTTP endpoint, with validation,
+docs and OpenAPI, then charts it in a React app. Your server can be TypeScript or Python; the React side is the same
+either way.
+
+Haven't got a dataset yet? Do [Model your data](/docs/quick-start) first: it takes about five minutes.
+
+## Serve the API
+
+<Steps>
+  <Step>
+    ### Install the server
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/serve zod
+          ```
+        </CodeBlock>
+
+        `@hypequery/serve` accepts zod 3 (3.23 or later) or zod 4, so keep whichever your app already uses.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          pip install "hypequery[server,clickhouse]==0.1.0b4"
+          ```
+        </CodeBlock>
+
+        The `server` extra adds uvicorn for `hypequery dev`.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Expose the dataset
+
+    The tenant comes from the signed-in caller, never from the request body. For local development, every request
+    below acts as one developer at tenant `org_123`; swap in your real authentication before you deploy.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```typescript
+          // analytics/api.ts
+          import { fromContext, initServe } from '@hypequery/serve';
+          import { db } from './client.js';
+          import { Orders } from './datasets.js';
+
+          const { serve } = initServe({
+            context: () => ({ db }),
+            basePath: '/api/analytics',
+            // Local development only: replace with your session or createJwtStrategy(...).
+            auth: fromContext(() => ({ userId: 'developer', tenantId: 'org_123' })),
+          });
+
+          export const api = serve({
+            queryBuilder: db,
+            datasets: { orders: Orders },
+            tenant: { extract: (auth) => auth.tenantId, required: true },
+          });
+          ```
+        </CodeBlock>
+
+        This generates `POST /api/analytics/datasets/orders/query`. Mount `api` in your framework with the
+        [Next.js](/docs/nextjs), [Node.js](/docs/nodejs), [Vite](/docs/vite) or [Fetch](/docs/fetch) adapter.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```python
+          # app.py
+          from hypequery.datasets import ClientQueryProfile
+          from hypequery.serve import (
+              CorsPolicy,
+              HttpSecurity,
+              Principal,
+              ServeRequest,
+              create_api,
+              from_context,
+              to_asgi_app,
+          )
+
+          from client import analytics
+          from datasets import datasets
+
+
+          def developer(request: ServeRequest) -> Principal:
+              # Local development only: replace with jwt_strategy(...) or your app's login.
+              return Principal(subject="developer", tenant_id="org_123")
+
+
+          api = create_api(
+              auth=from_context(developer, same_origin=False),
+              security=HttpSecurity(
+                  allowed_hosts=("127.0.0.1", "localhost"),
+                  cors=CorsPolicy(origins=("http://localhost:3000",)),
+              ),
+              datasets=datasets,  # POST /datasets/orders/query
+              client=analytics,
+              client_profile=ClientQueryProfile(),  # include it in the React client contract
+              development_docs=True,
+          )
+
+          app = to_asgi_app(api)
+          ```
+        </CodeBlock>
+
+        `app` is plain ASGI. To serve from an app you already have, mount it in [FastAPI](/docs/python/fastapi), or
+        serve natively from [Django](/docs/python/django) or [Flask](/docs/python/flask).
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Run it and call it
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npx hypequery dev analytics/api.ts
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```bash
+          curl -s -X POST http://localhost:4000/api/analytics/datasets/orders/query \
+            -H "Content-Type: application/json" \
+            -d '{"dimensions": ["country"], "measures": ["revenue"]}'
+          ```
+        </CodeBlock>
+
+        Docs are at `http://localhost:4000/api/analytics/docs`, and OpenAPI at
+        `http://localhost:4000/api/analytics/openapi.json`.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          hypequery dev
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```bash
+          curl -s -X POST http://127.0.0.1:8000/datasets/orders/query \
+            -H "Content-Type: application/json" \
+            -d '{"dimensions": ["country"], "measures": ["revenue"]}'
+          ```
+        </CodeBlock>
+
+        Docs are at `http://127.0.0.1:8000/docs`, and OpenAPI at `http://127.0.0.1:8000/openapi.json`.
+      </Tab>
+    </Tabs>
+
+    The endpoint validates dimensions, measures, filters, time grains and ordering against the dataset before any SQL
+    runs, and returns only `org_123`'s rows.
+  </Step>
+</Steps>
+
+### Python: scaffold the whole project instead [#scaffold-a-project]
+
+`hypequery init analytics` reads your tables and writes the datasets, a standalone, FastAPI, Django or Flask app, and a
+README with the exact calls for your schema. Then `cd analytics && hypequery dev`. See the [Python CLI](/docs/python/cli).
+
+## Add a React dashboard [#add-a-react-dashboard]
+
+`@hypequery/react` gives React and Next.js components typed TanStack Query hooks over the endpoint. Whatever your
+server's language, the hooks need two things: the API's types and its route manifest.
+
+<Steps>
+  <Step>
+    ### Install the hooks
+
+    In your React app:
+
+    <CodeBlock>
+      ```bash
+      npm install @hypequery/react @tanstack/react-query
+      ```
+    </CodeBlock>
+  </Step>
+
+  <Step>
+    ### Create the hooks from your API
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        Generate the route manifest as static JSON, so the client bundle never imports server code:
+
+        <CodeBlock>
+          ```bash
+          npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```typescript
+          // lib/analytics.ts
+          import { createAnalyticsHooks } from '@hypequery/react';
+          import type { InferApiType } from '@hypequery/serve';
+          import type { api } from '../analytics/api';
+          import manifest from '../analytics/hypequery-manifest.json';
+
+          export const { useDataset } = createAnalyticsHooks<InferApiType<typeof api>>({
+            baseUrl: '/api/analytics',
+            manifest,
+          });
+          ```
+        </CodeBlock>
+
+        The `api` import is type-only, so it is erased at build time.
+      </Tab>
+
+      <Tab value="Python">
+        Export the API's client contract from the Python project, then generate a typed client file from it in the
+        React app:
+
+        <CodeBlock>
+          ```bash
+          # in the Python project: writes client-contract.json
+          hypequery export client-contract --factory app:api
+
+          # in the React app
+          npm install -D @hypequery/cli
+          npx hypequery generate:client client-contract.json --output src/hypequery-client.ts
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```typescript
+          // lib/analytics.ts
+          import { createAnalyticsHooks } from '@hypequery/react';
+          import { clientManifest, type ClientApi } from '@/hypequery-client';
+
+          export const { useDataset } = createAnalyticsHooks<ClientApi>({
+            baseUrl: 'http://127.0.0.1:8000',
+            manifest: clientManifest,
+          });
+          ```
+        </CodeBlock>
+
+        Run `generate:client --check` in CI to catch a server change the frontend hasn't picked up.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Use it in a component
+
+    Wrap your app in TanStack Query's `QueryClientProvider`, then query the dataset by name. Field names and the result
+    rows are typed from your dataset.
+
+    <CodeBlock>
+      ```tsx
+      'use client';
+      import { useDataset } from '@/lib/analytics';
+
+      export function RevenueByCountry() {
+        const { data, isLoading } = useDataset('orders', {
+          dimensions: ['country'],
+          measures: ['revenue'],
+          orderBy: [{ field: 'revenue', direction: 'desc' }],
+          limit: 10,
+        });
+
+        if (isLoading) return <p>Loading…</p>;
+
+        return (
+          <ul>
+            {data?.data.map((row) => (
+              <li key={row.country}>
+                {row.country}: {row.revenue}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+      ```
+    </CodeBlock>
+
+    Swap the list for any chart library: the hook returns plain rows.
+  </Step>
+</Steps>
+
+## Before you deploy
+
+- **Authentication**: replace the development caller with your app's session
+  ([TypeScript](/docs/authentication), [Python](/docs/python/authentication)). The tenant should come from it.
+- **Multi-tenancy**: how the tenant flows from auth to every query
+  ([TypeScript](/docs/multi-tenancy), [Python](/docs/python/datasets/multi-tenancy)).
+- **Deploy to hypequery Cloud** to skip hosting the API yourself:
+  [TypeScript](/docs/cloud/deploy-typescript), [Python](/docs/cloud/deploy-python).
+
+## Next
+
+<Cards>
+  <Card title="Connect Claude and Cursor" href="/docs/mcp/quickstart">
+    Serve the same dataset to an MCP client, from the same API.
+  </Card>
+  <Card title="Add AI chat to your app" href="/docs/agents/quickstart">
+    Give the agent in your product tools over the dataset, scoped to each customer.
+  </Card>
+</Cards>

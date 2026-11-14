@@ -206,7 +206,7 @@ export default function PythonSemanticLayerPage() {
         title: 'Define your most-used metric as a measure',
         description:
           'Start with the number your team argues about most, model it once in Python, and point every consumer at the definition.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Start with Python' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Start with Python' },
         secondaryCta: { href: '/docs/python/datasets/measures', label: 'Measures docs' },
       }}
     />

@@ -64,7 +64,7 @@ export default function ClickHouseAiAgentsPage() {
       eyebrow="ClickHouse AI agents"
       title="Agentic analytics on ClickHouse, with the agent framework you already use"
       description="hypequery gives an AI agent governed ClickHouse analytics tools: it discovers your datasets, reads your KPI definitions and queries validated measures, scoped to one customer. The same tools plug into the Vercel AI SDK, the Anthropic SDK, the OpenAI Agents SDK and any MCP client."
-      primaryCta={{ href: '/docs/agents/self-hosted', label: 'Add tools to your agent' }}
+      primaryCta={{ href: '/docs/agents/quickstart', label: 'Add tools to your agent' }}
       secondaryCta={{ href: '/examples/in-app-analytics-agent', label: 'See the starter' }}
       stats={[
         { label: 'Frameworks', value: 'AI SDK, Anthropic, OpenAI Agents, MCP' },
@@ -210,7 +210,7 @@ export default function ClickHouseAiAgentsPage() {
       ]}
       readingLinks={[
         {
-          href: '/docs/agents/self-hosted',
+          href: '/docs/agents/quickstart',
           title: 'Tools in your own backend',
           description: 'hypequeryTools({ executor }) for the AI SDK, Anthropic and OpenAI Agents adapters.',
         },
@@ -241,7 +241,7 @@ export default function ClickHouseAiAgentsPage() {
         eyebrow: 'Next step',
         title: 'Give your agent one dataset',
         description: 'Define a dataset, create the executor with your session’s tenant, and pass the tools to your agent.',
-        primaryCta: { href: '/docs/agents/self-hosted', label: 'Read the guide' },
+        primaryCta: { href: '/docs/agents/quickstart', label: 'Read the guide' },
         secondaryCta: { href: '/clickhouse-ai-sdk', label: 'AI SDK quickstart' },
       }}
     />

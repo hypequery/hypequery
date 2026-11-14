@@ -70,7 +70,7 @@ export default function ClickHouseFlaskPage() {
       title="ClickHouse analytics in Flask routes, defined once"
       description="Flask keeps your routes small. hypequery keeps your ClickHouse analytics small too: measures and dimensions defined once in Python, queried by name from any route, and scoped to the customer making the request."
       primaryCta={{ href: '/docs/python/flask', label: 'Flask guide' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start' }}
       language="python"
       stats={[
         { label: 'Works in', value: 'Any Flask route' },
@@ -135,7 +135,7 @@ export default function ClickHouseFlaskPage() {
       ]}
       readingLinks={[
         { href: '/docs/python/flask', title: 'Flask guide', description: 'The extension, tenant loader and async routes.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/multi-tenancy', title: 'Multi-tenancy', description: 'Tenant keys and tenant-bound clients.' },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Typed DataFrames for exports.' },
       ]}
@@ -150,7 +150,7 @@ export default function ClickHouseFlaskPage() {
         title: 'Move one Flask report onto a dataset',
         description: 'Define the dataset behind your busiest report route, then replace its SQL with a scoped query.',
         primaryCta: { href: '/docs/python/flask', label: 'Flask guide' },
-        secondaryCta: { href: '/docs/python/quick-start', label: 'Python quick start' },
+        secondaryCta: { href: '/docs/quick-start#python', label: 'Python quick start' },
       }}
     />
   );

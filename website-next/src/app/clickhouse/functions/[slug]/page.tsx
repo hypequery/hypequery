@@ -317,7 +317,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
                   )}
                   <div className="mt-8 flex flex-wrap gap-4">
                     <Link
-                      href="/docs/python/quick-start"
+                      href="/docs/quick-start#python"
                       data-umami-event="cta_click"
                       data-umami-event-target="docs_python_quick_start"
                       data-umami-event-location="python_example_panel"

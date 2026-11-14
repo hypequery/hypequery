@@ -36,12 +36,14 @@ const PRODUCT_PAGES: Entry[] = [
   { title: 'Internal product APIs', url: '/use-cases/internal-product-apis', description: 'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.' },
 ];
 
-// The pages an agent should read first, in order: the definition, both quick starts, then the dataset and MCP
-// entry points. They are listed once, under "Start here", and left out of the sections below.
+// The pages an agent should read first, in order: the definition, the four quick starts (each with TypeScript
+// and Python), then the dataset and MCP entry points. They are listed once, under "Start here", and left out of the sections below.
 const START_HERE = [
   '/docs/what-is-hypequery',
   '/docs/quick-start',
-  '/docs/python/quick-start',
+  '/docs/quick-start/api-and-dashboard',
+  '/docs/mcp/quickstart',
+  '/docs/agents/quickstart',
   '/docs/why-hypequery',
   '/docs/core-concepts',
   '/docs/introduction',

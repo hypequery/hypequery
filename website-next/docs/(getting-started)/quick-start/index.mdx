@@ -1,0 +1,378 @@
+---
+title: Model your data
+seoTitle: 'Quick start: a ClickHouse semantic layer in TypeScript or Python'
+description: Install hypequery, connect ClickHouse, and define your first dataset of dimensions and measures in TypeScript or Python. The API, dashboard, MCP and AI SDK quick starts all build on it.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { LanguageFromHash } from '@/components/docs/language-from-hash';
+
+<LanguageFromHash pythonAnchors={['try-it-in-one-command']} />
+
+Every hypequery feature starts from a **dataset**: one ClickHouse table described as the dimensions people group and
+filter by and the measures they ask for. You define it once, in code, and the same definition serves your API, your
+React dashboards, MCP clients like Claude, and the agent in your app.
+
+By the end of this page you'll have an `orders` dataset you can query by name. The other quick starts start from it:
+
+| Quick start | What you build |
+|---|---|
+| **Model your data** (this page) | A dataset you query from your own code |
+| [Serve an API and a dashboard](/docs/quick-start/api-and-dashboard) | An HTTP endpoint with OpenAPI, and a React chart over it |
+| [Connect Claude and Cursor](/docs/mcp/quickstart) | MCP tools an agent queries instead of writing SQL |
+| [Add AI chat to your app](/docs/agents/quickstart) | AI SDK tools for a chat in your product, scoped to each customer |
+
+Pick your language once: every code block on these pages follows it.
+
+<Callout type="info" title="No ClickHouse to hand?">
+  TypeScript and Python both run on [chDB](/docs/chdb), ClickHouse embedded in your process, with no server or
+  credentials. In Python, one command also serves a sample dataset to an AI agent:
+  [try it in one command](#try-it-in-one-command).
+</Callout>
+
+## Define and query a dataset
+
+You need a ClickHouse server you can query and Node.js 20+ or Python 3.11+. The examples use an `orders` table with
+`id`, `status`, `country`, `amount`, `tenant_id` and `created_at` columns; swap in your own table.
+
+<Steps>
+  <Step>
+    ### Install
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/datasets @hypequery/clickhouse
+          npm install -D @hypequery/cli
+          ```
+        </CodeBlock>
+
+        With pnpm, yarn or bun, swap `npm install` for `pnpm add`, `yarn add` or `bun add`.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          pip install "hypequery[clickhouse]==0.1.0b4"
+          ```
+        </CodeBlock>
+
+        With uv: `uv add "hypequery[clickhouse]==0.1.0b4"`. The Python SDK is in beta, so pin the version you deploy.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Connect to ClickHouse
+
+    Create `.env` in your project folder. The `hypequery` CLI reads it from the folder it runs in.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          CLICKHOUSE_URL=https://your-host.clickhouse.cloud:8443
+          CLICKHOUSE_DATABASE=default
+          CLICKHOUSE_USERNAME=default
+          CLICKHOUSE_PASSWORD=your-password
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          CLICKHOUSE_HOST=your-host.clickhouse.cloud
+          CLICKHOUSE_PORT=8443
+          CLICKHOUSE_SECURE=true
+          CLICKHOUSE_DATABASE=default
+          CLICKHOUSE_USERNAME=default
+          CLICKHOUSE_PASSWORD=your-password
+          ```
+        </CodeBlock>
+
+        `CLICKHOUSE_URL` (`https://user:password@host:8443/database`) can replace all six, but not be combined with them.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Generate datasets from your schema
+
+    The CLI reads your tables and writes a starting dataset for each one.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npx hypequery generate:datasets
+          ```
+        </CodeBlock>
+
+        This writes `analytics/datasets.ts`, with exports named like `OrdersDataset`.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          hypequery generate datasets
+          ```
+        </CodeBlock>
+
+        This writes `datasets.py`, with one dataset per table in a `datasets` mapping. `--diff` shows schema drift
+        before you re-run it.
+      </Tab>
+    </Tabs>
+
+    Generated datasets are a starting point. The next step curates one so its names match your product's language.
+  </Step>
+
+  <Step>
+    ### Curate the dataset
+
+    A dataset maps a table to typed dimensions and measures, with optional tenant and time keys. This is the `orders`
+    dataset the other quick starts use:
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```typescript
+          // analytics/datasets.ts
+          import { dataset, dimension, measure } from '@hypequery/datasets';
+
+          export const Orders = dataset('orders', {
+            source: 'orders',
+            description: 'One row per order.',
+            tenantKey: 'tenant_id',
+            timeKey: 'created_at',
+            dimensions: {
+              id: dimension.number(),
+              status: dimension.string({ description: 'completed, refunded or pending' }),
+              country: dimension.string(),
+              createdAt: dimension.timestamp({ column: 'created_at' }),
+            },
+            measures: {
+              revenue: measure.sum('amount', { description: 'Total order amount' }),
+              orderCount: measure.count('id'),
+            },
+          });
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```python
+          # datasets.py
+          from hypequery.datasets import dataset, dimension, measure
+
+          orders = dataset(
+              "orders",
+              source="orders",
+              tenant_key="tenant_id",
+              time_key="created_at",
+              dimensions={
+                  "id": dimension.number(),
+                  "status": dimension.string(),
+                  "country": dimension.string(),
+                  "createdAt": dimension.timestamp(column="created_at"),
+              },
+              measures={
+                  "revenue": measure.sum("amount"),
+                  "orderCount": measure.count("id"),
+              },
+          )
+
+          datasets = {"orders": orders}
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+
+    `tenantKey` makes the dataset fail closed: it won't run without a tenant, and every query is filtered to it. Leave
+    it out if your table isn't multi-tenant.
+  </Step>
+
+  <Step>
+    ### Create a client and query it
+
+    The client validates a query against the dataset, generates the SQL and runs it on ClickHouse.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```typescript
+          // analytics/client.ts
+          import { createQueryBuilder } from '@hypequery/clickhouse';
+          import { createDatasetClient } from '@hypequery/datasets';
+
+          export const db = createQueryBuilder({
+            url: process.env.CLICKHOUSE_URL!,
+            username: process.env.CLICKHOUSE_USERNAME!,
+            password: process.env.CLICKHOUSE_PASSWORD!,
+            database: process.env.CLICKHOUSE_DATABASE!,
+          });
+
+          export const analytics = createDatasetClient({ queryBuilder: db });
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```typescript
+          import { eq } from '@hypequery/datasets';
+          import { analytics } from './analytics/client.js';
+          import { Orders } from './analytics/datasets.js';
+
+          const byCountry = await analytics.execute(
+            Orders,
+            {
+              dimensions: ['country'],
+              measures: ['revenue', 'orderCount'],
+              filters: [eq('status', 'completed')],
+              orderBy: [{ field: 'revenue', direction: 'desc' }],
+              limit: 10,
+            },
+            { runtime: { tenant: 'org_123' } },
+          );
+
+          console.log(byCountry.data);
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```python
+          # client.py
+          from pathlib import Path
+
+          from hypequery.cli import load_env_files
+          from hypequery.datasets import create_dataset_client
+          from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+          # Fill unset variables from .env.local and .env, as the hypequery CLI does.
+          load_env_files(Path.cwd())
+
+          executor = create_clickhouse_executor(ClickHouseConnection.from_env())
+          analytics = create_dataset_client(executor=executor)
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```python
+          from hypequery.datasets import DatasetQuery, ExecutionContext, filter, order, tenant
+
+          from client import analytics
+          from datasets import orders
+
+          by_country = analytics.execute(
+              orders,
+              DatasetQuery(
+                  dimensions=("country",),
+                  measures=("revenue", "orderCount"),
+                  filters=(filter.eq("status", "completed"),),
+                  order_by=(order.desc("revenue"),),
+                  limit=10,
+              ),
+              context=ExecutionContext(tenant=tenant("org_123")),
+          )
+
+          print(by_country.data)
+          ```
+        </CodeBlock>
+
+        In production, set the variables in the environment instead of calling `load_env_files`.
+      </Tab>
+    </Tabs>
+
+    The tenant comes from your code (in a real app, from the signed-in user's session), never from the query itself.
+  </Step>
+
+  <Step>
+    ### Add a calculated measure
+
+    When a number is calculated from other measures, declare it once as a derived measure and select it by name.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```typescript
+          import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
+
+          // in Orders' measures:
+          averageOrderValue: measure.derived({
+            uses: { revenue: 'revenue', orders: 'orderCount' },
+            formula: ({ revenue, orders }) => divide(revenue, nullIfZero(orders)),
+          }),
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```python
+          from hypequery.datasets import formula, measure
+
+          # in orders' measures:
+          "averageOrderValue": measure.derived(
+              formula.divide("revenue", formula.null_if_zero("orderCount")),
+          ),
+          ```
+        </CodeBlock>
+      </Tab>
+    </Tabs>
+
+    Query it like any other measure: `measures: ['averageOrderValue']`. Every API, dashboard and agent that uses the
+    dataset now gets the same definition.
+  </Step>
+</Steps>
+
+## Try it in one command [#try-it-in-one-command]
+
+In Python, one command serves a sample semantic layer to an AI agent over MCP, on ClickHouse embedded in the process.
+With only [uv](https://docs.astral.sh/uv/) installed:
+
+<CodeBlock>
+```bash
+uvx --from "hypequery[chdb,mcp]==0.1.0b4" hypequery demo --self-test
+```
+</CodeBlock>
+
+The demo seeds a small shop for two tenants, `acme` and `globex`. `--self-test` answers its questions in the
+terminal, each beside the answer a naive query gets: orders in a `ReplacingMergeTree` read as resolved rows (1,536,
+not the 2,864 row versions), exact and approximate distinct users, revenue growth by month, and a 7-day trailing
+measure, all scoped to one tenant. To let Claude Code query it:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]==0.1.0b4" hypequery demo
+```
+</CodeBlock>
+
+`hypequery demo --print-config` prints the entry for Cursor or another MCP client. chDB publishes wheels for Linux and
+macOS only.
+
+## Next
+
+<Cards>
+  <Card title="Serve an API and a dashboard" href="/docs/quick-start/api-and-dashboard">
+    Turn the dataset into an authenticated HTTP endpoint with OpenAPI, then chart it in React.
+  </Card>
+  <Card title="Connect Claude and Cursor" href="/docs/mcp/quickstart">
+    Give an MCP client tools over the dataset instead of a SQL console.
+  </Card>
+  <Card title="Add AI chat to your app" href="/docs/agents/quickstart">
+    AI SDK tools for a chat in your product, scoped to the signed-in customer.
+  </Card>
+  <Card title="Only need typed SQL?" href="/docs/query-building/setup">
+    Skip datasets and write type-safe ClickHouse queries with the TypeScript query builder.
+  </Card>
+</Cards>
+
+To go deeper on modelling, read [dimensions](/docs/datasets/dimensions), [measures](/docs/datasets/measures) and
+[relationships](/docs/datasets/relationships) ([Python](/docs/python/datasets/overview)).

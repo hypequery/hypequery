@@ -12,7 +12,7 @@
     "mcp/programmatic",
     "---In-app agents---",
     "agents/tools",
-    "agents/self-hosted",
+    "agents/quickstart",
     "agents/business-context",
     "---React---",
     "react/getting-started",

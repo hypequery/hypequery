@@ -270,7 +270,7 @@ export default function ClickHouseHubPage() {
         </p>
       }
       primaryCta={{ href: '/docs/quick-start', label: 'TypeScript quick start', target: 'docs_quick_start' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start', target: 'docs_python_quick_start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start', target: 'docs_python_quick_start' }}
       definition={{
         term: 'What does using ClickHouse from application code involve?',
         body: (

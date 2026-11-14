@@ -1,0 +1,10 @@
+{
+  "title": "Quick start",
+  "defaultOpen": true,
+  "pages": [
+    "index",
+    "api-and-dashboard",
+    "[Connect Claude and Cursor](/docs/mcp/quickstart)",
+    "[Add AI chat to your app](/docs/agents/quickstart)"
+  ]
+}

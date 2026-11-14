@@ -1,22 +1,33 @@
 ---
-title: Tools in your own backend
-description: Run hypequery's ClickHouse analytics tools inside your own server for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. No MCP server to host, no token, every query scoped to the signed-in tenant.
+title: Add AI chat to your app
+seoTitle: 'Quick start: ClickHouse tools for the Vercel AI SDK, Anthropic and OpenAI agents'
+description: Give the AI chat in your product tenant-safe ClickHouse analytics tools with the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. No text-to-SQL, no MCP server to host, every query scoped to the signed-in customer.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-The tools your agent gets from hypequery Cloud can also run inside your own backend, against your own ClickHouse.
-`hypequeryTools({ executor })` takes an executor from `@hypequery/mcp` and calls it in process: there is no MCP
-server to host, no endpoint, no token and no network hop between your route and the tools.
+This page gives the agent in your product tools over the `orders` dataset from [Model your data](/docs/quick-start).
+The model calls `list_datasets`, `get_dataset_schema` and `query_dataset` instead of writing SQL, and every query is
+scoped to the customer who is signed in.
 
-Use it when your app already holds the ClickHouse connection and the user's session, for example a Next.js route
-handler, an Express or Hono server, or a background job.
+`hypequeryTools({ executor })` runs those tools inside your own backend, against your own ClickHouse: no MCP server to
+host, no token, and no network hop between your route and the tools. Use it wherever your app already holds the
+ClickHouse connection and the user's session: a Next.js route handler, an Express or Hono server, or a job.
+
+<Callout type="info" title="TypeScript only, for now">
+  `@hypequery/agent` is a TypeScript package. From Python today, serve the dataset over MCP
+  ([Connect Claude and Cursor](/docs/mcp/quickstart)) and connect your agent framework's MCP client to it: the OpenAI
+  Agents SDK, Pydantic AI and LangChain all have one.
+</Callout>
 
 <CodeBlock>
 ```bash
-npm install @hypequery/agent @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+npm install ai @hypequery/agent @hypequery/mcp
 ```
 </CodeBlock>
+
+It builds on the packages from Model your data (`@hypequery/datasets` and `@hypequery/clickhouse`).
 
 ## Create the tools for one request
 
@@ -26,20 +37,13 @@ The executor is bound to one tenant, so create it per request, with the tenant f
 ```ts
 // app/api/chat/route.ts
 import { hypequeryTools } from '@hypequery/agent/ai-sdk';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createDatasetClient, publishDatasets } from '@hypequery/datasets';
+import { publishDatasets } from '@hypequery/datasets';
 import { createMCPExecutor } from '@hypequery/mcp';
 import { convertToModelMessages, streamText } from 'ai';
-import { Events } from '@/analytics/datasets';
+import { analytics } from '@/analytics/client';
+import { Orders } from '@/analytics/datasets';
 
-const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-const analytics = createDatasetClient({ queryBuilder: db });
-const datasets = publishDatasets().publish(Events).build();
+const datasets = publishDatasets().publish(Orders).build();
 
 export async function POST(request: Request) {
   const session = await getSession(request); // your auth
@@ -54,6 +58,9 @@ export async function POST(request: Request) {
 }
 ```
 </CodeBlock>
+
+On the client, `useChat` from `@ai-sdk/react` renders the streamed answer and each tool call. The
+[in-app analytics agent](/examples/in-app-analytics-agent) starter wires up both, with two demo customers.
 
 The same `{ executor }` source works with every adapter:
 
@@ -128,6 +135,7 @@ later without changing your agent loop. The starter switches between them with `
 ## Related
 
 - [Tools for your agent](/docs/agents/tools): the same tools from hypequery Cloud
+- [Connect Claude and Cursor](/docs/mcp/quickstart): the same dataset for MCP clients
 - [Business context](/docs/agents/business-context)
 - [Programmatic MCP](/docs/mcp/programmatic): `createMCPExecutor` and its options
 - [MCP safety model](/docs/mcp/safety)

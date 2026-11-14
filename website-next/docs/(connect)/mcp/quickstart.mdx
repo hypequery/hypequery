@@ -1,5 +1,5 @@
 ---
-title: Quickstart
+title: Connect Claude and Cursor
 seoTitle: 'ClickHouse MCP quickstart: connect Claude, Cursor and other agents'
 description: Give Claude, Cursor or any MCP client governed access to a ClickHouse table, from TypeScript or Python, then share it over HTTP.
 ---
@@ -7,6 +7,9 @@ description: Give Claude, Cursor or any MCP client governed access to a ClickHou
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { LanguageFromHash } from '@/components/docs/language-from-hash';
+
+<LanguageFromHash />
 
 By the end of this page an AI agent will answer questions about one of your ClickHouse tables by calling tools you
 defined, not by writing SQL. You define a dataset, add it to your API, and run `hypequery mcp`. The same command serves
@@ -15,6 +18,12 @@ it over HTTP when you're ready to share it.
 You need a ClickHouse server you can query, an MCP client (Claude Code, Claude Desktop or Cursor), and Node.js 20+ or
 Python 3.11+. The examples use an `orders` table with `id`, `status`, `country`, `amount` and `created_at` columns;
 swap in your own table and columns.
+
+<Callout type="info" title="Already modelled your data?">
+  If you followed [Model your data](/docs/quick-start), skip to [step 3](#3-define-what-the-agent-may-query) and add
+  that `orders` dataset to your API instead of the example. It is tenant-scoped, so the server needs a tenant: in
+  TypeScript, start it with `npx hypequery mcp --tenant org_123`; in Python, it comes from your API's `auth`.
+</Callout>
 
 ## 1. Install
 
@@ -110,7 +119,7 @@ reachable.
     </CodeBlock>
 
     `hypequery mcp` finds `analytics/api.ts` on its own. If you already followed the [TypeScript quick
-    start](/docs/quick-start#from-route-2-serve-datasets), the API file you have works as it is.
+    start](/docs/quick-start/api-and-dashboard), the API file you have works as it is.
   </Tab>
 
   <Tab value="Python">
@@ -152,7 +161,7 @@ reachable.
       ```
     </CodeBlock>
 
-    A project from `hypequery init` (the [Python quick start](/docs/python/quick-start)) already has all of this: use
+    A project from `hypequery init` (the [Python quick start](/docs/quick-start#python)) already has all of this: use
     its `app:api` below.
   </Tab>
 </Tabs>
@@ -288,6 +297,8 @@ sign-in, or connect Claude or ChatGPT, see [Remote MCP over HTTP](/docs/mcp/remo
 
 ## Next steps
 
+- [Add AI chat to your app](/docs/agents/quickstart): the same tools for the agent in your own product.
+- [Serve an API and a dashboard](/docs/quick-start/api-and-dashboard): the same dataset over HTTP and in React.
 - [Overview](/docs/mcp/overview): every way to run the server, and when to use each.
 - [Tools](/docs/mcp/tools): what each tool accepts and returns.
 - [Safety model](/docs/mcp/safety): what MCP constrains, and how tenants work.
