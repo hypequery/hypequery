@@ -1,5 +1,14 @@
 # @hypequery/agent
 
+Put a hypequery Cloud project's tenant-safe analytics in your own agent: mint
+end-user tokens in your backend, then give your agent the project's tools.
+
+```bash
+npm install @hypequery/agent
+```
+
+## Mint a token
+
 Put a hypequery Cloud project's tenant-safe analytics in your own agent.
 
 `mintAgentToken()` signs an end-user token in your backend with a project's
@@ -7,9 +16,6 @@ managed signing key. It makes no network call, so you can mint one per
 session or per request. The tenant comes from the signed token, never from the
 model, so a prompt can't reach another customer's data.
 
-```bash
-npm install @hypequery/agent
-```
 
 ```ts
 import { mintAgentToken } from '@hypequery/agent';
@@ -25,7 +31,7 @@ const { token, mcpUrl, expiresAt } = await mintAgentToken({
 // Any MCP client: send the token as a bearer token to mcpUrl.
 ```
 
-## Options
+### Options
 
 | Option | |
 | --- | --- |
@@ -53,6 +59,92 @@ Runs on Node.js 20 or later and on runtimes with Web Crypto Ed25519 (Deno,
 Bun, Cloudflare Workers, Vercel Edge).
 
 Docs: https://hypequery.com/docs/cloud/in-app-agents
+
+## Give your agent the tools
+
+Add hypequery's analytics tools to an agent you already run. You get the
+tools your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema`
+and `query_dataset`) as tools for the Vercel AI SDK, the Anthropic SDK or the
+OpenAI Agents SDK. You don't need an MCP client or to write any tools.
+
+
+### AI SDK
+
+```ts
+import { streamText } from 'ai';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const tools = await hypequeryTools({ url: mcpUrl, token });
+const result = streamText({ model, tools, messages });
+```
+
+### Anthropic SDK
+
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+import { hypequeryTools } from '@hypequery/agent/anthropic';
+
+const hq = await hypequeryTools({ url: mcpUrl, token });
+const response = await anthropic.messages.create({ model, max_tokens: 1024, tools: hq.tools, messages });
+messages.push({ role: 'assistant', content: response.content });
+messages.push({ role: 'user', content: await hq.toolResults(response.content) });
+```
+
+`hq.runTool(name, input)` calls a single tool. `hq.toolResult(block)` answers a
+single `tool_use` block.
+
+### OpenAI Agents SDK
+
+```ts
+import { Agent, run } from '@openai/agents';
+import { hypequeryTools } from '@hypequery/agent/openai-agents';
+
+const agent = new Agent({ name: 'Analyst', tools: await hypequeryTools({ url: mcpUrl, token }) });
+const result = await run(agent, 'How many shipments were late last month?');
+```
+
+### What you get
+
+- **The server's schemas.** The tools are listed from the endpoint once per
+  `hypequeryTools()` call. Each input schema is passed to your SDK exactly as
+  the server sent it, with no re-typing.
+- **The server's errors.** When a tool call fails (bad input, an unknown
+  dataset, a timeout or a rate limit), the model gets
+  `{ "error": { code, category, message, hint, docsUrl, requestId, ... } }`,
+  the same error envelope MCP clients see, so it can fix the call and retry.
+  If the endpoint refuses the token or can't be reached, the call throws
+  `HypequeryToolsError` instead.
+- **Request ids.** Use `onResult` to capture the request id of each call,
+  which you can then look up in hypequery Cloud.
+- **https only.** `url` must use https, so the token is never sent
+  unencrypted. Plain http is allowed for localhost only. Any other URL throws
+  a `TypeError` before a request is made.
+- **Short-lived tokens.** `token` can be a string or a function, sync or
+  async, that returns the current token. The function is called before each
+  request.
+
+```ts
+const tools = await hypequeryTools({
+  url: mcpUrl,
+  token: () => currentToken(),        // e.g. re-mint before the 15-minute expiry
+  onResult: (result) => log(result.tool, result.requestId),
+});
+```
+
+### Without an SDK
+
+`createHypequeryToolsClient` (exported from `@hypequery/agent` and from every
+subpath) returns a client with `listTools()`, `callTool(name, input)` and
+`close()`, for any other agent loop. Every adapter also accepts a client in
+place of its options, so you can close the MCP session yourself. If you don't
+close it, the session closes after `idleTimeoutMs` with no calls (default 60
+seconds).
+
+### Peer dependencies
+
+`ai`, `@anthropic-ai/sdk` and `@openai/agents` are optional peer
+dependencies. Install only the SDK you use. The Anthropic adapter imports
+nothing from its SDK at runtime.
 
 ## License
 
