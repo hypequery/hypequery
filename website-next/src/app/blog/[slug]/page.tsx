@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import MarkdownContent from '@/components/MarkdownContent';
+import { markdownFaq } from '@/lib/markdown-faq';
+import { faqPageSchema } from '@/lib/faq-schema';
 import RelatedContent, { type RelatedContentLink } from '@/components/RelatedContent';
 import { ArticleCta, ArticleIntroCta } from '@/components/ArticleCta';
 import type { Metadata } from 'next';
@@ -189,6 +191,8 @@ export default async function BlogPostPage({
   const relatedLinks = getRelatedLinks(post.slug);
   const hub = hubForPost(data.tags);
   const language = /python/i.test(`${post.slug} ${data.title}`) ? 'python' : 'typescript';
+  // A "Quick answers" or "FAQ" section in the post, as FAQPage data.
+  const faqItems = markdownFaq(post.content);
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -222,6 +226,9 @@ export default async function BlogPostPage({
   return (
     <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+      {faqItems.length > 0 ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faqItems)) }} />
+      ) : null}
       <div className="mb-8">
         <Link
           href="/blog"
