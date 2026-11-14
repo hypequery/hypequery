@@ -1,6 +1,7 @@
 ---
 title: Time Functions
-description: Work with dates, timestamps, and time intervals
+seoTitle: 'ClickHouse time functions in TypeScript'
+description: 'hypequery''s ClickHouse date helpers. toDateTime, formatDateTime with % directives, datePart, toStartOfInterval buckets, time filters and time zones.'
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -55,7 +56,7 @@ Format timestamps with custom format strings:
 const events = await db.table('events')
   .select([
     'id',
-    formatDateTime('created_at', 'Y-MM-dd HH:00', {
+    formatDateTime('created_at', '%Y-%m-%d %H:00', {
       alias: 'hour_bucket',
     }),
   ])
@@ -67,20 +68,23 @@ const events = await db.table('events')
 
 #### Format Codes
 
+`formatDateTime` passes the format string to ClickHouse's `formatDateTime` unchanged, so it uses ClickHouse's MySQL-style `%` directives. Letters without `%` are printed as they are: `'Y-MM-dd'` returns the text `Y-MM-dd`.
+
 | Code | Description | Example |
 | --- | --- | --- |
-| `Y` | 4-digit year | 2024 |
-| `y` | 2-digit year | 24 |
-| `M` | Month number | 01-12 |
-| `MM` | Month number with zero | 01, 12 |
-| `d` | Day of month | 1-31 |
-| `dd` | Day of month with zero | 01, 31 |
-| `H` | Hour (24-hour) | 0-23 |
-| `HH` | Hour with zero | 00, 23 |
-| `m` | Minute | 0-59 |
-| `mm` | Minute with zero | 00, 59 |
-| `s` | Second | 0-59 |
-| `ss` | Second with zero | 00, 59 |
+| `%Y` | 4-digit year | 2026 |
+| `%y` | 2-digit year | 26 |
+| `%m` | Month, zero-padded | 01, 12 |
+| `%d` | Day of month, zero-padded | 01, 31 |
+| `%H` | Hour (24-hour), zero-padded | 00, 23 |
+| `%i` | Minute, zero-padded | 00, 59 |
+| `%S` | Second, zero-padded | 00, 59 |
+| `%F` | Short for `%Y-%m-%d` | 2026-11-14 |
+| `%M` | Full month name on current servers (minutes on old ones) | November |
+| `%b` | Short month name | Nov |
+| `%V` / `%G` | ISO week number / ISO week-based year | 46 / 2026 |
+
+Use `%i` for minutes, not `%M`. The [formatDateTime reference](/clickhouse/functions/format-date-time) has the full list and version notes.
 
 #### Format Examples
 
@@ -88,16 +92,16 @@ const events = await db.table('events')
 
 ```typescript
 // ISO date format
-formatDateTime('created_at', 'Y-MM-dd', { alias: 'date' })
+formatDateTime('created_at', '%Y-%m-%d', { alias: 'date' })
 
 // Hour of day
-formatDateTime('created_at', 'Y-MM-dd HH:00', { alias: 'hour' })
+formatDateTime('created_at', '%Y-%m-%d %H:00', { alias: 'hour' })
 
 // Custom readable format
-formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', { alias: 'formatted' })
+formatDateTime('created_at', '%Y-%m-%d %H:%i:%S', { alias: 'formatted' })
 
 // Month
-formatDateTime('created_at', 'Y-MM', { alias: 'month' })
+formatDateTime('created_at', '%Y-%m', { alias: 'month' })
 ```
 
 </CodeBlock>
@@ -152,7 +156,7 @@ const yearlyStats = await db.table('orders')
   .orderBy('year', 'ASC')
   .execute();
 
-// Day of week analysis
+// Day-of-month analysis
 const dailyStats = await db.table('events')
   .select([
     datePart('day', 'created_at', 'day_of_month'),
@@ -412,7 +416,7 @@ const businessHours = await db.table('events')
 ```typescript
 const events = await db.table('events')
   .select([
-    formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', {
+    formatDateTime('created_at', '%Y-%m-%d %H:%i:%S', {
       timezone: 'America/New_York',
       alias: 'est_time',
     }),
@@ -431,7 +435,7 @@ const events = await db.table('events')
   .select([
     'id',
     toDateTime('created_at', 'utc_time'),
-    formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', {
+    formatDateTime('created_at', '%Y-%m-%d %H:%i:%S', {
       timezone: 'Europe/London',
       alias: 'local_time',
     }),
@@ -455,7 +459,8 @@ const funnel = await db.table('events')
   ])
   .countDistinct('user_id', 'unique_users')
   .groupBy(['date', 'event_type'])
-  .orderBy(['date', 'event_type'], 'ASC')
+  .orderBy('date', 'ASC')
+  .orderBy('event_type', 'ASC')
   .execute();
 ```
 
@@ -491,7 +496,8 @@ const yoy = await db.table('orders')
   ])
   .sum('total', 'revenue')
   .groupBy(['year', 'month'])
-  .orderBy(['year', 'month'], 'ASC')
+  .orderBy('year', 'ASC')
+  .orderBy('month', 'ASC')
   .execute();
 ```
 
@@ -578,7 +584,7 @@ const signups = await db.table('users')
 ```typescript
 const reportPeriod = await db.table('orders')
   .select([
-    formatDateTime('created_at', 'Y-MM', { alias: 'period' }),
+    formatDateTime('created_at', '%Y-%m', { alias: 'period' }),
   ])
   .sum('total', 'revenue')
   .count('id', 'order_count')

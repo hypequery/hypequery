@@ -5,10 +5,10 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const title = 'hypequery examples: runnable ClickHouse analytics apps';
 const description =
-  'Runnable ClickHouse examples in TypeScript: dashboards, materialized views, multi-tenant analytics and more, each tested against one seeded dataset.';
+  'Runnable ClickHouse examples in TypeScript and Python: FastAPI, Django and Streamlit apps, dashboards, materialized views and multi-tenant analytics.';
 
 export const metadata: Metadata = {
-  title: 'Examples',
+  title: 'ClickHouse Examples in TypeScript and Python',
   description,
   // Facet filters live in the query string; the canonical is always the hub.
   alternates: { canonical: absoluteUrl('/examples') },

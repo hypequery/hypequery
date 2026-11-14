@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Time-Series Queries for TypeScript Apps',
+  title: 'ClickHouse Time Series Queries in TypeScript',
   description:
     'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-time-series'),
   },
   openGraph: {
-    images: ogImage('ClickHouse Time-Series Queries for TypeScript Apps'),
+    images: ogImage('ClickHouse Time Series Queries in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-time-series'),
-    title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',
+    title: 'ClickHouse Time Series Queries in TypeScript | hypequery',
     description:
       'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',
+    title: 'ClickHouse Time Series Queries in TypeScript | hypequery',
     description:
       'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   },
@@ -273,6 +273,11 @@ export default function ClickHouseTimeSeriesPage() {
           href: '/blog/clickhouse-date-functions-typescript',
           title: 'ClickHouse Date Functions in TypeScript — toStartOfDay, toStartOfQuarter, and More',
           description: 'Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
+        },
+        {
+          href: '/blog/clickhouse-datetime-vs-datetime64-time-zones',
+          title: 'ClickHouse DateTime vs DateTime64 and time zones',
+          description: 'Date, Date32, DateTime and DateTime64 precision, column time zones, DST and parsing the results in TypeScript.',
         },
         {
           href: '/blog/add-clickhouse-analytics-nodejs-backend#sampling-for-fast-prototyping',

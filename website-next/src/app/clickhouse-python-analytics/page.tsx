@@ -210,6 +210,7 @@ export default function ClickHousePythonAnalyticsPage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
+        { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
         { href: '/clickhouse-python-multi-tenant', label: 'Multi-tenant Python analytics' },
         { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },

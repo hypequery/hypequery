@@ -2,7 +2,7 @@
 title: "hypequery vs clickhouse-connect: Driver or Semantic Layer?"
 description: "clickhouse-connect runs the SQL you write. hypequery runs on top of it and adds shared measures, validation, and tenant isolation. Here is when you need each in Python."
 seoTitle: "hypequery vs clickhouse-connect in Python (2026)"
-seoDescription: "Compare clickhouse-connect, the official ClickHouse Python driver, with hypequery, a Python semantic layer built on it. When to use the driver, when to add the layer, and how they share a connection."
+seoDescription: "clickhouse-connect is the official ClickHouse Python driver; hypequery is a semantic layer that runs on it. When the driver alone is enough, and when to add one."
 pubDate: 2026-10-27
 updatedAt: 2026-11-08
 heroImage: ""

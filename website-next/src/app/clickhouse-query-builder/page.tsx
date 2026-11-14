@@ -31,8 +31,8 @@ import type { DB } from './generated-schema';
 const rows = await db
   .table('orders')
   .select(['total_revenue', 'order_date'])
-  .where('status', '=', 'completed')
-  .where('tenant_id', '=', tenantId)
+  .where('status', 'eq', 'completed')
+  .where('tenant_id', 'eq', tenantId)
   .groupBy('order_date')
   .orderBy('order_date', 'DESC')
   .execute();
@@ -202,7 +202,7 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       relatedPillars={[
         { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
-        { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-typescript', label: 'TypeScript client for ClickHouse Cloud' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },

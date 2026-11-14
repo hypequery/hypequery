@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database',
+  title: 'ClickHouse Schema to TypeScript Types',
   description:
     'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },
@@ -121,6 +121,11 @@ export default function ClickHouseSchemaPage() {
       }}
       searchIntentCards={[
         {
+          title: 'How do I show a ClickHouse table schema?',
+          copy:
+            'DESCRIBE TABLE events lists each column with its type, default and comment; SHOW CREATE TABLE events prints the full DDL, including the engine and ORDER BY; system.columns has the same column data for every table. To turn that schema into TypeScript types, run npx hypequery generate against the same database.',
+        },
+        {
           title: 'Why this matters more than nicer query syntax',
           copy:
             'If the schema types are wrong, every nicer abstraction above them is built on sand. Fixing the type source is usually a better first move than introducing more wrappers.',
@@ -163,6 +168,7 @@ export default function ClickHouseSchemaPage() {
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-orm', label: 'ClickHouse ORM' },
+        { href: '/blog/clickhouse-schema-design-for-application-developers', label: 'ClickHouse schema design for app developers' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

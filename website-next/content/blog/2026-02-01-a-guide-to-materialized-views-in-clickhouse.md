@@ -4,7 +4,7 @@ description: "A ClickHouse materialized view is an insert trigger: it runs its S
 seoTitle: "ClickHouse Materialized Views: How They Work, With Examples"
 seoDescription: "A ClickHouse materialized view runs its SELECT on each insert and writes to a target table. Incremental vs refreshable, how to refresh, backfills, engines."
 pubDate: 2026-01-11
-updatedAt: 2026-11-12
+updatedAt: 2026-11-14
 heroImage: ""
 slug: a-guide-to-materialized-views-in-clickhouse
 status: published
@@ -38,6 +38,18 @@ Incremental views keep a target up to date within seconds and suit single-table 
 ### How do I refresh a materialized view?
 
 A refreshable view reruns on its schedule, or now with `SYSTEM REFRESH VIEW name`. An incremental view has no refresh command: it is already current for every insert, and to recompute it you truncate the target and reload it with `INSERT ... SELECT`. Both are covered in [how to refresh a materialized view](#how-to-refresh-a-materialized-view).
+
+### How do I list materialized views in ClickHouse?
+
+There is no `SHOW MATERIALIZED VIEWS`; it is a syntax error on 25.8 and 26.6. Views appear in `SHOW TABLES`, and `SELECT name, as_select FROM system.tables WHERE database = currentDatabase() AND engine = 'MaterializedView'` lists only materialized views with their queries. See [show, list and drop materialized views](/blog/clickhouse-create-materialized-view-to-table-backfill#how-do-you-show-list-and-drop-materialized-views).
+
+### How do I drop a materialized view?
+
+`DROP VIEW IF EXISTS events_daily_mv` (`DROP TABLE` works on views too). If the view writes `TO` a target table, the target and its rows stay; if it uses an implicit `.inner_id` table, dropping the view deletes that data. Drop the view before its target, or inserts into the source table start failing. See [show, list and drop materialized views](/blog/clickhouse-create-materialized-view-to-table-backfill#how-do-you-show-list-and-drop-materialized-views).
+
+### How do I change or replace a materialized view?
+
+`ALTER TABLE events_daily_mv MODIFY QUERY SELECT ...` swaps the query, and `CREATE OR REPLACE MATERIALIZED VIEW events_daily_mv TO events_daily AS SELECT ...` replaces the whole definition in one statement. With `TO`, neither touches rows already in the target; both apply only to future inserts. `CREATE OR REPLACE MATERIALIZED VIEW` needs a 26.x server: on 25.8 LTS it is a syntax error, so use `MODIFY QUERY` there. See [changing a materialized view](/blog/clickhouse-create-materialized-view-to-table-backfill).
 
 ### Materialized view or projection?
 
@@ -569,6 +581,7 @@ Skip the view when the raw query is already fast enough for how often it runs. C
 - [Refreshable materialized views in ClickHouse](/blog/clickhouse-refreshable-materialized-views): `REFRESH EVERY`, `APPEND`, `DEPENDS ON` and monitoring
 - [Create a materialized view with a TO table and backfill it](/blog/clickhouse-create-materialized-view-to-table-backfill)
 - [Projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views)
+- Runnable versions: [incremental vs refreshable rollups](/examples/materialized-view-rollups) and [refreshable materialized views end to end](/guides/refreshable-materialized-views)
 - [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)
 - [Real-time analytics on ClickHouse](/clickhouse-real-time-analytics)
 - [ClickHouse with TypeScript](/clickhouse-typescript) and [ClickHouse with Python](/clickhouse-python)

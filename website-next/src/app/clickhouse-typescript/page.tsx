@@ -220,7 +220,7 @@ export default function ClickHouseTypeScriptPage() {
               A TypeScript client for ClickHouse and ClickHouse Cloud
             </h1>
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
-              hypequery connects to ClickHouse Cloud, self-hosted ClickHouse, or a local container with the same code. The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
+              The official TypeScript client for ClickHouse Cloud is <code>@clickhouse/client</code> for Node.js, or <code>@clickhouse/client-web</code> for browsers and Cloudflare Workers, connecting over HTTPS on port 8443. hypequery builds on it and connects to ClickHouse Cloud, self-hosted ClickHouse, or a local container with the same code. The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link

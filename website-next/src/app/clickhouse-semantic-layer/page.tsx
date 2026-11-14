@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import CodeHighlight from '@/components/CodeHighlight';
+import { StaticCode } from '@/components/home/StaticCode';
 import ExamplesBlock from '@/components/examples/ExamplesBlock';
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
@@ -15,7 +15,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Semantic Layer in TypeScript and Python',
   description:
-    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys, and time keys. Serve it to APIs, dashboards, and AI agents from your own backend.',
+    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys and time keys, then serve it to APIs, dashboards and AI agents.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },
@@ -290,7 +290,8 @@ function Verdict({ yes }: { yes: boolean }) {
   );
 }
 
-function CodeCard({ title, code }: { title: string; code: string }) {
+// Highlighted on the server, so the page ships HTML instead of a Shiki instance per block.
+async function CodeCard({ title, code }: { title: string; code: string }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-card">
       <div className="flex items-center gap-1.5 border-b border-border bg-bg-alt/60 px-4 py-3">
@@ -300,11 +301,7 @@ function CodeCard({ title, code }: { title: string; code: string }) {
         <span className="ml-3.5 font-mono text-[11.5px] text-text-muted">{title}</span>
       </div>
       <div className="bg-bg-card p-4">
-        <CodeHighlight
-          code={code}
-          language="typescript"
-          className="[&_code]:font-mono [&_code]:text-[13.5px] [&_code]:leading-[1.85]"
-        />
+        <StaticCode code={code} lang="typescript" className="text-[13.5px]! leading-[1.85]!" />
       </div>
     </div>
   );
@@ -411,7 +408,7 @@ export default function ClickHouseSemanticLayerPage() {
               The standard answer to “ClickHouse semantic layer” is Cube or dbt MetricFlow — a separate service, modeled outside your application stack, run alongside your code. That is the right tool when centralized BI metrics for non-engineers is the job.
             </p>
             <p>
-              For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend, or let hypequery cloud host the same definitions.
+              For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend; a hosted hypequery cloud is on a waitlist and not live yet.
             </p>
           </SectionIntro>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

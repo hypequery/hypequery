@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'Multi-Tenant ClickHouse Analytics in Python';
 const DESCRIPTION =
-  'Scope every ClickHouse query to the right customer from Python. Declare a tenant key once; hypequery adds the filter and refuses queries without a trusted tenant.';
+  'Scope every ClickHouse query to the right customer from Python. Declare a tenant key once; hypequery adds the filter and refuses untrusted tenants.';
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -12,7 +12,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer';
 const TITLE = 'What Is a Semantic Layer? Examples and Options Compared';
 const DESCRIPTION =
-  'A semantic layer defines metrics, dimensions and joins once, so every dashboard, API and AI agent gets the same number. Examples, plus dbt MetricFlow, Snowflake, Databricks, Cube and OSI compared.';
+  'A semantic layer defines metrics, dimensions and joins once, so every dashboard, API and AI agent gets the same number. Examples, and the main options compared.';
 // The date every vendor fact on this page was checked against the vendor's own docs.
 const VERIFIED_ON = 'November 10, 2026';
 

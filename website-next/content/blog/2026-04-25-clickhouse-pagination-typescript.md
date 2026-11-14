@@ -1,13 +1,32 @@
 ---
 title: "How to Paginate ClickHouse Results in TypeScript"
 description: "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Know when each applies and how to implement them."
-seoTitle: "ClickHouse Pagination in TypeScript — Offset, Cursor, and Keyset"
-seoDescription: "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client."
+seoTitle: "ClickHouse Pagination: Cursor (Keyset) vs LIMIT OFFSET"
+seoDescription: "Paginate ClickHouse with a cursor on the sort key, not a deep OFFSET: OFFSET still reads every skipped row. Offset, cursor and keyset patterns with TypeScript code."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-pagination-typescript
 status: published
 ---
+
+Short answer: for anything past the first few pages, paginate ClickHouse with a cursor on the table's sort key (`WHERE created_at < last_created_at OR (created_at = last_created_at AND id < last_id) ORDER BY created_at DESC, id DESC LIMIT 50`) rather than `LIMIT 50 OFFSET n`. ClickHouse still reads and discards every row before the offset, so deep OFFSET pages get slower as `n` grows, while a cursor lets the primary index skip to the next page. Write the cursor condition with `OR` as shown, not as a tuple comparison: on ClickHouse 25.8, `(created_at, id) < (x, y)` read all 245 granules of a 2-million-row test table while the `OR` form read 1, and the tuple form also read all 245 on 26.10. For a copy-paste version, see the [cursor pagination recipe](/recipes/cursor-pagination).
+
+## Quick answers
+
+### How do you paginate results in ClickHouse?
+
+Order by the table's sort key, return a page with `LIMIT`, and pass the last row's sort-key values back as a cursor: `WHERE created_at < last_created_at OR (created_at = last_created_at AND id < last_id) ORDER BY created_at DESC, id DESC LIMIT 50`. Avoid the tuple form `(created_at, id) < (...)`: ClickHouse doesn't use the primary index for it. Use `LIMIT n OFFSET m` only for small result sets or the first few pages.
+
+### Is OFFSET slow in ClickHouse?
+
+It gets slower the deeper you go. `OFFSET 100000 LIMIT 50` still reads and processes the first 100,000 rows and then throws them away, so page 10,000 costs far more than page 1.
+
+### What is the difference between cursor and keyset pagination?
+
+Both filter on the last row you returned instead of counting rows to skip. Keyset pagination filters on the timestamp and the ID together, so rows that share a timestamp are neither skipped nor repeated.
+
+## Three patterns
 
 Paginating ClickHouse results is straightforward at small scale and becomes a real problem at large scale. This post covers the three patterns you'll encounter — offset/limit, cursor-based, and keyset — and shows how to implement each with hypequery.
 
@@ -24,7 +43,7 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 async function getPagedEvents(page: number, pageSize: number) {
   return db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .limit(pageSize)
     .offset(page * pageSize)
@@ -59,14 +78,14 @@ interface EventCursor {
 async function getEventsAfterCursor(cursor: EventCursor | null, pageSize: number) {
   let query = db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .orderBy('id', 'DESC')
     .limit(pageSize);
 
   if (cursor) {
     // Fetch rows that come after the cursor position
-    query = query.where('created_at', '<', cursor.lastCreatedAt);
+    query = query.where('created_at', 'lt', cursor.lastCreatedAt);
   }
 
   const rows = await query.execute();
@@ -105,13 +124,13 @@ interface KeysetCursor {
 async function getEventsKeyset(cursor: KeysetCursor | null, pageSize: number) {
   let query = db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .orderBy('id', 'DESC')
     .limit(pageSize);
 
   if (cursor) {
-    // Fetch rows where (created_at, id) < (cursor.createdAt, cursor.id)
+    // Rows before the cursor: created_at < c.createdAt OR (created_at = c.createdAt AND id < c.id)
     // This handles ties on created_at correctly
     query = query.whereGroup((qb) => {
       qb.where('created_at', 'lt', cursor.createdAt).orWhereGroup((innerQb) => {

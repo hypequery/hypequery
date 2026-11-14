@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/dbt-metricflow';
 const TITLE = 'dbt Semantic Layer and MetricFlow vs a Code-Defined Semantic Layer';
 const DESCRIPTION =
-  'How the dbt Semantic Layer and MetricFlow define and serve metrics in 2026: the new YAML spec, metric types, APIs, pricing and warehouse support, compared with a semantic layer defined in code.';
+  'How the dbt Semantic Layer and MetricFlow work in 2026: the YAML spec, metric types, APIs, pricing and warehouses, compared with a semantic layer in code.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });

@@ -15,9 +15,9 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/ai-agents';
-const TITLE = 'Semantic Layer for AI Agents: Governed Metrics over MCP (2026)';
+const TITLE = 'AI Semantic Layer: Governed Metrics for AI Agents over MCP (2026)';
 const DESCRIPTION =
-  'Why AI agents need a semantic layer instead of raw text-to-SQL, what to look for in one (named metrics, no raw SQL tool, tenant scope, query limits), and how hypequery, Cube, dbt, AtScale, Snowflake and others expose metrics to agents over MCP.';
+  'Why AI agents need a semantic layer, not raw text-to-SQL: what to look for (named metrics, tenant scope, query limits) and how tools expose metrics over MCP.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own site, docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 13, 2026';
@@ -170,6 +170,11 @@ const faqItems: FaqItem[] = [
       'Without one, an agent writes SQL from table and column names. It has to guess which tables to join, how a metric like revenue is calculated, and which rows a user may see. A semantic layer gives it named metrics and dimensions with descriptions, so it asks for revenue by country and the layer writes the SQL the same way every time.',
   },
   {
+    question: 'What is agentic analytics?',
+    answer:
+      'Analytics where an AI agent answers data questions itself: it picks the metric, runs the query through a tool, and explains the result, instead of a person building a dashboard first. An analytics agent is only as reliable as the definitions it queries, which is why it is usually paired with a semantic layer rather than raw table access.',
+  },
+  {
     question: 'Is text-to-SQL enough for an analytics agent?',
     answer:
       'For an analyst exploring a warehouse they already have access to, often yes. For an agent inside a product, it is risky: the agent can read any table its credentials reach, compute a metric differently from your dashboard, or leave out a tenant filter. Query tools over named metrics remove those choices from the agent.',
@@ -244,11 +249,11 @@ export default function SemanticLayerAiAgentsPage() {
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('AI agents')}
       eyebrow="Semantic layer"
-      title="A semantic layer for AI agents"
+      title="An AI semantic layer: governed metrics for agents"
       updated={UPDATED}
       lead={
         <p>
-          Why agents answer data questions more reliably through named metrics than through raw SQL, what to check
+          An AI semantic layer gives agents named, governed metrics instead of raw tables. Why agents answer data questions more reliably through named metrics than through raw SQL, what to check
           before you connect one to your data, and how the main semantic layers expose their models to agents over MCP.
         </p>
       }

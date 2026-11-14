@@ -1,7 +1,7 @@
 ---
 title: "hypequery vs Kysely: Two Different Bets on Type Safety"
 description: "Kysely is an excellent TypeScript query builder. On ClickHouse, the tradeoffs change. Here's where hypequery fits and what each tool optimizes for."
-seoTitle: "hypequery vs Kysely for ClickHouse (2026)"
+seoTitle: "Kysely ClickHouse: the Community Dialect vs hypequery (2026)"
 seoDescription: "Compare hypequery and Kysely for ClickHouse projects. Learn where Kysely shines, where ClickHouse type mapping gets tricky, and when hypequery is the better fit."
 pubDate: 2026-04-14
 updatedAt: 2026-11-14
@@ -155,6 +155,8 @@ npx hypequery generate --output analytics/schema.ts
 ```
 
 If you're evaluating both tools, start with the [Quick Start](https://hypequery.com/docs/quick-start) and then compare the generated schema flow against your current hand-written interfaces. After that, read [ClickHouse analytics](/clickhouse-analytics) if the bigger question is how those queries get reused across APIs, dashboards, and services.
+
+Already on Kysely? The [Kysely to hypequery migration guide](/blog/migrating-kysely-to-hypequery) maps each Kysely pattern to its hypequery equivalent.
 
 ## Sources checked
 

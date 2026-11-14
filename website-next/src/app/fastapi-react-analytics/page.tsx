@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'FastAPI and React Analytics with Typed Hooks';
 const DESCRIPTION =
-  'Define ClickHouse datasets in Python, serve them from FastAPI, and get typed React hooks generated from the same definitions. No hand-written fetch code or duplicated types.';
+  'Define ClickHouse datasets in Python, serve them from FastAPI, and get typed React hooks generated from the same definitions, with no duplicated types.';
 
 export const metadata: Metadata = {
   title: TITLE,

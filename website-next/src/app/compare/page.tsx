@@ -7,9 +7,9 @@ import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Compare hypequery',
+  title: 'hypequery vs Cube, Tinybird, Drizzle and More',
   description:
-    'Compare hypequery against the main ClickHouse TypeScript options and start from the tradeoff closest to your current stack.',
+    'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
   alternates: {
     canonical: absoluteUrl('/compare'),
   },
@@ -17,9 +17,9 @@ export const metadata: Metadata = {
     images: ogImage('Compare hypequery'),
     type: 'website',
     url: absoluteUrl('/compare'),
-    title: 'Compare hypequery | ClickHouse TypeScript Tradeoffs',
+    title: 'hypequery vs Cube, Tinybird, Drizzle and More | hypequery',
     description:
-      'Compare hypequery with the main ClickHouse TypeScript options and move quickly from evaluation into a real implementation test.',
+      'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
   },
 };
 
@@ -162,7 +162,7 @@ export default function CompareIndexPage() {
               href="/tinybird-alternative"
               className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
             >
-              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Tinybird alternative</h3>
+              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Tinybird alternatives</h3>
               <p className="mt-4 text-sm leading-6 text-text-muted">
                 Keep your data in your own ClickHouse and build the typed API layer in TypeScript or Python, with no ingestion into a third-party platform and no second platform plan to pay for.
               </p>

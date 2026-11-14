@@ -142,6 +142,11 @@ export default function ClickHouseApiPage() {
             'ClickHouse\'s own API is its HTTP interface: send SQL to port 8123, or 8443 with TLS, for example `curl \'https://play.clickhouse.com/?user=play\' --data-binary \'SELECT 1\'`. It runs whatever SQL it receives, so it is the transport, not an app-facing API. For that you need validation, auth context and typed responses on top, which hypequery generates from query definitions.',
         },
         {
+          title: 'Can ClickHouse serve a REST endpoint by itself?',
+          copy:
+            'On recent versions, yes: CREATE HANDLER maps a URL to a SQL query, with URL parameters bound to query parameters. On ClickHouse 26.10, CREATE HANDLER tenant_total URL REGEXP \'/tenants/(?P<tenant>\\d+)/total\' AS SELECT sum(n) AS total FROM default.ev WHERE tenant_id = {tenant:UInt32} FORMAT JSONEachRow made GET /tenants/1/total return {"total":12}; on 25.8 CREATE HANDLER is a syntax error. Access still rests on ClickHouse users, grants and row policies, so the caller decides which tenant to ask for. A typed layer in your app is where you take the tenant from the session instead.',
+        },
+        {
           title: 'API for ClickHouse in TypeScript',
           copy:
             'If you are building a ClickHouse API in TypeScript, the shortest path is a typed query layer plus automatic serving and OpenAPI generation rather than hand-writing every route.',

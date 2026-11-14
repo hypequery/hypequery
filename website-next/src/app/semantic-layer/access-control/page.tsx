@@ -15,9 +15,9 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/access-control';
-const TITLE = 'Semantic Layer Access Control: Row-Level, Column-Level and Tenant Security (2026)';
+const TITLE = 'Semantic Layer Access Control: Row, Column and Tenant Security';
 const DESCRIPTION =
-  'Where to enforce data access control for dashboards, embedded analytics and AI agents: tenant isolation, row-level rules, column-level rules, cache keys and a pre-launch test list, with how hypequery, Cube, dbt and Snowflake handle each.';
+  'Where to enforce access control for dashboards, embedded analytics and AI agents: tenant isolation, row- and column-level rules, cache keys and a test list.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 14, 2026';

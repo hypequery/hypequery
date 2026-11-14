@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/analytics-mcp-server';
 const TITLE = 'Analytics MCP Server: Database SQL Tools vs Semantic Layer Tools (2026)';
 const DESCRIPTION =
-  'What an analytics MCP server is, the two kinds (database servers that run SQL and semantic layer servers that query named metrics), how to evaluate one for production, and how ClickHouse, hypequery, Cube, dbt, Snowflake and AtScale servers compare.';
+  'Analytics MCP servers come in two kinds: database servers that run SQL, and semantic layer servers that query named metrics. How to evaluate and compare them.';
 const UPDATED = updatedFor(PATH);
 // Claims about other servers were checked on their own repositories or docs on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 14, 2026';

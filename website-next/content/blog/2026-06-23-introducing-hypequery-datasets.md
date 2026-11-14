@@ -2,7 +2,7 @@
 title: "Introducing hypequery Datasets: A Semantic Layer for ClickHouse in TypeScript"
 description: "Define dimensions, measures, and metrics once in TypeScript, then reuse them across application code, HTTP APIs, dashboards, jobs, and AI agents."
 seoTitle: "Introducing hypequery Datasets for ClickHouse and TypeScript"
-seoDescription: "hypequery Datasets is a code-first semantic layer for ClickHouse. Define typed dimensions, measures, metrics, tenant scope, and time semantics once, then reuse them everywhere."
+seoDescription: "hypequery Datasets is a code-first semantic layer for ClickHouse: typed dimensions, measures, metrics, tenant scope and time semantics, defined once and reused."
 pubDate: 2026-06-23
 heroImage: ""
 slug: introducing-hypequery-datasets

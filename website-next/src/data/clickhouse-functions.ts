@@ -153,7 +153,7 @@ const daily = await db
     tagline: 'Round a date down to the start of its week. Mode 0, the default, starts weeks on Sunday; mode 1 starts them on Monday.',
     metaTitle: 'ClickHouse toStartOfWeek: Sunday or Monday (mode 0 vs mode 1)',
     metaDescription:
-      'toStartOfWeek(d) starts weeks on Sunday by default (mode 0). Use toStartOfWeek(d, 1) or toMonday(d) for Monday weeks. Return type, TypeScript example and gotchas.',
+      'toStartOfWeek(d) starts weeks on Sunday by default (mode 0). Use toStartOfWeek(d, 1) or toMonday(d) for Monday weeks. Return type and gotchas.',
     signature: 'toStartOfWeek(t: Date | DateTime, mode?: UInt8, timezone?: String): Date',
     description:
       'Rounds a Date or DateTime down to the nearest Sunday (mode 0, the default) or Monday (mode 1), and returns a Date.',
@@ -229,6 +229,8 @@ print(sunday.data)  # ({'period': '2026-03-01', 'events': 500},)`,
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
+      { href: '/recipes/iso-week-bucketing', label: 'Recipe: ISO week buckets and %G-W%V labels' },
     ],
     searchIntentCards: [
       {
@@ -577,7 +579,7 @@ const recent = await db
     tagline: 'Convert a DateTime, string or number to a Date, and know which inputs it clamps.',
     metaTitle: 'ClickHouse toDate: strings, DateTime and the 1970–2149 range',
     metaDescription:
-      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those. With examples.',
+      'toDate converts a DateTime, a date string or a number to Date. Dates before 1970 or after 2149-06-06 are clamped silently; use toDate32 for those.',
     signature: 'toDate(value: String | DateTime | DateTime64 | Int [, timezone]): Date',
     description:
       'Converts a DateTime, a date string or a number to a Date. Date covers 1970-01-01 to 2149-06-06; values outside that range are clamped without an error.',
@@ -648,6 +650,7 @@ print(two_days.data)  # ({'events': 288},)`,
     relatedPillars: [
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
     ],
     searchIntentCards: [
       {
@@ -689,7 +692,7 @@ print(two_days.data)  # ({'events': 288},)`,
     tagline: 'Format a date as a string with MySQL-style % directives. %M is the month name; %i is minutes.',
     metaTitle: 'ClickHouse formatDateTime: %M is month, %i is minutes, ISO weeks',
     metaDescription:
-      'In ClickHouse formatDateTime, %M prints the month name and %i prints minutes. How to format ISO weeks with %G-W%V, weekday names with %W, and time zones, with TypeScript examples.',
+      'In ClickHouse formatDateTime, %M prints the month name and %i prints minutes. How to format ISO weeks with %G-W%V, weekday names with %W, and time zones.',
     signature: 'formatDateTime(t: Date | DateTime, format: String, [timezone: String]): String',
     description:
       'Formats a Date or DateTime as a String using % directives. Two differ from strftime: %M is the full month name and %i is minutes.',
@@ -750,6 +753,7 @@ for row in result.named_results():
     returnType: 'String',
     notes: [
       '%M prints the full month name ("January"). Minutes are %i. Writing %H:%M:%S for a time is the most common mistake. Checked on ClickHouse 26.6.',
+      'Old servers differ: on ClickHouse 20.6, %M printed minutes (\'%H:%M:%S\' gave "09:05:07"). On 25.8 the setting formatdatetime_parsedatetime_m_is_month_name (default 1) makes it the month name; set it to 0 to get minutes back.',
       '%W prints the weekday name ("Friday"), not a week number.',
       'For ISO weeks, pair %V with %G, not %Y: formatDateTime(t, \'%G-W%V\') returns "2026-W53" for 2027-01-01.',
       'Sort on the underlying DateTime, or on toStartOfMonth, not on the formatted string.',
@@ -759,6 +763,8 @@ for row in result.named_results():
     relatedPillars: [
       { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
+      { href: '/recipes/iso-week-bucketing', label: 'Recipe: ISO week buckets and %G-W%V labels' },
     ],
     searchIntentCards: [
       {
@@ -773,7 +779,7 @@ for row in result.named_results():
     faqItems: [
       {
         question: 'Is %M minutes or month in ClickHouse formatDateTime?',
-        answer: 'Month. %M prints the full month name, such as "January". Use %i for minutes: formatDateTime(t, \'%H:%i:%S\') returns "09:05:07".',
+        answer: 'Month, on current versions. %M prints the full month name, such as "January". Use %i for minutes: formatDateTime(t, \'%H:%i:%S\') returns "09:05:07". Older servers such as 20.6 printed minutes for %M; on 25.8, setting formatdatetime_parsedatetime_m_is_month_name = 0 restores that.',
       },
       {
         question: 'How do I format an ISO week with formatDateTime?',
@@ -799,9 +805,9 @@ for row in result.named_results():
     name: 'count',
     cluster: 'aggregate',
     tagline: 'Count rows or non-NULL values — ClickHouse\'s fastest aggregate.',
-    metaTitle: 'ClickHouse count() — row counting in TypeScript',
+    metaTitle: 'ClickHouse count() — row counting in TypeScript and Python',
     metaDescription:
-      'ClickHouse count() counts rows or non-NULL values. Learn how to use count(), count(x), and countIf() in TypeScript with hypequery for event tracking and analytics.',
+      'ClickHouse count() counts rows or non-NULL values. How count(), count(x) and countIf() differ, with TypeScript and Python examples.',
     signature: 'count() | count(column) | countIf(condition)',
     description:
       'Counts the number of rows (count()), non-NULL values in a column (count(col)), or rows matching a condition (countIf). The most common aggregate in analytics queries.',
@@ -836,6 +842,30 @@ const totals = await db
   .orderBy('event_count', 'DESC')
   .execute();`,
     hypequeryFilename: 'event-counts.ts',
+    pythonExample: `from hypequery.datasets import DatasetQuery, create_dataset_client, dataset, dimension, filter, measure, order
+from hypequery.execution import ClickHouseConnection, create_clickhouse_executor
+
+orders = dataset(
+    "orders",
+    source="orders",
+    time_key="created_at",
+    dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
+    measures={
+        "orders": measure.count("order_id"),
+        # A measure filter compiles to countIf(status = 'refunded')
+        "refunded_orders": measure.count("order_id", filters=(filter.eq("status", "refunded"),)),
+    },
+)
+
+with create_clickhouse_executor(ClickHouseConnection.from_env()) as executor:
+    client = create_dataset_client(executor=executor)
+    result = client.execute(orders, DatasetQuery(dimensions=("status",), order_by=(order.asc("status"),)))
+
+for row in result.data:
+    print(row)  # {'status': 'paid', 'orders': 100, 'refunded_orders': 0}`,
+    pythonFilename: 'order_counts.py',
+    pythonNote:
+      'Both measures come from one scan: the refunded count compiles to countIf(order_id, status = ...), with the value bound as a parameter. UInt64 counts arrive as Python ints.',
     returnType: 'UInt64',
     notes: [
       'count() (no argument) is the fastest — reads from metadata, not data files.',
@@ -847,6 +877,7 @@ const totals = await db
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
     ],
     searchIntentCards: [
       {
@@ -953,17 +984,17 @@ const dau = await db
     tagline: 'Sum a numeric column. Integer sums widen to Int64 or UInt64, which matters in TypeScript.',
     metaTitle: 'ClickHouse sum(): result types, NULLs, overflow and TypeScript',
     metaDescription:
-      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps on overflow. Looking for conditional totals? Use sumIf().',
+      'ClickHouse sum() widens integers to Int64 or UInt64, returns NULL when every value is NULL, and wraps on overflow. How each case reaches TypeScript and Python.',
     signature: 'sum(column)',
     description:
       'Returns the sum of the non-NULL values in a numeric column. Integer inputs widen to Int64 or UInt64, floats to Float64 and decimals to Decimal(38, S).',
     longDescription:
-      'sum() is the core aggregation behind revenue totals and metric roll-ups. Grouped by a date bucket it gives a revenue time series. Its result type is wider than the input, so sum() of an Int32 column is an Int64, and that changes how the value reaches a TypeScript app. For conditional totals use sumIf(), and for array columns use sumArray() or arraySum().',
+      'sum() is the core aggregation behind revenue totals and metric roll-ups. Grouped by a date bucket it gives a revenue time series. Its result type is wider than the input, so sum() of an Int32 column is an Int64, and that changes how the value reaches a TypeScript app. For array columns use sumArray() or arraySum().',
     exampleSql: `-- Daily revenue in cents (amount_cents is Int64)
 SELECT
   toStartOfDay(created_at) AS day,
   sum(amount_cents) AS revenue_cents,
-  sumIf(amount_cents, status = 'refunded') AS refunded_cents
+  count() AS orders
 FROM orders
 GROUP BY day
 ORDER BY day DESC
@@ -1000,7 +1031,7 @@ orders = dataset(
     dimensions={"created_at": dimension.timestamp(), "status": dimension.string()},
     measures={
         "revenue_cents": measure.sum("amount_cents"),
-        # A measure filter compiles to sumIf(amount_cents, status = 'refunded')
+        # A measure filter compiles to a conditional sum over the same scan
         "refunded_cents": measure.sum("amount_cents", filters=(filter.eq("status", "refunded"),)),
     },
 )
@@ -1028,6 +1059,7 @@ for row in result.data:
       { href: '/clickhouse-saas-analytics', label: 'SaaS Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
     ],
     searchIntentCards: [
       {
@@ -1035,8 +1067,8 @@ for row in result.data:
         copy: 'Store money as integer cents or Decimal, sum it grouped by day, and convert the Int64 string with BigInt() in TypeScript.',
       },
       {
-        title: 'Conditional sums in ClickHouse',
-        copy: 'sumIf(amount, status = \'paid\') and sumIf(amount, status = \'refunded\') give both totals in one scan. See the sumIf page for the -If combinator.',
+        title: 'Totals too large for Int64',
+        copy: 'Int64 and UInt64 sums wrap silently on overflow. Cast the column to Int128 or a wide Decimal before summing when totals can exceed 9.2 quintillion.',
       },
     ],
     faqItems: [
@@ -1059,7 +1091,7 @@ for row in result.data:
     ],
     tsType: 'string (Int64/UInt64) or number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/sum',
-    updated: '2026-11-08',
+    updated: '2026-11-14',
     seeAlso: {
       href: '/clickhouse/functions/sum-if',
       label: 'ClickHouse sumIf()',
@@ -1074,7 +1106,7 @@ for row in result.data:
     tagline: 'Conditional aggregation with the -If combinator: sumIf, countIf, avgIf, quantileIf.',
     metaTitle: 'ClickHouse sumIf and the -If combinator: countIf, avgIf, quantileIf',
     metaDescription:
-      'sumIf(col, cond) sums only rows where cond is true. How the -If combinator works for countIf, avgIf and quantileIf, and how to fix "Illegal type Array" errors with sumArrayIf.',
+      'sumIf(col, cond) sums only rows where cond is true. The -If combinator for countIf, avgIf and quantileIf, and the sumArrayIf fix for "Illegal type Array".',
     signature: 'sumIf(column, condition)',
     description:
       'Sums only the rows where the condition is true. -If is a combinator, so countIf, avgIf, uniqIf and quantileIf work the same way.',
@@ -1196,7 +1228,7 @@ print(result.data[0])  # {'period': '2026-03-09 00:00:00', 'paid_cents': 4780, '
     description:
       'Returns the arithmetic mean (sum / count) of non-NULL values in a numeric column. Always returns Float64. Use avgIf(col, cond) for conditional averages in a single pass.',
     longDescription:
-      'avg() is the standard mean aggregate for ClickHouse analytics: average order value, average session length, average response time (though quantile() is usually better for latency). It is implemented as sum(col) / count(col) internally. For weighted averages use sumProduct(col, weight) / sum(weight) with raw SQL.',
+      'avg() is the standard mean aggregate for ClickHouse analytics: average order value, average session length, average response time (though quantile() is usually better for latency). It is implemented as sum(col) / count(col) internally. For weighted averages use avgWeighted(col, weight). A hand-written sum(col * weight) / sum(weight) differs when col has NULLs: the numerator skips those rows but the denominator still counts their weights.',
     exampleSql: `SELECT
   toStartOfDay(created_at) AS day,
   avg(order_value) AS aov,
@@ -1254,9 +1286,9 @@ const aov = await db
     name: 'quantile',
     cluster: 'aggregate',
     tagline: 'Approximate percentiles (p50, p95, p99) for latency and performance metrics.',
-    metaTitle: 'ClickHouse quantile(): approximate percentiles vs quantileExact',
+    metaTitle: 'ClickHouse percentile: quantile() vs quantileExact (p95, p99)',
     metaDescription:
-      'ClickHouse quantile() estimates percentiles from a sample of up to 8,192 values, so it is approximate. When to use quantileExact, quantileTDigest or quantiles(), with TypeScript examples.',
+      'ClickHouse quantile() is approximate: it samples up to 8,192 values per group. When to use quantileExact, quantileTDigest or quantiles() instead.',
     signature: 'quantile(level)(column): Float64',
     description:
       'Estimates the quantile at a level between 0 and 1 from a reservoir sample of up to 8,192 values. quantile(0.95)(latency) is an approximate p95.',
@@ -1333,6 +1365,8 @@ for row in result.data:
     relatedPillars: [
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
+      { href: '/recipes/p95-latency', label: 'Recipe: p95 latency per event type' },
     ],
     searchIntentCards: [
       {
@@ -1361,10 +1395,14 @@ for row in result.data:
         question: 'Does ClickHouse have a percentile function?',
         answer: 'No. ClickHouse has no percentile() function. Use quantile(0.95)(col) for the 95th percentile, or median(col) for the 50th.',
       },
+      {
+        question: 'How do I compute a percentile over only some rows (quantileExactIf)?',
+        answer: 'Add the -If combinator and pass the condition as the last argument: quantileExactIf(0.5)(col, cond), quantileIf(0.95)(col, cond), or quantilesExactIf(0.5, 0.9)(col, cond) for several levels. On ClickHouse 25.8, quantileExactIf(0.5)(number, number % 2 = 0) over numbers(10) returned 4, the median of the even values.',
+      },
     ],
     tsType: 'number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/quantile',
-    updated: '2026-11-08',
+    updated: '2026-11-14',
   },
 
   {
@@ -1374,7 +1412,7 @@ for row in result.data:
     tagline: 'Collect a group\'s values into an array. Row order is not guaranteed, so sort explicitly.',
     metaTitle: 'ClickHouse groupArray: keep row order, cap size, type the result',
     metaDescription:
-      'groupArray() does not guarantee row order, and arraySort(groupArray(x)) sorts values, not rows. How to collect values in timestamp order, cap the array size, and type the result in TypeScript.',
+      'groupArray() does not guarantee row order, and arraySort(groupArray(x)) sorts values, not rows. How to keep timestamp order, cap the size, and type the result.',
     signature: 'groupArray([max_size])(column): Array',
     description:
       'Collects the values of a column within each group into an Array. ClickHouse documents the order of the values as indeterminate, and NULL values are skipped.',
@@ -1455,6 +1493,9 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
     relatedPillars: [
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-array-functions-typescript', label: 'ClickHouse array functions' },
+      { href: '/recipes/grouparray-user-timelines', label: 'Recipe: ordered per-user timelines with groupArray' },
+      { href: '/blog/postgres-mysql-to-clickhouse-sql-equivalents', label: 'GROUP_CONCAT and other Postgres/MySQL equivalents' },
     ],
     searchIntentCards: [
       {
@@ -1497,7 +1538,7 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
     tagline: 'Convert any ClickHouse value to a String, including dates in a chosen time zone.',
     metaTitle: 'ClickHouse toString: numbers, dates and time zones to String',
     metaDescription:
-      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone), and a second argument picks the time zone.',
+      'toString(x) converts numbers, dates, UUIDs and arrays to String. DateTime becomes "YYYY-MM-DD hh:mm:ss" (no T, no zone); a second argument sets the time zone.',
     signature: 'toString(value [, timezone]): String',
     description:
       'Converts a value of any type to its String form. For Date and DateTime it accepts a time zone as a second argument.',
@@ -1748,7 +1789,7 @@ const classified = await db
     tagline: 'ClickHouse\'s CASE WHEN: return the value for the first true condition, with a default.',
     metaTitle: 'ClickHouse multiIf: CASE WHEN, NULL conditions and mixed types',
     metaDescription:
-      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false, and mixing String and number branches returns a Variant.',
+      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false; mixing String and number branches returns a Variant.',
     signature: 'multiIf(cond1, then1, cond2, then2, ..., else)',
     description:
       'Evaluates conditions from left to right and returns the value paired with the first true one, or the last argument if none is true. It is the ClickHouse form of CASE WHEN ... THEN ... ELSE.',
@@ -1834,6 +1875,8 @@ print(result.result_rows)  # [('A', 30), ('B', 30), ('C', 30), ('D', 30), ('F', 
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
+      { href: '/recipes/multiif-bucketing', label: 'Recipe: latency and status buckets with multiIf' },
+      { href: '/blog/postgres-mysql-to-clickhouse-sql-equivalents', label: 'CASE WHEN and other Postgres/MySQL equivalents' },
     ],
     searchIntentCards: [
       {

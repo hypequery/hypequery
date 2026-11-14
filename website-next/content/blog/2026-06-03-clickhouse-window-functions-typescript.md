@@ -1,8 +1,8 @@
 ---
 title: "ClickHouse Window Functions in TypeScript"
 description: "How to use row_number(), rank(), dense_rank(), and lagInFrame() in ClickHouse, and how to run window functions from a type-safe TypeScript query builder with hypequery."
-seoTitle: "ClickHouse Window Functions: row_number, rank, lag in TypeScript"
-seoDescription: "ClickHouse window functions explained: row_number(), rank(), dense_rank(), and the lagInFrame()/leadInFrame() naming gotcha, with SQL and type-safe TypeScript examples."
+seoTitle: "ClickHouse Window Functions: row_number, rank and lag"
+seoDescription: "ClickHouse window functions: row_number(), rank(), dense_rank() and the lagInFrame()/leadInFrame() naming gotcha, with SQL and typed TypeScript examples."
 pubDate: 2026-06-03
 heroImage: ""
 slug: clickhouse-window-functions-typescript
@@ -219,6 +219,7 @@ Window functions earn their keep when the row-relative value itself matters: ran
 ## Where to go from here
 
 - [ClickHouse LIMIT BY in TypeScript](/blog/clickhouse-limit-by-typescript) — the ClickHouse-native alternative for top-N-per-group
+- [Sessionization with lagInFrame](/recipes/sessionization) — a runnable recipe that splits events into sessions with a window function
 - [ClickHouse query builder](/clickhouse-query-builder) — what hypequery's builder covers natively, and where the escape hatches are
 - [ClickHouse with TypeScript](/clickhouse-typescript) — the full picture: generated types, runtime type mappings, and the query builder
 - [quantile()](/clickhouse/functions/quantile) — percentile aggregates without window functions

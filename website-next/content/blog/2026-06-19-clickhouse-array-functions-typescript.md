@@ -2,7 +2,7 @@
 title: "ClickHouse Array Functions in TypeScript — A Practical Guide"
 description: "A working tour of ClickHouse's array toolkit from TypeScript: groupArray to collect rows into arrays, arrayMap and arrayFilter to transform them, ARRAY JOIN to flatten them back — with typed hypequery examples throughout."
 seoTitle: "ClickHouse Array Functions in TypeScript: A Practical Guide"
-seoDescription: "How to use ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has, and hasAny — with type-safe hypequery examples and a full collect-filter-transform pipeline."
+seoDescription: "ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has and hasAny, with typed hypequery examples."
 pubDate: 2026-06-19
 heroImage: ""
 slug: clickhouse-array-functions-typescript
