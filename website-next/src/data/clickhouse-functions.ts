@@ -1759,7 +1759,7 @@ const classified = await db
     tagline: 'ClickHouse\'s CASE WHEN: return the value for the first true condition, with a default.',
     metaTitle: 'ClickHouse multiIf: CASE WHEN, NULL conditions and mixed types',
     metaDescription:
-      'multiIf(c1, v1, c2, v2, default) returns the first true condition's value. NULL conditions count as false; mixing String and number branches returns a Variant.',
+      'multiIf(c1, v1, c2, v2, default) returns the value of the first true condition. NULL conditions count as false; mixing String and number branches returns a Variant.',
     signature: 'multiIf(cond1, then1, cond2, then2, ..., else)',
     description:
       'Evaluates conditions from left to right and returns the value paired with the first true one, or the last argument if none is true. It is the ClickHouse form of CASE WHEN ... THEN ... ELSE.',
