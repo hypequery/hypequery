@@ -130,6 +130,10 @@ The lowest published entry points are Elestio from $11/month, Tinybird's Free pl
 
 For event analytics at startup scale, Tinybird and ClickHouse Cloud fit best: both include managed ingestion and both can start small, on Tinybird's Free or Developer plans or ClickHouse Cloud's usage billing. Tinybird has the Events API plus Kafka, S3, GCS and DynamoDB connectors and serves results as hosted endpoints, so a small team can go from events to an API without a backend. ClickHouse Cloud ingests through ClickPipes or any ClickHouse client. Avoid idling for customer-facing dashboards there, since ClickHouse's [idling docs](https://clickhouse.com/docs/products/cloud/features/autoscaling/idling) don't recommend it for frequently used customer-facing features. For modelling the events themselves, see [real-time analytics on ClickHouse](/clickhouse-real-time-analytics).
 
+## Which companies offer managed ClickHouse with consulting?
+
+Altinity is the main one that does both. Alongside Altinity.Cloud, its [ClickHouse support](https://altinity.com/clickhouse-support/) plans include 24/7 SLAs, consulting on cluster, schema and query design, and Altinity Stable Builds supported for 36 months (checked on 14 November 2026). NetApp Instaclustr pairs its managed service with support for on-premises clusters. For consulting on its own, ClickHouse's [partner directory](https://clickhouse.com/partners/find-partner) has a Consulting & Services filter that lists system integrators such as Brainforge and Ciklum.
+
 ## ClickPipes alternatives for ClickHouse ingestion
 
 ClickPipes is ClickHouse Cloud's managed ingestion, so it only feeds ClickHouse Cloud. On other services, or when you'd rather own the pipeline, there are three routes:
