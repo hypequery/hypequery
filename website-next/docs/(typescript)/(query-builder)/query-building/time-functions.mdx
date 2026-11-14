@@ -458,7 +458,8 @@ const funnel = await db.table('events')
   ])
   .countDistinct('user_id', 'unique_users')
   .groupBy(['date', 'event_type'])
-  .orderBy(['date', 'event_type'], 'ASC')
+  .orderBy('date', 'ASC')
+  .orderBy('event_type', 'ASC')
   .execute();
 ```
 
@@ -494,7 +495,8 @@ const yoy = await db.table('orders')
   ])
   .sum('total', 'revenue')
   .groupBy(['year', 'month'])
-  .orderBy(['year', 'month'], 'ASC')
+  .orderBy('year', 'ASC')
+  .orderBy('month', 'ASC')
   .execute();
 ```
 

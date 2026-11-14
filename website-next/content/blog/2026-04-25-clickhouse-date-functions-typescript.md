@@ -98,10 +98,10 @@ FROM events GROUP BY bucket ORDER BY bucket;
 
 ## Using Date Functions in hypequery
 
-Pass the function call as a string expression in `.select()`:
+Use the built-in date helpers, and `rawAs()` for aggregate expressions, inside `.select([...])`:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createQueryBuilder, rawAs, toStartOfMonth, toStartOfQuarter } from '@hypequery/clickhouse';
 import type { Schema } from './schema';
 
 const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
@@ -109,11 +109,11 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 // Monthly revenue
 const monthlyRevenue = await db
   .table('orders')
-  .select(
-    'toStartOfMonth(created_at) AS month',
-    'sum(amount) AS revenue',
-    'count() AS order_count'
-  )
+  .select([
+    toStartOfMonth('created_at', 'month'),
+    rawAs<string, 'revenue'>('sum(amount)', 'revenue'),
+    rawAs<string, 'order_count'>('count()', 'order_count'),
+  ])
   .where('tenant_id', 'eq', tenantId)
   .where('created_at', 'gte', '2026-01-01 00:00:00')
   .groupBy(['month'])
@@ -125,11 +125,11 @@ const monthlyRevenue = await db
 // Quarterly summary
 const quarterlyStats = await db
   .table('orders')
-  .select(
-    'toStartOfQuarter(created_at) AS quarter',
-    'sum(amount) AS revenue',
-    'uniq(user_id) AS unique_customers'
-  )
+  .select([
+    toStartOfQuarter('created_at', 'quarter'),
+    rawAs<string, 'revenue'>('sum(amount)', 'revenue'),
+    rawAs<string, 'unique_customers'>('uniq(user_id)', 'unique_customers'),
+  ])
   .where('tenant_id', 'eq', tenantId)
   .groupBy(['quarter'])
   .orderBy('quarter', 'ASC')
@@ -167,11 +167,11 @@ async function getTimeSeries(
 
   return db
     .table('events')
-    .select(
-      `${bucket} AS bucket`,
-      'count() AS events',
-      'uniq(user_id) AS unique_users'
-    )
+    .select([
+      rawAs<string, 'bucket'>(bucket, 'bucket'),
+      rawAs<string, 'events'>('count()', 'events'),
+      rawAs<string, 'unique_users'>('uniq(user_id)', 'unique_users'),
+    ])
     .where('tenant_id', 'eq', tenantId)
     .where('created_at', 'gte', from)
     .where('created_at', 'lt', to)
