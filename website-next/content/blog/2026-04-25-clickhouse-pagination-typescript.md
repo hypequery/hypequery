@@ -12,6 +12,22 @@ status: published
 
 Short answer: for anything past the first few pages, paginate ClickHouse with a cursor on the table's sort key (`WHERE (created_at, id) < (last_created_at, last_id) ORDER BY created_at DESC, id DESC LIMIT 50`) rather than `LIMIT 50 OFFSET n`. ClickHouse still reads and discards every row before the offset, so deep OFFSET pages get slower as `n` grows, while a cursor lets the sort key skip straight to the next page. For a copy-paste version, see the [cursor pagination recipe](/recipes/cursor-pagination).
 
+## Quick answers
+
+### How do you paginate results in ClickHouse?
+
+Order by the table's sort key, return a page with `LIMIT`, and pass the last row's sort-key values back as a cursor: `WHERE (created_at, id) < (last_created_at, last_id) ORDER BY created_at DESC, id DESC LIMIT 50`. Use `LIMIT n OFFSET m` only for small result sets or the first few pages.
+
+### Is OFFSET slow in ClickHouse?
+
+It gets slower the deeper you go. `OFFSET 100000 LIMIT 50` still reads and processes the first 100,000 rows and then throws them away, so page 10,000 costs far more than page 1.
+
+### What is the difference between cursor and keyset pagination?
+
+Both filter on the last row you returned instead of counting rows to skip. Keyset pagination compares a tuple of columns, such as the timestamp and the ID, so rows that share a timestamp are neither skipped nor repeated.
+
+## Three patterns
+
 Paginating ClickHouse results is straightforward at small scale and becomes a real problem at large scale. This post covers the three patterns you'll encounter — offset/limit, cursor-based, and keyset — and shows how to implement each with hypequery.
 
 ## Offset / Limit Pagination
