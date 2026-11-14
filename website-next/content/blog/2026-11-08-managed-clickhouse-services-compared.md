@@ -130,6 +130,14 @@ The lowest published entry points are Elestio from $11/month, Tinybird's Free pl
 
 For event analytics at startup scale, Tinybird and ClickHouse Cloud fit best: both include managed ingestion and both can start small, on Tinybird's Free or Developer plans or ClickHouse Cloud's usage billing. Tinybird has the Events API plus Kafka, S3, GCS and DynamoDB connectors and serves results as hosted endpoints, so a small team can go from events to an API without a backend. ClickHouse Cloud ingests through ClickPipes or any ClickHouse client. Avoid idling for customer-facing dashboards there, since ClickHouse's [idling docs](https://clickhouse.com/docs/products/cloud/features/autoscaling/idling) don't recommend it for frequently used customer-facing features. For modelling the events themselves, see [real-time analytics on ClickHouse](/clickhouse-real-time-analytics).
 
+## ClickPipes alternatives for ClickHouse ingestion
+
+ClickPipes is ClickHouse Cloud's managed ingestion, so it only feeds ClickHouse Cloud. On other services, or when you'd rather own the pipeline, there are three routes:
+
+- **Another platform's managed connectors.** Tinybird has the Events API plus Kafka, S3, GCS and DynamoDB connectors, and Aiven has a managed Kafka-to-ClickHouse connector.
+- **ClickHouse's own table engines.** These work on any server or service that allows them: `Kafka`, `RabbitMQ` and `NATS` consume from queues, `S3Queue` and `AzureQueue` pick up new files from object storage, and the `s3`, `url`, `postgresql` and `mysql` table functions read sources directly. Pair a queue engine with a materialized view that writes into a MergeTree table. All of these exist on ClickHouse 25.8 (checked in `system.table_engines` and `system.table_functions`).
+- **Kafka Connect.** ClickHouse maintains a Kafka Connect sink ([ClickHouse/clickhouse-kafka-connect](https://github.com/ClickHouse/clickhouse-kafka-connect)) that runs wherever your Kafka Connect cluster does.
+
 ## Altinity.Cloud alternatives and ClickHouse Cloud alternatives
 
 The closest alternative to Altinity.Cloud is Aiven for ClickHouse or NetApp Instaclustr: all three run open-source ClickHouse on provisioned servers and offer BYOC. Aiven adds flat plan pricing and a self-serve Developer tier; Instaclustr adds on-premises support. ClickHouse Cloud is the alternative if usage billing and scale-to-zero matter more than open-source parity, and Altinity is the usual ClickHouse Cloud alternative for teams that want any ClickHouse version or published BYOC rates. If you are searching for an alternative to ClickHouse the database, every service on this page runs ClickHouse, so this list won't help you there.
