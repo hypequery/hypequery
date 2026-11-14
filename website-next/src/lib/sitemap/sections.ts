@@ -9,6 +9,7 @@ import { marketingPages } from '@/data/marketing-pages';
 import { entryHref, registryEntries } from '@/lib/examples';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
+import { getChangelog } from '@/lib/changelog/load';
 import { getCompareArticle } from '@/lib/compare-article';
 import { maybeUpdatedFor } from '@/data/page-dates';
 import { blogLastModified } from './dates';
@@ -105,8 +106,21 @@ function exampleEntries(): MetadataRoute.Sitemap {
   ];
 }
 
-function changelogEntries(): MetadataRoute.Sitemap {
-  return ['/changelog', ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`)].map(staticEntry);
+/** A package's newest release date: the registry publish time, or the changelog heading's date. */
+function newestRelease(releases: readonly { publishedAt?: string; date?: string }[] | undefined): Date | undefined {
+  const value = releases?.[0]?.publishedAt ?? releases?.[0]?.date;
+  const date = value ? new Date(value) : undefined;
+  return date && !Number.isNaN(date.getTime()) ? date : undefined;
+}
+
+async function changelogEntries(): Promise<MetadataRoute.Sitemap> {
+  // Releases are newest first. If the changelog cannot load, the URLs are listed without dates.
+  const data = await getChangelog().catch(() => undefined);
+  const entries = CHANGELOG_PACKAGES.map((pkg) => ({
+    url: absoluteUrl(`/changelog/${pkg.slug}`).toString(),
+    lastModified: newestRelease(data?.packages[pkg.slug]),
+  }));
+  return [{ url: absoluteUrl('/changelog').toString(), lastModified: latest(entries) }, ...entries];
 }
 
 export async function sitemapSection(section: SitemapSection): Promise<MetadataRoute.Sitemap> {
@@ -124,7 +138,7 @@ export async function sitemapSection(section: SitemapSection): Promise<MetadataR
     case 'functions':
       return functionEntries();
     case 'changelog':
-      return changelogEntries();
+      return await changelogEntries();
   }
 }
 
