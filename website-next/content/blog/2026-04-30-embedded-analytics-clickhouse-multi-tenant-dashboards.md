@@ -528,7 +528,7 @@ const rows = await db
   .execute({ abortSignal: request.signal });
 ```
 
-ClickHouse only cancels a read-only query when its client disconnects if `cancel_http_readonly_queries_on_client_close = 1`, which is off by default on 26.6; put it in the user's profile. `max_execution_time` in the profile is the hard backstop.
+ClickHouse only cancels a read-only query when its client disconnects if `cancel_http_readonly_queries_on_client_close = 1`, which is off by default on 26.6; put it in the user's profile. `max_execution_time` in the profile is the hard backstop. [ClickHouse settings for application backends](/blog/clickhouse-settings-for-application-backends) covers both, with `readonly = 2` and 64-bit integer quoting.
 
 ---
 
