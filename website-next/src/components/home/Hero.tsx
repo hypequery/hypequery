@@ -15,7 +15,7 @@ const clickhouseWordmark = Inter({ subsets: ['latin'], weight: '700', display: '
 
 export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
   return (
-    <section className="mx-auto max-w-[1280px] px-5 pb-8 pt-8 sm:px-8 sm:pt-10">
+    <section className="mx-auto max-w-[1280px] px-5 pt-8 sm:px-8 sm:pt-10">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <NpmDownloadsBadge counts={npmDownloads} />

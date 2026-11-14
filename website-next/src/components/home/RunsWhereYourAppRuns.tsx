@@ -23,6 +23,7 @@ import {
 } from 'react-icons/si';
 import { trackUmamiEvent } from '@/lib/umami';
 import { RUNTIME_EXAMPLES, type RuntimeLanguage } from './runtimeExamples';
+import { marketing } from '@/components/ui/marketing';
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   nextjs: SiNextdotjs,
@@ -50,7 +51,7 @@ const GROUPS: Array<{ language: RuntimeLanguage; label: string; Icon: ComponentT
 /** "Runs where your app runs": every framework we support, each linking to its docs. */
 export function RunsWhereYourAppRuns() {
   return (
-    <section aria-labelledby="runs-where-title" className="mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
+    <section aria-labelledby="runs-where-title" className={`mx-auto max-w-[1280px] px-5 sm:px-8 ${marketing.homeSectionSpacing}`}>
       <div className="max-w-[720px]">
         <h2 id="runs-where-title" className="home-section-title text-text">Runs where your app runs</h2>
         <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">

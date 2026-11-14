@@ -5,7 +5,7 @@ import { SetupCommand } from './SetupCommand';
 
 export function FinalCTA() {
   return (
-    <section className="mx-auto max-w-[1280px] px-8 py-20 text-center">
+    <section className={`mx-auto max-w-[1280px] px-8 text-center ${marketing.homeSectionSpacing}`}>
       <h2 className="home-section-title text-text max-w-[820px] mx-auto text-balance">
         Ship your analytics layer today
       </h2>
@@ -22,6 +22,10 @@ export function FinalCTA() {
         <DeployWaitlist location="final" className={marketing.secondaryButton} />
       </div>
       <SetupCommand className="mt-4 justify-center" />
+      {/* The same space below the last section as between sections. A spacer rather than
+          responsive bottom padding: this site's CSS emits some base pb-* utilities after
+          their sm: variants, so sm:pb-* can lose. */}
+      <div aria-hidden="true" className={marketing.homeSectionSpacing} />
     </section>
   );
 }
