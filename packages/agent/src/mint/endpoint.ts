@@ -1,3 +1,4 @@
+import { isLoopbackHost } from '../utils/loopback.js';
 import { AgentTokenError } from './errors.js';
 
 /**
@@ -18,16 +19,6 @@ function refuse(message: string): never {
   throw new AgentTokenError('endpoint', message);
 }
 
-/** Plain HTTP only reaches a gateway on this machine. */
-function isLoopback(host: string): boolean {
-  return (
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host === '127.0.0.1' ||
-    host === '[::1]'
-  );
-}
-
 export function resolveMcpUrl(endpoint: unknown): string {
   if (typeof endpoint !== 'string') {
     refuse('endpoint must be the project\'s customer endpoint URL from Cloud.');
@@ -46,7 +37,7 @@ export function resolveMcpUrl(endpoint: unknown): string {
     host === '[::1]' ||
     (host.length <= 253 && host.split('.').every((label) => LABEL_PATTERN.test(label)));
   if (!validHost) refuse('endpoint has an invalid host name.');
-  if (scheme === 'http' && !isLoopback(host)) {
+  if (scheme === 'http' && !isLoopbackHost(host)) {
     refuse('endpoint must use https (plain http is allowed for localhost only).');
   }
   let authority = host;

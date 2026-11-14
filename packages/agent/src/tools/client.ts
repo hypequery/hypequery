@@ -7,6 +7,7 @@ import {
   readRequestId,
   toHypequeryToolsError,
 } from './errors.js';
+import { toolsEndpointUrl } from './endpoint-url.js';
 import type {
   HypequeryCallOptions,
   HypequeryFetch,
@@ -85,7 +86,7 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
     if (options === null || typeof options !== 'object') {
       throw new TypeError('hypequeryTools: pass { url, token }.');
     }
-    this.url = new URL(options.url);
+    this.url = toolsEndpointUrl(options.url);
     if (typeof options.token !== 'string' && typeof options.token !== 'function') {
       throw new TypeError('hypequeryTools: token must be a string or a function returning one.');
     }

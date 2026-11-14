@@ -121,6 +121,9 @@ Some failures are for you to fix, not the model: the endpoint refused the token,
 
 ## Tokens
 
+The endpoint `url` must use https, so the token is never sent unencrypted. Plain http is allowed for localhost only;
+any other URL throws a `TypeError` before a request is made.
+
 Tokens minted for your agent last at most 15 minutes. If a conversation can run longer than that, pass a function as
 the token instead of a string. It is called before every request:
 
