@@ -170,6 +170,11 @@ const faqItems: FaqItem[] = [
       'Without one, an agent writes SQL from table and column names. It has to guess which tables to join, how a metric like revenue is calculated, and which rows a user may see. A semantic layer gives it named metrics and dimensions with descriptions, so it asks for revenue by country and the layer writes the SQL the same way every time.',
   },
   {
+    question: 'What is agentic analytics?',
+    answer:
+      'Analytics where an AI agent answers data questions itself: it picks the metric, runs the query through a tool, and explains the result, instead of a person building a dashboard first. An analytics agent is only as reliable as the definitions it queries, which is why it is usually paired with a semantic layer rather than raw table access.',
+  },
+  {
     question: 'Is text-to-SQL enough for an analytics agent?',
     answer:
       'For an analyst exploring a warehouse they already have access to, often yes. For an agent inside a product, it is risky: the agent can read any table its credentials reach, compute a metric differently from your dashboard, or leave out a tenant filter. Query tools over named metrics remove those choices from the agent.',
