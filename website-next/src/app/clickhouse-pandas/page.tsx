@@ -142,6 +142,7 @@ export default function ClickHousePandasPage() {
         { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/time-grains', title: 'Time grains', description: 'Bucket measures by day, week, or month.' },
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Reuse results across notebook runs.' },
+        { href: '/blog/chdb-python-tutorial', title: 'chDB Python tutorial', description: 'Query pandas DataFrames, Parquet and CSV with ClickHouse SQL, in process.' },
       ]}
       relatedPillars={[
         { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
