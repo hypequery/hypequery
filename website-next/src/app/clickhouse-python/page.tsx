@@ -552,7 +552,7 @@ export default function ClickHousePythonPage() {
       ]}
       searchIntentCards={[
         {
-          title: 'clickhouse-connect vs clickhouse-driver',
+          title: 'Should I use clickhouse-connect or clickhouse-driver?',
           copy:
             'clickhouse-connect is maintained by ClickHouse and uses the HTTP interface; clickhouse-driver is a community client for the native TCP protocol. Both returned the same rows in our tests and both escaped the injection payload. Pick clickhouse-connect for new code, for its `{name:Type}` server-side binding and its pandas, NumPy and Arrow methods. Keep clickhouse-driver where code or network rules already depend on the native protocol.',
         },
