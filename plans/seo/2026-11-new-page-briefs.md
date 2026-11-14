@@ -52,6 +52,16 @@ A draft is on branch `seo/clickhouse-vs-duckdb-draft` (no PR), as a blog post ra
 
 - "clickhouse mcp" (390/mo US, KD 15) is the biggest query near reach. On 2026-11-14 `/clickhouse-mcp` was at best position ~20 in the US. Page one is the official server's pages plus MCP directories (glama.ai, mcp.so, mcpservers.org, mcpmarket, Smithery, PyPI) and Tinybird's "quick review of different ClickHouse MCP servers". `@hypequery/mcp` 0.13.0 is already in the official MCP Registry and Glama lists the main repo. `/blog/clickhouse-mcp-servers-compared` (published 2026-11-08) had no impressions yet. If it still has none by the recheck, retitle it as a comparison, e.g. "ClickHouse MCP Servers Compared: Official, Cloud and Governed (2026)", since the ranking review pages are framed that way.
 
+- Answers added on 2026-11-14 for "documentation"-style fan-out queries. Recheck each page's CTR for its queries in GSC:
+  - PREWHERE post: "prewhere", "clickhouse prewhere" (~190 impressions/3 months, 0 clicks)
+  - toStartOfInterval post: "clickhouse 20.6 tostartofinterval datetime64 ..." (~250)
+  - LIMIT BY post: "clickhouse limit 1 by ... syntax" (~60)
+  - quantile page: "quantileexactif documentation" (~45)
+  - formatDateTime page: "%M" queries (version note)
+  - pagination post (267, 0 clicks)
+
+  Many of these queries look machine-generated ("... official docs", "... documentation"), so a lack of clicks may reflect who is searching rather than the answer.
+
 ## Not worth a page
 
 - **"Agentic AI"** (90k, KD 58): generic intent and unwinnable.
