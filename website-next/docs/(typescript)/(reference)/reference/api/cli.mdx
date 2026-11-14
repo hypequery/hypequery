@@ -698,6 +698,7 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `CLOUD_REQUEST_FAILED` | `correctable_input` | 1 | Cloud rejected the request; its reason is in the message |
 | `CLOUD_ENDPOINT_WITHOUT_TOKEN` | `correctable_input` | 1 | An endpoint is set without `HYPEQUERY_API_TOKEN`; set both, or neither to use `hypequery login` |
 | `CLOUD_TOKEN_WITHOUT_ENDPOINT` | `correctable_input` | 1 | `HYPEQUERY_API_TOKEN` is not an `hqmt_` or `hqdp_` token and no endpoint is set |
+| `CLOUD_ENDPOINT_INSECURE` | `correctable_input` | 1 | The Cloud endpoint is not HTTPS (HTTP is allowed only on localhost), so the credential is not sent |
 | `CLOUD_DEVICE_SIGN_IN_UNSUPPORTED` | `correctable_input` | 1 | This Cloud has no device sign-in; use `hypequery login` where a browser can open |
 | `CLOUD_DEVICE_SIGN_IN_REFUSED` | `correctable_input` | 1 | Cloud refused `--project` or `--capabilities` |
 | `CLOUD_NOT_SIGNED_IN`, `CLOUD_CREDENTIAL_EXPIRED`, `CLOUD_UNAUTHORIZED`, `LOGIN_NEEDS_A_PERSON`, `CLOUD_AUTHORIZATION_DECLINED`, `CLOUD_AUTHORIZATION_TIMED_OUT` | `unauthenticated` / `forbidden` | 2 | No usable Cloud credential, or the sign-in was denied or expired |
