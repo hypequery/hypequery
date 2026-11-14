@@ -1,0 +1,16 @@
+{
+  "name": "hypequery",
+  "description": "hypequery's Claude Code plugins: agent skills for ClickHouse semantic layers and the hypequery app connector.",
+  "owner": {
+    "name": "hypequery",
+    "url": "https://hypequery.com"
+  },
+  "plugins": [
+    {
+      "name": "hypequery",
+      "source": "./plugins/claude-code/hypequery",
+      "description": "Onboard ClickHouse onto hypequery and query hypequery Cloud datasets: three agent skills and the hypequery app's MCP connector.",
+      "category": "data"
+    }
+  ]
+}

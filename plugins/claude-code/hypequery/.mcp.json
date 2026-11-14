@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hypequery": {
+      "type": "http",
+      "url": "${HYPEQUERY_APP_MCP_URL:-https://mcp.hypequery.com/mcp}"
+    }
+  }
+}

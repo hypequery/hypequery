@@ -1,0 +1,13 @@
+{
+  "name": "hypequery",
+  "displayName": "hypequery",
+  "description": "Onboard ClickHouse onto hypequery from Claude Code, and query hypequery Cloud datasets: the hypequery-onboard, hypequery-datasets and hypequery-query skills, plus the hypequery app's remote MCP connector.",
+  "author": {
+    "name": "hypequery",
+    "url": "https://hypequery.com"
+  },
+  "homepage": "https://hypequery.com/docs/mcp/claude-code-plugin",
+  "repository": "https://github.com/hypequery/hypequery",
+  "license": "Apache-2.0",
+  "keywords": ["clickhouse", "semantic-layer", "analytics", "mcp", "hypequery"]
+}

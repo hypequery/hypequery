@@ -39,7 +39,13 @@
     },
     "@hypequery/cli#test": {
       "dependsOn": ["build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/website-next/docs/telemetry.mdx"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/website-next/docs/telemetry.mdx",
+        "$TURBO_ROOT$/skills/**",
+        "$TURBO_ROOT$/plugins/claude-code/**",
+        "$TURBO_ROOT$/.claude-plugin/**"
+      ]
     },
     "@hypequery/examples-schema#lint": {
       "inputs": [
