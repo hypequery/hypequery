@@ -34,7 +34,9 @@ A draft is on branch `seo/agentic-analytics-draft` (no PR). It merges cleanly wi
 
 **Watch out:** don't duplicate `/semantic-layer/ai-agents`. That page is "how semantic layers expose metrics to agents"; this one is "what agentic analytics is and how to build it". Cross-link the two.
 
-## 3. ClickHouse vs DuckDB (`/compare/clickhouse-vs-duckdb`)
+## 3. ClickHouse vs DuckDB: draft ready as `/blog/clickhouse-vs-duckdb`
+
+A draft is on branch `seo/clickhouse-vs-duckdb-draft` (no PR), as a blog post rather than a `/compare` page because the compare template is built for hypequery-vs-X pages. The Quack facts were checked on duckdb.org on 2026-11-14. It merges cleanly with `main`, this PR and the agentic analytics draft.
 
 **Intent:** choosing an analytical engine. Page one is generic (InfluxData, RisingWave, Airbyte, Elest.io, Kanopy) with old benchmarks.
 
