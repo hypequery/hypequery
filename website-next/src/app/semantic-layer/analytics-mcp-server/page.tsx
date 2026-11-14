@@ -28,13 +28,11 @@ const sqlToolCode = `// A database MCP server: the agent writes SQL.
 {
   "name": "run_query",
   "arguments": {
-    "query": "SELECT country, sum(amount) FROM orders
-              WHERE status != 'refunded'
-              GROUP BY country"
+    "query": "SELECT country, sum(amount) FROM orders WHERE status != 'refunded' GROUP BY country"
   }
 }
 
-// The agent chose the table, the join, the definition
+// The agent chose the table, the definition
 // of revenue and the refund rule. The next conversation
 // may choose differently.`;
 
