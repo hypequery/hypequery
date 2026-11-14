@@ -39,3 +39,8 @@ test('extracts questions and plain-text answers from the Quick answers section',
 test('a post without the section has no FAQ', () => {
   assert.deepEqual(markdownFaq('## Intro\n\n### Why?\n\nBecause.'), []);
 });
+
+test('a thematic break after the last answer is not part of it', () => {
+  const md = '## Quick answers\n\n### Does it work?\n\nYes.\n\n---\n\nUnrelated closing prose.\n\n## Next\n';
+  assert.deepEqual(markdownFaq(md), [{ question: 'Does it work?', answer: 'Yes.' }]);
+});

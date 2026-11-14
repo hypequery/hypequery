@@ -1,6 +1,8 @@
 import type { FaqItem } from '@/lib/faq-schema';
 
 const SECTION = /^## (Quick answers|FAQ|Frequently asked questions)\s*$/i;
+// `---`, `***` or `___` on its own line: a thematic break, which ends the section's prose.
+const THEMATIC_BREAK = /^\s*([-*_])(\s*\1){2,}\s*$/;
 
 /** Markdown inline syntax reduced to plain text: links keep their label; code, emphasis and HTML marks go. */
 function plainText(markdown: string): string {
@@ -44,6 +46,11 @@ export function markdownFaq(markdown: string): FaqItem[] {
       continue;
     }
     if (!inSection) continue;
+    if (THEMATIC_BREAK.test(line)) {
+      flush();
+      inSection = false;
+      continue;
+    }
     if (line.startsWith('### ')) {
       flush();
       const heading = line.slice(4).trim();
