@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/ai-agents';
 const TITLE = 'AI Semantic Layer: Governed Metrics for AI Agents over MCP (2026)';
 const DESCRIPTION =
-  'Why AI agents need a semantic layer instead of raw text-to-SQL, what to look for in one (named metrics, no raw SQL tool, tenant scope, query limits), and how hypequery, Cube, dbt, AtScale, Snowflake and others expose metrics to agents over MCP.';
+  'Why AI agents need a semantic layer, not raw text-to-SQL: what to look for (named metrics, tenant scope, query limits) and how tools expose metrics over MCP.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own site, docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 13, 2026';

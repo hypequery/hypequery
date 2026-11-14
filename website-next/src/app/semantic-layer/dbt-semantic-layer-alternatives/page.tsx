@@ -15,7 +15,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/dbt-semantic-layer-alternatives';
 const TITLE = 'dbt Semantic Layer Alternatives (2026): 9 Options Compared';
 const DESCRIPTION =
-  'Alternatives to the dbt Semantic Layer compared by model format, supported databases (including ClickHouse), query APIs, MCP for AI agents, licence and whether you keep dbt: Cube, hypequery, Lightdash, Wren AI, Boring Semantic Layer, Malloy, AtScale and warehouse-native layers.';
+  'dbt Semantic Layer alternatives compared: Cube, hypequery, Lightdash, Wren AI, Malloy, AtScale and warehouse-native layers, by databases, APIs, MCP and licence.';
 const UPDATED = updatedFor(PATH);
 // Vendor claims were read on the vendor's own docs or repositories on these dates. See seo-verification-log.md.
 const VERIFIED_ON = 'November 13 and 14, 2026';

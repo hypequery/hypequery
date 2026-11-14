@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/snowflake-semantic-views';
 const TITLE = 'Snowflake Semantic Views vs a Code-Defined Semantic Layer';
 const DESCRIPTION =
-  'How Snowflake semantic views work: CREATE SEMANTIC VIEW, querying with SEMANTIC_VIEW() or AGG(), Cortex Analyst, access policies and Ossie export, compared with a semantic layer defined in code.';
+  'How Snowflake semantic views work: CREATE SEMANTIC VIEW, SEMANTIC_VIEW() and AGG(), Cortex Analyst and access policies, compared with a semantic layer in code.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });
