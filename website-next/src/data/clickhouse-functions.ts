@@ -229,6 +229,7 @@ print(sunday.data)  # ({'period': '2026-03-01', 'events': 500},)`,
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
     ],
     searchIntentCards: [
       {
@@ -648,6 +649,7 @@ print(two_days.data)  # ({'events': 288},)`,
     relatedPillars: [
       { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
       { href: '/clickhouse-time-series', label: 'ClickHouse Time Series' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
     ],
     searchIntentCards: [
       {
@@ -759,6 +761,7 @@ for row in result.named_results():
     relatedPillars: [
       { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-datetime-vs-datetime64-time-zones', label: 'DateTime vs DateTime64 and time zones' },
     ],
     searchIntentCards: [
       {
@@ -847,6 +850,7 @@ const totals = await db
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
     ],
     searchIntentCards: [
       {
@@ -1028,6 +1032,7 @@ for row in result.data:
       { href: '/clickhouse-saas-analytics', label: 'SaaS Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
     ],
     searchIntentCards: [
       {
@@ -1333,6 +1338,7 @@ for row in result.data:
     relatedPillars: [
       { href: '/clickhouse-real-time-analytics', label: 'Real-Time Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-group-by-typescript', label: 'ClickHouse GROUP BY' },
     ],
     searchIntentCards: [
       {
@@ -1455,6 +1461,7 @@ print(capped.result_rows[0])  # (0, ['view', 'click', 'buy', 'view', 'click'])`,
     relatedPillars: [
       { href: '/clickhouse-product-analytics', label: 'Product Analytics' },
       { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+      { href: '/blog/clickhouse-array-functions-typescript', label: 'ClickHouse array functions' },
     ],
     searchIntentCards: [
       {

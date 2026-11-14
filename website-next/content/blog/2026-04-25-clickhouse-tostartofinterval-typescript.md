@@ -151,6 +151,7 @@ To turn a bucket into a JavaScript `Date`, render it in a known zone and parse i
 
 - [toStartOfWeek: Sunday or Monday](/clickhouse/functions/to-start-of-week)
 - [formatDateTime for bucket labels](/clickhouse/functions/format-date-time)
+- [DateTime vs DateTime64 and time zones](/blog/clickhouse-datetime-vs-datetime64-time-zones): why a DateTime64 bucket comes back as DateTime
 - [ClickHouse time-series patterns](/clickhouse-time-series)
 - [PREWHERE vs WHERE](/blog/clickhouse-prewhere-vs-where)
 - ClickHouse docs: [toStartOfInterval](https://clickhouse.com/docs/sql-reference/functions/date-time-functions#toStartOfInterval), [ORDER BY ... WITH FILL](https://clickhouse.com/docs/sql-reference/statements/select/order-by#order-by-expr-with-fill-modifier)

@@ -18,7 +18,7 @@ Before the function list — the single most important thing to understand when 
 - `DateTime` results come back as `"YYYY-MM-DD HH:MM:SS"` — e.g. `"2026-04-25 14:00:00"`
 - `Date` results come back as `"YYYY-MM-DD"` — e.g. `"2026-04-25"`
 
-hypequery's schema generator reflects this: `DateTime` columns are typed as `string`, `Date` columns as `string`. There is no automatic coercion. If you need a JS `Date` object, parse it explicitly:
+hypequery's schema generator reflects this: `DateTime` columns are typed as `string`, `Date` columns as `string`. There is no automatic coercion. Treating the string as UTC is only safe when the column's time zone is UTC; [DateTime vs DateTime64 and time zones](/blog/clickhouse-datetime-vs-datetime64-time-zones) covers how the server and column time zones change what you get back. If you need a JS `Date` object, parse it explicitly:
 
 ```typescript
 // DateTime string → JS Date (treat as UTC)
