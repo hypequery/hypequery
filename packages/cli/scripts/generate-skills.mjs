@@ -1,10 +1,15 @@
 #!/usr/bin/env node
-// Embed the repository's agent skills (skills/<name>/SKILL.md) in the CLI, which
-// ships only dist/. Run after editing a skill; `--check` exits 1 on drift.
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+// Copy the repository's agent skills (skills/<name>/SKILL.md) to where they
+// ship: the CLI, which ships only dist/, embeds them in
+// src/templates/skills.generated.ts, and the Claude Code plugin carries them in
+// plugins/claude-code/hypequery/skills/. Run after editing a skill; `--check`
+// exits 1 on drift and writes nothing.
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 
 const root = new URL('../../../skills/', import.meta.url);
 const output = new URL('../src/templates/skills.generated.ts', import.meta.url);
+const pluginSkills = new URL('../../../plugins/claude-code/hypequery/skills/', import.meta.url);
+const check = process.argv.includes('--check');
 
 const names = (await readdir(root, { withFileTypes: true }))
   .filter(entry => entry.isDirectory())
@@ -22,12 +27,34 @@ export interface AgentSkill {
 
 export const AGENT_SKILLS: readonly AgentSkill[] = ${JSON.stringify(skills, null, 2)};
 `;
-if (process.argv.includes('--check')) {
-  const current = await readFile(output, 'utf8').catch(() => '');
-  if (current !== source) {
-    console.error('src/templates/skills.generated.ts is out of date; run node scripts/generate-skills.mjs');
+
+const removed = (await readdir(pluginSkills, { withFileTypes: true }).catch(() => []))
+  .filter(entry => !names.includes(entry.name))
+  .map(entry => entry.name);
+const stale = [];
+if ((await readFile(output, 'utf8').catch(() => '')) !== source) {
+  stale.push('packages/cli/src/templates/skills.generated.ts');
+}
+for (const name of removed) {
+  stale.push(`plugins/claude-code/hypequery/skills/${name} (not in skills/)`);
+}
+for (const skill of skills) {
+  const bundled = await readFile(new URL(`${skill.name}/SKILL.md`, pluginSkills), 'utf8').catch(() => '');
+  if (bundled !== skill.content) stale.push(`plugins/claude-code/hypequery/skills/${skill.name}/SKILL.md`);
+}
+
+if (check) {
+  if (stale.length > 0) {
+    console.error(`Out of date with skills/; run node packages/cli/scripts/generate-skills.mjs:\n  ${stale.join('\n  ')}`);
     process.exit(1);
   }
 } else {
   await writeFile(output, source);
+  for (const name of removed) {
+    await rm(new URL(name, pluginSkills), { recursive: true, force: true });
+  }
+  for (const skill of skills) {
+    await mkdir(new URL(`${skill.name}/`, pluginSkills), { recursive: true });
+    await writeFile(new URL(`${skill.name}/SKILL.md`, pluginSkills), skill.content);
+  }
 }

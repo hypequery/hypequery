@@ -1,0 +1,46 @@
+---
+title: Claude Code plugin
+description: Install hypequery's agent skills and the hypequery app connector in Claude Code with one plugin.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The `hypequery` plugin gives Claude Code, in one install:
+
+- the `hypequery-onboard`, `hypequery-datasets` and `hypequery-query` [agent skills](/docs/reference/api/cli#hypequery-skill-install), the same
+  ones `hypequery skill install` writes into a project
+- the hypequery app connector: a remote MCP server at `https://mcp.hypequery.com/mcp`, which signs in with OAuth
+
+## Install
+
+<CodeBlock>
+```bash
+claude plugin marketplace add hypequery/hypequery --sparse .claude-plugin plugins
+claude plugin install hypequery@hypequery
+```
+</CodeBlock>
+
+Inside a session, `/plugin marketplace add hypequery/hypequery` and `/plugin install hypequery@hypequery` do the same.
+Run `/reload-plugins`, then `/mcp` to sign in to the connector in your browser.
+
+Ask Claude to "set up hypequery on my ClickHouse database", or run `/hypequery:hypequery-onboard`.
+
+<Callout type="warn">
+  `mcp.hypequery.com` isn't live yet, so the connector can't connect. The skills work without it, because they drive the
+  `hypequery` CLI in your project.
+</Callout>
+
+## Point the connector elsewhere
+
+The connector's URL is `${HYPEQUERY_APP_MCP_URL:-https://mcp.hypequery.com/mcp}`. Set `HYPEQUERY_APP_MCP_URL` before
+starting Claude Code to use another hypequery app origin. For a project you deployed to hypequery Cloud,
+`npx hypequery deployment:status --mcp-config` prints that deployment's own MCP configuration; see [Cloud MCP](/docs/cloud/mcp).
+
+## Updates
+
+The plugin follows the repository's commits. Run `claude plugin marketplace update hypequery` and
+`claude plugin update hypequery@hypequery`, or turn on auto-update for the marketplace under `/plugin`.
+
+The plugin's source and README are in
+[`plugins/claude-code/hypequery`](https://github.com/hypequery/hypequery/tree/main/plugins/claude-code/hypequery).

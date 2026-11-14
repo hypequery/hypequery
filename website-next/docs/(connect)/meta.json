@@ -5,6 +5,7 @@
     "mcp/overview",
     "mcp/quickstart",
     "mcp/clients",
+    "mcp/claude-code-plugin",
     "mcp/remote",
     "mcp/tools",
     "mcp/safety",
