@@ -43,6 +43,16 @@ from `hypequery create <slug> -y` against the seed; the smoke test asserts the
 `leadPages` and `functionPages` are set so the example is injected into the
 existing pages that already rank.
 
+### Examples that run on hypequery Cloud
+
+`in-app-analytics-agent/` is the Next.js + AI SDK starter for an analytics
+agent inside your own product: it mints an end-user token per session with
+`@hypequery/agent` and calls hypequery Cloud's tenant MCP endpoint. Its smoke
+test (eval T7) still needs only the seed: an in-process tenant endpoint stands
+in for Cloud and a scripted model for the LLM, so CI needs no Cloud account and
+no model key. Keep the deployable datasets file (`analytics/cloud.ts`) and the
+Cloud setup steps with such an example.
+
 A failing smoke test fails the required `Examples OK` check, so a PR cannot
 merge a broken example against the workspace packages. The nightly run against
 the published packages catches what that misses (an example using an API that

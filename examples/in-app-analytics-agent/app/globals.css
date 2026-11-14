@@ -1,0 +1,41 @@
+:root {
+  --surface: #fcfcfb;
+  --panel: #ffffff;
+  --border: #e4e3df;
+  --text: #0b0b0b;
+  --text-secondary: #52514e;
+  --accent: #2a78d6;
+  --error: #c0362c;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1a1a19;
+    --panel: #222221;
+    --border: #383835;
+    --text: #f0efec;
+    --text-secondary: #c3c2b7;
+    --accent: #3987e5;
+    --error: #e5675c;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--surface); color: var(--text); font: 15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+pre, code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.page { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0 0 4px; font-size: 24px; }
+.muted { color: var(--text-secondary); margin: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+.chip { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--accent); font-weight: 600; }
+.messages { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.message { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.message.user { border-color: var(--accent); }
+.message p { margin: 4px 0; white-space: pre-wrap; }
+.tool summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.tool pre { overflow-x: auto; max-height: 240px; }
+.error { color: var(--error); }
+.composer { display: flex; gap: 8px; }
+.composer input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
+.composer button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+.composer button:disabled { opacity: 0.6; cursor: default; }
