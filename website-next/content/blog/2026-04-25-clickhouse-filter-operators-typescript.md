@@ -92,7 +92,8 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 
 const result = await db
   .table('events')
-  .select('event_type', 'count() AS events')
+  .select(['event_type'])
+  .count('event_type', 'events')
   .where('tenant_id', 'eq', 42)
   .where('created_at', 'gte', '2026-04-01 00:00:00')
   .where('created_at', 'lt', '2026-05-01 00:00:00')
@@ -111,7 +112,7 @@ Pass an array as the value:
 // Filter to specific statuses
 const active = await db
   .table('subscriptions')
-  .select('user_id', 'plan', 'created_at')
+  .select(['user_id', 'plan', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('status', 'in', ['active', 'trial', 'past_due'])
   .execute();
@@ -119,7 +120,8 @@ const active = await db
 // Exclude churned users
 const retained = await db
   .table('users')
-  .select('user_id', 'count() AS events')
+  .select(['user_id'])
+  .count('user_id', 'events')
   .where('tenant_id', 'eq', tenantId)
   .where('plan', 'notIn', ['cancelled', 'expired'])
   .groupBy(['user_id'])
@@ -136,7 +138,7 @@ ClickHouse LIKE uses `%` as wildcard. The `'like'` operator passes the pattern t
 // Domain-based filter
 const companyUsers = await db
   .table('users')
-  .select('user_id', 'email', 'created_at')
+  .select(['user_id', 'email', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('email', 'like', '%@acme.com')
   .execute();
@@ -144,7 +146,8 @@ const companyUsers = await db
 // Prefix match
 const apiEvents = await db
   .table('events')
-  .select('event_type', 'count() AS cnt')
+  .select(['event_type'])
+  .count('event_type', 'cnt')
   .where('tenant_id', 'eq', tenantId)
   .where('page_path', 'like', '/api/%')
   .groupBy(['event_type'])
@@ -161,7 +164,7 @@ For case-insensitive matching, use `ilike` in raw SQL — hypequery's `'like'` o
 // Orders worth 100 to 500, both ends included
 const midSizeOrders = await db
   .table('orders')
-  .select('order_id', 'amount')
+  .select(['order_id', 'amount'])
   .where('tenant_id', 'eq', tenantId)
   .whereBetween('amount', [100, 500])
   .execute();
@@ -173,7 +176,7 @@ Inclusive bounds catch people out on timestamps. `created_at BETWEEN '2026-11-01
 // Every event in November, including all of 30 November
 const novemberEvents = await db
   .table('events')
-  .select('event_type', 'created_at')
+  .select(['event_type', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('created_at', 'gte', '2026-11-01 00:00:00')
   .where('created_at', 'lt', '2026-12-01 00:00:00')
@@ -187,7 +190,8 @@ When a filter cannot be expressed as a straight AND chain, use `.orWhere()` or a
 ```typescript
 const result = await db
   .table('events')
-  .select('page_path', 'count() AS views')
+  .select(['page_path'])
+  .count('page_path', 'views')
   .where('tenant_id', 'eq', tenantId)
   .where('created_at', 'gte', from)
   .where('created_at', 'lt', to)
@@ -230,7 +234,8 @@ const result = await client.query({
 // hypequery — typed, composable
 const result = await db
   .table('events')
-  .select('page_path', 'count() AS views')
+  .select(['page_path'])
+  .count('page_path', 'views')
   .where('tenant_id', 'eq', 42)
   .where('event_type', 'eq', 'page_view')
   .where('created_at', 'gte', from)

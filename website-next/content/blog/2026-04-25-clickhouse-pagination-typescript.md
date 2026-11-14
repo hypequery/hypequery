@@ -10,13 +10,13 @@ slug: clickhouse-pagination-typescript
 status: published
 ---
 
-Short answer: for anything past the first few pages, paginate ClickHouse with a cursor on the table's sort key (`WHERE (created_at, id) < (last_created_at, last_id) ORDER BY created_at DESC, id DESC LIMIT 50`) rather than `LIMIT 50 OFFSET n`. ClickHouse still reads and discards every row before the offset, so deep OFFSET pages get slower as `n` grows, while a cursor lets the sort key skip straight to the next page. For a copy-paste version, see the [cursor pagination recipe](/recipes/cursor-pagination).
+Short answer: for anything past the first few pages, paginate ClickHouse with a cursor on the table's sort key (`WHERE created_at < last_created_at OR (created_at = last_created_at AND id < last_id) ORDER BY created_at DESC, id DESC LIMIT 50`) rather than `LIMIT 50 OFFSET n`. ClickHouse still reads and discards every row before the offset, so deep OFFSET pages get slower as `n` grows, while a cursor lets the primary index skip to the next page. Write the cursor condition with `OR` as shown, not as a tuple comparison: on ClickHouse 25.8, `(created_at, id) < (x, y)` read all 245 granules of a 2-million-row test table while the `OR` form read 1, and the tuple form also read all 245 on 26.10. For a copy-paste version, see the [cursor pagination recipe](/recipes/cursor-pagination).
 
 ## Quick answers
 
 ### How do you paginate results in ClickHouse?
 
-Order by the table's sort key, return a page with `LIMIT`, and pass the last row's sort-key values back as a cursor: `WHERE (created_at, id) < (last_created_at, last_id) ORDER BY created_at DESC, id DESC LIMIT 50`. Use `LIMIT n OFFSET m` only for small result sets or the first few pages.
+Order by the table's sort key, return a page with `LIMIT`, and pass the last row's sort-key values back as a cursor: `WHERE created_at < last_created_at OR (created_at = last_created_at AND id < last_id) ORDER BY created_at DESC, id DESC LIMIT 50`. Avoid the tuple form `(created_at, id) < (...)`: ClickHouse doesn't use the primary index for it. Use `LIMIT n OFFSET m` only for small result sets or the first few pages.
 
 ### Is OFFSET slow in ClickHouse?
 
@@ -24,7 +24,7 @@ It gets slower the deeper you go. `OFFSET 100000 LIMIT 50` still reads and proce
 
 ### What is the difference between cursor and keyset pagination?
 
-Both filter on the last row you returned instead of counting rows to skip. Keyset pagination compares a tuple of columns, such as the timestamp and the ID, so rows that share a timestamp are neither skipped nor repeated.
+Both filter on the last row you returned instead of counting rows to skip. Keyset pagination filters on the timestamp and the ID together, so rows that share a timestamp are neither skipped nor repeated.
 
 ## Three patterns
 
@@ -130,7 +130,7 @@ async function getEventsKeyset(cursor: KeysetCursor | null, pageSize: number) {
     .limit(pageSize);
 
   if (cursor) {
-    // Fetch rows where (created_at, id) < (cursor.createdAt, cursor.id)
+    // Rows before the cursor: created_at < c.createdAt OR (created_at = c.createdAt AND id < c.id)
     // This handles ties on created_at correctly
     query = query.whereGroup((qb) => {
       qb.where('created_at', 'lt', cursor.createdAt).orWhereGroup((innerQb) => {

@@ -26,7 +26,11 @@ This post explains the mechanics, shows where `PREWHERE` helps most, and gives a
 
 ### What is the difference between PREWHERE and WHERE?
 
-They return the same rows. The difference is the reading order: with `PREWHERE`, the filter columns are read and evaluated before the rest of the query's columns. With `WHERE` alone, ClickHouse would read every referenced column and then filter, except that it usually moves `WHERE` conditions to `PREWHERE` for you.
+On ordinary MergeTree queries they return the same rows. The difference is the reading order: with `PREWHERE`, the filter columns are read and evaluated before the rest of the query's columns. With `WHERE` alone, ClickHouse would read every referenced column and then filter, except that it usually moves `WHERE` conditions to `PREWHERE` for you.
+
+### Is PREWHERE safe with FINAL?
+
+Not always. With `FINAL` on a `ReplacingMergeTree` table, an explicit `PREWHERE` filters rows before old versions are collapsed. On ClickHouse 25.8, after inserting `(1, 'pending', version 1)` and then `(1, 'completed', version 2)`, `SELECT * FROM t FINAL PREWHERE status = 'pending'` returned the stale `pending` row, while the same filter in `WHERE` returned nothing. ClickHouse doesn't auto-promote conditions to PREWHERE on `FINAL` queries by default (`optimize_move_to_prewhere_if_final = 0`), so keep such filters in `WHERE`.
 
 ### Does ClickHouse use PREWHERE automatically?
 
