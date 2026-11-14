@@ -15,7 +15,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Semantic Layer in TypeScript and Python',
   description:
-    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys, and time keys. Serve it to APIs, dashboards, and AI agents from your own backend.',
+    'Define a ClickHouse semantic layer in TypeScript or Python with typed datasets, tenant keys and time keys, then serve it to APIs, dashboards and AI agents.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },

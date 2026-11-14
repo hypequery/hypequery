@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Tinybird Alternatives for ClickHouse APIs (2026)',
   description:
-    'Tinybird alternatives compared: ClickHouse Cloud, self-hosted ClickHouse, Cube, and hypequery for typed analytics APIs on the ClickHouse you own, with no data ingestion and no second platform plan.',
+    'Tinybird alternatives compared: ClickHouse Cloud, self-hosted ClickHouse, Cube and hypequery, for typed analytics APIs on ClickHouse you own, with no ingestion step.',
   alternates: { canonical: absoluteUrl('/tinybird-alternative') },
   openGraph: {
     images: ogImage('Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure'),
