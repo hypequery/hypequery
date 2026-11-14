@@ -64,6 +64,79 @@ Socket Mode acks every envelope before running handlers, and reconnects with
 backoff when Slack refreshes the connection. On Node.js 20, pass
 `WebSocket` from the `ws` package. Node.js 22+ has a global one.
 
+## The bot: question → answer
+
+`createSlackBot()` handles the whole flow:
+
+- the "is looking at the data…" status;
+- thread history;
+- deciding where the answer may be posted;
+- errors and rendering.
+
+You supply two functions:
+
+```ts
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+import { answerFromToolResults, channelCeiling, createSlackBot, createSlackClient, createSlackRequestHandler } from '@hypequery/slack';
+import { generateText, stepCountIs } from 'ai';
+
+const bot = createSlackBot({
+  slack: createSlackClient({ token: process.env.SLACK_BOT_TOKEN! }),
+
+  // Who may ask, and where the answer may go. Never read access from message text.
+  resolveAccess: async ({ userId, channelId, source }) => {
+    const member = await lookUpMember(userId);                  // your Slack → user mapping
+    if (!member) return { allow: false, message: 'Link your account first.' };
+    return channelCeiling({
+      access: member,
+      ceiling: await channelAccess(channelId),                  // null = channel not connected
+      source,
+      fits: (ceiling, member) => member.datasets.every(d => ceiling.datasets.includes(d)),
+    });
+  },
+
+  // Your agent. Return Markdown, or a SlackAnswer with the result table.
+  answer: async ({ text, history, access, signal }) => {
+    const tools = await hypequeryTools({ executor: executorFor(access) });
+    const run = await generateText({
+      model,
+      tools,
+      stopWhen: stepCountIs(8),
+      abortSignal: signal,
+      messages: [
+        ...history.map(turn => ({ role: turn.role, content: turn.text })),
+        { role: 'user', content: text },
+      ],
+    });
+    return answerFromToolResults(run, { link: { url: answerUrl } });
+  },
+
+  suggestedPrompts: [{ title: 'Revenue', message: 'Revenue by region last week' }],
+});
+
+export const POST = createSlackRequestHandler({ signingSecret, onEvent: bot.onEvent, waitUntil: after });
+```
+
+**Channel ceiling.** A reply in a channel is visible to everyone in it, so access is decided per channel:
+
+- `resolveAccess` returns `reply: 'thread'` when the answer may be posted in the channel.
+- It returns `reply: 'private'` when the asker can see more than the channel may. The answer then goes only to the asker, as an ephemeral message (default) or a DM (`privateReply: 'dm'`).
+- DMs always use the member's own access.
+- `channelCeiling()` implements this rule for you.
+
+**What the bot always does:**
+
+- Sends denials and errors only to the asker. Errors use `describeError`, never the raw exception.
+- Refuses Slack Connect channels unless you set `allowSharedChannels: true`.
+- Passes `history` from the thread, with other people's messages tagged with their `userId`. Treat those as untrusted input.
+- Aborts `signal` after `timeoutMs` (default 2 minutes).
+
+**Answers from agent runs.** `answerFromToolResults(run)` reads any AI SDK `generateText` result:
+
+- It takes the table and source (dataset and filters) from the last successful `query_*` tool result.
+- The numbers in the table come from the tool output, not from the model's prose.
+- It doesn't import the AI SDK, so it works with any major version.
+
 ## Events
 
 `onEvent` receives one of:
