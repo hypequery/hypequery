@@ -1395,6 +1395,10 @@ for row in result.data:
         question: 'Does ClickHouse have a percentile function?',
         answer: 'No. ClickHouse has no percentile() function. Use quantile(0.95)(col) for the 95th percentile, or median(col) for the 50th.',
       },
+      {
+        question: 'How do I compute a percentile over only some rows (quantileExactIf)?',
+        answer: 'Add the -If combinator and pass the condition as the last argument: quantileExactIf(0.5)(col, cond), quantileIf(0.95)(col, cond), or quantilesExactIf(0.5, 0.9)(col, cond) for several levels. On ClickHouse 25.8, quantileExactIf(0.5)(number, number % 2 = 0) over numbers(10) returned 4, the median of the even values.',
+      },
     ],
     tsType: 'number (Float64)',
     docsUrl: 'https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/quantile',
