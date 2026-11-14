@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/mcp-agent-analytics",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "A governed ClickHouse MCP server: agents get four tools over published, tenant-scoped datasets and never see SQL or credentials",
   "type": "module",
