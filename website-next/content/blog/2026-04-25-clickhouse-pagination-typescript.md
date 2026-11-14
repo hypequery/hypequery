@@ -43,7 +43,7 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 async function getPagedEvents(page: number, pageSize: number) {
   return db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .limit(pageSize)
     .offset(page * pageSize)
@@ -78,14 +78,14 @@ interface EventCursor {
 async function getEventsAfterCursor(cursor: EventCursor | null, pageSize: number) {
   let query = db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .orderBy('id', 'DESC')
     .limit(pageSize);
 
   if (cursor) {
     // Fetch rows that come after the cursor position
-    query = query.where('created_at', '<', cursor.lastCreatedAt);
+    query = query.where('created_at', 'lt', cursor.lastCreatedAt);
   }
 
   const rows = await query.execute();
@@ -124,7 +124,7 @@ interface KeysetCursor {
 async function getEventsKeyset(cursor: KeysetCursor | null, pageSize: number) {
   let query = db
     .table('events')
-    .select('id', 'user_id', 'event_type', 'created_at')
+    .select(['id', 'user_id', 'event_type', 'created_at'])
     .orderBy('created_at', 'DESC')
     .orderBy('id', 'DESC')
     .limit(pageSize);

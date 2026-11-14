@@ -31,8 +31,8 @@ import type { DB } from './generated-schema';
 const rows = await db
   .table('orders')
   .select(['total_revenue', 'order_date'])
-  .where('status', '=', 'completed')
-  .where('tenant_id', '=', tenantId)
+  .where('status', 'eq', 'completed')
+  .where('tenant_id', 'eq', tenantId)
   .groupBy('order_date')
   .orderBy('order_date', 'DESC')
   .execute();
