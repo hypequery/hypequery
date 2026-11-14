@@ -5,13 +5,14 @@ import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/compare/hypequery-vs-embeddable';
 const TITLE = 'hypequery vs Embeddable for Embedded Analytics';
 const DESCRIPTION =
   'Compare hypequery and Embeddable on data modelling, multi-tenancy, UI ownership, pricing, ClickHouse support and AI agents. See which fits your team.';
 const PUBLISHED = '2026-11-12';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 // Every Embeddable claim was checked on embeddable.com and docs.embeddable.com on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 12, 2026';
 

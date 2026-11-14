@@ -7,6 +7,7 @@ import { marketing } from '@/components/ui/marketing';
 import { semanticLayerSpokes } from '@/data/semantic-layer-pages';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer';
 const TITLE = 'What Is a Semantic Layer? Examples and Options Compared';
@@ -278,7 +279,7 @@ const articleJsonLd = {
   headline: TITLE,
   description: DESCRIPTION,
   url: absoluteUrl(PATH).toString(),
-  dateModified: '2026-11-10',
+  dateModified: updatedFor(PATH),
   author: { '@type': 'Organization', name: 'hypequery' },
   publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
 };

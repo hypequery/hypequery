@@ -36,6 +36,16 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     label: 'Open Semantic Interchange (OSI)',
     description: 'The vendor-neutral spec for exchanging semantic models: who is behind it, what the format covers and what it leaves out.',
   },
+  {
+    href: '/semantic-layer/open-source-tools',
+    label: 'Open-source semantic layer tools',
+    description: 'Open-source semantic layers compared by licence, model format, databases, APIs and MCP support, including Cube Core, MetricFlow and hypequery.',
+  },
+  {
+    href: '/semantic-layer/ai-agents',
+    label: 'Semantic layer for AI agents',
+    description: 'Why agents need named metrics instead of raw SQL, what to check (no SQL tool, tenant scope, query limits) and how each semantic layer exposes MCP tools.',
+  },
 ];
 
 export const semanticLayerPages: SemanticLayerPage[] = [semanticLayerHub, ...semanticLayerSpokes];
