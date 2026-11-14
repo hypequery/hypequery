@@ -29,10 +29,15 @@
     "test:types": "tsc --project tsconfig.type-tests.json --noEmit",
     "telemetry:docs": "pnpm build && node scripts/generate-telemetry-docs.mjs",
     "telemetry:docs:check": "pnpm build && node scripts/generate-telemetry-docs.mjs --check",
-    "telemetry:benchmark": "pnpm build && node scripts/benchmark-telemetry.mjs"
+    "telemetry:benchmark": "pnpm build && node scripts/benchmark-telemetry.mjs",
+    "cloud-operations:generate": "node scripts/generate-cloud-operations.mjs",
+    "cloud-operations:check": "node scripts/generate-cloud-operations.mjs --check",
+    "cloud-operations:docs": "pnpm build && node scripts/generate-cloud-command-docs.mjs",
+    "cloud-operations:docs:check": "pnpm build && node scripts/generate-cloud-command-docs.mjs --check"
   },
   "dependencies": {
     "@clickhouse/client": "^1.24.1",
+    "@hypequery/cloud-client": "workspace:*",
     "@hypequery/deployment": "workspace:*",
     "@hypequery/protocol": "workspace:*",
     "chalk": "^6.0.1",
