@@ -8,7 +8,9 @@ import { semanticLayerPages } from '@/data/semantic-layer-pages';
  *
  * Pages marked noindex (/clickhouse-express, -hono, -trpc, -graphql) stay out.
  * Section hubs (/blog, /compare, /examples, /changelog, /clickhouse/functions)
- * live with their section in src/lib/sitemap/sections.ts.
+ * and the embedded analytics comparison pages (including /cube-js-alternative,
+ * src/data/embedded-analytics-compare.ts) live with their section in
+ * src/lib/sitemap/sections.ts.
  */
 export const marketingPages: readonly string[] = [
   '/',
@@ -51,6 +53,5 @@ export const marketingPages: readonly string[] = [
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
   '/tinybird-alternative',
-  '/cube-js-alternative',
   '/contact-us',
 ];
