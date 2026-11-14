@@ -93,13 +93,17 @@ const faqItems: FaqItem[] = [
   {
     question: 'Is ClickHouse Cloud cheaper than Tinybird?',
     answer:
-      'At the entry level, no: Tinybird has a free plan and a Developer plan from $25 a month (as of 8 November 2026), while one Basic ClickHouse Cloud unit running all month is about $159. A ClickHouse Cloud service that idles much of the day can cost less, and the two bill differently (compute minutes versus a plan sized in vCPUs), so compare on your own workload.',
+      'At the entry level, no: Tinybird has a free plan and a Developer plan from $25 a month (checked November 14, 2026), while one Basic ClickHouse Cloud unit running all month is about $159. A ClickHouse Cloud service that idles much of the day can cost less, and the two bill differently (compute minutes versus a plan sized in vCPUs), so compare on your own workload.',
   },
 ];
 
-// Only the ClickHouse figures were checked for this page. The other vendors' entry points come from
-// the managed services comparison (checked 8 November 2026) and are labelled as such.
-const sources = [{ vendor: 'ClickHouse', urls: [PRICING_URL] }];
+// ClickHouse, Tinybird and Aiven figures were checked for this page on VERIFIED_ON. The Altinity row
+// comes from the managed services comparison (checked 8 November 2026).
+const sources = [
+  { vendor: 'ClickHouse', urls: [PRICING_URL] },
+  { vendor: 'Tinybird', urls: ['https://www.tinybird.co/pricing'] },
+  { vendor: 'Aiven', urls: ['https://aiven.io/clickhouse'] },
+];
 
 export default function ClickHouseCloudPricingPage() {
   return (
@@ -195,7 +199,8 @@ export default function ClickHouseCloudPricingPage() {
         title="ClickHouse Cloud vs other ways to run ClickHouse"
         intro={
           <p>
-            Entry points from each vendor’s own pricing page, as recorded on 8 November 2026 in our{' '}
+            Entry points from each vendor’s own pricing page: ClickHouse Cloud, Tinybird and Aiven checked on{' '}
+            {VERIFIED_ON}, Altinity as recorded on 8 November 2026 in our{' '}
             <Link href="/blog/managed-clickhouse-services-compared" className={inlineLink}>
               managed ClickHouse services comparison
             </Link>
