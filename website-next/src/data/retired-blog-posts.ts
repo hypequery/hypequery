@@ -44,7 +44,9 @@ export const retiredBlogPosts: RetiredBlogPost[] = [
   // /clickhouse-rest-api itself redirects to /clickhouse-api, so skip the hop.
   { slug: 'typed-rest-api-clickhouse', destination: '/clickhouse-api' },
   { slug: 'clickhouse-mcp-typescript', destination: '/clickhouse-mcp' },
-  { slug: 'what-is-a-semantic-layer', destination: '/clickhouse-semantic-layer' },
+  // The vendor-neutral /semantic-layer hub (added 2026-11-12) matches this post's
+  // 'semantic layer' and 'semantic layer meaning' rankings; the ClickHouse page does not.
+  { slug: 'what-is-a-semantic-layer', destination: '/semantic-layer' },
 ];
 
 export const retiredBlogSlugs: ReadonlySet<string> = new Set(retiredBlogPosts.map((post) => post.slug));

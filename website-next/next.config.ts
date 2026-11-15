@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // One host. Vercel's domain settings already send www to the apex; this keeps the 301 in code too,
+      // so it survives a domain-config change. Search Console still had www URLs indexed from an old
+      // www sitemap (last crawled August 2026).
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.hypequery.com' }],
+        destination: 'https://hypequery.com/:path*',
+        statusCode: 301,
+      },
       // every compare page also exists as a seed blog post; canonical home is /compare
       ...comparePages.map((page) => ({
         source: `/blog/${page.slug}`,
