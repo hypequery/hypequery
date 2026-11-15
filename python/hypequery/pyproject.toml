@@ -144,6 +144,8 @@ dev = [
 # one the shared floor jobs test on, so those jobs leave this group out, as they
 # leave out the mcp extra (scripts/floor_extras.py).
 agent-frameworks = [
+  # 0.3.36 is the first release whose tools take a JSON Schema as `args_schema`.
+  "langchain-core>=0.3.36",
   "openai-agents>=0.4",
   "pydantic-ai-slim>=1.0",
 ]
@@ -326,7 +328,7 @@ source_modules = [
   "hypequery.agent.clients.in_process",
   "hypequery.agent.mint",
 ]
-forbidden_modules = ["mcp", "httpx2", "agents", "pydantic_ai", "anthropic"]
+forbidden_modules = ["mcp", "httpx2", "agents", "pydantic_ai", "anthropic", "langchain_core"]
 allow_indirect_imports = true
 
 # The MCP SDK is optional and heavy (it brings starlette and uvicorn): only

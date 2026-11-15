@@ -4,7 +4,8 @@ end-user tokens minted locally.
 The tools come from an executor in this process (`executor=`) or a tenant MCP
 endpoint such as hypequery Cloud's (`url=` and `token=`), as native tools for
 Anthropic (`hypequery.agent.anthropic`), the OpenAI Agents SDK
-(`hypequery.agent.openai_agents`) and Pydantic AI (`hypequery.agent.pydantic_ai`).
+(`hypequery.agent.openai_agents`), Pydantic AI (`hypequery.agent.pydantic_ai`) and
+LangChain or LangGraph (`hypequery.agent.langchain`).
 They mirror `@hypequery/agent`: the same tools, schemas and error envelope.
 
 `mint_agent_token()` is `@hypequery/agent`'s `mintAgentToken()`: it signs a

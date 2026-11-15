@@ -322,9 +322,37 @@ def test_the_openai_agents_tool_treats_non_object_arguments_as_none() -> None:
     anyio.run(run)
 
 
+def test_the_langchain_tool_returns_json_for_errors_and_rows() -> None:
+    pytest.importorskip("langchain_core", reason="langchain-core is not installed")
+    import datetime
+    import json
+
+    from hypequery.agent.langchain import hypequery_tools
+
+    class Dated(FakeClient):
+        async def call_tool(
+            self, name: str, arguments: Mapping[str, object] | None = None
+        ) -> ToolResult:
+            return ToolSuccess(tool=name, data={"data": [{"day": datetime.date(2026, 1, 2)}]})
+
+    async def run() -> None:
+        client = FakeClient()
+        [tool] = await hypequery_tools(client=client)
+        assert tool.description == ""
+        output = await tool.ainvoke({"dataset": "orders"})
+        assert json.loads(output)["error"]["code"] == _details().code
+        assert client.calls == [("a", {"dataset": "orders"})]
+        # LangChain alone would hand the model a Python repr of a row it cannot dump.
+        [dated] = await hypequery_tools(client=Dated())
+        assert json.loads(await dated.ainvoke({})) == {"data": [{"day": "2026-01-02"}]}
+
+    anyio.run(run)
+
+
 @pytest.mark.parametrize(
     ("module", "framework", "package"),
     [
+        ("hypequery.agent.langchain", "langchain_core", "langchain-core"),
         ("hypequery.agent.openai_agents", "agents", "openai-agents"),
         ("hypequery.agent.pydantic_ai", "pydantic_ai", "pydantic-ai-slim"),
     ],

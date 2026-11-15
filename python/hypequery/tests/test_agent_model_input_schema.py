@@ -153,3 +153,18 @@ def test_the_pydantic_ai_adapter_sends_the_flat_schema() -> None:
         _assert_flat(tool.function_schema.json_schema)
 
     anyio.run(run)
+
+
+def test_the_langchain_adapter_sends_the_flat_schema() -> None:
+    pytest.importorskip("langchain_core", reason="langchain-core is not installed")
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+
+    from hypequery.agent.langchain import hypequery_tools
+
+    async def run() -> None:
+        [tool] = await hypequery_tools(client=_Listed())
+        assert isinstance(tool.args_schema, dict)
+        _assert_flat(tool.args_schema)
+        _assert_flat(convert_to_openai_tool(tool)["function"]["parameters"])
+
+    anyio.run(run)
