@@ -228,6 +228,11 @@ const guideLinks: HubLink[] = [
     description: 'Expose datasets to Claude, Cursor and other MCP clients without raw SQL.',
   },
   {
+    href: '/clickhouse-ai',
+    title: 'AI analytics chat for ClickHouse',
+    description: 'Give the Vercel AI SDK, Anthropic SDK or OpenAI Agents SDK your datasets as tools, so in-product chat answers match your dashboards.',
+  },
+  {
     href: '/compare/hypequery-vs-cube',
     title: 'hypequery vs Cube',
     description: 'A code-first library compared with a configuration-first semantic layer platform.',

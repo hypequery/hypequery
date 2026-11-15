@@ -81,6 +81,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
       { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
+      { label: 'ClickHouse AI chat', href: '/clickhouse-ai' },
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
       { label: 'Does Prisma Support ClickHouse?', href: '/blog/does-prisma-support-clickhouse' },
       { label: 'Query Builder vs ORM', href: '/blog/query-builder-vs-orm-clickhouse' },

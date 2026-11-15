@@ -318,7 +318,16 @@ export default function SemanticLayerAiAgentsPage() {
             <Link href="/clickhouse-mcp" className={inlineLink}>
               @hypequery/mcp
             </Link>{' '}
-            turns it into four tools. Nothing outside the published datasets is reachable.
+            turns it into four tools. Nothing outside the published datasets is reachable. For an assistant inside your
+            own product,{' '}
+            <Link href="/clickhouse-ai" className={inlineLink}>
+              @hypequery/agent
+            </Link>{' '}
+            hands the same tools to the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK (
+            <Link href="/blog/clickhouse-ai-chat-vercel-ai-sdk" className={inlineLink}>
+              tutorial
+            </Link>
+            ).
           </p>
         }
       >
