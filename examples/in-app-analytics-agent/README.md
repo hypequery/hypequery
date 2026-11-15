@@ -66,6 +66,10 @@ session's `tenantId`.
   `get_business_context`; they never change a query result.
 - **Self-hosted mode** (`lib/agent-tools.ts`): `hypequeryTools({ executor: createMCPExecutor({ datasets,
   analytics, tenantId, businessContext }) })` serves the same tools in process.
+- **Declined turns** (`lib/provider-options.ts`, `lib/chat-message.ts`): Claude's safety classifiers can decline a
+  question they misread, such as a customer asking about another customer. `fallbacks: 'default'` retries the turn
+  on Anthropic's recommended fallback model in the same request, and if that declines too, the chat says so
+  instead of showing an empty reply.
 - **T7, proven locally** (`test/t7-tenant-isolation.test.ts`): the real route handler, a scripted model that
   tries the injection three ways, and an in-process tenant endpoint that enforces the token's tenant over the
   seed. Only the signed-in customer's rows ever come back. No model, no Cloud. `test/t7-self-hosted.test.ts`
