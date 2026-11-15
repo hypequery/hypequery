@@ -16,6 +16,7 @@
  * `ToolResultBlockParam`.
  */
 import { resolveToolsClient, toModelOutput } from './client.js';
+import { toModelInputSchema } from './utils/model-input-schema.js';
 import type {
   HypequeryCallOptions,
   HypequeryJsonSchema,
@@ -104,7 +105,7 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
     tools: definitions.map(definition => ({
       name: definition.name,
       description: definition.description,
-      input_schema: definition.inputSchema,
+      input_schema: toModelInputSchema(definition.inputSchema),
     })),
     runTool,
     toolResult,

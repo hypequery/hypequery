@@ -11,6 +11,7 @@
  */
 import { jsonSchema, tool, type Tool } from 'ai';
 import { resolveToolsClient, toModelOutput } from './client.js';
+import { toModelInputSchema } from './utils/model-input-schema.js';
 import type { HypequeryToolsSource } from './types.js';
 
 /** One hypequery tool as an AI SDK tool. Its output is the data, or `{ error }`. */
@@ -35,7 +36,7 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
   for (const definition of definitions) {
     tools[definition.name] = tool<Record<string, unknown>, unknown, any>({
       description: definition.description,
-      inputSchema: jsonSchema<Record<string, unknown>>(definition.inputSchema as Parameters<typeof jsonSchema>[0]),
+      inputSchema: jsonSchema<Record<string, unknown>>(toModelInputSchema(definition.inputSchema) as Parameters<typeof jsonSchema>[0]),
       execute: async (input, { abortSignal }) => toModelOutput(
         await client.callTool(definition.name, input, { signal: abortSignal }),
       ),
