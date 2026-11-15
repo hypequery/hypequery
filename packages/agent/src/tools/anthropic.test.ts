@@ -1,5 +1,5 @@
-import { toModelInputSchema } from "./utils/model-input-schema.js";
-import type { HypequeryJsonSchema } from "./types.js";
+import { toModelInputSchema } from './utils/model-input-schema.js';
+import type { HypequeryJsonSchema } from './types.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';

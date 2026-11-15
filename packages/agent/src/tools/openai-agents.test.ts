@@ -1,5 +1,5 @@
-import { toModelInputSchema } from "./utils/model-input-schema.js";
-import type { HypequeryJsonSchema } from "./types.js";
+import { toModelInputSchema } from './utils/model-input-schema.js';
+import type { HypequeryJsonSchema } from './types.js';
 import { Agent, run, setTracingDisabled } from '@openai/agents';
 import { assistantMessage, functionCall, ScriptedModel } from '@openai/agents/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

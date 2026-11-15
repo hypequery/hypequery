@@ -1,5 +1,5 @@
-import { toModelInputSchema } from "./utils/model-input-schema.js";
-import type { HypequeryJsonSchema } from "./types.js";
+import { toModelInputSchema } from './utils/model-input-schema.js';
+import type { HypequeryJsonSchema } from './types.js';
 import { generateText, stepCountIs } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
