@@ -224,7 +224,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <div className="flex items-center gap-2.5"><Bot className="h-5 w-5 text-accent" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">AI SDK tools</h3><div className="framework-logo-cluster ml-auto flex shrink-0 items-center pl-1" aria-label="Vercel AI SDK, Anthropic SDK or OpenAI Agents SDK">
             {([
               ['Vercel AI SDK', SiVercel, 'text-text'],
-              ['Anthropic SDK', SiAnthropic, 'text-[#d97757]'],
+              ['Anthropic SDK', SiAnthropic, 'text-text'],
               ['OpenAI Agents SDK', RiOpenaiFill, 'text-text'],
             ] as const).map(([name, Icon, color]) => <span key={name} title={name} data-tooltip={name} aria-label={name} className={`logo-tooltip framework-logo inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg bg-bg-card shadow-card ${color}`}><Icon className="h-3.5 w-3.5" aria-hidden="true" /></span>)}
           </div></div>
@@ -246,7 +246,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <DeployWaitlist location="home-embedded-chat" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Join the waitlist <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></DeployWaitlist>
         </motion.article>
         <motion.article variants={ENTRANCE} initial={reducedMotion ? false : "hidden"} whileInView="visible" viewport={{ once: true, amount: 0.15 }} custom={0.12} className="min-w-0 pb-7 md:pl-6 md:pt-7 lg:pl-8">
-          <div className="flex items-center gap-2.5"><FaSlack className="h-5 w-5 text-[#e01e5a]" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Slack</h3><ComingSoon /></div>
+          <div className="flex items-center gap-2.5"><FaSlack className="h-5 w-5 text-text" aria-hidden="true" /><h3 className="text-xl font-medium tracking-tight text-text">Slack</h3><ComingSoon /></div>
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Ask in a channel and get the same number your dashboard shows, without leaving Slack.</p>
           <div className={`mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card text-[11px] shadow-card ${COMPACT_PREVIEW_HEIGHT}`} aria-label="Illustrative Slack thread asking hypequery for revenue by country">
             <div className="border-b border-border px-4 py-2.5 font-medium text-text"># revenue</div>
