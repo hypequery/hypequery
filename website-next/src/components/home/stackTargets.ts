@@ -20,6 +20,12 @@ export const AGENT_GROUPS: StackGroup[] = [
     ],
   },
   {
+    label: 'In your app (Python)',
+    targets: [
+      { id: 'pydantic-ai', name: 'Pydantic AI', detail: 'Tools for Agent(tools=...)', href: '/clickhouse-pydantic' },
+    ],
+  },
+  {
     label: 'Over MCP',
     targets: [
       { id: 'claude', name: 'Claude', detail: 'Claude Code and Claude Desktop', href: '/blog/clickhouse-mcp-claude-code' },

@@ -637,6 +637,7 @@ export default function ClickHousePythonPage() {
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-django', label: 'ClickHouse with Django' },
         { href: '/clickhouse-flask', label: 'ClickHouse with Flask' },
+        { href: '/clickhouse-pydantic', label: 'ClickHouse with Pydantic AI' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

@@ -141,6 +141,7 @@ export default function ClickHousePythonMcpPage() {
         { href: '/clickhouse-python', label: 'ClickHouse with Python' },
         { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse with FastAPI' },
+        { href: '/clickhouse-pydantic', label: 'ClickHouse with Pydantic AI' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
         { href: '/python-semantic-layer', label: 'Python semantic layer' },
       ]}

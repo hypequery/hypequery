@@ -199,6 +199,11 @@ const servingLinks: HubLink[] = [
     title: 'ClickHouse MCP from Python',
     description: 'Give MCP clients your Python datasets. Python keeps the SQL, auth and tenant.',
   },
+  {
+    href: '/clickhouse-pydantic',
+    title: 'ClickHouse with Pydantic AI',
+    description: 'Typed analytics tools for a Pydantic AI agent. Datasets are Pydantic models.',
+  },
 ];
 
 const comparisonLinks: HubLink[] = [
