@@ -16,8 +16,8 @@ export const AGENT_GROUPS: StackGroup[] = [
     targets: [
       { id: 'ai-sdk', name: 'Vercel AI SDK', detail: 'TypeScript: tools for streamText and generateText', href: '/docs/agents/quickstart' },
       { id: 'pydantic-ai', name: 'Pydantic AI', detail: 'Python: tools for Agent(tools=...)', href: '/clickhouse-pydantic' },
-      { id: 'anthropic-sdk', name: 'Anthropic SDK', detail: 'TypeScript and Python: tool definitions and tool_result helpers', href: '/docs/agents/tools#anthropic-sdk' },
-      { id: 'openai-agents', name: 'OpenAI Agents SDK', detail: 'TypeScript and Python: function tools for an Agent', href: '/docs/agents/tools#openai-agents-sdk' },
+      { id: 'anthropic-sdk', name: 'Anthropic SDK', detail: 'TypeScript and Python: tool definitions and tool_result helpers', href: '/docs/agents/quickstart#create-the-tools-for-one-request' },
+      { id: 'openai-agents', name: 'OpenAI Agents SDK', detail: 'TypeScript and Python: function tools for an Agent', href: '/docs/agents/quickstart#create-the-tools-for-one-request' },
     ],
   },
   {
