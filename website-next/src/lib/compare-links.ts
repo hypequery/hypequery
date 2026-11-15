@@ -22,6 +22,9 @@ const NEUTRAL_SLUGS = new Set([
   'hypequery-vs-propel',
 ]);
 
+// Agent and AI comparisons, which send readers to the in-product AI path.
+const AI_SLUGS = new Set(['hypequery-vs-clickhouse-agents']);
+
 const COMPARE_HUB: Link = {
   href: '/compare',
   title: 'Compare more options',
@@ -42,6 +45,23 @@ export function compareLinksFor(slug: string): CompareLinks {
         { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Define a dataset and run your first semantic query from Python.' },
         { href: '/clickhouse-python', title: 'ClickHouse with Python', description: 'How hypequery fits next to the driver you already use.' },
         { href: '/python-semantic-layer', title: 'Python semantic layer', description: 'Datasets served from FastAPI, Django, or Flask, and used from notebooks.' },
+        COMPARE_HUB,
+      ],
+    };
+  }
+  if (AI_SLUGS.has(slug)) {
+    return {
+      primary: { href: '/blog/clickhouse-ai-chat-vercel-ai-sdk', label: 'Build an AI chat on ClickHouse', target: 'blog_clickhouse_ai_chat' },
+      secondary: { href: '/clickhouse-ai', label: 'AI analytics chat for ClickHouse' },
+      body: { href: '/clickhouse-ai', label: 'AI analytics chat for ClickHouse' },
+      nextStep: {
+        title: 'Give your product\'s agent governed ClickHouse tools',
+        description: 'Define a dataset, serve it as MCP tools, and hand them to the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK.',
+      },
+      related: [
+        { href: '/clickhouse-ai', title: 'AI analytics chat for ClickHouse', description: 'Governed tools for the agent inside your product.' },
+        { href: '/docs/agents/ai-sdk', title: 'Vercel AI SDK docs', description: 'streamText, generateText, useChat and every hypequeryTools() option.' },
+        { href: '/blog/clickhouse-mcp-servers-compared', title: 'Official ClickHouse MCP vs governed MCP', description: 'When a raw SQL tool is fine, and when it becomes a problem.' },
         COMPARE_HUB,
       ],
     };

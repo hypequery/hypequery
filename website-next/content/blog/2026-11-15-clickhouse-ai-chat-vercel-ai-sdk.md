@@ -281,7 +281,7 @@ The message lists the valid fields, so on the next step the model retries with `
 
 ## How do I make it multi-tenant, so each customer only sees their data?
 
-With one shared key, everyone who uses the chat is the same caller and sees the same data. That's fine for an internal tool. In a SaaS product, the tenant has to come from the signed-in user, never from the prompt. There are two ways to do it.
+With one shared key, everyone who uses the chat is the same caller and sees the same data. That's fine for an internal tool. In a SaaS product, the tenant has to come from the signed-in user, never from the prompt ([why a prompt is not a tenant boundary](/blog/ai-agent-multi-tenant-data-isolation)). There are two ways to do it.
 
 **Self-hosted.** Run `npx hypequery mcp --http` without `HYPEQUERY_MCP_KEY`, and it verifies callers with the `auth` and `tenant` you passed to `defineServe`, exactly as over REST. Give each dataset a `tenantKey`, then pass the signed-in user's token as `token` in the route. [Remote MCP over HTTP](/docs/mcp/remote#reuse-your-applications-auth) covers the rules.
 
@@ -354,3 +354,5 @@ Yes. The datasets in `analytics/api.ts` are the same ones you serve over REST or
 - [Vercel AI SDK docs page](/docs/agents/ai-sdk): every option `hypequeryTools()` accepts.
 - [MCP tools reference](/docs/mcp/tools): the arguments, operators and error codes the model sees.
 - [AI analytics chat for ClickHouse](/clickhouse-ai): how the pieces fit for in-product AI.
+- [What is agentic analytics?](/blog/agentic-analytics): the pattern behind this app, and how to evaluate it.
+- [hypequery vs ClickHouse Agents](/compare/hypequery-vs-clickhouse-agents): when ClickHouse's managed agent is the better fit.

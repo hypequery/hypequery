@@ -283,6 +283,21 @@ npx hypequery mcp --http
           description: 'The Anthropic SDK and OpenAI Agents SDK adapters.',
         },
         {
+          href: '/blog/ai-agent-multi-tenant-data-isolation',
+          title: 'Stop an AI agent leaking data between tenants',
+          description: 'Row policies, scoped tools and scoped tokens, with tests you can run.',
+        },
+        {
+          href: '/blog/text-to-sql-vs-semantic-layer',
+          title: 'Text-to-SQL vs a semantic layer',
+          description: 'Where NL2SQL agents go wrong, where they are the right tool, and how to combine them.',
+        },
+        {
+          href: '/compare/hypequery-vs-clickhouse-agents',
+          title: 'hypequery vs ClickHouse Agents',
+          description: 'An agent for your team, or an agent in your product.',
+        },
+        {
           href: '/semantic-layer/ai-agents',
           title: 'Semantic layer for AI agents',
           description: 'Why agents need named metrics instead of raw text-to-SQL, and how the options compare.',

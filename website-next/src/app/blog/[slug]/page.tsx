@@ -39,7 +39,13 @@ function getRelatedLinks(slug: string): RelatedContentLink[] {
     ];
   }
 
-  if (slug.includes('ai-sdk') || slug.includes('ai-chat')) {
+  if (
+    slug.includes('ai-sdk') ||
+    slug.includes('ai-chat') ||
+    slug.includes('ai-agent') ||
+    slug === 'agentic-analytics' ||
+    slug === 'text-to-sql-vs-semantic-layer'
+  ) {
     return [
       {
         href: '/clickhouse-ai',

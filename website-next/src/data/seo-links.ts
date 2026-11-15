@@ -54,6 +54,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'vs Drizzle', href: '/compare/hypequery-vs-drizzle' },
       { label: 'vs Prisma', href: '/compare/hypequery-vs-prisma' },
       { label: 'vs Cube', href: '/compare/hypequery-vs-cube' },
+      { label: 'vs ClickHouse Agents', href: '/compare/hypequery-vs-clickhouse-agents' },
       { label: 'vs Tinybird', href: '/compare/hypequery-vs-tinybird' },
       { label: 'ClickHouse Cloud vs Tinybird', href: '/compare/clickhouse-cloud-vs-tinybird' },
       { label: 'vs Moose', href: '/compare/hypequery-vs-moose' },

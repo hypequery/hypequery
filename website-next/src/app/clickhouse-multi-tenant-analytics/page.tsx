@@ -147,6 +147,11 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           description: 'The detailed configuration guide for tenant extraction and auto-injection.',
         },
         {
+          href: '/blog/ai-agent-multi-tenant-data-isolation',
+          title: 'Tenant isolation for AI agents',
+          description: 'Stop an analytics agent reading another customer\'s data: row policies, scoped tools and scoped tokens.',
+        },
+        {
           href: '/use-cases/multi-tenant-saas',
           title: 'Multi-tenant SaaS use case',
           description: 'See how the product use case is framed for teams evaluating hypequery.',

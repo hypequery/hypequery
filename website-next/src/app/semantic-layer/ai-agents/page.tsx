@@ -327,7 +327,11 @@ export default function SemanticLayerAiAgentsPage() {
             <Link href="/blog/clickhouse-ai-chat-vercel-ai-sdk" className={inlineLink}>
               tutorial
             </Link>
-            ).
+            ). For when raw SQL is still the right tool, see{' '}
+            <Link href="/blog/text-to-sql-vs-semantic-layer" className={inlineLink}>
+              text-to-SQL vs a semantic layer
+            </Link>
+            .
           </p>
         }
       >
