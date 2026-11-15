@@ -9,7 +9,7 @@
     "---Quick start---",
     "quick-start/index",
     "quick-start/api-and-dashboard",
-    "[Connect via MCP](/docs/mcp/quickstart)",
-    "[Add AI chat to your app](/docs/agents/quickstart)"
+    "[Plug][Connect via MCP](/docs/mcp/quickstart)",
+    "[MessagesSquare][Add AI chat to your app](/docs/agents/quickstart)"
   ]
 }
