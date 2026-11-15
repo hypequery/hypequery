@@ -4,6 +4,9 @@ type Schema = Record<string, unknown>;
 
 const COMBINATORS = ['anyOf', 'oneOf', 'allOf'] as const;
 
+/** Where a schema keeps the subschemas its `$ref`s point at; carried through so no reference breaks. */
+const DEFINITIONS = ['$defs', 'definitions'] as const;
+
 /**
  * A tool's input schema as model providers accept it: one object schema with no
  * `anyOf`, `oneOf` or `allOf` at the top. Anthropic rejects those outright, and
@@ -27,8 +30,11 @@ function flatten(schema: Schema): Schema {
   for (const member of schemasIn(allOf)) {
     if (isPlainObject(member.properties)) result = intersect(result, flatten(member));
   }
-  const variants = [...schemasIn(anyOf), ...schemasIn(oneOf)].map(flatten);
-  return variants.length > 0 ? intersect(result, union(variants)) : result;
+  // anyOf and oneOf both hold when both are present, so each narrows the result.
+  for (const alternatives of [schemasIn(anyOf), schemasIn(oneOf)]) {
+    if (alternatives.length > 0) result = intersect(result, union(alternatives.map(flatten)));
+  }
+  return result;
 }
 
 /** One object accepting what any variant accepts. */
@@ -45,10 +51,10 @@ function union(variants: Schema[]): Schema {
   const required = variants
     .map(variant => new Set(requiredOf(variant)))
     .reduce((shared, next) => new Set([...shared].filter(name => next.has(name))));
-  const union: Schema = { type: 'object', properties };
-  if (required.size > 0) union.required = [...required];
-  if (variants.every(variant => variant.additionalProperties === false)) union.additionalProperties = false;
-  return union;
+  const accepted: Schema = { type: 'object', properties, ...definitionsOf(variants) };
+  if (required.size > 0) accepted.required = [...required];
+  if (variants.every(variant => variant.additionalProperties === false)) accepted.additionalProperties = false;
+  return accepted;
 }
 
 /** One object holding both schemas' properties and requirements. */
@@ -59,11 +65,20 @@ function intersect(left: Schema, right: Schema): Schema {
     properties[name] = existing === undefined || same(existing, property) ? property : { allOf: [existing, property] };
   }
   const required = [...new Set([...requiredOf(left), ...requiredOf(right)])];
-  const merged: Schema = { ...right, ...left, type: 'object' };
+  const merged: Schema = { ...right, ...left, ...definitionsOf([left, right]), type: 'object' };
   if (Object.keys(properties).length > 0) merged.properties = properties;
   if (required.length > 0) merged.required = required;
   if (left.additionalProperties === false || right.additionalProperties === false) merged.additionalProperties = false;
   return merged;
+}
+
+function definitionsOf(schemas: Schema[]): Schema {
+  const found: Schema = {};
+  for (const key of DEFINITIONS) {
+    const merged = Object.assign({}, ...schemas.map(schema => (isPlainObject(schema[key]) ? schema[key] : {})));
+    if (Object.keys(merged).length > 0) found[key] = merged;
+  }
+  return found;
 }
 
 function schemasIn(value: unknown): Schema[] {

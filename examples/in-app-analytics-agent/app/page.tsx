@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { Chat } from '@/components/chat';
 import { UserSwitcher } from '@/components/user-switcher';
+import { agentMode } from '@/lib/agent-mode';
 import { DEMO_USERS, findDemoUser } from '@/lib/demo-users';
 import { SESSION_COOKIE } from '@/lib/session';
 
@@ -13,8 +14,9 @@ export default async function Home() {
       <header>
         <h1>Ask your analytics</h1>
         <p className="muted">
-          An AI SDK agent with hypequery Cloud&apos;s tools. Each answer is scoped to the signed-in user&apos;s
-          customer by the token the server mints for their session.
+          {agentMode() === 'self-hosted'
+            ? 'An AI SDK agent with hypequery’s tools, running in this app against your ClickHouse. Each answer is scoped to the signed-in user’s customer by their server-side session.'
+            : 'An AI SDK agent with hypequery Cloud’s tools. Each answer is scoped to the signed-in user’s customer by the token the server mints for their session.'}
         </p>
       </header>
       <UserSwitcher users={users} currentId={user?.id} />
