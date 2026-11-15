@@ -3,7 +3,7 @@
  * less than it says. These tokens are signed with the endpoint's own key, so
  * only the rule under test can refuse them.
  */
-import { createHypequeryToolsClient, HypequeryToolsError } from '@hypequery/agent';
+import { createRemoteToolsClient, HypequeryToolsError } from '@hypequery/agent';
 import { importJWK, SignJWT } from 'jose';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PERMISSION_SET, PROJECT, startFakeTenantEndpoint, TENANT_TOOLS, type FakeTenantEndpoint } from './fake-tenant-endpoint';
@@ -35,7 +35,7 @@ async function sign(issuedAgo: number, lifetime: number, claims: Record<string, 
 }
 
 async function listTools(token: string) {
-  const client = createHypequeryToolsClient({ url: `${key.hq_endpoint}/mcp`, token });
+  const client = createRemoteToolsClient({ url: `${key.hq_endpoint}/mcp`, token });
   try {
     return await client.listTools();
   } finally {

@@ -8,6 +8,7 @@ import { resolveToolsClient } from './client.js';
 import { HypequeryToolsError } from './errors.js';
 import { createInProcessToolsClient } from './in-process.js';
 import type { HypequeryToolExecutor, HypequeryToolResult } from './types.js';
+import { untilAborted } from './utils/abort.js';
 
 const ROWS = [{ region: 'EU', revenue: 340 }];
 const CLOUD_TENANT_TOOLS = ['list_datasets', 'get_dataset_schema', 'query_dataset', 'get_business_context'];
@@ -128,5 +129,24 @@ describe('in-process tools ({ executor })', () => {
     expect(() => createInProcessToolsClient({ executor: {} as never })).toThrow(TypeError);
     const { executor } = executorFor('tenant_a');
     expect(() => createInProcessToolsClient({ executor, tools: 'list_datasets' as never })).toThrow(TypeError);
+  });
+
+  it('wraps an executor that throws, and refuses input that is not an object', async () => {
+    const throwing: HypequeryToolExecutor = {
+      listTools: async () => ({ tools: [] }),
+      callTool: async () => { throw new Error('connection reset'); },
+    };
+    const client = createInProcessToolsClient({ executor: throwing });
+    const failed = client.callTool('list_datasets', {});
+    await expect(failed).rejects.toBeInstanceOf(HypequeryToolsError);
+    await expect(failed).rejects.toThrow('connection reset');
+    await expect(client.callTool('list_datasets', [1] as never)).rejects.toThrow(/must be an object/);
+  });
+
+  it('rejects at once when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('already stopped'));
+    await expect(untilAborted(new Promise(() => {}), controller.signal)).rejects.toThrow('already stopped');
+    await expect(untilAborted(Promise.resolve(1), undefined)).resolves.toBe(1);
   });
 });

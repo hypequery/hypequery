@@ -3,7 +3,7 @@ import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
 import { hypequeryTools } from './ai-sdk.js';
-import { createHypequeryToolsClient } from './client.js';
+import { createRemoteToolsClient } from './client.js';
 import type { HypequeryToolsClient } from './types.js';
 
 const TOKEN = 'agent-token-0123456789';
@@ -12,7 +12,7 @@ let client: HypequeryToolsClient;
 
 beforeEach(async () => {
   server = await startFixtureServer(TOKEN);
-  client = createHypequeryToolsClient({ url: server.url, token: TOKEN });
+  client = createRemoteToolsClient({ url: server.url, token: TOKEN });
 });
 afterEach(async () => {
   await client.close();

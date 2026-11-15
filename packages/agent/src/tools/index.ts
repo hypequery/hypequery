@@ -1,4 +1,4 @@
-export { createHypequeryToolsClient, toModelOutput } from './client.js';
+export { createHypequeryToolsClient, createRemoteToolsClient, toModelOutput } from './client.js';
 export { createInProcessToolsClient } from './in-process.js';
 export { HypequeryToolsError, REQUEST_ID_META_KEY } from './errors.js';
 export type {

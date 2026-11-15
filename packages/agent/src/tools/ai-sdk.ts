@@ -44,7 +44,7 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
   return tools;
 }
 
-export { createHypequeryToolsClient, toModelOutput } from './client.js';
+export { createHypequeryToolsClient, createRemoteToolsClient, toModelOutput } from './client.js';
 export { createInProcessToolsClient } from './in-process.js';
 export { HypequeryToolsError } from './errors.js';
 export type * from './types.js';
