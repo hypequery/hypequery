@@ -242,6 +242,11 @@ export default function ClickHouseAiSdkPage() {
           description: 'The AI SDK, Anthropic and OpenAI Agents adapters with hypequery Cloud (coming soon).',
         },
         {
+          href: '/docs/mcp/quickstart#take-it-to-production',
+          title: 'Take MCP to production',
+          description: 'Per-user auth, OAuth for Claude and ChatGPT, HTTPS and running the server as a service.',
+        },
+        {
           href: '/docs/agents/business-context',
           title: 'Business context',
           description: 'KPI definitions, glossary and caveats the model reads before it answers.',

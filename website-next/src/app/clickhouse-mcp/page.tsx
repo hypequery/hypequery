@@ -257,6 +257,11 @@ claude mcp list`,
           description: 'Expose your first dataset from TypeScript or Python, then share it over HTTP.',
         },
         {
+          href: '/docs/mcp/quickstart#take-it-to-production',
+          title: 'Take it to production',
+          description: 'Per-user auth so each caller sees only their tenant, OAuth for Claude and ChatGPT, HTTPS and hosting.',
+        },
+        {
           href: '/docs/mcp/tools',
           title: 'MCP tool catalog',
           description: 'See exactly what agents can discover and execute.',

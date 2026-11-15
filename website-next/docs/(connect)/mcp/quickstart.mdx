@@ -290,11 +290,83 @@ claude mcp add --transport http hypequery-http http://127.0.0.1:3333/mcp \
 </CodeBlock>
 
 Everyone with the key is the same caller and sees the same data. To open it to a network, give each person their own
-sign-in, or connect Claude or ChatGPT, see [Remote MCP over HTTP](/docs/mcp/remote).
+sign-in, or connect Claude or ChatGPT, see [Take it to production](#take-it-to-production) below.
+
+## Take it to production
+
+A shared key is one caller. To serve real users, with each one seeing only their own tenant, change four things.
+[Remote MCP over HTTP](/docs/mcp/remote) covers each in detail.
+
+**1. Give every caller their own identity.** Drop `HYPEQUERY_MCP_KEY`. Without it, `--http` verifies each caller with
+the auth your API already has, so each token names that caller's tenant, exactly as over REST.
+
+<Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+  <Tab value="TypeScript">
+    The `auth` you give `initServe` (for example `createJwtStrategy`) and the `tenant` you give `serve`
+    (`tenant: { extract: (auth) => auth.tenantId, required: true }`), as in
+    [Serve an API and a dashboard](/docs/quick-start/api-and-dashboard). MCP applies only that global auth and tenant, so `--http` refuses to start if a dataset entry
+    sets its own `auth`, roles, scopes or middlewares, or the API has global middlewares.
+  </Tab>
+
+  <Tab value="Python">
+    The `Api`'s own `auth`, which must read a header: `jwt_strategy`, `bearer_token` or `api_key`. The development
+    `from_context` caller from the quick starts can't be used over MCP. Each caller's credential is forwarded on
+    every call, so the API also applies each endpoint's policy, scopes and rate limits.
+  </Tab>
+</Tabs>
+
+**2. Let Claude and ChatGPT sign users in (optional).** With `--resource` set to the public URL, the server publishes
+OAuth metadata and challenges unauthenticated clients, so Claude and ChatGPT connectors can start the sign-in with your
+identity provider (Auth0, Clerk, WorkOS, ...). Your JWT strategy's audience must be exactly that URL.
+
+<Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+  <Tab value="TypeScript">
+    <CodeBlock>
+      ```bash
+      npx hypequery mcp --http \
+        --resource https://mcp.example.com/mcp \
+        --authorization-servers https://example.auth0.com/
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="Python">
+    <CodeBlock>
+      ```bash
+      hypequery mcp app:api --http \
+        --resource https://mcp.example.com/mcp \
+        --authorization-servers https://example.auth0.com/
+      ```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+**3. Put HTTPS in front.** The server speaks plain HTTP on loopback. Terminate TLS at a reverse proxy or load balancer
+and forward the original `Host` header; in nginx, also turn off response buffering for the MCP location.
+
+<CodeBlock>
+```text
+# Caddyfile
+mcp.example.com {
+  reverse_proxy 127.0.0.1:3333
+}
+```
+</CodeBlock>
+
+The server answers only allowed host names. With `--resource`, its hostname is allowed automatically; without it, add
+`--allowed-hosts mcp.example.com`. If browser pages call the server directly, list them in `--allowed-origins`.
+
+**4. Run it as a service.** Sessions are held in memory, so run one process per server, or route each session's
+requests (the `mcp-session-id` header) back to the process that opened it. Request bodies (1 MiB), open sessions (100)
+and idle sessions (30 minutes) are already bounded.
+
+Your agents then connect to `https://mcp.example.com/mcp` with each user's token: Claude and ChatGPT through OAuth, and
+the agent in your own product through the hypequery tools, as in
+[Add AI chat to your app](/docs/agents/quickstart#connect-to-your-own-mcp-server).
 
 <Callout type="info">
-  Rather not run the server yourself? [hypequery Cloud](/docs/cloud/mcp) hosts the MCP endpoint for every release,
-  with OAuth sign-in for your users.
+  Rather not run the server yourself? [hypequery Cloud](/docs/cloud/mcp) (coming soon) will host the MCP endpoint for
+  every release, against your own ClickHouse, with OAuth sign-in for your users.
 </Callout>
 
 ## Next steps
