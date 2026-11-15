@@ -5,20 +5,12 @@ import { createMCPExecutor } from '@hypequery/mcp';
 import { businessContext } from '@/analytics/business-context';
 import { Events } from '@/analytics/datasets';
 import { analytics } from './analytics';
+import { agentMode } from './agent-mode';
 import type { DemoUser } from './demo-users';
 import { refreshingToken } from './refreshing-token';
 
 /** The tools the agent gets, in either mode: the same set as Cloud's tenant endpoint. */
 export const AGENT_TOOLS = ['list_datasets', 'get_dataset_schema', 'query_dataset', 'get_business_context'];
-
-/** `cloud` (the default) or `self-hosted`. Explicit, so a missing key never silently switches modes. */
-export function agentMode(): 'cloud' | 'self-hosted' {
-  const mode = process.env.HYPEQUERY_MODE ?? 'cloud';
-  if (mode !== 'cloud' && mode !== 'self-hosted') {
-    throw new Error(`HYPEQUERY_MODE must be "cloud" or "self-hosted", not "${mode}".`);
-  }
-  return mode;
-}
 
 const datasets = publishDatasets().publish(Events).build();
 

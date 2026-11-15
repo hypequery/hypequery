@@ -51,7 +51,7 @@ export function Chat({ customer }: { customer: string }) {
         </div>
       ) : null}
       <form onSubmit={submit} className="composer">
-        <input value={input} onChange={(event) => setInput(event.target.value)} placeholder={`Ask about ${customer}'s usage`} aria-label="Message" />
+        <input value={input} onChange={(event) => setInput(event.target.value)} placeholder={`Ask about ${customer} usage`} aria-label="Message" />
         <button type="submit" disabled={busy}>{busy ? 'Thinking…' : 'Send'}</button>
       </form>
     </section>
