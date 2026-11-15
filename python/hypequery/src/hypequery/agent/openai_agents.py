@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Unpack
 
 from .source import ToolsSource, resolve_tools_client
 from .types import ToolDefinition, ToolsClient
+from .utils.model_input_schema import to_model_input_schema
 from .utils.results import to_model_output
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ def _function_tool(client: ToolsClient, definition: ToolDefinition) -> FunctionT
     return FunctionTool(
         name=definition.name,
         description=definition.description,
-        params_json_schema=definition.input_schema,
+        params_json_schema=to_model_input_schema(definition.input_schema),
         on_invoke_tool=invoke,
         strict_json_schema=False,
     )

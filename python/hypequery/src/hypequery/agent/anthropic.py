@@ -28,6 +28,7 @@ from typing import Unpack
 
 from .source import ToolsSource, resolve_tools_client
 from .types import JsonObject, ToolResult, ToolsClient, ToolSuccess
+from .utils.model_input_schema import to_model_input_schema
 from .utils.results import to_model_output
 
 
@@ -106,7 +107,11 @@ async def hypequery_tools(**source: Unpack[ToolsSource]) -> AnthropicTools:
     client = resolve_tools_client(**source)
     definitions = await client.list_tools()
     tools: list[JsonObject] = [
-        {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "input_schema": to_model_input_schema(tool.input_schema),
+        }
         for tool in definitions
     ]
     return AnthropicTools(tools=tools, client=client)

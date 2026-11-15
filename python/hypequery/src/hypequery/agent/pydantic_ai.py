@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Unpack
 
 from .source import ToolsSource, resolve_tools_client
 from .types import ToolDefinition, ToolsClient
+from .utils.model_input_schema import to_model_input_schema
 from .utils.results import to_model_output
 
 if TYPE_CHECKING:
@@ -35,7 +36,7 @@ def _tool(client: ToolsClient, definition: ToolDefinition) -> Tool[Any]:
         run,
         name=definition.name,
         description=definition.description,
-        json_schema=definition.input_schema,
+        json_schema=to_model_input_schema(definition.input_schema),
     )
 
 
