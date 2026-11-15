@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/async-inserts-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Ingest from Node into ClickHouse three ways with hypequery: per-row inserts, client-side batches, and async_insert, measured by parts created and rows landed",
   "type": "module",

@@ -10,6 +10,7 @@ import { assertManifestWithinBudget, resolveCatalogBudget } from './tools/utils/
 import { createMCPErrorResponse, createMCPResultTooLargeResponse, createMCPToolResponse } from './tools/utils/tool-response.js';
 import { backendRequest, backendText, backendUrl, discardBackendBody, type BackendHeaders, type HttpBackend } from './utils/http-client/transport.js';
 import { httpToolArguments } from './utils/http-client/arguments.js';
+import { clientQueryFieldHint, clientQueryTargetHint } from './utils/http-client/query-hint.js';
 import { mcpClientProfile } from './utils/http-client/profile.js';
 import { clientHttpResult } from './utils/http-client/result.js';
 import { clientHttpManifest } from './utils/http-client/manifest.js';
@@ -108,13 +109,17 @@ export class HypequeryMCPHttpExecutor implements MCPToolExecutor {
     const endpoint = this.schemas.contract.endpoints.find(item => name === 'query_dataset'
       ? item.kind === 'dataset' && item.id === input.dataset
       : item.kind === 'metric' && item.dataset === input.dataset && item.id === input.metric);
-    if (!endpoint) throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'Invalid client query target.');
+    if (!endpoint) {
+      throw new MCPToolError('MCP_INVALID_ARGUMENTS', `Invalid client query target.${clientQueryTargetHint(this.schemas.contract, name)}`);
+    }
     try {
       return validateProtocolClientQuery(this.schemas.contract, endpoint.id, input, 'mcp');
     } catch (error) {
-      // The pointer names a contract member or an index, never a submitted value.
+      // The pointer and the hint name contract members or an index, never a submitted value.
       const path = error instanceof ProtocolClientContractError ? error.path : '';
-      throw new MCPToolError('MCP_INVALID_ARGUMENTS', path ? `Invalid client query at ${path}.` : 'Invalid client query.');
+      throw new MCPToolError('MCP_INVALID_ARGUMENTS', path
+        ? `Invalid client query at ${path}.${clientQueryFieldHint(endpoint, path)}`
+        : 'Invalid client query.');
     }
   }
 
