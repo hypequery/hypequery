@@ -26,7 +26,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Unpack
 
-from .source import ToolsSource, tools_client
+from .source import ToolsSource, resolve_tools_client
 from .types import JsonObject, ToolResult, ToolsClient, ToolSuccess
 from .utils.results import to_model_output
 
@@ -103,7 +103,7 @@ async def hypequery_tools(**source: Unpack[ToolsSource]) -> AnthropicTools:
     refused token or an unreachable endpoint raises `HypequeryToolsError`.
     """
 
-    client = tools_client(**source)
+    client = resolve_tools_client(**source)
     definitions = await client.list_tools()
     tools: list[JsonObject] = [
         {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}

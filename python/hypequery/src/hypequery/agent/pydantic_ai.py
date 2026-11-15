@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Unpack
 
-from .source import ToolsSource, tools_client
+from .source import ToolsSource, resolve_tools_client
 from .types import ToolDefinition, ToolsClient
 from .utils.results import to_model_output
 
@@ -53,5 +53,5 @@ async def hypequery_tools(**source: Unpack[ToolsSource]) -> list[Tool[Any]]:
         raise ImportError(
             'hypequery_tools for Pydantic AI needs it: pip install "pydantic-ai-slim"'
         ) from error
-    client = tools_client(**source)
+    client = resolve_tools_client(**source)
     return [_tool(client, definition) for definition in await client.list_tools()]

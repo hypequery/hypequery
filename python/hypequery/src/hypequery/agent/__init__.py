@@ -18,7 +18,7 @@ token is minted, so this package imports without it.
 
 from __future__ import annotations
 
-from .clients.executor import ExecutorToolsClient
+from .clients.in_process import InProcessToolsClient
 from .clients.remote import RemoteToolsClient
 from .errors import HypequeryToolsError
 from .mint import (
@@ -28,7 +28,7 @@ from .mint import (
     agent_token_audience,
     mint_agent_token,
 )
-from .source import ToolsSource, resolve_tools_client
+from .source import ToolsSource
 from .types import (
     OnResult,
     Token,
@@ -47,8 +47,8 @@ __all__ = [
     "REQUEST_ID_META_KEY",
     "AgentToken",
     "AgentTokenError",
-    "ExecutorToolsClient",
     "HypequeryToolsError",
+    "InProcessToolsClient",
     "OnResult",
     "RemoteToolsClient",
     "Token",
@@ -62,6 +62,5 @@ __all__ = [
     "ToolsSource",
     "agent_token_audience",
     "mint_agent_token",
-    "resolve_tools_client",
     "to_model_output",
 ]

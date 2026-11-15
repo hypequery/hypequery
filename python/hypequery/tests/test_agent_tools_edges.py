@@ -12,17 +12,17 @@ import anyio
 import pytest
 
 from hypequery.agent import (
-    ExecutorToolsClient,
     HypequeryToolsError,
+    InProcessToolsClient,
     RemoteToolsClient,
     ToolErrorDetails,
     ToolFailure,
     ToolResult,
     ToolSuccess,
-    resolve_tools_client,
 )
 from hypequery.agent.anthropic import AnthropicTools
 from hypequery.agent.clients.remote import _Refusal, to_tools_error
+from hypequery.agent.source import resolve_tools_client
 from hypequery.agent.utils.endpoint_url import tools_endpoint_url
 from hypequery.agent.utils.results import (
     data_from_result,
@@ -69,13 +69,13 @@ class FakeExecutor:
 
 def test_an_executor_without_list_tools_and_call_tool_is_refused() -> None:
     with pytest.raises(TypeError, match="list_tools and call_tool"):
-        ExecutorToolsClient(object())  # type: ignore[arg-type]
+        InProcessToolsClient(object())  # type: ignore[arg-type]
 
 
 def test_the_executor_lists_once_and_rethrows_its_own_errors() -> None:
     async def run() -> None:
         executor = FakeExecutor()
-        client = ExecutorToolsClient(executor)  # type: ignore[arg-type]
+        client = InProcessToolsClient(executor)  # type: ignore[arg-type]
         assert [tool.name for tool in await client.list_tools()] == ["a"]
         assert [tool.name for tool in await client.list_tools()] == ["a"]
         assert executor.list_calls == 1
@@ -83,7 +83,7 @@ def test_the_executor_lists_once_and_rethrows_its_own_errors() -> None:
 
         refused = HypequeryToolsError(_details(code="MCP_UNAUTHORIZED"))
         with pytest.raises(HypequeryToolsError) as raised:
-            await ExecutorToolsClient(FakeExecutor(list_error=refused)).list_tools()  # type: ignore[arg-type]
+            await InProcessToolsClient(FakeExecutor(list_error=refused)).list_tools()  # type: ignore[arg-type]
         assert raised.value is refused
 
     anyio.run(run)
@@ -91,11 +91,11 @@ def test_the_executor_lists_once_and_rethrows_its_own_errors() -> None:
 
 def test_tools_must_be_a_list_of_names_and_input_an_object() -> None:
     with pytest.raises(TypeError, match="list of tool names"):
-        ExecutorToolsClient(FakeExecutor(), tools="list_datasets")  # type: ignore[arg-type]
+        InProcessToolsClient(FakeExecutor(), tools="list_datasets")  # type: ignore[arg-type]
 
     async def run() -> None:
         with pytest.raises(TypeError, match="must be an object"):
-            await ExecutorToolsClient(FakeExecutor()).call_tool("a", [1])  # type: ignore[arg-type]
+            await InProcessToolsClient(FakeExecutor()).call_tool("a", [1])  # type: ignore[arg-type]
 
     anyio.run(run)
 
@@ -103,7 +103,7 @@ def test_tools_must_be_a_list_of_names_and_input_an_object() -> None:
 def test_an_executor_that_lists_no_tools_is_an_error() -> None:
     async def run() -> None:
         with pytest.raises(HypequeryToolsError, match="listed no tools"):
-            await ExecutorToolsClient(FakeExecutor({"tools": "nope"})).list_tools()  # type: ignore[arg-type]
+            await InProcessToolsClient(FakeExecutor({"tools": "nope"})).list_tools()  # type: ignore[arg-type]
 
     anyio.run(run)
 

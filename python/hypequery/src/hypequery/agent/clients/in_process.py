@@ -24,7 +24,7 @@ def _failure(message: str, *, code: str = "MCP_EXECUTION_FAILED") -> HypequeryTo
     )
 
 
-class ExecutorToolsClient:
+class InProcessToolsClient:
     """The tools of an executor in this process, such as `hypequery.mcp.ClientContractExecutor`.
 
     The executor decides who is asking: build it per request from the signed-in

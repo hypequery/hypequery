@@ -11,15 +11,15 @@ import anyio
 import pytest
 
 from hypequery.agent import (
-    ExecutorToolsClient,
     HypequeryToolsError,
+    InProcessToolsClient,
     ToolFailure,
     ToolResult,
     ToolSuccess,
-    resolve_tools_client,
     to_model_output,
 )
 from hypequery.agent.anthropic import hypequery_tools as anthropic_tools
+from hypequery.agent.source import resolve_tools_client
 from hypequery.agent.utils.endpoint_url import tools_endpoint_url
 from hypequery.agent.utils.results import error_from_result, to_tool_result
 from hypequery.mcp import ApiContractBackend, ClientContractExecutor
@@ -40,7 +40,7 @@ def test_the_executor_client_lists_and_runs_the_tools_for_one_tenant() -> None:
     async def run() -> None:
         executor, rows = await reader_executor()
         seen: list[ToolResult] = []
-        client = ExecutorToolsClient(executor, on_result=seen.append)
+        client = InProcessToolsClient(executor, on_result=seen.append)
 
         assert [tool.name for tool in await client.list_tools()] == TOOLS
         result = await client.call_tool(
@@ -60,7 +60,7 @@ def test_the_executor_client_lists_and_runs_the_tools_for_one_tenant() -> None:
 def test_a_tool_error_is_a_result_the_model_can_act_on() -> None:
     async def run() -> None:
         executor, _ = await reader_executor()
-        client = ExecutorToolsClient(executor)
+        client = InProcessToolsClient(executor)
         result = await client.call_tool("get_dataset_schema", {"dataset": "nope"})
         assert isinstance(result, ToolFailure)
         assert result.error.code.startswith("MCP_")
@@ -74,7 +74,7 @@ def test_a_tool_error_is_a_result_the_model_can_act_on() -> None:
 def test_an_allowlist_hides_and_refuses_other_tools() -> None:
     async def run() -> None:
         executor, _ = await reader_executor()
-        client = ExecutorToolsClient(executor, tools=["list_datasets", "query_dataset"])
+        client = InProcessToolsClient(executor, tools=["list_datasets", "query_dataset"])
         assert [tool.name for tool in await client.list_tools()] == [
             "list_datasets",
             "query_dataset",
@@ -98,7 +98,7 @@ def test_an_executor_that_raises_is_a_tools_error() -> None:
             raise RuntimeError("boom")
 
     async def run() -> None:
-        client = ExecutorToolsClient(Broken())
+        client = InProcessToolsClient(Broken())
         with pytest.raises(HypequeryToolsError):
             await client.list_tools()
         with pytest.raises(HypequeryToolsError):

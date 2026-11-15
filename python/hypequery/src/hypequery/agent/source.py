@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import TypedDict, Unpack
+from typing import TypedDict
 
-from .clients.executor import ExecutorToolsClient
+from .clients.in_process import InProcessToolsClient
 from .clients.remote import RemoteToolsClient
 from .types import OnResult, Token, ToolExecutor, ToolsClient
 
@@ -20,12 +20,6 @@ class ToolsSource(TypedDict, total=False):
     headers: Mapping[str, str]
     tools: Iterable[str]
     on_result: OnResult
-
-
-def tools_client(**source: Unpack[ToolsSource]) -> ToolsClient:
-    """`resolve_tools_client`, taking an adapter's keyword arguments as they were passed."""
-
-    return resolve_tools_client(**source)
 
 
 def resolve_tools_client(
@@ -62,7 +56,7 @@ def resolve_tools_client(
             raise TypeError(
                 "hypequery tools: token= and headers= are for url=; an executor needs neither."
             )
-        return ExecutorToolsClient(executor, tools=tools, on_result=on_result)
+        return InProcessToolsClient(executor, tools=tools, on_result=on_result)
     if url is None or token is None:
         raise TypeError("hypequery tools: url= needs token=.")
     if tools is not None:

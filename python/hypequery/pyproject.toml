@@ -323,7 +323,7 @@ source_modules = [
   "hypequery.agent.errors",
   "hypequery.agent.source",
   "hypequery.agent.utils",
-  "hypequery.agent.clients.executor",
+  "hypequery.agent.clients.in_process",
   "hypequery.agent.mint",
 ]
 forbidden_modules = ["mcp", "httpx2", "agents", "pydantic_ai", "anthropic"]

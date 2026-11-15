@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Unpack
 
-from .source import ToolsSource, tools_client
+from .source import ToolsSource, resolve_tools_client
 from .types import ToolDefinition, ToolsClient
 from .utils.results import to_model_output
 
@@ -59,5 +59,5 @@ async def hypequery_tools(**source: Unpack[ToolsSource]) -> list[FunctionTool]:
         raise ImportError(
             "hypequery_tools for the OpenAI Agents SDK needs it: pip install openai-agents"
         ) from error
-    client = tools_client(**source)
+    client = resolve_tools_client(**source)
     return [_function_tool(client, definition) for definition in await client.list_tools()]
