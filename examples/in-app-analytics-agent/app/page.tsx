@@ -21,7 +21,11 @@ export default async function Home() {
       </header>
       <UserSwitcher users={users} currentId={user?.id} />
       {user ? (
-        <Chat key={user.id} customer={user.tenantName} />
+        <Chat
+          key={user.id}
+          customer={user.tenantName}
+          otherCustomer={DEMO_USERS.find((other) => other.tenantId !== user.tenantId)?.tenantName}
+        />
       ) : (
         <p className="muted">Pick a demo user to start.</p>
       )}
