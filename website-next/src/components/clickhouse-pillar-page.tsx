@@ -261,7 +261,7 @@ export function ClickhousePillarPage({
             </div>
             <SetupCommand className="mt-4" defaultLanguage={language} />
             {stats && stats.length > 0 && (
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {stats.map((stat) => (
                   <div key={stat.label} className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
                     <p className="font-mono text-xs text-text-dim">{stat.label}</p>
@@ -283,7 +283,7 @@ export function ClickhousePillarPage({
               <p className="mt-4 max-w-[760px] text-sm leading-6 text-text-muted sm:text-base">
                 <RichText text={quickstart.description} />
               </p>
-              <ol className="mt-10 grid gap-6 lg:grid-cols-2">
+              <ol className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {quickstart.steps.map((step, index) => (
                   <li key={step.title} className={marketing.card}>
                     <p className="font-mono text-xs text-text-dim">Step {index + 1}</p>
@@ -378,7 +378,7 @@ export function ClickhousePillarPage({
               ) : null}
             </div>
           ) : null}
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {problems.map((problem) => {
               const CardHeading = problemsHeading ? 'h3' : 'h2';
               return (
@@ -393,7 +393,7 @@ export function ClickhousePillarPage({
 
         <section className={marketing.band}>
           <div className={`${marketing.container} py-14 sm:py-20`}>
-            <div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-[0.7fr_1.3fr]">
               <div>
                 <p className={marketing.eyebrow}>
                   {solutionSection.eyebrow}
@@ -424,7 +424,7 @@ export function ClickhousePillarPage({
         </section>
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
-          <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[0.7fr_1.3fr]">
             <div>
               <p className={marketing.eyebrow}>
                 {implementationSection.eyebrow}
@@ -456,7 +456,7 @@ export function ClickhousePillarPage({
         {additionalSections?.map((section, index) => (
           <section key={section.title} className={index % 2 === 0 ? marketing.band : undefined}>
             <div className={`${marketing.container} py-14 sm:py-20`}>
-              <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr]">
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[0.7fr_1.3fr]">
                 <div>
                   <p className={marketing.eyebrow}>{section.eyebrow}</p>
                   <h2 className={`mt-3 ${marketing.sectionTitle}`}>{section.title}</h2>
@@ -546,7 +546,7 @@ export function ClickhousePillarPage({
             <h2 className={`mt-3 ${marketing.sectionTitle}`}>
               Questions teams ask
             </h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
               {searchIntentCards.map((item) => (
                 <div key={item.title} className={marketing.card}>
                   <h3 className={marketing.cardTitle}><RichText text={item.title} /></h3>
@@ -581,7 +581,7 @@ export function ClickhousePillarPage({
           <section className={`${marketing.container} pt-14 sm:pt-20`}>
             <p className={marketing.eyebrow}>FAQ</p>
             <h2 className={`mt-3 ${marketing.sectionTitle}`}>Frequently asked questions</h2>
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
               {faq.map((item) => (
                 <div key={item.question} className={marketing.card}>
                   <h3 className={marketing.cardTitle}>{item.question}</h3>
@@ -593,13 +593,13 @@ export function ClickhousePillarPage({
         ) : null}
 
         <section className={`${marketing.container} py-14 sm:py-20`}>
-          <div className="grid gap-10 lg:grid-cols-[0.65fr_0.35fr]">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[0.65fr_0.35fr]">
             <div>
               <p className={marketing.eyebrow}>Further reading</p>
               <h2 className={`mt-3 ${marketing.sectionTitle}`}>
                 Go deeper where it actually helps
               </h2>
-              <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {readingLinks.map((item) => (
                   <Link
                     key={item.href}
