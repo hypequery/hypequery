@@ -11,7 +11,7 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { LanguageFromHash } from '@/components/docs/language-from-hash';
 
-<LanguageFromHash pythonAnchors={['try-it-in-one-command']} />
+<LanguageFromHash />
 
 Every hypequery feature starts from a **dataset**: one ClickHouse table described as the dimensions people group and
 filter by and the measures they ask for. You define it once, in code, and the same definition serves your API, your
@@ -30,8 +30,8 @@ Pick your language once: every code block on these pages follows it.
 
 <Callout type="info" title="No ClickHouse to hand?">
   TypeScript and Python both run on [chDB](/docs/chdb), ClickHouse embedded in your process, with no server or
-  credentials. In Python, one command also serves a sample dataset to an AI agent:
-  [try it in one command](#try-it-in-one-command).
+  credentials. In Python, `hypequery demo` also serves a sample dataset to an AI agent in one command: see the
+  [Python CLI](/docs/python/cli#hypequery-demo).
 </Callout>
 
 ## Define and query a dataset
@@ -331,31 +331,6 @@ You need a ClickHouse server you can query and Node.js 20+ or Python 3.11+. The 
     dataset now gets the same definition.
   </Step>
 </Steps>
-
-## Try it in one command [#try-it-in-one-command]
-
-In Python, one command serves a sample semantic layer to an AI agent over MCP, on ClickHouse embedded in the process.
-With only [uv](https://docs.astral.sh/uv/) installed:
-
-<CodeBlock>
-```bash
-uvx --from "hypequery[chdb,mcp]==0.1.0b4" hypequery demo --self-test
-```
-</CodeBlock>
-
-The demo seeds a small shop for two tenants, `acme` and `globex`. `--self-test` answers its questions in the
-terminal, each beside the answer a naive query gets: orders in a `ReplacingMergeTree` read as resolved rows (1,536,
-not the 2,864 row versions), exact and approximate distinct users, revenue growth by month, and a 7-day trailing
-measure, all scoped to one tenant. To let Claude Code query it:
-
-<CodeBlock>
-```bash
-claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]==0.1.0b4" hypequery demo
-```
-</CodeBlock>
-
-`hypequery demo --print-config` prints the entry for Cursor or another MCP client. chDB publishes wheels for Linux and
-macOS only.
 
 ## Next
 
