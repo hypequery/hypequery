@@ -256,6 +256,7 @@ export default function TinybirdAlternativePage() {
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
         { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/compare/clickhouse-cloud-vs-tinybird', label: 'ClickHouse Cloud vs Tinybird' },
         { href: '/compare/cube-vs-tinybird-vs-hypequery', label: 'Cube vs Tinybird vs hypequery' },
       ]}

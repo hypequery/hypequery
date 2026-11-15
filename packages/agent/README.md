@@ -78,6 +78,9 @@ const tools = await hypequeryTools({ url: mcpUrl, token });
 const result = streamText({ model, tools, messages });
 ```
 
+Full walkthrough with `useChat` and Next.js:
+[Build an AI analytics chat on ClickHouse with the Vercel AI SDK](https://hypequery.com/blog/clickhouse-ai-chat-vercel-ai-sdk).
+
 ### Anthropic SDK
 
 ```ts

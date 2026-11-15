@@ -42,6 +42,32 @@ function getRelatedLinks(slug: string): RelatedContentLink[] {
     ];
   }
 
+  if (
+    slug.includes('ai-sdk') ||
+    slug.includes('ai-chat') ||
+    slug.includes('ai-agent') ||
+    slug === 'agentic-analytics' ||
+    slug === 'text-to-sql-vs-semantic-layer'
+  ) {
+    return [
+      {
+        href: '/clickhouse-ai',
+        title: 'AI analytics chat for ClickHouse',
+        description: 'The product page for governed ClickHouse tools in the Vercel AI SDK, Anthropic SDK and OpenAI Agents SDK.',
+      },
+      {
+        href: '/docs/agents/ai-sdk',
+        title: 'Vercel AI SDK docs',
+        description: 'streamText, generateText, useChat and every hypequeryTools() option.',
+      },
+      {
+        href: '/semantic-layer/ai-agents',
+        title: 'Semantic layer for AI agents',
+        description: 'Why agents need named metrics instead of raw text-to-SQL.',
+      },
+    ];
+  }
+
   if (slug.includes('nextjs')) {
     return [
       {

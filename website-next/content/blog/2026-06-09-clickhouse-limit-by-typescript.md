@@ -226,9 +226,9 @@ The practical rule: if the question is "give me N rows per group", use `LIMIT BY
 
 ## Why Most Builders Can't Do This
 
-`LIMIT BY` doesn't exist in standard SQL, so query builders designed around the common denominator — Kysely, Knex, and the ORM query APIs — have no method for it. Your options there are a raw SQL fragment or restructuring the query around a window-function subquery, at which point the builder is mostly decoration.
+`LIMIT BY` doesn't exist in standard SQL, so query builders designed around the common denominator — [Kysely](/compare/hypequery-vs-kysely), Knex, and the ORM query APIs — have no method for it. Your options there are a raw SQL fragment or restructuring the query around a window-function subquery, at which point the builder is mostly decoration.
 
-This is a recurring theme with ClickHouse: the features that make it worth choosing (`LIMIT BY`, `FINAL`, `PREWHERE`, `argMax`, `arrayJoin`) are exactly the ones generic tools omit. hypequery's builder is ClickHouse-only by design, so these get first-class, typed methods instead of escape hatches — the same reason `.final()` and `.arrayJoin()` exist as real methods. The [ClickHouse TypeScript guide](/clickhouse-typescript) covers that design position in full.
+This is a recurring theme with ClickHouse: the features that make it worth choosing (`LIMIT BY`, `FINAL`, [`PREWHERE`](/blog/clickhouse-prewhere-vs-where), `argMax`, `arrayJoin`) are exactly the ones generic tools omit. hypequery's builder is ClickHouse-only by design, so these get first-class, typed methods instead of escape hatches — the same reason `.final()` and `.arrayJoin()` exist as real methods. The [ClickHouse TypeScript guide](/clickhouse-typescript) covers that design position in full.
 
 ## Where to Go From Here
 

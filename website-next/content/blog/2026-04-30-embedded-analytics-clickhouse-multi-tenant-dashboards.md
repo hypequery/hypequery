@@ -22,7 +22,7 @@ This guide is for teams who have decided to build rather than embed a vendor's d
 
 ### How do you secure multi-tenant embedded analytics?
 
-Put every tenant in one shared table with `tenant_id` first in the sort key. Resolve the tenant on the server from the user's verified session, never from request input. Apply the tenant filter in one place in your API layer, and add a ClickHouse row policy underneath so a bug in application code still cannot read another tenant's rows.
+Put every tenant in one shared table with `tenant_id` first in the sort key. Resolve the tenant on the server from the user's verified session, never from request input. Apply the tenant filter in one place in your [API layer](/clickhouse-api), and add a ClickHouse row policy underneath so a bug in application code still cannot read another tenant's rows.
 
 ### Does ClickHouse have row-level security?
 

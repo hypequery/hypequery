@@ -227,3 +227,51 @@ checks from 2026-11-13.
 - **Cube "sits on top of dbt models"**: only in Cube's marketing articles; G3 says only that dbt keeps building the
   tables, which is true of every option.
 - **Any build-time or cost figures for building embedded analytics**: no primary source; G4 gives none.
+
+# SEO verification log: AI agent pages (2026-11-15)
+
+Pages:
+
+| # | Page | URL |
+|---|---|---|
+| A1 | hypequery vs ClickHouse Agents | /compare/hypequery-vs-clickhouse-agents |
+| A2 | What is agentic analytics? | /blog/agentic-analytics |
+| A3 | How to stop an AI agent leaking data between tenants | /blog/ai-agent-multi-tenant-data-isolation |
+| A4 | Text-to-SQL vs a semantic layer | /blog/text-to-sql-vs-semantic-layer |
+
+hypequery claims were checked against this repository and run against the published packages on 2026-11-15:
+`@hypequery/datasets` 0.31.0 (tenant errors quoted verbatim in A3), `@hypequery/mcp` 0.13.0 and `@hypequery/cli`
+1.30.0 (tool list and the `MCP_INVALID_ARGUMENTS` error in A2), and Python `hypequery` 0.1.0b5 (`tenant-required`,
+`input-invalid`, the compiled tenant SQL in A3, `between` and the client's default settings in A4). The A3 vitest
+tests were run and pass. The TypeScript snippets in A2–A4 type-check.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| A1, A2 | "a fully managed agentic analytics service in ClickHouse Cloud, powered by Claude"; announced June 2026 | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1 | Chat can "generate SQL and visualizations"; agent builder with instructions, skills, context files and MCP tool access, governed by Cloud RBAC; sandboxed code interpreter (Bash, Python, JavaScript); memories, artifacts, subagents | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1 | Claude Sonnet and Haiku pre-configured as the default; "Other models can be configured per agent through the Agent Builder" | https://clickhouse.com/blog/clickhouse-agents-beta ; https://clickhouse.com/cloud/agents | 2026-11-15 |
+| A1 | "An Agent API for programmatic access to the agents built in ClickHouse Agents" listed under what's next | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1, A2 | Public beta for all ClickHouse Cloud customers "at no additional charge"; "Pricing will be available soon"; "built for your teams"; for AI in your own product, "use ClickHouse as the real-time data layer under your own agent stack"; SSO, sharing and access permissions, encrypted message storage; self-hosting for "maximum runtime control", linking the agentic-data-stack repo | https://clickhouse.com/cloud/agents | 2026-11-15 |
+| A1 | Docs label the feature beta; agents can attach tools and MCP servers in the Agent Builder | https://clickhouse.com/docs/products/cloud/features/ai-ml/agents | 2026-11-15 |
+| A3 | `CREATE ROW POLICY ... ON ... [FOR SELECT] USING ... TO ...` syntax; "A user to whom no condition applies therefore sees every row"; `access_control_improvements.throw_on_unmatched_row_policies`, disabled by default; "Row policies make sense only for users with readonly access" | https://clickhouse.com/docs/sql-reference/statements/create/row-policy | 2026-11-15 |
+| A3 | OWASP Top 10 for LLM applications ranks prompt injection first | https://genai.owasp.org/ | 2026-11-15 |
+
+## Not claimed on A1–A4
+
+- **Which database credentials ClickHouse Agents queries with, and how row policies apply to it**: not stated in
+  the announcement, product page or docs overview; A1 says only "governed by Cloud RBAC".
+- **Agentic Data Stack components** (LibreChat, Langfuse): only in AI answers and a repo link; A1 names the repo
+  and nothing inside it.
+- **Text-to-SQL benchmark accuracy figures**: no primary source checked; A4 gives none.
+
+# SEO verification log: /clickhouse-semantic-layer options table and FAQ (2026-11-15)
+
+| Claim | Source | Checked |
+|---|---|---|
+| dbt Semantic Layer supports Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino; "Support for other data platforms, such as Fabric, isn't available at this time" (ClickHouse is not listed) | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-15 |
+| ClickHouse Cloud: AGENTS.md is "a special saved query that acts as a semantic layer over the agent's system prompt"; written as instructions "(not actual SQL)"; applied "to all Assistant chat conversations in that service" | https://clickhouse.com/docs/products/cloud/features/ai-ml/aichat/customizing-semantic-layer | 2026-11-15 |
+| Cube: supports ClickHouse among many SQL sources; REST, GraphQL and SQL APIs; MCP server in Cube Cloud; access policies and `queryRewrite` | As logged for P3, G1 and G2 above | 2026-11-12 / 2026-11-14 |
+| dbt MCP server; dbt SL relies on the data platform's physical access policies | As logged for G1 and G2 above | 2026-11-14 |
+
+Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
+reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.

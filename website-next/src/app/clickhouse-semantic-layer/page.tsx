@@ -8,8 +8,9 @@ import { OpenSourceBadge } from '@/components/home/OpenSourceBadge';
 import { SetupCommand } from '@/components/home/SetupCommand';
 import { DeployWaitlist } from '@/components/home/DeployWaitlist';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
-import { HubDefinition, HubLinkGrid, type HubLink } from '@/components/hub-page';
+import { HubDefinition, HubFaq, HubLinkGrid, HubTable, type HubLink } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
+import { faqPageSchema, type FaqItem } from '@/lib/faq-schema';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -51,6 +52,24 @@ export const Orders = dataset('orders', {
     revenue: measure.sum('amount'),
   },
 });`;
+
+const pythonDatasetCode = `from hypequery.datasets import dataset, dimension, measure
+
+orders = dataset(
+    "orders",
+    source="orders",
+    tenant_key="tenant_id",   # every semantic query is tenant-scoped
+    time_key="created_at",    # every semantic query knows its time column
+    dimensions={
+        "id": dimension.string(),
+        "amount": dimension.number(),
+        "status": dimension.string(),
+        "createdAt": dimension.timestamp(column="created_at"),
+    },
+    measures={
+        "revenue": measure.sum("amount"),
+    },
+)`;
 
 const tenancyCode = `import { createDatasetClient } from '@hypequery/datasets';
 
@@ -170,6 +189,83 @@ const comparisonRows = [
   },
 ] as const;
 
+// Named options for a ClickHouse semantic layer. Vendor claims checked on 2026-11-14/15 (seo-verification-log.md, "AI agent pages" and G1/G2).
+const optionRows = [
+  [
+    'hypequery',
+    'Open-source TypeScript and Python libraries that run in your own backend',
+    'Built for ClickHouse (ClickHouse Cloud, self-hosted or chDB)',
+    'Yes: the same definitions serve typed HTTP endpoints, React hooks and server code',
+    'MCP tools, plus adapters for the Vercel AI SDK, Anthropic SDK and OpenAI Agents SDK',
+    '`tenantKey` on the dataset; a query without a trusted tenant is refused',
+  ],
+  [
+    'Cube',
+    'A semantic layer platform: Cube Core (open source) or Cube Cloud',
+    'Yes, among many SQL sources',
+    'Through Cube\'s REST, GraphQL and SQL APIs, from a Cube deployment you run or Cube Cloud',
+    'An MCP server in Cube Cloud',
+    'Access policies and `queryRewrite` in the Cube data model',
+  ],
+  [
+    'dbt Semantic Layer (MetricFlow)',
+    'Metrics defined in YAML next to dbt models',
+    'Not available: dbt lists Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino as supported platforms',
+    'Not for ClickHouse',
+    'The dbt MCP server, on supported platforms',
+    'Relies on the data platform\'s own access policies',
+  ],
+  [
+    'ClickHouse Cloud Assistant (AGENTS.md)',
+    'A saved query named AGENTS.md whose plain-language instructions are loaded into the Assistant\'s system prompt',
+    'ClickHouse Cloud, one service at a time',
+    'No: it guides the built-in Assistant, it is not a metric catalog your app can query',
+    'The Cloud console\'s Assistant only',
+    'Not a tenant mechanism',
+  ],
+  [
+    'A BI tool\'s semantic model',
+    'LookML, Power BI datasets and similar, defined inside the BI tool',
+    'Where the BI tool connects to ClickHouse',
+    'No: consistent inside that tool, not available to your app code and APIs',
+    'Through that BI vendor\'s own agent, if it has one',
+    'The BI tool\'s own row-level rules',
+  ],
+];
+
+const faqItems: FaqItem[] = [
+  {
+    question: 'Does ClickHouse have a built-in semantic layer?',
+    answer:
+      'Not as a set of metric definitions your application can query. ClickHouse Cloud\'s Assistant reads a saved query named AGENTS.md, plain-language instructions added to the agent\'s system prompt for one service. That helps the console Assistant, but your APIs, dashboards and own agents cannot ask it for "revenue". Views and materialized views precompute data; they do not define metrics or tenant rules.',
+  },
+  {
+    question: 'Can I use the dbt Semantic Layer with ClickHouse?',
+    answer:
+      'Not today. dbt\'s documentation lists Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino as the supported platforms and says support for other platforms is not available. You can still build your ClickHouse tables with dbt and define the metrics on top of them in a ClickHouse-native layer.',
+  },
+  {
+    question: 'Should I use Cube or hypequery for a ClickHouse semantic layer?',
+    answer:
+      'Use Cube when BI tools need the same metrics through its SQL API, when metrics span several databases, or when you want managed pre-aggregations. Use hypequery when the semantic layer belongs to a TypeScript or Python product: the definitions live in your repo, deploy with your app and need no separate service.',
+  },
+  {
+    question: 'How does a ClickHouse semantic layer keep tenants apart?',
+    answer:
+      'Declare the tenant column once. In hypequery, a dataset with a tenantKey adds the tenant filter to every query from trusted runtime context, sent as a bound parameter, and refuses any query that has no tenant or tries to filter on the tenant column itself.',
+  },
+  {
+    question: 'Can AI agents query a ClickHouse semantic layer?',
+    answer:
+      'Yes. hypequery serves the same datasets as MCP tools (list_datasets, get_dataset_schema, query_dataset), and @hypequery/agent hands them to the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. The agent asks for metrics by name and never writes SQL.',
+  },
+  {
+    question: 'Does a semantic layer slow ClickHouse queries down?',
+    answer:
+      'A code-first layer compiles each request into one ClickHouse query inside your own process, so there is no extra service or network hop. ClickHouse still does the aggregation, and the definition can point at a materialized view or rollup table for expensive metrics.',
+  },
+];
+
 // The shared vocabulary of semantic layers, so the page answers "what is a semantic layer" directly.
 const vocabulary = [
   { term: 'Dimensions', copy: 'The attributes you slice by: region, plan, status, signup date. They end up in GROUP BY and WHERE.' },
@@ -226,6 +322,11 @@ const guideLinks: HubLink[] = [
     href: '/clickhouse-mcp',
     title: 'ClickHouse MCP server',
     description: 'Expose datasets to Claude, Cursor and other MCP clients without raw SQL.',
+  },
+  {
+    href: '/clickhouse-ai',
+    title: 'AI analytics chat for ClickHouse',
+    description: 'Give the Vercel AI SDK, Anthropic SDK or OpenAI Agents SDK your datasets as tools, so in-product chat answers match your dashboards.',
   },
   {
     href: '/compare/hypequery-vs-cube',
@@ -291,7 +392,7 @@ function Verdict({ yes }: { yes: boolean }) {
 }
 
 // Highlighted on the server, so the page ships HTML instead of a Shiki instance per block.
-async function CodeCard({ title, code }: { title: string; code: string }) {
+async function CodeCard({ title, code, lang = 'typescript' }: { title: string; code: string; lang?: string }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border-strong bg-bg-card shadow-card">
       <div className="flex items-center gap-1.5 border-b border-border bg-bg-alt/60 px-4 py-3">
@@ -301,7 +402,7 @@ async function CodeCard({ title, code }: { title: string; code: string }) {
         <span className="ml-3.5 font-mono text-[11.5px] text-text-muted">{title}</span>
       </div>
       <div className="bg-bg-card p-4">
-        <StaticCode code={code} lang="typescript" className="text-[13.5px]! leading-[1.85]!" />
+        <StaticCode code={code} lang={lang} className="text-[13.5px]! leading-[1.85]!" />
       </div>
     </div>
   );
@@ -314,13 +415,13 @@ function SectionIntro({
 }: {
   eyebrow?: string;
   title: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="mb-10">
       {eyebrow ? <p className={`mb-3.5 ${marketing.eyebrow}`}>{eyebrow}</p> : null}
       <h2 className={`max-w-[780px] text-balance ${marketing.sectionTitle}`}>{title}</h2>
-      <div className="mt-3.5 max-w-[700px] space-y-4 text-body text-text-muted text-pretty">{children}</div>
+      {children ? <div className="mt-3.5 max-w-[700px] space-y-4 text-body text-text-muted text-pretty">{children}</div> : null}
     </div>
   );
 }
@@ -399,13 +500,16 @@ export default function ClickHouseSemanticLayerPage() {
               A dataset declares your table, its tenant key, its time key, dimensions, and measures — once. Semantic queries built on it carry tenant and time context automatically when runtime tenancy is active. Change the definition; downstream usage follows the same typed contract.
             </p>
           </SectionIntro>
-          <CodeCard title="datasets/orders.ts" code={datasetCode} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <CodeCard title="datasets/orders.ts" code={datasetCode} />
+            <CodeCard title="datasets/orders.py" code={pythonDatasetCode} lang="python" />
+          </div>
         </section>
 
         <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <SectionIntro title="A semantic layer doesn't have to be a separate platform.">
             <p>
-              The standard answer to “ClickHouse semantic layer” is Cube or dbt MetricFlow — a separate service, modeled outside your application stack, run alongside your code. That is the right tool when centralized BI metrics for non-engineers is the job.
+              The usual answer to “ClickHouse semantic layer” is a separate platform such as Cube — a service modeled outside your application stack and run alongside your code. (dbt’s semantic layer doesn’t support ClickHouse today; see the options below.) That is the right tool when centralized BI metrics for non-engineers is the job.
             </p>
             <p>
               For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend; a hosted hypequery cloud is on a waitlist and not live yet.
@@ -491,6 +595,41 @@ export default function ClickHouseSemanticLayerPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
+          <SectionIntro eyebrow="Options" title="Semantic layer options for ClickHouse, compared">
+            <p>
+              The named options, checked against each vendor&rsquo;s own docs in November 2026. The deciding question is
+              who consumes the metrics: your application and its agents, BI tools, or the ClickHouse console.
+            </p>
+          </SectionIntro>
+          <HubTable
+            caption="Semantic layer options for ClickHouse"
+            columns={['Option', 'What it is', 'ClickHouse support', 'Your app and APIs', 'AI agents', 'Tenant rules']}
+            rows={optionRows}
+          />
+          <p className="mt-4 text-sm leading-6 text-text-muted">
+            Deeper comparisons:{' '}
+            <Link href="/compare/hypequery-vs-cube" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
+              hypequery vs Cube
+            </Link>
+            ,{' '}
+            <Link href="/semantic-layer/dbt-metricflow" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
+              dbt MetricFlow vs a code-defined layer
+            </Link>{' '}
+            and{' '}
+            <Link href="/semantic-layer/ai-agents" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
+              semantic layers for AI agents
+            </Link>
+            .
+          </p>
+        </section>
+
+        <section className={`${marketing.container} pb-6 pt-[96px]`}>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(faqItems)) }} />
+          <SectionIntro eyebrow="Questions" title="ClickHouse semantic layer FAQ" />
+          <HubFaq items={faqItems} />
         </section>
 
         <ExamplesBlock leadPage="/clickhouse-semantic-layer" />

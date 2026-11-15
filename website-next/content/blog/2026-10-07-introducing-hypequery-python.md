@@ -30,7 +30,7 @@ This is a beta (`0.1.0b4`): the APIs may still change before 1.0, so pin the ver
 
 Plenty of ClickHouse analytics lives in Python: data pipelines, scheduled reports, notebooks, and FastAPI, Django, and Flask backends. Those teams hit the same problem TypeScript teams do. The definition of revenue is copied across services, each copy drifts, and in a multi-tenant product every query depends on someone remembering the tenant filter.
 
-A driver like clickhouse-connect gets rows out of ClickHouse. It does not know what revenue means, which fields a caller may group by, or how to keep one customer's data away from another. That is the job of a semantic layer, and we think it belongs in your codebase rather than in YAML files or a separate server.
+A driver like clickhouse-connect gets rows out of ClickHouse. It does not know what revenue means, which fields a caller may group by, or how to keep one customer's data away from another. That is the job of a [semantic layer](/clickhouse-semantic-layer), and we think it belongs in your codebase rather than in YAML files or a separate server.
 
 ## Define a dataset
 

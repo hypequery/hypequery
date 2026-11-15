@@ -13,6 +13,7 @@
     "---In-app agents---",
     "agents/tools",
     "agents/quickstart",
+    "agents/ai-sdk",
     "agents/business-context",
     "---React---",
     "react/getting-started",

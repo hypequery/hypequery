@@ -172,6 +172,7 @@ export default function ClickHouseReactPage() {
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
         { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

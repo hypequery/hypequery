@@ -210,6 +210,7 @@ export default function ClickHouseOrmPage() {
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-schema', label: 'ClickHouse Schema' },
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

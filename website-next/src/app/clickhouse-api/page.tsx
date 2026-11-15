@@ -184,6 +184,7 @@ export default function ClickHouseApiPage() {
         { href: '/clickhouse-openapi', label: 'ClickHouse OpenAPI' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

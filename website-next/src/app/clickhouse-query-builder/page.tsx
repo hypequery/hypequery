@@ -206,6 +206,7 @@ export default function ClickHouseQueryBuilderPage() {
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

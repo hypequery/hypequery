@@ -44,7 +44,7 @@ DATABASE_URL="mysql://default:password@clickhouse-host:9004/analytics"
 
 **2. ClickHouse-specific types don't map.** ClickHouse tables in the wild use `Array(String)`, `Map(String, String)`, `LowCardinality(String)`, `AggregateFunction(uniq, UInt64)`, `Enum8`, nested tuples. None of these exist in Prisma's schema language. Introspection either mangles them into strings or fails outright, and there's no way to write a `schema.prisma` that round-trips them. `UInt64` alone is a problem: it exceeds JavaScript's safe integer range and comes back as a string, which Prisma's MySQL type mapping doesn't expect.
 
-**3. You lose all ClickHouse semantics.** Even when a query happens to execute, you can't express the things you moved to ClickHouse for: `FINAL` on a `ReplacingMergeTree`, `LIMIT BY` for top-N-per-group, `PREWHERE`, `argMax`, `uniq`, quantiles, array joins, materialized view targets. Prisma's query API has no vocabulary for any of it, and `prisma migrate` will happily try to run DDL that has no meaning for MergeTree engines.
+**3. You lose all ClickHouse semantics.** Even when a query happens to execute, you can't express the things you moved to ClickHouse for: [`FINAL`](/blog/clickhouse-final-replacingmergetree-typescript) on a `ReplacingMergeTree`, `LIMIT BY` for top-N-per-group, [`PREWHERE`](/blog/clickhouse-prewhere-vs-where), `argMax`, `uniq`, quantiles, array joins, materialized view targets. Prisma's query API has no vocabulary for any of it, and `prisma migrate` will happily try to run DDL that has no meaning for MergeTree engines.
 
 The workaround demos well and fails in production. Treat port 9004 as what it is — a compatibility shim for MySQL clients like BI tools — not a foundation for an application data layer. There's a fuller breakdown on the [Prisma + ClickHouse page](/clickhouse-orm).
 
@@ -145,7 +145,7 @@ The `tenantKey` line is worth pausing on: it means a query that's missing a tena
 | What handles ClickHouse? | A ClickHouse-native typed layer alongside Prisma |
 | Do the two clients conflict? | No — separate schemas, separate migration workflows, one service |
 
-If you're evaluating hypequery specifically against what Prisma gives you on the OLTP side — generated types, a fluent client, guardrails — the [hypequery vs Prisma comparison](/compare/hypequery-vs-prisma) maps each Prisma feature to its analytics-side equivalent honestly, including the places where a query builder deliberately isn't an ORM.
+If you're evaluating hypequery specifically against what Prisma gives you on the OLTP side — generated types, a fluent client, guardrails — the [hypequery vs Prisma comparison](/compare/hypequery-vs-prisma) maps each Prisma feature to its analytics-side equivalent honestly, including the places where [a query builder](/clickhouse-query-builder) deliberately isn't an ORM.
 
 ## Where to go from here
 

@@ -33,7 +33,7 @@ dbt's relationship with ClickHouse is functional but imperfect. The [dbt-clickho
 
 ## What TypeScript gives you
 
-A TypeScript analytics layer — whether that's raw `@clickhouse/client`, a query builder like hypequery, or a custom abstraction — handles a different job: **query execution at runtime**.
+A TypeScript analytics layer — whether that's raw `@clickhouse/client`, [a query builder](/clickhouse-query-builder) like hypequery, or a custom abstraction — handles a different job: **query execution at runtime**.
 
 Your application code needs to query ClickHouse in response to user requests. It needs typed results. It needs to pass user-provided parameters safely. It needs to compose queries based on runtime conditions (filters, date ranges, tenant IDs). None of this is what dbt is for — dbt runs on a schedule or trigger, not in response to an API call.
 
@@ -98,7 +98,7 @@ const dailyRevenue = await db
 
 ## The TypeScript-only path
 
-Not every team uses dbt. Many TypeScript teams handle their transformation logic directly — using ClickHouse materialized views, scheduled queries, or application-level aggregations instead of dbt models.
+Not every team uses dbt. Many TypeScript teams handle their transformation logic directly — using [ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse), scheduled queries, or application-level aggregations instead of dbt models.
 
 This works well when:
 

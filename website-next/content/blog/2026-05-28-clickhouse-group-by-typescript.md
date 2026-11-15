@@ -135,7 +135,7 @@ const latestOrders = await db
   .execute();
 ```
 
-`.argMax(column, argColumn, alias)` returns the value of `column` on the row where `argColumn` is largest; `.argMin()` is the mirror image. This pattern shows up constantly in ClickHouse — "latest row per group" without a self-join — and it's also the standard workaround for deduplicating ReplacingMergeTree data without paying the `FINAL` cost.
+`.argMax(column, argColumn, alias)` returns the value of `column` on the row where `argColumn` is largest; `.argMin()` is the mirror image. This pattern shows up constantly in ClickHouse — "latest row per group" without a self-join — and it's also the standard workaround for deduplicating [ReplacingMergeTree](/blog/clickhouse-final-replacingmergetree-typescript) data without paying the `FINAL` cost.
 
 ## Percentiles: quantile
 

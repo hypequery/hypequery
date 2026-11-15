@@ -87,7 +87,7 @@ const revenueByRegion = await db
   .execute();
 ```
 
-The builder supports ClickHouse-native `final()`, `limitBy()`, `PREWHERE`, array joins, CTEs, percentiles, `argMax`, and analytical statistics. Window functions use `selectExpr` inside the typed selection. Check the [current capability matrix](/docs/capabilities) instead of relying on older comparison posts.
+The builder supports ClickHouse-native `final()`, `limitBy()`, [`PREWHERE`](/blog/clickhouse-prewhere-vs-where), array joins, CTEs, percentiles, `argMax`, and analytical statistics. Window functions use `selectExpr` inside the typed selection. Check the [current capability matrix](/docs/capabilities) instead of relying on older comparison posts.
 
 ## 4. Promote shared meaning into datasets
 
