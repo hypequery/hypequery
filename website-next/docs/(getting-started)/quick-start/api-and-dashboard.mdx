@@ -203,7 +203,9 @@ server's language, the hooks need two things: the API's types and its route mani
 
     <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
       <Tab value="TypeScript">
-        Generate the route manifest as static JSON, so the client bundle never imports server code:
+        The hooks need two things from your API. **Types** come from `InferApiType<typeof api>` through `import type`,
+        which is erased at build time, so no server code reaches the browser. **Routes** (each endpoint's URL and
+        method) are needed at runtime, so generate them as static JSON:
 
         <CodeBlock>
           ```bash
@@ -226,7 +228,9 @@ server's language, the hooks need two things: the API's types and its route mani
           ```
         </CodeBlock>
 
-        The `api` import is type-only, so it is erased at build time.
+        Run `generate:manifest` as a `prebuild` script so the routes can't drift from the server. This is the
+        recommended setup when the API is TypeScript in the same repo; for an API in another repo, see
+        [how hooks get their types](/docs/react/getting-started#choose-how-your-hooks-get-their-types).
       </Tab>
 
       <Tab value="Python">

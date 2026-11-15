@@ -330,6 +330,52 @@ You need a ClickHouse server you can query and Node.js 20+ or Python 3.11+. The 
     Query it like any other measure: `measures: ['averageOrderValue']`. Every API, dashboard and agent that uses the
     dataset now gets the same definition.
   </Step>
+
+  <Step>
+    ### Describe your business (optional, for agents)
+
+    Datasets say what can be queried. Business context says what the numbers mean here: KPI definitions, a glossary of
+    your terms, reporting conventions and known data caveats. AI agents read it before they choose measures; API and
+    dashboard callers never see it, and it never changes a query result.
+
+    <Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```typescript
+          // analytics/business-context.ts
+          import { defineBusinessContext } from '@hypequery/datasets';
+
+          export const businessContext = defineBusinessContext({
+            summary: 'An online store selling to businesses in the UK, US and Germany.',
+            kpis: [
+              { name: 'Revenue', definition: 'Sum of completed order amounts, in USD. Refunded orders are excluded.' },
+              { name: 'Average order value', definition: 'Revenue divided by completed orders.' },
+            ],
+            glossary: [
+              { term: 'Order', meaning: 'One checkout. An order with several items is still one order.' },
+              { term: 'Customer', meaning: 'The business that placed the order (the tenant), not the person.' },
+            ],
+            conventions: 'Amounts in USD. Times in UTC. Weeks start on Monday.',
+            caveats: ['Orders before March 2024 have no country.'],
+          });
+          ```
+        </CodeBlock>
+
+        Every field is optional. `defineBusinessContext` throws, naming the field, on an unknown field, a glossary term
+        or KPI defined twice, or a value over the limits.
+      </Tab>
+
+      <Tab value="Python">
+        Business context isn't in the Python SDK yet. Describe your terms in each dimension and measure's
+        `description` for now; agents read those through the schema tool.
+      </Tab>
+    </Tabs>
+
+    Pass it to the executor in [Add AI chat to your app](/docs/agents/quickstart), or to an MCP server you build with
+    `createMCPServer`, and agents read it from `list_datasets` and `get_business_context`. The `hypequery mcp` command
+    doesn't read it yet. You'll also be able to edit it, glossary included, in hypequery Cloud (coming soon). See
+    [Business context](/docs/agents/business-context) for every field.
+  </Step>
 </Steps>
 
 ## Next
