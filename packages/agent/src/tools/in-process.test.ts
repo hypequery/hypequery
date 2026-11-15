@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { createMCPExecutor } from '@hypequery/mcp';
 import { generateText, stepCountIs } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { describe, expect, it, vi } from 'vitest';
 import { hypequeryTools as anthropicTools } from './anthropic.js';
+import { hypequeryTools as openAITools } from './openai-agents.js';
 import { hypequeryTools } from './ai-sdk.js';
 import { resolveToolsClient } from './client.js';
 import { HypequeryToolsError } from './errors.js';
@@ -148,5 +150,22 @@ describe('in-process tools ({ executor })', () => {
     controller.abort(new Error('already stopped'));
     await expect(untilAborted(new Promise(() => {}), controller.signal)).rejects.toThrow('already stopped');
     await expect(untilAborted(Promise.resolve(1), undefined)).resolves.toBe(1);
+  });
+
+  it('hands every framework a schema with no top-level anyOf, oneOf or allOf', async () => {
+    // Anthropic rejects those, and query_dataset has one variant per dataset.
+    const fixtures = JSON.parse(readFileSync(new URL('../../../../specs/mcp/tool-schemas-v1.json', import.meta.url), 'utf8'));
+    const listed: HypequeryToolExecutor = {
+      listTools: async () => ({ tools: [{ name: 'query_dataset', description: 'Query', inputSchema: fixtures.build.query_dataset }] }),
+      callTool: async () => ({ content: [] }),
+    };
+    expect(Object.keys(fixtures.build.query_dataset)).toContain('anyOf');
+    const flat = (schema: object) => expect(Object.keys(schema).filter(key => /^(anyOf|oneOf|allOf)$/.test(key))).toEqual([]);
+
+    flat((await anthropicTools({ executor: listed })).tools[0]!.input_schema);
+    const aiSdk = await hypequeryTools({ executor: listed });
+    flat((aiSdk.query_dataset!.inputSchema as { jsonSchema: object }).jsonSchema);
+    const [openAI] = await openAITools({ executor: listed });
+    flat((openAI as unknown as { parameters: object }).parameters);
   });
 });
