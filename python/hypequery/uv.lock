@@ -1410,6 +1410,10 @@ server = [
 ]
 
 [package.dev-dependencies]
+agent-frameworks = [
+    { name = "openai-agents" },
+    { name = "pydantic-ai-slim" },
+]
 dev = [
     { name = "altair" },
     { name = "coverage" },
@@ -1421,9 +1425,7 @@ dev = [
     { name = "import-linter" },
     { name = "marimo" },
     { name = "mypy" },
-    { name = "openai-agents" },
     { name = "packaging" },
-    { name = "pydantic-ai-slim" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "sqlalchemy" },
@@ -1471,6 +1473,10 @@ requires-dist = [
 provides-extras = ["clickhouse", "clickhouse-async", "chdb", "server", "jwt", "pandas", "polars", "arrow", "django", "flask", "mcp"]
 
 [package.metadata.requires-dev]
+agent-frameworks = [
+    { name = "openai-agents", specifier = ">=0.4" },
+    { name = "pydantic-ai-slim", specifier = ">=1.0" },
+]
 dev = [
     { name = "altair", specifier = ">=5" },
     { name = "coverage", specifier = ">=7.10" },
@@ -1482,9 +1488,7 @@ dev = [
     { name = "import-linter", specifier = ">=2.0" },
     { name = "marimo", specifier = ">=0.25" },
     { name = "mypy", specifier = ">=1.11" },
-    { name = "openai-agents", specifier = ">=0.4" },
     { name = "packaging", specifier = ">=25" },
-    { name = "pydantic-ai-slim", specifier = ">=1.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "sqlalchemy", specifier = ">=2.0" },

@@ -1159,8 +1159,12 @@ token from `mint_agent_token()` can be re-minted before it expires:
 from hypequery.agent import mint_agent_token
 from hypequery.agent.openai_agents import hypequery_tools
 
+
 def token() -> str:
-    return mint_agent_token(signing_key=key, tenant=tenant, subject=user_id, permission_set="customers").token
+    return mint_agent_token(
+        signing_key=key, tenant=tenant, subject=user_id, permission_set="customers"
+    ).token
+
 
 tools = await hypequery_tools(url=mcp_url, token=token)
 ```

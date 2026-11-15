@@ -138,9 +138,18 @@ dev = [
   # Only for the examples/marimo_chdb.py smoke test.
   "marimo>=0.25",
   "altair>=5",
+]
+# Only test oracles for hypequery.agent's framework adapters. A group of their
+# own: openai-agents depends on the MCP SDK, whose pydantic floor would lift the
+# one the shared floor jobs test on, so those jobs leave this group out, as they
+# leave out the mcp extra (scripts/floor_extras.py).
+agent-frameworks = [
   "openai-agents>=0.4",
   "pydantic-ai-slim>=1.0",
 ]
+
+[tool.uv]
+default-groups = ["dev", "agent-frameworks"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hypequery"]
