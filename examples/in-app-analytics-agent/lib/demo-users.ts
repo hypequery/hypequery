@@ -12,7 +12,7 @@ export interface DemoUser {
 }
 
 export const DEMO_USERS: readonly DemoUser[] = [
-  { id: 'ada', name: 'Ada', tenantId: '4', tenantName: 'Northwind Analytics' },
+  { id: 'ada', name: 'Ada', tenantId: '4', tenantName: 'Acme' },
   { id: 'grace', name: 'Grace', tenantId: '153', tenantName: 'Quartz Metrics' },
 ];
 
