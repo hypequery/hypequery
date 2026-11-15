@@ -57,7 +57,7 @@ That looks right. Whether it is depends on things the model can't see in the sch
 `revenue` was defined once, in code, by someone who knew the answers to those questions. Here's that definition and query with [hypequery](/clickhouse-semantic-layer), in TypeScript and Python:
 
 ```ts
-import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import { createDatasetClient, dataset, dimension, eq, gte, lt, measure } from '@hypequery/datasets';
 
 const analytics = createDatasetClient({ queryBuilder: db });
 
@@ -65,30 +65,51 @@ const Orders = dataset('orders', {
   source: 'orders',
   dimensions: {
     country: dimension.string({ label: 'Country' }),
+    status: dimension.string({ label: 'Status' }),
     createdAt: dimension.timestamp({ column: 'created_at', label: 'Created at' }),
   },
   measures: {
-    revenue: measure.sum('amount', { label: 'Revenue', description: 'Completed orders, before tax' }),
+    revenue: measure.sum('amount', {
+      label: 'Revenue',
+      description: 'Completed orders, before tax',
+      filters: [eq('status', 'completed')],
+    }),
   },
 });
 
-await analytics.execute(Orders, { dimensions: ['country'], measures: ['revenue'] });
+await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
+  filters: [gte('createdAt', '2026-07-01'), lt('createdAt', '2026-10-01')],
+});
 ```
 
 ```python
-from hypequery.datasets import DatasetQuery, dataset, dimension, measure
+from hypequery.datasets import DatasetQuery, dataset, dimension, filter, measure
 
 orders = dataset(
     "orders",
     source="orders",
     dimensions={
         "country": dimension.string(label="Country"),
+        "status": dimension.string(label="Status"),
         "createdAt": dimension.timestamp(column="created_at", label="Created at"),
     },
-    measures={"revenue": measure.sum("amount", label="Revenue", description="Completed orders, before tax")},
+    measures={
+        "revenue": measure.sum(
+            "amount",
+            label="Revenue",
+            description="Completed orders, before tax",
+            filters=(filter.eq("status", "completed"),),
+        ),
+    },
 )
 
-client.execute(orders, DatasetQuery(dimensions=("country",), measures=("revenue",)))
+client.execute(orders, DatasetQuery(
+    dimensions=("country",),
+    measures=("revenue",),
+    filters=(filter.gte("createdAt", "2026-07-01"), filter.lt("createdAt", "2026-10-01")),
+))
 ```
 
 Ask the same question tomorrow, or phrase it differently, and the request, the SQL and the number stay the same.

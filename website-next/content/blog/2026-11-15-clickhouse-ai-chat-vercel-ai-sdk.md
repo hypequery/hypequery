@@ -49,7 +49,7 @@ Create a Next.js app and install the packages:
 npx create-next-app@latest clickhouse-chat --ts --app
 cd clickhouse-chat
 npm install ai @ai-sdk/react @ai-sdk/anthropic @hypequery/agent
-npm install @hypequery/clickhouse @hypequery/datasets @hypequery/serve
+npm install @hypequery/clickhouse @hypequery/datasets @hypequery/serve @hypequery/mcp
 npm install -D @hypequery/cli
 ```
 

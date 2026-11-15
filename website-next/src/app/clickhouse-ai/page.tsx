@@ -107,7 +107,7 @@ export default function ClickHouseAiPage() {
             title: 'Install the packages',
             description: 'In a Next.js app. You need Node.js 20 or newer.',
             code: `npm install ai @ai-sdk/react @ai-sdk/anthropic @hypequery/agent
-npm install @hypequery/clickhouse @hypequery/datasets @hypequery/serve
+npm install @hypequery/clickhouse @hypequery/datasets @hypequery/serve @hypequery/mcp
 npm install -D @hypequery/cli`,
             filename: 'terminal',
             language: 'bash',
@@ -121,9 +121,10 @@ npm install -D @hypequery/cli`,
           },
           {
             title: 'Serve it as MCP tools',
-            description: 'The endpoint holds the ClickHouse connection. Your app only holds the key.',
+            description:
+              'The endpoint holds the ClickHouse connection; your app only holds the key. The dataset is tenant-scoped, so a shared key serves one trusted tenant, named with --tenant. In production, serve it with your API\'s own auth instead, so each caller gets their own tenant.',
             code: `export HYPEQUERY_MCP_KEY=$(openssl rand -hex 32)
-npx hypequery mcp --http
+npx hypequery mcp --http --tenant acme
 # hypequery MCP listening on http://127.0.0.1:3333/mcp`,
             filename: 'terminal',
             language: 'bash',
