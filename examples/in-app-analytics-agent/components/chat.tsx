@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { getToolName, isToolUIPart } from 'ai';
 import { useState, type FormEvent } from 'react';
+import { wasDeclined, type ChatMessage } from '@/lib/chat-message';
 
 /**
  * Starting points shown before the first message. The last one is a prompt
@@ -19,7 +20,7 @@ function suggestions(otherCustomer: string | undefined): string[] {
 
 /** `otherCustomer` is another customer's display name, for the injection suggestion. Names only: never a tenant id. */
 export function Chat({ customer, otherCustomer }: { customer: string; otherCustomer?: string }) {
-  const { messages, sendMessage, status, error } = useChat();
+  const { messages, sendMessage, status, error } = useChat<ChatMessage>();
   const [input, setInput] = useState('');
   const busy = status === 'submitted' || status === 'streaming';
 
@@ -47,6 +48,9 @@ export function Chat({ customer, otherCustomer }: { customer: string; otherCusto
               }
               return null;
             })}
+            {wasDeclined(message) ? (
+              <p className="notice">This question was declined by the model's safety checks. Try asking about your own data in a different way.</p>
+            ) : null}
           </li>
         ))}
       </ol>

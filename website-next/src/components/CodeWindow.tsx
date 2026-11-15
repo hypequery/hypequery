@@ -1,4 +1,4 @@
-import CodeHighlight from '@/components/CodeHighlight';
+import { StaticCode } from '@/components/home/StaticCode';
 
 type CodeWindowProps = {
   code: string;
@@ -7,7 +7,8 @@ type CodeWindowProps = {
   className?: string;
 };
 
-export default function CodeWindow({
+// Highlighted on the server (StaticCode) so pages ship HTML, not a Shiki instance per code block.
+export default async function CodeWindow({
   code,
   filename,
   language = 'typescript',
@@ -25,7 +26,7 @@ export default function CodeWindow({
       </div>
       {/* Long examples scroll inside the panel instead of stretching the page. */}
       <div className="max-h-[720px] overflow-y-auto bg-bg-alt px-4 py-4 [scrollbar-width:thin] dark:bg-[#07090F]">
-        <CodeHighlight code={code} language={language} className="text-[13px]! leading-6" />
+        <StaticCode code={code} lang={language === 'http' ? 'javascript' : language} className="text-[13px]! leading-6!" />
       </div>
     </div>
   );

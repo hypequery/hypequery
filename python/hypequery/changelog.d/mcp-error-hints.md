@@ -1,1 +1,0 @@
-- MCP tool errors can carry `hint` (the next action, in one sentence), `docsUrl` and `requestId`, set through `McpToolError(..., hint=, docs_url=, request_id=)`. The published error envelope schema lists the three optional fields, matching `@hypequery/mcp`.

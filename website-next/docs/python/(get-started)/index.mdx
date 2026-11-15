@@ -12,14 +12,14 @@ parameterized, and every query is scoped to the caller's tenant. The same defini
 endpoints, returns pandas, polars or Arrow, and feeds React hooks and MCP agents.
 
 <Callout type="warn" title="Beta">
-  The Python SDK is in beta (0.1.0b3). Its APIs may still change before 1.0, so pin the version you deploy.
+  The Python SDK is in beta (0.1.0b4). Its APIs may still change before 1.0, so pin the version you deploy.
 </Callout>
 
 ## Install
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse]==0.1.0b3"
+pip install "hypequery[clickhouse]==0.1.0b4"
 ```
 </CodeBlock>
 
@@ -92,7 +92,7 @@ Flask. Every endpoint authenticates before reading the body and takes the tenant
 
 <CodeBlock>
 ```bash
-pip install "hypequery[clickhouse,jwt]==0.1.0b3" fastapi uvicorn
+pip install "hypequery[clickhouse,jwt]==0.1.0b4" fastapi uvicorn
 ```
 </CodeBlock>
 
@@ -130,6 +130,10 @@ instead of raw SQL. See [React and MCP clients](/docs/python/client-endpoints).
   client in every view, and hypequery's endpoints served from your app.
 - [Serve over HTTP](/docs/python/serving): auth strategies, tenancy, CORS, rate limits and OpenAPI.
 - [pandas, Polars and Arrow](/docs/python/dataframes): results as typed DataFrames.
+- [ClickHouse Python clients](/clickhouse-python): clickhouse-connect, clickhouse-driver and clickhouse-sqlalchemy
+  compared, and where hypequery fits next to them.
+- [chDB Python tutorial](/blog/chdb-python-tutorial): embedded ClickHouse in Python, from `chdb.query()` to MergeTree
+  tables on disk.
 - [Feature status](/docs/python/feature-status): what Python has today compared with TypeScript.
 - [Why hypequery](/docs/why-hypequery) and [Core concepts](/docs/core-concepts): the ideas behind datasets, serving
   and clients, in both languages.

@@ -2,7 +2,7 @@
 title: "Introducing hypequery for Python: A Semantic Layer for ClickHouse"
 description: "Define ClickHouse measures, dimensions, and tenant rules once in Python, query them by name, serve them from FastAPI, Django, or Flask, and use them from type-safe React hooks and AI agents."
 seoTitle: "hypequery for Python: a ClickHouse semantic layer"
-seoDescription: "hypequery for Python brings code-first datasets to ClickHouse: typed definitions, tenant-safe queries, result caching, and authenticated endpoints you mount in FastAPI, Django, Flask, or any ASGI or WSGI app."
+seoDescription: "hypequery for Python brings code-first datasets to ClickHouse: typed definitions, tenant-safe queries, caching, and endpoints for FastAPI, Django or Flask."
 pubDate: 2026-10-30
 heroImage: ""
 slug: introducing-hypequery-python
@@ -197,7 +197,9 @@ The Python SDK covers datasets, derived measures, relationships, execution, cach
 - [Serve your datasets](/docs/python/serving): expose datasets as authenticated endpoints and mount them anywhere
 - [Django](/docs/python/django), [Flask](/docs/python/flask), and [FastAPI](/docs/python/fastapi): framework guides
 - [React and MCP clients](/docs/python/client-endpoints): typed React hooks and agent tools over the same endpoints
-- [ClickHouse with Python](/clickhouse-python): how hypequery fits next to your driver
+- [ClickHouse Python clients](/clickhouse-python): clickhouse-connect vs clickhouse-driver, and how hypequery fits next to your driver
+- [chDB Python tutorial](/blog/chdb-python-tutorial): embedded ClickHouse in your Python process, with no server
+- [ClickHouse with FastAPI](/clickhouse-fastapi): secure, tenant-scoped analytics APIs in Python
 - [hypequery vs clickhouse-connect](/compare/hypequery-vs-clickhouse-connect): when to keep the driver, and when shared datasets earn their place
 - [Python semantic layer](/python-semantic-layer) and [multi-tenant analytics in Python](/clickhouse-python-multi-tenant)
 

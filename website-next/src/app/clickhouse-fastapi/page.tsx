@@ -135,12 +135,17 @@ export default function ClickHouseFastAPIPage() {
       }}
       searchIntentCards={[
         {
+          title: 'How do I query ClickHouse from FastAPI?',
+          copy:
+            'Call a ClickHouse client such as clickhouse-connect from your route handlers, or define datasets once and mount hypequery\'s API with `app.mount("/analytics", to_asgi_app(api))`. The mounted endpoints authenticate each request and scope it to the caller\'s tenant.',
+        },
+        {
           title: 'Who this is for',
           copy:
             'Teams exposing ClickHouse analytics from a Python backend, especially to customers in a multi-tenant product.',
         },
         {
-          title: 'Fits your existing app',
+          title: 'Does it work with my existing FastAPI app?',
           copy:
             'The API is a plain ASGI app, so it mounts under a prefix in your existing FastAPI app. Your own routes stay exactly as they are.',
         },

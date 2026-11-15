@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'A Python Semantic Layer for ClickHouse: Analytics as Code',
   description:
-    'Define measures, dimensions, relationships, and tenant rules as Python code. An open-source semantic layer that runs inside your app, with no YAML and no separate server.',
+    'Define measures, dimensions, relationships and tenant rules as Python code: an open-source semantic layer inside your app, with no YAML and no extra server.',
   alternates: { canonical: absoluteUrl('/python-semantic-layer') },
   openGraph: {
     images: ogImage('A Python Semantic Layer for ClickHouse: Analytics as Code'),
@@ -197,6 +197,7 @@ export default function PythonSemanticLayerPage() {
         { href: '/clickhouse-python-analytics', label: 'ClickHouse Python analytics' },
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse semantic layer' },
+        { href: '/semantic-layer', label: 'What is a semantic layer?' },
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
         { href: '/clickhouse-pandas', label: 'ClickHouse to pandas' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
