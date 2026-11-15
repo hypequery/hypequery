@@ -5,10 +5,10 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const title = 'hypequery recipes: one ClickHouse question, one typed dataset, the SQL it generates';
 const description =
-  'ClickHouse recipes in TypeScript: p95 latency, retention cohorts and more. Each shows the hypequery dataset, the generated SQL and the output on a seeded dataset.';
+  'ClickHouse recipes for p95 latency, retention cohorts, funnels, sessions and top-N per group: the dataset, the generated SQL and the output on seed data.';
 
 export const metadata: Metadata = {
-  title: 'Recipes',
+  title: 'ClickHouse Recipes: Analytics Queries with Their SQL',
   description,
   alternates: { canonical: absoluteUrl('/recipes') },
   openGraph: { type: 'website', url: absoluteUrl('/recipes'), title, description, images: ogImage('hypequery recipes') },

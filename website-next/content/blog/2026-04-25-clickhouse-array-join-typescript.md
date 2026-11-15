@@ -169,3 +169,5 @@ const results = await db.rawQuery<{
 ## Type Implications
 
 The key runtime behaviour to remember: after ARRAY JOIN, ClickHouse returns the exploded column's element value on each row. The builder validates that the source column is an array; use an aliased `selectExpr()` when you also want to state a transformed result type explicitly.
+
+For working with arrays without exploding them (`has`, `arrayFilter`, `arrayMap`, `groupArray` and friends), see [ClickHouse array functions in TypeScript](/blog/clickhouse-array-functions-typescript).

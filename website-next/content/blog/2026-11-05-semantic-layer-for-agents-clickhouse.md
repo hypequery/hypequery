@@ -1,7 +1,7 @@
 ---
 title: "Your Agent Doesn't Need SQL Access to ClickHouse. It Needs a Semantic Layer."
 description: "Text-to-SQL on ClickHouse fails in ways specific to ClickHouse: unmerged ReplacingMergeTree rows, aggregate states, uniq vs uniqExact, timezone day boundaries. And a prompt is not a tenant boundary. We ran the same questions through a raw SQL MCP server and a governed one to measure the difference."
-seoTitle: "A Semantic Layer for AI Agents on ClickHouse (Raw SQL MCP vs Governed MCP)"
+seoTitle: "ClickHouse AI Agents: Raw SQL MCP vs a Semantic Layer"
 seoDescription: "We compared a raw SQL ClickHouse MCP server with a governed semantic-layer MCP server on correctness, run-to-run consistency, tenant leaks, rows read, and tokens. Harness and questions included."
 pubDate: 2026-11-05
 heroImage: ""
@@ -197,7 +197,7 @@ Ground truth for every question comes from hand-written SQL run as an Acme-only 
 
 ## What "semantic layer for agents" actually means
 
-"Semantic layer" gets used loosely, so here is the specific meaning in this post. It's four properties, and each is enforced by the server, not requested in the prompt.
+"Semantic layer" gets used loosely (for the general definition and how the main options compare, see [what is a semantic layer?](/semantic-layer)), so here is the specific meaning in this post. For agents in particular, see the [AI semantic layer](/semantic-layer/ai-agents) checklist. It's four properties, and each is enforced by the server, not requested in the prompt.
 
 1. **Metrics are defined once.** `revenue`, `averageOrderValue` and `activeUsers` are defined in code, reviewed like code, and shared with your API and dashboards. The agent picks a metric by name and never re-derives it.
 2. **Arguments come from fixed lists.** Each tool's input schema is generated from the dataset. Dimensions, measures, filter fields, operators, grains and sort fields are all enums, and unknown fields are rejected. The agent can't ask for a column the dataset doesn't publish, because the schema has no way to say it.
