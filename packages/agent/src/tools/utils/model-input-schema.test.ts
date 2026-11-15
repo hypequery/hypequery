@@ -57,4 +57,32 @@ describe('toModelInputSchema', () => {
       required: ['dataset', 'limit'],
     });
   });
+
+  it('keeps what anyOf and oneOf both require when both are present', () => {
+    const model = toModelInputSchema({
+      type: 'object',
+      anyOf: [
+        { properties: { a: { type: 'string' } }, required: ['a'] },
+        { properties: { a: { type: 'number' } }, required: ['a'] },
+      ],
+      oneOf: [{ properties: { b: { type: 'string' } }, required: ['b'] }],
+    });
+    expect(model).toEqual({
+      type: 'object',
+      properties: { a: { anyOf: [{ type: 'string' }, { type: 'number' }] }, b: { type: 'string' } },
+      required: ['a', 'b'],
+    });
+  });
+
+  it('keeps the definitions a variant’s $ref points at', () => {
+    const model = toModelInputSchema({
+      type: 'object',
+      anyOf: [
+        { properties: { filter: { $ref: '#/$defs/Filter' } }, $defs: { Filter: { type: 'object' } } },
+        { properties: { limit: { type: 'integer' } } },
+      ],
+    });
+    expect(model.$defs).toEqual({ Filter: { type: 'object' } });
+    expect(model.properties?.filter).toEqual({ $ref: '#/$defs/Filter' });
+  });
 });
