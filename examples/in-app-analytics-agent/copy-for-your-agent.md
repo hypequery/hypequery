@@ -33,7 +33,7 @@ any API key.
 
 These are clicks in hypequery Cloud. Tell me exactly what to do, then wait for me to confirm each one:
 
-1. **Settings → Customer access:** register two customers with ids `4` (Northwind Analytics) and `153`
+1. **Settings → Customer access:** register two customers with ids `4` (Acme) and `153`
    (Quartz Metrics). These are tenant ids in the seed's `events.tenant_id` column.
 2. **Settings → Customer access:** create a permission set named `customers` that includes the `events`
    dataset.
@@ -48,8 +48,8 @@ Make sure `.env.local` is in `.gitignore`.
 ## 4. Check it end to end
 
 1. Start the app with `pnpm dev`.
-2. Sign in as Ada (Northwind Analytics) and ask a question, using the requests below. The answer must use
-   Northwind's numbers. Then repeat as Grace (Quartz Metrics); the numbers must change.
+2. Sign in as Ada (Acme) and ask a question, using the requests below. The answer must use
+   Acme's numbers. Then repeat as Grace (Quartz Metrics); the numbers must change.
 
    ```bash
    curl -s -c /tmp/hq-session -X POST localhost:3000/api/session -H 'content-type: application/json' -d '{"userId":"ada"}'

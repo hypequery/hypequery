@@ -280,7 +280,18 @@ uvx --from "hypequery[chdb,mcp]" hypequery demo --self-test
 | `--self-test` | Answer the demo's questions in the terminal and exit, without serving. Needs only the `chdb` extra |
 | `--print-config` | Print an `mcpServers` entry that launches the demo through `uvx` |
 
-See [Try it in one command](/docs/python/quick-start#try-it-in-one-command) for what the demo shows.
+The demo seeds a small shop for two tenants, `acme` and `globex`. `--self-test` answers its questions in the terminal,
+each beside the answer a naive query gets: orders in a `ReplacingMergeTree` read as resolved rows (1,536, not the
+2,864 row versions), exact and approximate distinct users, revenue growth by month, and a 7-day trailing measure, all
+scoped to one tenant. chDB publishes wheels for Linux and macOS only.
+
+To let Claude Code query it:
+
+<CodeBlock>
+```bash
+claude mcp add hypequery-demo -- uvx --from "hypequery[chdb,mcp]" hypequery demo
+```
+</CodeBlock>
 
 ## `hypequery telemetry`
 

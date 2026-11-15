@@ -195,6 +195,7 @@ export default function ClickHouseFastAPIPage() {
         { href: '/clickhouse-python-multi-tenant', label: 'Python multi-tenancy' },
         { href: '/fastapi-react-analytics', label: 'FastAPI + React' },
         { href: '/clickhouse-python-mcp', label: 'MCP for Python backends' },
+        { href: '/clickhouse-pydantic', label: 'ClickHouse with Pydantic AI' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

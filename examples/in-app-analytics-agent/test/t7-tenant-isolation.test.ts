@@ -29,7 +29,7 @@ vi.mock('@/lib/model', () => ({ chatModel: () => state.model }));
 
 const { POST } = await import('@/app/api/chat/route');
 
-const [northwind, quartz] = DEMO_USERS;
+const [acme, quartz] = DEMO_USERS;
 let endpoint: FakeTenantEndpoint;
 const rawCounts = new Map<string, number>();
 
@@ -78,17 +78,17 @@ async function chat(options: ChatOptions) {
 describe('T7: in-app agent tenant isolation', () => {
   it('answers a signed-in user from their own customer only', async () => {
     const result = await chat({
-      userId: northwind.id,
+      userId: acme.id,
       prompt: 'How many events did we have?',
       script: [{ toolName: 'query_dataset', input: { dataset: 'events', measures: ['events'] } }],
     });
     expect(result.status).toBe(200);
     expect(rows(result.outputs)).toEqual([{ events: expect.anything() }]);
-    expect(Number(rows(result.outputs)[0]!.events)).toBe(rawCounts.get(northwind.tenantId));
-    expect(result.verified.map((v) => v.tenant)).toEqual(expect.arrayContaining([northwind.tenantId]));
+    expect(Number(rows(result.outputs)[0]!.events)).toBe(rawCounts.get(acme.tenantId));
+    expect(result.verified.map((v) => v.tenant)).toEqual(expect.arrayContaining([acme.tenantId]));
   });
 
-  for (const [user, other] of [[northwind, quartz], [quartz, northwind]] as const) {
+  for (const [user, other] of [[acme, quartz], [quartz, acme]] as const) {
     it(`signed in at ${user.tenantName}, an injected request for ${other.tenantName} returns nothing from it`, async () => {
       const result = await chat({
         userId: user.id,

@@ -26,6 +26,7 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/analytics-mcp-server': '2026-11-14',
   '/semantic-layer/dbt-semantic-layer-alternatives': '2026-11-14',
   '/compare/build-vs-buy-embedded-analytics': '2026-11-14',
+  '/clickhouse-pydantic': '2026-11-15',
   // Seeded 2026-11-14 from each page file's last commit, so every marketing page
   // has a sitemap <lastmod>. Bump these by hand from here on.
   '/': '2026-11-09',
