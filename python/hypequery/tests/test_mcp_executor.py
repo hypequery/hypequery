@@ -184,19 +184,19 @@ def test_queries_run_through_the_api_as_its_principal() -> None:
             "query_dataset",
             {"dataset": "secret"},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query target.",
+            'Invalid client query target. Datasets: "orders".',
         ),
         (
             "query_metric",
             {"dataset": "orders", "metric": "total"},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query target.",
+            'Invalid client query target. Metrics: "ordersTotal" on "orders".',
         ),
         (
             "query_dataset",
             {"dataset": "orders", "dimensions": ["amount"]},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query at /dimensions/0.",
+            'Invalid client query at /dimensions/0. Offered by "orders": "country", "status".',
         ),
         (
             "query_dataset",

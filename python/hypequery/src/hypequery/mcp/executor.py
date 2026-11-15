@@ -43,6 +43,7 @@ from .responses import (
 from .utils.arguments import tool_arguments
 from .utils.discovery import client_dataset_list, client_dataset_names, client_dataset_profile
 from .utils.profile import mcp_client_profile
+from .utils.query_hints import client_query_field_hint, client_query_target_hint
 from .utils.results import client_http_result
 
 DEFAULT_MAX_CONTRACT_BYTES = 262_144
@@ -246,13 +247,19 @@ class ClientContractExecutor:
             None,
         )
         if endpoint is None:
-            raise McpToolError("MCP_INVALID_ARGUMENTS", "Invalid client query target.")
+            hint = client_query_target_hint(self.contract, name)
+            raise McpToolError("MCP_INVALID_ARGUMENTS", f"Invalid client query target.{hint}")
         try:
             return validate_protocol_client_query(self.contract, endpoint["id"], query, "mcp")
         except ProtocolClientContractError as error:
-            # The pointer names a contract member or an index, never a submitted value.
+            # The pointer and the hint name contract members or an index, never a
+            # submitted value.
             path = error.path
-            message = f"Invalid client query at {path}." if path else "Invalid client query."
+            message = (
+                f"Invalid client query at {path}.{client_query_field_hint(endpoint, path)}"
+                if path
+                else "Invalid client query."
+            )
             raise McpToolError("MCP_INVALID_ARGUMENTS", message) from None
 
     def _dataset_argument(self, arguments: Mapping[str, object] | None) -> str:
