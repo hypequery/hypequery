@@ -4,6 +4,16 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b6 (2026-11-15)
+
+- `hypequery.agent` gives your own agent hypequery's tenant-safe analytics tools, as `@hypequery/agent` does in TypeScript: `hypequery_tools()` returns native tools for Anthropic (`hypequery.agent.anthropic`), the OpenAI Agents SDK (`hypequery.agent.openai_agents`) and Pydantic AI (`hypequery.agent.pydantic_ai`). Pass `executor=` to run them in your own process, over a `ClientContractExecutor` built from the signed-in user's credential so the API's own auth scopes every query, or `url=` and `token=` for a tenant MCP endpoint such as hypequery Cloud's (needs the `mcp` extra; the token may be a function, asked for before every call). The model gets the same tools, JSON Schemas and error envelope as in TypeScript; tool errors are results it can correct, and a refused token or unreachable endpoint raises `HypequeryToolsError`. `tools=` limits an executor to the tools you name.
+
+- `hypequery.agent.langchain` gives a LangChain or LangGraph agent hypequery's tenant-safe analytics tools: `hypequery_tools()` returns `langchain-core` tools for `create_agent(model, tools=...)`, `model.bind_tools(...)` and LangGraph's `ToolNode`, taking `executor=`, or `url=` and `token=`, as the other adapters do. Each tool's input schema is the server's JSON Schema, and a tool error is returned to the model as `{"error": {code, message, hint, ...}}` so it can correct itself. The tools are async, so run the agent with `ainvoke` or `astream`. Needs `langchain-core` 0.3.36 or later, which `langchain` and `langgraph` install.
+
+- `hypequery.mcp` now advertises `query_dataset` and `query_metric` with an input schema that model APIs accept: valid JSON Schema draft 2020-12, one object with no top-level `anyOf`, `oneOf` or `allOf`, with each field option labelled by the datasets it belongs to. Before, MCP clients such as Claude Code dropped `query_dataset` without any error. Calls are still validated against the exact per-dataset schema, and the manifest hash is unchanged.
+- A query tool with nothing under it (no metric endpoint, or no dataset endpoint) is no longer listed. `hypequery mcp --self-test` and `hypequery demo` report the tool count from the manifest.
+- A rejected `query_dataset` or `query_metric` argument now says what is offered: `Invalid client query at /dimensions/0. Offered by "orders": "country", "status".`, and an unknown target lists the datasets or metrics. Messages name only what the tool already offers, never a submitted value.
+
 ## 0.1.0b5 (2026-11-14)
 
 - `hypequery.agent.mint_agent_token()` signs an end-user token for a hypequery Cloud project's tenant MCP endpoint locally, with one of the project's managed signing keys and no network call. `project` and `endpoint` are optional, defaulting to the key JSON's `hq_project` and `hq_endpoint`; an explicit argument wins. It returns `AgentToken(token, mcp_url, expires_at)`, caps the lifetime at 15 minutes and raises `AgentTokenError` (a `ValueError`) naming the option for any input Cloud would refuse. It needs the `jwt` extra, and mints the same token as `@hypequery/agent`'s `mintAgentToken()` for the same input.
