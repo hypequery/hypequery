@@ -140,5 +140,45 @@ export interface HypequeryToolsClient {
   close(): Promise<void>;
 }
 
-/** Adapters accept connection options, or a client you manage (and close) yourself. */
-export type HypequeryToolsSource = HypequeryToolsOptions | HypequeryToolsClient;
+/**
+ * A transport-neutral MCP tool executor, run in your own process. Structurally
+ * `@hypequery/mcp`'s `MCPToolExecutor` (from `createMCPExecutor`), so this
+ * package does not depend on it.
+ */
+export interface HypequeryToolExecutor {
+  listTools(signal?: AbortSignal): Promise<{
+    tools: Array<{
+      name: string;
+      title?: string;
+      description?: string;
+      inputSchema: Record<string, unknown>;
+      outputSchema?: Record<string, unknown>;
+      annotations?: Record<string, unknown>;
+    }>;
+    nextCursor?: string;
+  }>;
+  callTool(name: string, args?: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>;
+}
+
+/**
+ * Tools served by an executor in this process: no endpoint, no token, no
+ * network. The executor decides the tenant (pass `tenantId` from your own
+ * server-side session to `createMCPExecutor`), so create one per request.
+ */
+export interface HypequeryInProcessToolsOptions {
+  executor: HypequeryToolExecutor;
+  /**
+   * Only these tools, by name; the rest are neither listed nor callable. For
+   * example `['list_datasets', 'get_dataset_schema', 'query_dataset',
+   * 'get_business_context']`, hypequery Cloud's tenant tool set.
+   */
+  tools?: readonly string[];
+  /** Called after every tool call with its result. */
+  onResult?: (result: HypequeryToolResult) => void;
+}
+
+/**
+ * Adapters accept connection options for an endpoint, an executor in this
+ * process, or a client you manage (and close) yourself.
+ */
+export type HypequeryToolsSource = HypequeryToolsOptions | HypequeryInProcessToolsOptions | HypequeryToolsClient;

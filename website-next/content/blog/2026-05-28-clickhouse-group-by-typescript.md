@@ -1,7 +1,7 @@
 ---
 title: "ClickHouse GROUP BY and Aggregations in TypeScript"
 description: "How to write GROUP BY queries against ClickHouse from TypeScript: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing — all with typed results."
-seoTitle: "ClickHouse GROUP BY in TypeScript: Aggregations, HAVING, WITH TOTALS"
+seoTitle: "ClickHouse GROUP BY in TypeScript: HAVING and WITH TOTALS"
 seoDescription: "Write ClickHouse GROUP BY queries in TypeScript with typed aggregations: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing."
 pubDate: 2026-05-28
 heroImage: ""

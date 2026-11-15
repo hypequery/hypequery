@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Info } from 'lucide-react';
 
 const FORM_ACTION = 'https://formspree.io/f/mzdwnylk';
@@ -12,6 +12,7 @@ const FEATURE_OPTIONS = [
   'Embeddable chat',
   'Embeddable dashboards',
   'AI dataset authoring',
+  'Slack',
   'Something else',
 ] as const;
 
@@ -26,10 +27,10 @@ const AUTHORING_OPTIONS = [
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
 /** A button that opens the shared waitlist dialog. `location` records where it was opened from. */
-export function DeployWaitlist({ location, className }: { location: string; className?: string }) {
+export function DeployWaitlist({ location, className, children = 'Join the cloud waitlist' }: { location: string; className?: string; children?: ReactNode }) {
   return (
     <button type="button" className={className} onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: location }))}>
-      Join the cloud waitlist
+      {children}
     </button>
   );
 }

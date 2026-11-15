@@ -10,6 +10,7 @@ import { chooseAlternativeHeading, getCompareArticle } from '@/lib/compare-artic
 import { compareLinksFor } from '@/lib/compare-links';
 import { faqPageSchema } from '@/lib/faq-schema';
 import { formatLongDate } from '@/lib/format-date';
+import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
 
@@ -35,7 +36,7 @@ export async function generateMetadata({
   const url = absoluteUrl(comparePage.href);
 
   return {
-    title,
+    title: searchTitle(title),
     description,
     alternates: {
       canonical: url,

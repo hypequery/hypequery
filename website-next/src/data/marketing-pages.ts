@@ -37,6 +37,7 @@ export const marketingPages: readonly string[] = [
   '/python-semantic-layer',
   '/clickhouse-python-multi-tenant',
   '/clickhouse-python-mcp',
+  '/clickhouse-pydantic',
   '/fastapi-react-analytics',
   '/clickhouse-django',
   '/clickhouse-flask',

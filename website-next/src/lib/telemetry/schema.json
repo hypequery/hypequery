@@ -949,6 +949,7 @@
               "fastapi-analytics-api",
               "funnel-windowfunnel",
               "grouparray-user-timelines",
+              "in-app-analytics-agent",
               "iso-week-bucketing",
               "materialized-view-rollups",
               "mcp-agent-analytics",

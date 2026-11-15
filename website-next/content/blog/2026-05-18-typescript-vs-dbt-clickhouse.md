@@ -1,9 +1,10 @@
 ---
 title: "TypeScript vs dbt for ClickHouse: Choosing the Right Analytics Layer"
 description: "dbt and TypeScript solve overlapping but different problems on top of ClickHouse. Here's how to think about which one belongs in your stack — and when you need both."
-seoTitle: "TypeScript vs dbt for ClickHouse Analytics — What to Use and When"
-seoDescription: "dbt and TypeScript query builders both help you build on top of ClickHouse, but they solve different problems. This guide explains the trade-offs and when to use each."
+seoTitle: "JavaScript/TypeScript vs dbt for ClickHouse: When to Use Each"
+seoDescription: "dbt transforms data inside ClickHouse; JavaScript/TypeScript (Node.js) code serves it to your app. Which layer owns what, where they overlap, and when you need both."
 pubDate: 2026-05-18
+updatedAt: 2026-11-14
 heroImage: ""
 slug: typescript-vs-dbt-clickhouse
 status: published
@@ -13,7 +14,7 @@ tags:
   - Semantic layer
 ---
 
-dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.
+Short answer: dbt transforms and models data inside ClickHouse, while JavaScript or TypeScript code in a Node.js backend queries that data and serves it to your application. dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.
 
 This post breaks down what each tool actually does on top of ClickHouse, where they overlap, where they don't, and how teams typically combine them.
 

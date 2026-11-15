@@ -2,7 +2,7 @@
 title: "The Analytics Language Layer: Why Real-Time Data Needs Typed APIs, Not Just Faster Databases"
 description: "ClickHouse solved fast analytics reads. It did not solve how the rest of your product should call those queries safely. This post argues for a typed analytics layer between raw SQL and every consumer."
 seoTitle: "Typed ClickHouse APIs: Why Real-Time Analytics Needs More Than SQL"
-seoDescription: "Fast ClickHouse queries are not the hard part anymore. Learn why reusable typed APIs and query definitions matter more once analytics reaches apps, dashboards, and AI agents."
+seoDescription: "Fast ClickHouse queries are no longer the hard part. Why typed APIs and shared query definitions matter once analytics reaches apps, dashboards and AI agents."
 pubDate: 2026-02-09
 heroImage: ""
 ---

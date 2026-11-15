@@ -16,7 +16,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/open-source-tools';
 const TITLE = 'Best Open-Source Semantic Layer Tools (2026): 8 Compared';
 const DESCRIPTION =
-  'Open-source semantic layers compared: Cube Core, Wren AI, Lightdash, dbt MetricFlow, Malloy, hypequery, Boring Semantic Layer and AtScale SML, by licence, model format, databases, ClickHouse support, APIs and MCP.';
+  'Open-source semantic layers compared: Cube Core, Wren AI, Lightdash, MetricFlow, Malloy, hypequery and more, by licence, databases, ClickHouse support and MCP.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the project's own repository, docs or package registry on this date.
 // See seo-verification-log.md. Star counts drift; re-check them with the rest of the page.

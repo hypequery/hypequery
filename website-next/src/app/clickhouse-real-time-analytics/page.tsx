@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Real-Time Analytics in TypeScript',
   description:
-    'Query ClickHouse in real time with TypeScript. hypequery gives you typed queries for live analytics dashboards — low-latency reads, tenant isolation, and typed HTTP APIs.',
+    'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-real-time-analytics'),
   },
@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-real-time-analytics'),
     title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',
     description:
-      'Query ClickHouse in real time with TypeScript. hypequery gives you typed queries for live analytics dashboards — low-latency reads, tenant isolation, and typed HTTP APIs.',
+      'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',
     description:
-      'Query ClickHouse in real time with TypeScript. hypequery gives you typed queries for live analytics dashboards — low-latency reads, tenant isolation, and typed HTTP APIs.',
+      'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   },
 };
 

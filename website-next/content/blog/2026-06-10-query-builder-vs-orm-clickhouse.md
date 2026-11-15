@@ -2,7 +2,7 @@
 title: "Query Builder vs ORM: What's the Difference for ClickHouse?"
 description: "ORMs manage entities, relations, and migrations for transactional databases. Query builders construct typed SQL. Here's why that distinction matters for ClickHouse, and where hypequery deliberately sits."
 seoTitle: "Query Builder vs ORM: What's the Difference for ClickHouse?"
-seoDescription: "Query builder vs ORM explained: ORMs map rows to entities and manage their lifecycle; query builders construct typed SQL. Learn why analytical databases like ClickHouse favor query builders."
+seoDescription: "ORMs map rows to entities and manage their lifecycle; query builders build typed SQL. Why analytical databases like ClickHouse favor query builders over ORMs."
 pubDate: 2026-06-10
 heroImage: ""
 slug: query-builder-vs-orm-clickhouse

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
+import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
-const TITLE = 'ClickHouse Python Clients: clickhouse-connect vs driver';
+const TITLE = 'Best ClickHouse Python Client: clickhouse-connect vs driver';
 const DESCRIPTION =
   'clickhouse-connect is the official ClickHouse Python client. Compare it with clickhouse-driver, clickhouse-sqlalchemy and hypequery, with safe dynamic queries.';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: searchTitle(TITLE),
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl('/clickhouse-python') },
   openGraph: {
@@ -292,7 +293,7 @@ export default function ClickHousePythonPage() {
       eyebrow="ClickHouse Python clients"
       title="ClickHouse Python clients compared: clickhouse-connect, clickhouse-driver, SQLAlchemy and hypequery"
       description="For most Python code, use clickhouse-connect: it is the client ClickHouse maintains, it talks to the HTTP interface, binds `{name:Type}` parameters on the server, and returns pandas, NumPy or Arrow. clickhouse-driver is the community client for the native TCP protocol, clickhouse-sqlalchemy is a SQLAlchemy dialect built on it, and hypequery runs on top of clickhouse-connect to add named, validated, tenant-scoped analytics queries."
-      primaryCta={{ href: '/docs/python/quick-start', label: 'Start with Python' }}
+      primaryCta={{ href: '/docs/quick-start#python', label: 'Start with Python' }}
       secondaryCta={{ href: '/clickhouse-fastapi', label: 'See the FastAPI guide' }}
       language="python"
       stats={[
@@ -332,7 +333,7 @@ export default function ClickHousePythonPage() {
           },
           {
             label: 'Latest release on PyPI',
-            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b3, 5 Nov 2026 (beta)'],
+            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b4, 10 Nov 2026 (beta)'],
           },
           {
             label: 'Python',
@@ -385,7 +386,7 @@ export default function ClickHousePythonPage() {
           },
         ],
         footnote:
-          'Releases and Python ranges from PyPI on 8 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with the versions above.',
+          'Releases and Python ranges from PyPI, rechecked on 14 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with clickhouse-connect 1.12.0, clickhouse-driver 0.2.11, clickhouse-sqlalchemy 0.3.2 and hypequery 0.1.0b3.',
       }}
       problemsHeading={{
         eyebrow: 'The clients',
@@ -552,7 +553,7 @@ export default function ClickHousePythonPage() {
       ]}
       searchIntentCards={[
         {
-          title: 'clickhouse-connect vs clickhouse-driver',
+          title: 'Should I use clickhouse-connect or clickhouse-driver?',
           copy:
             'clickhouse-connect is maintained by ClickHouse and uses the HTTP interface; clickhouse-driver is a community client for the native TCP protocol. Both returned the same rows in our tests and both escaped the injection payload. Pick clickhouse-connect for new code, for its `{name:Type}` server-side binding and its pandas, NumPy and Arrow methods. Keep clickhouse-driver where code or network rules already depend on the native protocol.',
         },
@@ -637,13 +638,14 @@ export default function ClickHousePythonPage() {
         { href: '/clickhouse-fastapi', label: 'ClickHouse FastAPI' },
         { href: '/clickhouse-django', label: 'ClickHouse with Django' },
         { href: '/clickhouse-flask', label: 'ClickHouse with Flask' },
+        { href: '/clickhouse-pydantic', label: 'ClickHouse with Pydantic AI' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
         title: 'Keep your client and model one table',
         description:
           'Pick the ClickHouse query your services copy most often, define it as a dataset, and run it through the same clickhouse-connect connection settings you use today.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Start with Python' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Start with Python' },
         secondaryCta: { href: '/docs/python', label: 'Read the Python docs' },
       }}
     />

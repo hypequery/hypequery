@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
-import { createHypequeryToolsClient, toModelOutput } from './client.js';
+import { createHypequeryToolsClient, createRemoteToolsClient, toModelOutput } from './client.js';
 import { HypequeryToolsError } from './errors.js';
 import type { HypequeryToolResult, HypequeryToolsClient } from './types.js';
 
 const TOKEN = 'agent-token-0123456789';
 let server: FixtureServer;
 const clients: HypequeryToolsClient[] = [];
-function connect(options: Partial<Parameters<typeof createHypequeryToolsClient>[0]> = {}) {
-  const client = createHypequeryToolsClient({ url: server.url, token: TOKEN, ...options });
+function connect(options: Partial<Parameters<typeof createRemoteToolsClient>[0]> = {}) {
+  const client = createRemoteToolsClient({ url: server.url, token: TOKEN, ...options });
   clients.push(client);
   return client;
 }
@@ -21,7 +21,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('createHypequeryToolsClient', () => {
+describe('createRemoteToolsClient', () => {
   it('lists the tenant tools with the schemas the server lists', async () => {
     const tools = await connect().listTools();
     const listed = await server.executor.listTools();
@@ -222,6 +222,12 @@ describe('createHypequeryToolsClient', () => {
   });
 
   it('rejects options without a usable token', () => {
-    expect(() => createHypequeryToolsClient({ url: server.url, token: 42 as never })).toThrow(TypeError);
+    expect(() => createRemoteToolsClient({ url: server.url, token: 42 as never })).toThrow(TypeError);
+  });
+});
+
+describe('createHypequeryToolsClient', () => {
+  it('is the deprecated name of createRemoteToolsClient', () => {
+    expect(createHypequeryToolsClient).toBe(createRemoteToolsClient);
   });
 });

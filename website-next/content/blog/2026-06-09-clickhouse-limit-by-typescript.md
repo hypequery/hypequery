@@ -1,9 +1,10 @@
 ---
 title: "ClickHouse LIMIT BY — Top-N-Per-Group Queries in TypeScript"
 description: "LIMIT BY is ClickHouse's built-in answer to top-N-per-group: latest 3 events per user, top 5 products per category. Learn how it works, how it differs from LIMIT and row_number(), and how to write it in TypeScript with hypequery's native .limitBy()."
-seoTitle: "ClickHouse LIMIT BY Explained: Top-N Per Group in TypeScript"
-seoDescription: "ClickHouse LIMIT BY returns the first N rows per group — no window functions needed. Syntax, semantics, LIMIT BY vs LIMIT, row_number() comparison, and type-safe TypeScript examples."
+seoTitle: "ClickHouse LIMIT BY and LIMIT 1 BY: Top-N Per Group"
+seoDescription: "ClickHouse LIMIT BY returns the first N rows per group without window functions. Syntax, LIMIT 1 BY for dedup, LIMIT BY vs row_number(), with TypeScript examples."
 pubDate: 2026-06-09
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-limit-by-typescript
 status: published
@@ -40,6 +41,22 @@ const latestEvents = await db
 No subquery, no window function, no raw SQL string. If you want to run these examples against your own schema, the [quick start](/docs/quick-start) gets you from `npm install` to typed queries in a few minutes, and the [ClickHouse query builder guide](/clickhouse-query-builder) covers the rest of the builder surface.
 
 This post covers what `LIMIT BY` actually does, the two scenarios where it shines, how it interacts with the final `LIMIT`, and when you should reach for `row_number()` instead.
+
+## Quick answers
+
+These were checked on ClickHouse 25.8.
+
+### What is the LIMIT BY syntax in ClickHouse?
+
+`LIMIT n BY expr[, expr...]` after `ORDER BY`, and before any final `LIMIT`. To skip rows per group, use `LIMIT n OFFSET m BY expr` or the short form `LIMIT m, n BY expr`; both return the second row per group when n is 1 and m is 1.
+
+### How do I keep one row per key with LIMIT 1 BY?
+
+Sort so the row you want comes first in each group, then add `LIMIT 1 BY key`: `ORDER BY user_id, ts DESC LIMIT 1 BY user_id` returns the latest row for each user.
+
+### Does LIMIT BY need ORDER BY?
+
+It runs without one, but then which rows survive in each group is arbitrary. Add `ORDER BY` whenever "first" should mean latest, largest or any other specific row.
 
 ## What LIMIT BY Does
 
@@ -215,7 +232,9 @@ This is a recurring theme with ClickHouse: the features that make it worth choos
 
 ## Where to Go From Here
 
+- [ClickHouse GROUP BY in TypeScript](/blog/clickhouse-group-by-typescript) — aggregations, `HAVING` and `WITH TOTALS`, when you want one row per group rather than the first N rows.
 - [ClickHouse window functions in TypeScript](/blog/clickhouse-window-functions-typescript) — when you need ranks, lag/lead, or running totals instead of a top-N slice.
+- [Top N per group recipe](/recipes/top-n-per-group-limit-by) — LIMIT BY measured against row_number() and rank() on the same data.
 - [ClickHouse pagination in TypeScript](/blog/clickhouse-pagination-typescript) — combining `LIMIT`, `OFFSET`, and cursors for API responses.
 - [Filter operators in the hypequery builder](/blog/clickhouse-filter-operators-typescript) — the `.where()` surface used in every example above.
 - [ClickHouse for product analytics](/clickhouse-product-analytics) — the broader event-analytics patterns that top-N-per-group queries feed into.

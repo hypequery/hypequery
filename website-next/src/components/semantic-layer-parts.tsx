@@ -4,6 +4,7 @@ import CodeWindow from '@/components/CodeWindow';
 import { HubLinkGrid, HubSection } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
 import { otherSemanticLayerPages } from '@/data/semantic-layer-pages';
+import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import type { BreadcrumbItem } from '@/lib/structured-data';
 
@@ -11,7 +12,7 @@ import type { BreadcrumbItem } from '@/lib/structured-data';
 
 export function spokeMetadata({ path, title, description }: { path: string; title: string; description: string }): Metadata {
   return {
-    title,
+    title: searchTitle(title),
     description,
     alternates: { canonical: absoluteUrl(path) },
     openGraph: { type: 'article', url: absoluteUrl(path), title: `${title} | hypequery`, description, images: ogImage(title) },
