@@ -210,3 +210,22 @@ Not targeted this pass, by the owner's choice: `/clickhouse/functions/*` pages a
 
 - Before: …Text-to-SQL is the obvious first try, and on ClickHouse it fails in specific ways. A `ReplacingMergeTree` table read without `FINAL` cou…
 - After: …[Text-to-SQL](/blog/text-to-sql-vs-semantic-layer) is the obvious first try, and on ClickHouse it fails in specific ways. A `ReplacingMer…
+
+## 2026-11-15 (2): managed ClickHouse services post
+
+Owner-approved follow-up. From 2026-11-11 this post drew most of the site's Generative AI feature impressions in
+Search Console (daily impressions 36 → 135 on Nov 11, matching the report's jump). Added a two-sentence "where
+hypequery fits" paragraph under the opening answer (the answer itself is unchanged) and extended "A note on
+hypequery". New links:
+
+| File | Anchor | Target |
+|---|---|---|
+| `content/blog/2026-11-08-managed-clickhouse-services-compared.md` | the ClickHouse semantic layer | /clickhouse-semantic-layer |
+| same | AI analytics chat for ClickHouse | /clickhouse-ai |
+| same | note at the end | #a-note-on-hypequery |
+| same | Build an AI analytics chat on ClickHouse | /blog/clickhouse-ai-chat-vercel-ai-sdk |
+
+To revert, delete the second paragraph of the post and the sentence starting "You define metrics, dimensions and
+tenant rules once" in "A note on hypequery", and restore the final sentence of that section to: "See the
+[quick start](/docs/quick-start), or the [TypeScript client for ClickHouse Cloud](/clickhouse-typescript#clickhouse-cloud)
+guide for connecting to ClickHouse Cloud." `updatedAt` moved from 2026-11-08 to 2026-11-15.

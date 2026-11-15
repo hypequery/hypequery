@@ -4,7 +4,7 @@ description: "Every active way to run ClickHouse without operating it yourself, 
 seoTitle: "Managed ClickHouse Services Compared: Best Platforms 2026"
 seoDescription: "ClickHouse Cloud, Tinybird, Altinity.Cloud, Aiven, Instaclustr, Elestio, Alibaba and Yandex compared on deployment, pricing and fit. DoubleCloud closed."
 pubDate: 2026-11-08
-updatedAt: 2026-11-08
+updatedAt: 2026-11-15
 heroImage: ""
 slug: managed-clickhouse-services-compared
 status: published
@@ -14,6 +14,8 @@ tags:
 ---
 
 Eight services let you run ClickHouse without operating it yourself, as checked on their own pages on 8 November 2026: ClickHouse Cloud, Tinybird, Altinity.Cloud, Aiven for ClickHouse, NetApp Instaclustr, Elestio, Alibaba Cloud ApsaraDB for ClickHouse and Yandex Managed Service for ClickHouse. DoubleCloud has wound down. For most developers the shortlist is ClickHouse Cloud (usage-based billing that scales to zero, run by the ClickHouse company), Tinybird (ClickHouse plus ingestion and hosted API endpoints, with a free plan), and Altinity.Cloud or Aiven (open-source ClickHouse on provisioned servers, with an option to run in your own cloud account).
+
+Whichever you pick, the service gives you the database, not the analytics layer your product needs on top: typed queries, an API, tenant rules and, increasingly, tools an AI agent can call. hypequery is that layer, as open-source TypeScript and Python libraries that connect to any service here that accepts standard ClickHouse connections. See [the ClickHouse semantic layer](/clickhouse-semantic-layer) and [AI analytics chat for ClickHouse](/clickhouse-ai), or the [note at the end](#a-note-on-hypequery).
 
 ## Managed ClickHouse services at a glance
 
@@ -153,7 +155,7 @@ On Kubernetes, two Apache-2.0 operators do much of the work. The [Altinity Kuber
 
 ## A note on hypequery
 
-hypequery is an open-source TypeScript and Python code layer that runs inside your application and doesn't host ClickHouse. It connects to any of the services above that accept standard ClickHouse connections, so changing hosts doesn't mean rewriting queries. See the [quick start](/docs/quick-start), or the [TypeScript client for ClickHouse Cloud](/clickhouse-typescript#clickhouse-cloud) guide for connecting to ClickHouse Cloud.
+hypequery is an open-source TypeScript and Python code layer that runs inside your application and doesn't host ClickHouse. It connects to any of the services above that accept standard ClickHouse connections, so changing hosts doesn't mean rewriting queries. You define metrics, dimensions and tenant rules once, then serve the same definitions to your APIs, dashboards and AI agents, so an in-product assistant reports the same revenue as your dashboard and only sees the signed-in customer's rows. See the [quick start](/docs/quick-start), the [TypeScript client for ClickHouse Cloud](/clickhouse-typescript#clickhouse-cloud) guide for connecting to ClickHouse Cloud, or [Build an AI analytics chat on ClickHouse](/blog/clickhouse-ai-chat-vercel-ai-sdk) for the agent side.
 
 ## Related
 
