@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions',
+  title: 'ClickHouse OpenAPI Docs from Query Definitions',
   description:
-    'Generate an OpenAPI spec from real ClickHouse query definitions so your docs, request validation, and response schemas stay aligned with the code you actually ship.',
+    'Generate an OpenAPI spec from real ClickHouse query definitions, so docs, request validation and response schemas stay aligned with the code you ship.',
   alternates: { canonical: absoluteUrl('/clickhouse-openapi') },
   openGraph: {
     images: ogImage('ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions'),

@@ -9,8 +9,11 @@ import { marketingPages } from '@/data/marketing-pages';
 import { entryHref, registryEntries } from '@/lib/examples';
 import { retiredBlogSlugs } from '@/data/retired-blog-posts';
 import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
+import { getChangelog } from '@/lib/changelog/load';
 import { getCompareArticle } from '@/lib/compare-article';
 import { maybeUpdatedFor } from '@/data/page-dates';
+import { blogLastModified } from './dates';
+import { gitLastModified } from './git-dates';
 
 /**
  * One child sitemap per page type. `/sitemap.xml` is the index
@@ -44,7 +47,9 @@ async function blogEntries(): Promise<MetadataRoute.Sitemap> {
   const posts = (await getPosts()).filter((post) => !redirectedBlogSlugs.has(post.slug));
   const entries = posts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`).toString(),
-    lastModified: post.data.date ? new Date(post.data.date) : undefined,
+    // The last update when a post has one (`updatedAt` frontmatter), so refreshed posts
+    // tell crawlers they changed; otherwise the publish date.
+    lastModified: blogLastModified(post.data.updated, post.data.date),
   }));
   // The hub changes whenever a post is published.
   return [{ url: absoluteUrl('/blog').toString(), lastModified: latest(entries) }, ...entries];
@@ -61,7 +66,11 @@ async function compareEntries(): Promise<MetadataRoute.Sitemap> {
 function docsEntries(): MetadataRoute.Sitemap {
   return source.generateParams().map((params) => {
     const slug = Array.isArray(params.slug) ? params.slug : [];
-    return { url: absoluteUrl(slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs').toString() };
+    const lastModified = source.getPage(slug)?.data.lastModified;
+    return {
+      url: absoluteUrl(slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs').toString(),
+      lastModified: lastModified ? new Date(lastModified) : undefined,
+    };
   });
 }
 
@@ -76,14 +85,42 @@ function functionEntries(): MetadataRoute.Sitemap {
 }
 
 function exampleEntries(): MetadataRoute.Sitemap {
+  const hubs = [
+    { kind: 'example', href: '/examples' },
+    { kind: 'recipe', href: '/recipes' },
+    { kind: 'guide', href: '/guides' },
+  ] as const;
+  // Each entry is dated by its source directory's last commit, when the build has full Git history.
+  const entries = registryEntries.map((entry) => ({
+    kind: entry.manifest.kind,
+    url: absoluteUrl(entryHref(entry)).toString(),
+    lastModified: gitLastModified(entry.dir),
+  }));
   return [
-    ...['/examples', '/recipes', '/guides'].map(staticEntry),
-    ...registryEntries.map((entry) => ({ url: absoluteUrl(entryHref(entry)).toString() })),
+    // A hub changes whenever one of its entries does.
+    ...hubs.map((hub) => ({
+      url: absoluteUrl(hub.href).toString(),
+      lastModified: latest(entries.filter((entry) => entry.kind === hub.kind)),
+    })),
+    ...entries.map(({ url, lastModified }) => ({ url, lastModified })),
   ];
 }
 
-function changelogEntries(): MetadataRoute.Sitemap {
-  return ['/changelog', ...CHANGELOG_PACKAGES.map((pkg) => `/changelog/${pkg.slug}`)].map(staticEntry);
+/** A package's newest release date: the registry publish time, or the changelog heading's date. */
+function newestRelease(releases: readonly { publishedAt?: string; date?: string }[] | undefined): Date | undefined {
+  const value = releases?.[0]?.publishedAt ?? releases?.[0]?.date;
+  const date = value ? new Date(value) : undefined;
+  return date && !Number.isNaN(date.getTime()) ? date : undefined;
+}
+
+async function changelogEntries(): Promise<MetadataRoute.Sitemap> {
+  // Releases are newest first. If the changelog cannot load, the URLs are listed without dates.
+  const data = await getChangelog().catch(() => undefined);
+  const entries = CHANGELOG_PACKAGES.map((pkg) => ({
+    url: absoluteUrl(`/changelog/${pkg.slug}`).toString(),
+    lastModified: newestRelease(data?.packages[pkg.slug]),
+  }));
+  return [{ url: absoluteUrl('/changelog').toString(), lastModified: latest(entries) }, ...entries];
 }
 
 export async function sitemapSection(section: SitemapSection): Promise<MetadataRoute.Sitemap> {
@@ -101,7 +138,7 @@ export async function sitemapSection(section: SitemapSection): Promise<MetadataR
     case 'functions':
       return functionEntries();
     case 'changelog':
-      return changelogEntries();
+      return await changelogEntries();
   }
 }
 

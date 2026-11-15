@@ -1,5 +1,25 @@
 # @hypequery/mcp
 
+## 0.14.0
+
+### Minor Changes
+
+- f99c717: `createMCPExecutor({ businessContext })` gives agents the project's reviewed business context (from `defineBusinessContext`): `list_datasets` carries it (only the summary, with `truncated: true`, when it is over 32 KB) and a new `get_business_context` tool returns all of it. Without `businessContext`, the tools and their output are unchanged. `formatBusinessContext()` renders a context as Markdown for a system prompt.
+
+### Patch Changes
+
+- f99c717: `get_dataset_schema` names the time dimension when the dataset's `timeKey` is a column that a dimension reads under another name (`timeKey: 'occurred_at'` with `occurredAt: dimension.timestamp({ column: 'occurred_at' })`); it was `null`. `list_datasets` counts dimensions, measures and metrics from the same projection `get_dataset_schema` returns, so derived measures are counted and the two tools agree.
+- 00e2130: `query_dataset` and `query_metric` now advertise an input schema that Claude, OpenAI and other model APIs accept: valid JSON Schema draft 2020-12, one object with no top-level `anyOf`, `oneOf` or `allOf`, listing every dataset's fields with each option labelled by the datasets it belongs to. Before, an MCP client that forwards schemas unchanged, such as Claude Code, dropped `query_dataset` without any error. The server still validates every call against the exact per-dataset schema and returns a correctable `MCP_INVALID_ARGUMENTS` error, and the manifest hash is unchanged. A query tool with nothing under it (no named metric, or no directly queryable dataset) is no longer listed, so agents stop spending calls on a tool that rejects every input.
+
+  A rejected query argument now says what is offered instead. The local server reports the problem in the dataset the call named (for example `dimensions.0: Invalid input: expected "device"`) instead of `arguments: Invalid input`, and lists the datasets when none matches. The client-contract bridge adds the names the endpoint accepts at that pointer (`Invalid client query at /dimensions/0. Offered by "orders": "amount", "country".`). Messages name only what the tool already offers, never a submitted value or key.
+
+- 22766a7: `createMCPServeAuthenticator` now accepts `@hypequery/serve` strategies such as `createJwtStrategy(...)` and `createApiKeyStrategy(...)` under `strict` mode. `MCPServeAuthRequest.method` is typed as the new `MCPServeHttpMethod` (serve's `HttpMethod`) instead of `string`.
+- 2fb4f98: A tenant-scoped caller that filters on a dataset's tenant field in `query_dataset` or `query_metric` now gets `MCP_INVALID_ARGUMENTS` (`correctable_input`, `retryable: false`, `relist: false`, `reason: "MCP_TENANT_FIELD_NOT_FILTERABLE"`) with a hint to remove the filter, instead of a retryable `MCP_EXECUTION_FAILED`. The tenant is fixed by the caller's credential, so retrying could never succeed. Grouping by the tenant field and refusing tenant arguments are unchanged.
+- Updated dependencies [f99c717]
+- Updated dependencies [8a03109]
+  - @hypequery/datasets@0.32.0
+  - @hypequery/protocol@0.27.0
+
 ## 0.13.0
 
 ### Minor Changes

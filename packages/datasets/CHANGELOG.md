@@ -1,5 +1,24 @@
 # @hypequery/datasets
 
+## 0.32.0
+
+### Minor Changes
+
+- 8a03109: Publish reviewed business context (summary, KPIs, glossary, conventions, caveats) to Cloud alongside the deployment contract.
+
+  - `@hypequery/protocol`: new `BusinessContextV1` document with strict validation and a canonical identity, and deployment bundle manifest version 2, which adds a required `businessContext` file entry. Bundles without context remain version 1, so existing bundle identities are unchanged.
+  - `@hypequery/datasets`: `defineBusinessContext` and `defineCloudPublication({ deployment, businessContext })`. Bare `publishToCloud(...)` exports keep working.
+  - `@hypequery/deployment`: bundle verification and intake accept version 1 and version 2 bundles; verified bundles expose `businessContext`. New `deploymentBundleFiles` helper defines the shared file order for upload, intake and storage.
+  - `@hypequery/cli`: `deployment:build` and `deploy` write business context into the bundle and upload it. A glossary-only change produces a new bundle and release identity.
+
+  Deploying a version 2 bundle requires a Cloud control plane on this `@hypequery/deployment` release or later.
+
+### Patch Changes
+
+- f99c717: `get_dataset_schema` names the time dimension when the dataset's `timeKey` is a column that a dimension reads under another name (`timeKey: 'occurred_at'` with `occurredAt: dimension.timestamp({ column: 'occurred_at' })`); it was `null`. `list_datasets` counts dimensions, measures and metrics from the same projection `get_dataset_schema` returns, so derived measures are counted and the two tools agree.
+- Updated dependencies [8a03109]
+  - @hypequery/protocol@0.27.0
+
 ## 0.31.0
 
 ### Minor Changes

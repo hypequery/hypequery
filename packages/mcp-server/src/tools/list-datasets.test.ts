@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import { dataset, dimension, divide, measure, nullIfZero } from '@hypequery/datasets';
+import { getDatasetSchemaTool } from './introspect.js';
 import { listDatasetsTool } from './list-datasets.js';
 
 describe('listDatasetsTool', () => {
@@ -99,6 +100,30 @@ describe('listDatasetsTool', () => {
       measureCount: 1,
       metricCount: 0,
     });
+  });
+
+  it('counts derived measures, matching what get_dataset_schema lists', async () => {
+    const Events = dataset('events', {
+      source: 'events',
+      dimensions: { statusCode: dimension.number({ column: 'status_code' }) },
+      measures: {
+        events: measure.count('statusCode'),
+        errors: measure.count('statusCode'),
+        errorRate: measure.derived({
+          uses: { errors: 'errors', events: 'events' },
+          formula: ({ errors, events }) => divide(errors, nullIfZero(events)),
+        }),
+      },
+    });
+    const datasets = { events: Events };
+
+    const listed = JSON.parse((await listDatasetsTool(datasets)).content[0].text).datasets[0];
+    const schema = JSON.parse((await getDatasetSchemaTool(datasets, { dataset: 'events' })).content[0].text);
+
+    expect(listed.measureCount).toBe(3);
+    expect(listed.measureCount).toBe(schema.measures.length);
+    expect(listed.dimensionCount).toBe(schema.dimensions.length);
+    expect(listed.metricCount).toBe(schema.metrics.length);
   });
 
   it('should handle datasets with config descriptions', async () => {

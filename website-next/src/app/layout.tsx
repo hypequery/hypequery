@@ -80,6 +80,7 @@ const organizationSchema = {
   sameAs: [
     'https://github.com/hypequery/hypequery',
     'https://www.npmjs.com/package/@hypequery/clickhouse',
+    'https://pypi.org/project/hypequery/',
     'https://x.com/hypequery',
     'https://www.linkedin.com/company/110435355/',
   ],

@@ -8,7 +8,7 @@ const description =
   'Long-form ClickHouse guides, each with SQL that is executed against a seeded dataset on every change: refreshable materialized views and more.';
 
 export const metadata: Metadata = {
-  title: 'Guides',
+  title: 'ClickHouse Guides with Tested SQL',
   description,
   alternates: { canonical: absoluteUrl('/guides') },
   openGraph: { type: 'website', url: absoluteUrl('/guides'), title, description, images: ogImage('hypequery guides') },

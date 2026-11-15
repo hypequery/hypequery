@@ -1,9 +1,11 @@
+import { toModelInputSchema } from './utils/model-input-schema.js';
+import type { HypequeryJsonSchema } from './types.js';
 import { generateText, stepCountIs } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
 import { hypequeryTools } from './ai-sdk.js';
-import { createHypequeryToolsClient } from './client.js';
+import { createRemoteToolsClient } from './client.js';
 import type { HypequeryToolsClient } from './types.js';
 
 const TOKEN = 'agent-token-0123456789';
@@ -12,7 +14,7 @@ let client: HypequeryToolsClient;
 
 beforeEach(async () => {
   server = await startFixtureServer(TOKEN);
-  client = createHypequeryToolsClient({ url: server.url, token: TOKEN });
+  client = createRemoteToolsClient({ url: server.url, token: TOKEN });
 });
 afterEach(async () => {
   await client.close();
@@ -49,7 +51,7 @@ function scriptedModel(toolName: string, input: Record<string, unknown>) {
 }
 
 describe('@hypequery/agent/ai-sdk', () => {
-  it('lists the tenant tools with the server’s input schemas', async () => {
+  it('lists the tenant tools with the server’s input schemas, as models accept them', async () => {
     const tools = await hypequeryTools(client);
     const listed = await server.executor.listTools();
     expect(Object.keys(tools)).toEqual(TENANT_TOOLS);
@@ -59,7 +61,7 @@ describe('@hypequery/agent/ai-sdk', () => {
     const sent = model.doGenerateCalls[0]!.tools!;
     expect(sent.map(tool => tool.name)).toEqual(TENANT_TOOLS);
     expect(sent.map(tool => (tool as { inputSchema: unknown }).inputSchema))
-      .toEqual(listed.tools.map(tool => tool.inputSchema));
+      .toEqual(listed.tools.map(tool => toModelInputSchema(tool.inputSchema as HypequeryJsonSchema)));
     expect(sent.map(tool => (tool as { description?: string }).description))
       .toEqual(listed.tools.map(tool => tool.description));
   });

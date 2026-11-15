@@ -1,5 +1,26 @@
 # @hypequery/cli
 
+## 1.31.0
+
+### Minor Changes
+
+- 166af66: `hypequery deploy` and `hypequery deployment:submit` ask before replacing a live model built in hypequery Cloud, because the project is then managed in code and its model can no longer be edited in Cloud. In a terminal the CLI asks (default no); in CI, pass `--take-ownership`. Deploys now send whether the user agreed, so Cloud refuses a takeover the user didn't confirm. `--take-ownership` can't be combined with `--draft`, which never replaces Production.
+- 8a03109: Publish reviewed business context (summary, KPIs, glossary, conventions, caveats) to Cloud alongside the deployment contract.
+
+  - `@hypequery/protocol`: new `BusinessContextV1` document with strict validation and a canonical identity, and deployment bundle manifest version 2, which adds a required `businessContext` file entry. Bundles without context remain version 1, so existing bundle identities are unchanged.
+  - `@hypequery/datasets`: `defineBusinessContext` and `defineCloudPublication({ deployment, businessContext })`. Bare `publishToCloud(...)` exports keep working.
+  - `@hypequery/deployment`: bundle verification and intake accept version 1 and version 2 bundles; verified bundles expose `businessContext`. New `deploymentBundleFiles` helper defines the shared file order for upload, intake and storage.
+  - `@hypequery/cli`: `deployment:build` and `deploy` write business context into the bundle and upload it. A glossary-only change produces a new bundle and release identity.
+
+  Deploying a version 2 bundle requires a Cloud control plane on this `@hypequery/deployment` release or later.
+
+### Patch Changes
+
+- f99c717: `hypequery create in-app-analytics-agent` is recorded in telemetry under its own slug rather than `other`: the new example is added to the telemetry contract's example slugs.
+- Updated dependencies [8a03109]
+  - @hypequery/protocol@0.27.0
+  - @hypequery/deployment@0.13.0
+
 ## 1.30.0
 
 ### Minor Changes
