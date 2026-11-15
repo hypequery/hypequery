@@ -1121,8 +1121,8 @@ processes, pass a `store` with an async `hit(key, window_seconds)` method.
 
 `hypequery.agent` gives the agent in your own product hypequery's tenant-safe analytics tools
 (`list_datasets`, `get_dataset_schema`, `query_metric` and `query_dataset`) as native tools for
-Anthropic, the OpenAI Agents SDK and Pydantic AI. The model never writes SQL, and every query is
-scoped to the signed-in user's tenant. It mirrors `@hypequery/agent` in TypeScript: the same
+Anthropic, the OpenAI Agents SDK, Pydantic AI and LangChain. The model never writes SQL, and every
+query is scoped to the signed-in user's tenant. It mirrors `@hypequery/agent` in TypeScript: the same
 tools, JSON Schemas and error envelope.
 
 In your own process, build the executor per request from the signed-in user's credential, so the
@@ -1145,11 +1145,17 @@ The other adapters take the same arguments:
 
 ```python
 from hypequery.agent.anthropic import hypequery_tools as anthropic_tools
+from hypequery.agent.langchain import hypequery_tools as langchain_tools
 from hypequery.agent.openai_agents import hypequery_tools as openai_tools
 
 hq = await anthropic_tools(executor=executor)  # hq.tools for messages.create, hq.tool_results(...)
 tools = await openai_tools(executor=executor)  # for agents.Agent(tools=...)
+tools = await langchain_tools(executor=executor)  # for create_agent(model, tools=...)
 ```
+
+The LangChain tools are `langchain-core` tools (0.3.36 or later), so they also work with
+`model.bind_tools(tools)` and LangGraph's `ToolNode`. They are async: run the agent with
+`ainvoke` or `astream`.
 
 For a tenant MCP endpoint such as hypequery Cloud's, pass `url=` and `token=` instead (needs the
 `mcp` extra). The token can be a function, sync or async; it is asked for before every call, so a

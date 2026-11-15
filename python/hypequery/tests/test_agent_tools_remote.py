@@ -80,6 +80,41 @@ def test_the_remote_client_calls_the_endpoint_as_the_token_holder() -> None:
     anyio.run(run)
 
 
+def test_langchain_tools_call_the_endpoint_as_the_token_holder() -> None:
+    pytest.importorskip("langchain_core", reason="langchain-core is not installed")
+    import json
+
+    from hypequery.agent.langchain import hypequery_tools
+
+    app, rows = endpoint()
+
+    async def run() -> None:
+        async with listening(app) as url:
+            tools = await hypequery_tools(url=url, token="reader")  # noqa: S106 - a test credential
+            assert [tool.name for tool in tools] == [
+                "list_datasets",
+                "get_dataset_schema",
+                "query_metric",
+                "query_dataset",
+            ]
+            query = next(tool for tool in tools if tool.name == "query_dataset")
+            output = await query.ainvoke(
+                {"dataset": "orders", "dimensions": ["country"], "measures": ["total"]}
+            )
+            assert json.loads(output)["data"]
+            schema = next(tool for tool in tools if tool.name == "get_dataset_schema")
+            assert "error" in json.loads(await schema.ainvoke({"dataset": "nope"}))
+
+            # A refused token raises: it is the app's failure, not a result for the model.
+            with pytest.raises(HypequeryToolsError):
+                await hypequery_tools(url=url, token="nobody")  # noqa: S106 - a test credential
+
+        assert rows.seen
+        assert all("tenant_id" in q.sql for q in rows.seen)
+
+    anyio.run(run)
+
+
 def test_a_refused_token_raises_instead_of_reaching_the_model() -> None:
     app, _ = endpoint()
 

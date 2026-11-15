@@ -261,3 +261,57 @@ def test_pydantic_ai_runs_the_tools_in_an_agent_loop() -> None:
         assert all("tenant_id" in q.sql for q in rows.seen)
 
     anyio.run(run)
+
+
+def test_langchain_tools_answer_a_models_tool_calls() -> None:
+    pytest.importorskip("langchain_core", reason="langchain-core is not installed")
+    from langchain_core.messages import ToolMessage
+    from langchain_core.tools import StructuredTool
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+
+    from hypequery.agent.langchain import hypequery_tools
+
+    async def run() -> None:
+        executor, rows = await reader_executor()
+        tools = await hypequery_tools(executor=executor)
+        assert [tool.name for tool in tools] == TOOLS
+        assert all(isinstance(tool, StructuredTool) for tool in tools)
+        # What `model.bind_tools(tools)` sends: the server's description and JSON Schema.
+        listed = {tool.name: tool for tool in await InProcessToolsClient(executor).list_tools()}
+        for tool in tools:
+            function = convert_to_openai_tool(tool)["function"]
+            assert function["description"] == listed[tool.name].description
+            assert function["parameters"]["type"] == "object"
+            assert set(function["parameters"]["properties"]) == set(tool.args)
+        schema = next(tool for tool in tools if tool.name == "get_dataset_schema")
+        assert schema.args_schema == listed["get_dataset_schema"].input_schema
+
+        # A tool call, as an agent's tool node passes it, is answered with a ToolMessage.
+        query = next(tool for tool in tools if tool.name == "query_dataset")
+        args = {"dataset": "orders", "dimensions": ["country"], "measures": ["total"]}
+        message = await query.ainvoke(
+            {"type": "tool_call", "id": "call_1", "name": "query_dataset", "args": args}
+        )
+        assert isinstance(message, ToolMessage)
+        assert message.tool_call_id == "call_1"
+        assert json.loads(str(message.content))["data"]
+        assert rows.seen
+        assert all("tenant_id" in q.sql for q in rows.seen)
+
+        # A tool error is the tool's result, so the model reads the envelope and corrects itself.
+        failed = await schema.ainvoke({"dataset": "nope"})
+        assert json.loads(failed)["error"]["code"].startswith("MCP_")
+
+    anyio.run(run)
+
+
+def test_langchain_tools_keep_to_the_allowlist() -> None:
+    pytest.importorskip("langchain_core", reason="langchain-core is not installed")
+    from hypequery.agent.langchain import hypequery_tools
+
+    async def run() -> None:
+        executor, _ = await reader_executor()
+        tools = await hypequery_tools(executor=executor, tools=["list_datasets", "query_dataset"])
+        assert [tool.name for tool in tools] == ["list_datasets", "query_dataset"]
+
+    anyio.run(run)
