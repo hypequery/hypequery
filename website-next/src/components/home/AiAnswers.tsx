@@ -140,7 +140,7 @@ export function ClaudeTerminal({ elapsed, reduced, className = 'h-[480px]' }: Pa
               <div className="leading-5">
                 <div className="font-semibold">Claude Code</div>
                 <div className="text-[#a8a29e]">hypequery MCP connected</div>
-                <div className="text-[#a8a29e]">~/northwind-app</div>
+                <div className="text-[#a8a29e]">~/acme-app</div>
               </div>
             </div>
 

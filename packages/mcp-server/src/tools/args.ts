@@ -6,6 +6,7 @@ import {
   type TimeGrain,
 } from '@hypequery/datasets';
 import { MCPToolError } from '../errors.js';
+import { formatArgumentIssues } from './utils/argument-errors.js';
 import {
   MAX_QUERY_DIMENSIONS,
   MAX_QUERY_FILTERS,
@@ -50,12 +51,7 @@ export const queryDatasetArgsSchema = baseQuerySchema.extend({
 });
 
 function formatZodError(error: z.ZodError): string {
-  return error.issues
-    .map(issue => {
-      const path = issue.path.length > 0 ? issue.path.map(String).join('.') : 'arguments';
-      return `${path}: ${issue.message}`;
-    })
-    .join('; ');
+  return formatArgumentIssues(error.issues).join('; ');
 }
 
 // Canonical schemas are built per catalog, so their parsed type is not known

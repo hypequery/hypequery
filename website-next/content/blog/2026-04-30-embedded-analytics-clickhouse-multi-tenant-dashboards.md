@@ -1,7 +1,7 @@
 ---
 title: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
 description: "How to build secure multi-tenant embedded analytics on ClickHouse: shared tables, row policies vs app-side tenant scoping, a typed tenant-scoped API, dashboard performance, quotas, and tenant offboarding."
-seoTitle: "Multi-Tenant Embedded Analytics Architecture on ClickHouse"
+seoTitle: "ClickHouse Multi-Tenant Embedded Analytics Architecture"
 seoDescription: "Multi-tenant embedded analytics architecture on ClickHouse: shared tables, row policies plus app-side tenant scoping, a typed API, quotas, fast dashboards."
 pubDate: 2026-04-30
 updated: 2026-11-09
@@ -16,7 +16,7 @@ tags:
 
 Customers expect usage dashboards and reporting inside your product. Not in a separate BI tool, but inside your app, loading fast, showing only their data. ClickHouse is one of the best engines for this, and teams like PostHog, LaunchDarkly, Grafana Cloud, GitLab, Cloudflare, and Inigo have all built customer-facing analytics on it. What they all also discovered is that the hard part is not query performance. It is multi-tenancy, isolation, and keeping the codebase maintainable as you scale to thousands of tenants.
 
-This guide is for teams who have decided to build rather than embed a vendor's dashboards; if that choice is still open, the [embedded analytics platforms comparison](/compare/embedded-analytics-platforms) covers the vendors and [embedded analytics pricing](/compare/embedded-analytics-pricing) what they cost. It covers the full picture: schema design, row-level security and app-side tenant scoping, a typed tenant-scoped API, dashboard performance, per-tenant resource limits, and onboarding and offboarding tenants. Every SQL statement here was run on a ClickHouse 26.6 server, including the row policies, quotas and read-only users.
+This guide is for teams who have decided to build rather than embed a vendor's dashboards; if that choice is still open, the [embedded analytics platforms comparison](/compare/embedded-analytics-platforms) covers the vendors, [embedded analytics pricing](/compare/embedded-analytics-pricing) what they cost, and [build vs buy embedded analytics](/compare/build-vs-buy-embedded-analytics) how to decide. It covers the full picture: schema design, row-level security and app-side tenant scoping, a typed tenant-scoped API, dashboard performance, per-tenant resource limits, and onboarding and offboarding tenants. Every SQL statement here was run on a ClickHouse 26.6 server, including the row policies, quotas and read-only users.
 
 ## Quick answers
 
@@ -528,7 +528,7 @@ const rows = await db
   .execute({ abortSignal: request.signal });
 ```
 
-ClickHouse only cancels a read-only query when its client disconnects if `cancel_http_readonly_queries_on_client_close = 1`, which is off by default on 26.6; put it in the user's profile. `max_execution_time` in the profile is the hard backstop.
+ClickHouse only cancels a read-only query when its client disconnects if `cancel_http_readonly_queries_on_client_close = 1`, which is off by default on 26.6; put it in the user's profile. `max_execution_time` in the profile is the hard backstop. [ClickHouse settings for application backends](/blog/clickhouse-settings-for-application-backends) covers both, with `readonly = 2` and 64-bit integer quoting.
 
 ---
 

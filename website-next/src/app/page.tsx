@@ -50,6 +50,18 @@ export function RevenueByCountry() {
 }
 `;
 
+const AI_SDK_CODE = `
+const tools = await hypequeryTools({
+  executor: createMCPExecutor({
+    datasets,
+    analytics,
+    tenantId: session.tenantId,
+  }),
+});
+
+streamText({ model, tools, messages });
+`;
+
 const softwareSchema = {
   '@context': 'https://schema.org',
   ...softwareApplicationSchema,
@@ -78,6 +90,7 @@ export default async function Home() {
         <ProductExplainer
           modelCode={<StaticCode code={MODEL_CODE} />}
           dashboardCode={<StaticCode code={DASHBOARD_CODE} lang="tsx" className="text-[10.5px]!" />}
+          aiSdkCode={<StaticCode code={AI_SDK_CODE} className="overflow-x-hidden! text-[10.5px]!" />}
         />
         <RunsWhereYourAppRuns />
         <FeatureGrid />

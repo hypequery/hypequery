@@ -48,7 +48,8 @@ def materialize_bundle_fixture(generator: dict[str, object]) -> object:
     if kind == "unknown-root-field":
         return {**value, "extra": True}
     if kind == "unsupported-version":
-        return {**value, "version": 2}
+        # Version 2 is the business-context bundle; 3 is the first unknown version.
+        return {**value, "version": 3}
     if kind == "malformed-digest":
         return {**value, "deployment": {**deployment, "identity": "bad"}}
     if kind == "traversal-path":

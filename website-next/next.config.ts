@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
         destination: page.href,
         permanent: true,
       })),
+      // Quick starts are organised by outcome, with TypeScript and Python tabs on
+      // each page (November 2026). The Python quick start opens on its tab.
+      {
+        source: '/docs/python/quick-start',
+        destination: '/docs/quick-start#python',
+        permanent: true,
+      },
       // Old addresses Google still crawls and gets a 404 for (Search Console,
       // November 2026). These come first so they win over the patterns below.
       // Seed posts used to be served at their dated filename.

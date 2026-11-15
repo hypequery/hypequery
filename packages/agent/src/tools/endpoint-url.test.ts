@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createHypequeryToolsClient } from './client.js';
+import { createRemoteToolsClient } from './client.js';
 import { toolsEndpointUrl } from './endpoint-url.js';
 
 describe('toolsEndpointUrl', () => {
@@ -32,11 +32,11 @@ describe('toolsEndpointUrl', () => {
   });
 });
 
-describe('createHypequeryToolsClient', () => {
+describe('createRemoteToolsClient', () => {
   it('refuses a plain http endpoint before the token is read or a request is sent', () => {
     const token = vi.fn(() => 'agent-token-0123456789');
     const fetch = vi.fn();
-    expect(() => createHypequeryToolsClient({ url: 'http://analytics.internal/mcp', token, fetch }))
+    expect(() => createRemoteToolsClient({ url: 'http://analytics.internal/mcp', token, fetch }))
       .toThrow(/url must use https/);
     expect(token).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();

@@ -365,6 +365,7 @@ This compiles to `SELECT toDate(event_time) AS day, event_type, COUNT(event_type
 ## Related
 
 - [A guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse)
+- [View vs materialized view in ClickHouse](/blog/clickhouse-view-vs-materialized-view)
 - [FINAL vs ReplacingMergeTree deduplication](/blog/clickhouse-final-replacingmergetree-typescript)
 - [PREWHERE vs WHERE in ClickHouse](/blog/clickhouse-prewhere-vs-where)
 - [ClickHouse query builder for TypeScript](/clickhouse-query-builder)

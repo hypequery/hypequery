@@ -3,14 +3,19 @@
 ## npm canaries
 
 A successful main push publishes snapshot builds under the `canary` dist-tag for
-`@hypequery/clickhouse`, `datasets`, `deployment`, `serve`, `cli`, `mcp`,
-`protocol`, `protocol-conformance` and `react`. The workflow requires the package
+`@hypequery/agent`, `clickhouse`, `cloud-client`, `datasets`, `deployment`, `serve`,
+`cli`, `mcp`, `protocol`, `protocol-conformance` and `react`. The workflow requires the package
 build and installed Python/React/MCP client qualification first.
 
 The CI job creates a temporary changeset, versions a canary snapshot, publishes,
 and restores its workspace. These snapshots do not consume the committed stable
 changesets. Pin exact snapshot versions for qualification; a moving dist-tag is
 not release evidence.
+
+A package's first publish sets npm's `latest` dist-tag even when it is published
+with `--tag canary`, so a new package's `latest` points at a canary until its
+first stable release. Ship that release before pointing anyone at a bare
+`npm install`.
 
 ## npm stable versions
 

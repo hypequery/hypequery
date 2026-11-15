@@ -1,17 +1,19 @@
 ---
 title: Tools for your agent
-description: Give the agent in your product hypequery's tenant-scoped analytics tools, using the AI SDK, the Anthropic SDK or the OpenAI Agents SDK.
+description: Give the agent in your product hypequery's tenant-scoped ClickHouse analytics tools, using the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK, from hypequery Cloud or your own backend.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 If your product already has an agent, `@hypequery/agent` adds hypequery's analytics tools to it. It reads the tools
-your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema` and `query_dataset`) and returns them as tools
-for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK. You don't need an MCP client, and you don't write
-any tools.
+your tenant MCP endpoint serves (`list_datasets`, `get_dataset_schema` and `query_dataset`) and returns them as tools for the Vercel AI SDK, the Anthropic SDK or the OpenAI Agents SDK.
+You don't need an MCP client, and you don't write any tools.
 
 The token decides the tenant. The model never chooses it, so a prompt asking for another customer's data has nothing
 to change.
+
+The examples on this page use hypequery Cloud's endpoint. To run the same tools inside your own backend instead, with
+no endpoint and no token, see [Tools in your own backend](/docs/agents/quickstart).
 
 <CodeBlock>
 ```bash
@@ -28,11 +30,12 @@ Install the SDK you use alongside it. `ai`, `@anthropic-ai/sdk` and `@openai/age
 
 <CodeBlock>
 ```ts
-import { streamText } from 'ai';
+import { isStepCount, streamText } from 'ai';
 import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
 const tools = await hypequeryTools({ url: mcpUrl, token });
-const result = streamText({ model, tools, messages });
+// Without a step limit the AI SDK stops after the first tool call, before the model can answer.
+const result = streamText({ model, tools, messages, stopWhen: isStepCount(8) });
 ```
 </CodeBlock>
 
@@ -141,8 +144,9 @@ several tenants.
 
 ## Request ids
 
-Every result has the request id hypequery logged it under. Use `onResult` to record the ids so you can look up the
-exact query behind an answer later:
+A result has the request id hypequery logged it under when the server supplies one. hypequery Cloud does on every
+result; tools running in your own backend and `hypequery mcp --http` don't. Use `onResult` to record the ids so you
+can look up the exact query behind an answer later:
 
 <CodeBlock>
 ```ts
@@ -164,10 +168,10 @@ create the client, pass it to `hypequeryTools`, and close it when the conversati
 
 <CodeBlock>
 ```ts
-import { createHypequeryToolsClient } from '@hypequery/agent';
+import { createRemoteToolsClient } from '@hypequery/agent';
 import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
-const client = createHypequeryToolsClient({ url: mcpUrl, token });
+const client = createRemoteToolsClient({ url: mcpUrl, token });
 const tools = await hypequeryTools(client);
 // ...
 await client.close();
@@ -180,5 +184,10 @@ and JSON Schema. `callTool(name, input)` returns `{ ok: true, data, requestId }`
 
 ## Related
 
+- [Tools in your own backend](/docs/agents/quickstart): the same tools in process, with `{ executor }`
+- [Business context](/docs/agents/business-context): KPI definitions, glossary and caveats the agent reads
+- [In-app analytics agent](/examples/in-app-analytics-agent): a Next.js starter with minting, `hypequeryTools` and two
+  demo customers
+- [In-app agents](/docs/cloud/in-app-agents): minting end-user tokens
 - [Tools reference](/docs/mcp/tools): what each tool does and its arguments
 - [Cloud MCP](/docs/cloud/mcp): the hosted endpoint and its tenant rules

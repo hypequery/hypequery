@@ -80,6 +80,35 @@ describe('dataset introspection', () => {
     expect(serialized).not.toContain('"aggregation"');
   });
 
+  it('names the dimension that reads the time column as the time dimension', async () => {
+    const Events = dataset('events', {
+      source: 'events',
+      timeKey: 'occurred_at',
+      dimensions: {
+        occurredAt: dimension.timestamp({ column: 'occurred_at' }),
+        eventType: dimension.string({ column: 'event_type' }),
+      },
+      measures: { events: measure.count('eventType') },
+    });
+    const Hidden = dataset('hidden', {
+      source: 'events',
+      timeKey: 'occurred_at',
+      dimensions: {
+        occurredAt: dimension.timestamp({ column: 'occurred_at', filterable: false, groupable: false }),
+        eventType: dimension.string({ column: 'event_type' }),
+      },
+      measures: { events: measure.count('eventType') },
+    });
+    const datasets = { events: Events, hidden: Hidden };
+
+    const schema = async (name: string) =>
+      JSON.parse((await getDatasetSchemaTool(datasets, { dataset: name })).content[0].text);
+
+    expect((await schema('events')).timeDimension).toBe('occurredAt');
+    // A time column no published dimension reads is not advertised.
+    expect((await schema('hidden')).timeDimension).toBeNull();
+  });
+
   it('safely adapts the legacy registry shape', async () => {
     const response = await getDatasetSchemaTool({
       orders: {

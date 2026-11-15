@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/agent",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Put a hypequery Cloud project's tenant-safe analytics in your own agent: mint end-user tokens locally, and use the hosted MCP tools as AI SDK, Anthropic SDK and OpenAI Agents SDK tools",
   "keywords": [
     "hypequery",

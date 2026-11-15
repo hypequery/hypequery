@@ -37,6 +37,7 @@ export const marketingPages: readonly string[] = [
   '/python-semantic-layer',
   '/clickhouse-python-multi-tenant',
   '/clickhouse-python-mcp',
+  '/clickhouse-pydantic',
   '/fastapi-react-analytics',
   '/clickhouse-django',
   '/clickhouse-flask',
@@ -53,5 +54,6 @@ export const marketingPages: readonly string[] = [
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
   '/tinybird-alternative',
+  '/clickhouse-cloud-pricing',
   '/contact-us',
 ];
