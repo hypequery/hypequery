@@ -64,18 +64,13 @@ export async function POST(request: Request) {
   return result.toUIMessageStreamResponse();
 }`;
 
-const cloudCode = `import { mintAgentToken } from '@hypequery/agent';
-import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+const mcpCode = `import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
-// A 15-minute end-user token, signed locally with your project's key.
-const { mcpUrl, token } = await mintAgentToken({
-  signingKey: process.env.HYPEQUERY_AGENT_KEY!,
-  tenant: session.tenantId,
-  subject: session.userId,
-  permissionSet: 'customers',
-});
-
-const tools = await hypequeryTools({ url: mcpUrl, token });`;
+// Your own MCP server (npx hypequery mcp --http), or hypequery Cloud once it launches.
+const tools = await hypequeryTools({
+  url: 'https://mcp.example.com/mcp',
+  token: () => getUserToken(session), // asked for before every request, so it can refresh
+});`;
 
 export default function ClickHouseAiSdkPage() {
   return (
@@ -168,18 +163,18 @@ export default function ClickHouseAiSdkPage() {
       }}
       implementationSection={{
         eyebrow: 'Two ways to run it',
-        title: 'In your own backend today, on hypequery Cloud soon',
+        title: 'In your backend, or over MCP',
         description:
-          'Both give streamText the same tools, schemas and errors, so you can start in your backend now and move to Cloud when it launches without touching your chat.',
+          'Both give streamText the same tools, schemas and errors, so you can start in your backend and move the tools to a shared MCP endpoint later without touching your chat.',
         paragraphs: [
-          'In your backend, hypequeryTools({ executor }) runs the tools in process against your ClickHouse connection. The tenant is the tenantId you pass from your session.',
-          'hypequery Cloud (coming soon) hosts the same tools: your server mints a short-lived end-user token for the session and the tools call your project’s tenant endpoint. Cloud verifies the token, scopes every query to its tenant, queries your ClickHouse with a read-only user, and logs each request id so you can explain an answer later.',
+          'In your backend, hypequeryTools({ executor }) runs the tools in process against your ClickHouse connection. The tenant is the tenantId you pass from your session. Start here: there is no extra service and no token.',
+          'Over MCP, hypequeryTools({ url, token }) calls an MCP endpoint instead: your own hypequery mcp --http server, or hypequery Cloud (coming soon), which will host it against your ClickHouse with a read-only user. Use it when several apps or agents should share one governed set of tools, or when the same endpoint also serves Claude and Cursor. The server verifies each user’s token, so the tenant still comes from the user, never the model.',
         ],
         codePanel: {
           eyebrow: '@hypequery/agent',
-          title: 'The Cloud variant (coming soon)',
-          description: 'Minting is local: no network call. Pass a token function instead of a string to re-mint before it expires in a long chat.',
-          code: cloudCode,
+          title: 'The MCP variant',
+          description: 'The same AI SDK tools, from an MCP endpoint. Pass a token function so a short-lived token refreshes in a long chat.',
+          code: mcpCode,
         },
       }}
       searchIntentCards={[
@@ -209,7 +204,12 @@ export default function ClickHouseAiSdkPage() {
         {
           question: 'Do I need to host an MCP server?',
           answer:
-            'No. hypequeryTools({ executor }) runs the tools inside your own route handler. When hypequery Cloud launches, you can point the same tools at your project’s hosted endpoint instead, with a token your server mints.',
+            'No. hypequeryTools({ executor }) runs the tools inside your own route handler. If you would rather run them as a shared service, for several apps or for Claude and Cursor too, serve them with hypequery mcp --http and connect with hypequeryTools({ url, token }). hypequery Cloud will host that endpoint once it launches.',
+        },
+        {
+          question: 'Why not use the AI SDK’s own MCP client?',
+          answer:
+            'You can: @ai-sdk/mcp connects to any MCP server. hypequeryTools adds what hypequery’s tools need: errors the model can act on (code, hint, retryable), a token function called before every request so short-lived tokens refresh, a request id on every result, and the same tool shape in process or over MCP.',
         },
         {
           question: 'How does tenant isolation work?',

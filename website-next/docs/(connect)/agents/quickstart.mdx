@@ -13,7 +13,8 @@ scoped to the customer who is signed in.
 
 `hypequeryTools({ executor })` runs those tools inside your own backend, against your own ClickHouse: no MCP server to
 host, no token, and no network hop between your route and the tools. Use it wherever your app already holds the
-ClickHouse connection and the user's session: a Next.js route handler, an Express or Hono server, or a job.
+ClickHouse connection and the user's session: a Next.js route handler, an Express or Hono server, or a job. To run
+the tools as a separate service instead, connect over MCP: see [In your backend, or over MCP](#in-your-backend-or-over-mcp).
 
 <Callout type="info" title="TypeScript only, for now">
   `@hypequery/agent` is a TypeScript package. From Python today, serve the dataset over MCP
@@ -131,22 +132,60 @@ const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tena
 
 See [Business context](/docs/agents/business-context).
 
-## In your backend, or on hypequery Cloud (coming soon)
+## In your backend, or over MCP
 
-hypequery Cloud is not live yet. When it launches, it will host the same tools against your ClickHouse, using a
-read-only user, so your data stays where it is.
+`hypequeryTools` takes its tools one of two ways. Both give the model the same tools, schemas and error envelope, so
+you can switch later without changing your agent loop.
 
-| | Your backend (`{ executor }`) | hypequery Cloud (`{ url, token }`) |
+| | In your backend (`{ executor }`) | Over MCP (`{ url, token }`) |
 |---|---|---|
-| Where queries run | Your server, your ClickHouse connection | Cloud, with the connection your project holds |
-| Tenant from | `tenantId` from your session | The minted token's `tenant` claim |
-| Credentials | Your ClickHouse credentials in your server | None in your app, only the signing key |
-| Access rules | Your datasets and your code | Permission sets and customer access in Cloud |
-| Business context | Passed to the executor | Published with each release, rolls back with it |
-| Request logs | Yours, via `onResult` | Logged per request id in Cloud |
+| Use it when | The agent runs in the app that holds the ClickHouse connection and the user's session | The tools should live elsewhere: a shared service, or hypequery Cloud |
+| Typical case | A Next.js or Express app with a chat feature | A separate agent service, several apps sharing one endpoint, or one endpoint for your in-app agent and for Claude and Cursor |
+| Tenant from | `tenantId` from your session, in the same process | A per-user token the MCP server verifies |
+| Extra infrastructure | None | An MCP server you run, or hypequery Cloud (coming soon) |
+| Datasets live in | Your app's code | The MCP server's project, which can deploy on its own |
 
-Both give the model the same tools, schemas and error envelope, so you can start in your backend now and move to
-Cloud when it launches without changing your agent loop. The starter switches between them with `HYPEQUERY_MODE`.
+Start in your backend: it is the simplest, with no extra service and no tokens. Move to MCP when more than one app or
+agent needs the same governed tools.
+
+### Connect to your own MCP server
+
+`hypequery mcp --http` serves your datasets at `http://127.0.0.1:3333/mcp` (see [Remote MCP](/docs/mcp/remote) for
+TLS, hosts and OAuth). Point `hypequeryTools` at it with the caller's token:
+
+<CodeBlock>
+```ts
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const tools = await hypequeryTools({
+  url: 'https://mcp.example.com/mcp', // http is allowed for localhost only
+  token: () => getUserToken(session), // asked for before every request
+});
+```
+</CodeBlock>
+
+How the server authenticates decides the tenant:
+
+- **A shared key** (`HYPEQUERY_MCP_KEY=… npx hypequery mcp --http --tenant acme`) gives every caller the same tenant.
+  Fine for one team; not for a chat your customers use.
+- **Your API's auth** (no `HYPEQUERY_MCP_KEY`) verifies each caller with the `auth` and `tenant` from `defineServe`,
+  for example `createJwtStrategy` with the MCP URL as its audience. Each user's token then carries their own tenant,
+  exactly as over REST. Use this for a multi-tenant chat.
+
+### On hypequery Cloud (coming soon)
+
+hypequery Cloud is not live yet. When it launches, it will host the same MCP endpoint against your ClickHouse, using a
+read-only user, so your data stays where it is. Your server mints a short-lived end-user token per session with
+`mintAgentToken`, and Cloud adds permission sets, release history for datasets and business context, and request
+logs. See [Tools for your agent](/docs/agents/tools). The starter switches between your backend and Cloud with
+`HYPEQUERY_MODE`.
+
+### Why not the AI SDK's own MCP client?
+
+The AI SDK can connect to any MCP server itself (`@ai-sdk/mcp`). `hypequeryTools` adds what hypequery's tools need:
+errors the model can act on (code, hint, retryable), a token function that is called before every request so
+short-lived tokens refresh, a request id on every result for explaining an answer later, and the same tool shape as
+`{ executor }`, so you can switch between the two without changing your code.
 
 ## Related
 

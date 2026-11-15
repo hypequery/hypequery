@@ -21,8 +21,10 @@ swap in your own table and columns.
 
 <Callout type="info" title="Already modelled your data?">
   If you followed [Model your data](/docs/quick-start), skip to [step 3](#3-define-what-the-agent-may-query) and add
-  that `orders` dataset to your API instead of the example. It is tenant-scoped, so the server needs a tenant: in
-  TypeScript, start it with `npx hypequery mcp --tenant org_123`; in Python, it comes from your API's `auth`.
+  that `orders` dataset to your API instead of the example. Locally, `hypequery mcp` runs as you, so a tenant-scoped
+  dataset needs to know which tenant you're exploring: in TypeScript pass `--tenant org_123`, and in Python it comes
+  from your API's `auth`. In production, one server serves every tenant: over `--http`, each caller's own token names
+  their tenant. See [Remote MCP](/docs/mcp/remote#reuse-your-applications-auth).
 </Callout>
 
 ## 1. Install
