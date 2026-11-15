@@ -64,7 +64,7 @@
     "@hypequery/clickhouse": "workspace:*",
     "@hypequery/serve": "workspace:*",
     "@types/node": "^26.6.6",
-    "ajv": "^8.20.0",
+    "ajv": "^8.17.1",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   },
