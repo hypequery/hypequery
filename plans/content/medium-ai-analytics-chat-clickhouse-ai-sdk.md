@@ -7,8 +7,8 @@ SEO notes (US, OpenSEO / DataForSEO, 2026-11-14):
 - Secondary, in the title, subtitle and headings: "AI analytics chat", "chat with your data" (70/mo, KD 2),
   "agentic analytics" (320/mo, KD 4), "text to sql agent" (90/mo, KD 11), "conversational analytics" (320/mo, KD 31).
 - Medium tags (5 max): ClickHouse, Vercel, Artificial Intelligence, Analytics, Nextjs.
-- Canonical: none. The article differs from the /clickhouse-ai-sdk landing page, so it can rank on Medium's
-  domain itself. It links to /clickhouse-ai-sdk, the starter and the docs instead.
+- Canonical: none. The article differs from the /clickhouse-ai landing page (#975), so it can rank on Medium's
+  domain itself. It links to /clickhouse-ai, the starter and the docs instead.
 - Every code block is from examples/in-app-analytics-agent (#949 + #964). Re-check the snippets against
   main before publishing, and publish only after @hypequery/agent is on npm (the starter needs it).
 -->
@@ -235,7 +235,7 @@ The AI SDK gives you streaming, tool calling and a chat UI. What it doesn't deci
 - take the **tenant from the session**, never the prompt, and test it with an injection;
 - serve **business context** with the tools, so definitions arrive before the query.
 
-The starter, with two demo customers and the isolation test, is at [hypequery.com/examples/in-app-analytics-agent](https://hypequery.com/examples/in-app-analytics-agent). The AI SDK guide is at [hypequery.com/clickhouse-ai-sdk](https://hypequery.com/clickhouse-ai-sdk). If you're on the Anthropic SDK or the OpenAI Agents SDK, the same tools are at [hypequery.com/clickhouse-ai-agents](https://hypequery.com/clickhouse-ai-agents).
+The starter, with two demo customers and the isolation test, is at [hypequery.com/examples/in-app-analytics-agent](https://hypequery.com/examples/in-app-analytics-agent). The guide for the AI SDK, the Anthropic SDK and the OpenAI Agents SDK is at [hypequery.com/clickhouse-ai](https://hypequery.com/clickhouse-ai).
 
 ---
 
