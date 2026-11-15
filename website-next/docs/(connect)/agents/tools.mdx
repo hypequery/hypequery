@@ -166,10 +166,10 @@ create the client, pass it to `hypequeryTools`, and close it when the conversati
 
 <CodeBlock>
 ```ts
-import { createHypequeryToolsClient } from '@hypequery/agent';
+import { createRemoteToolsClient } from '@hypequery/agent';
 import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
-const client = createHypequeryToolsClient({ url: mcpUrl, token });
+const client = createRemoteToolsClient({ url: mcpUrl, token });
 const tools = await hypequeryTools(client);
 // ...
 await client.close();
