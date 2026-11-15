@@ -72,7 +72,7 @@ The tools are built per request, for the user who is asking, so every query is s
       import { hypequeryTools } from '@hypequery/agent/ai-sdk';
       import { publishDatasets } from '@hypequery/datasets';
       import { createMCPExecutor } from '@hypequery/mcp';
-      import { convertToModelMessages, streamText } from 'ai';
+      import { convertToModelMessages, isStepCount, streamText } from 'ai';
       import { analytics } from '@/analytics/client';
       import { Orders } from '@/analytics/datasets';
 
@@ -86,7 +86,13 @@ The tools are built per request, for the user who is asking, so every query is s
         const tools = await hypequeryTools({ executor });
 
         const { messages } = await request.json();
-        const result = streamText({ model, tools, messages: await convertToModelMessages(messages) });
+        const result = streamText({
+          model,
+          tools,
+          messages: await convertToModelMessages(messages),
+          // Without a step limit the AI SDK stops after the first tool call, before the model can answer.
+          stopWhen: isStepCount(8),
+        });
         return result.toUIMessageStreamResponse();
       }
       ```
@@ -203,7 +209,7 @@ neither listed nor callable:
       ```
     </CodeBlock>
 
-    `onResult` is called with each tool's result and its request id.
+    `onResult` is called with each tool's result, and its request id when the server supplies one (hypequery Cloud does).
   </Tab>
 
   <Tab value="Python">
@@ -216,7 +222,7 @@ neither listed nor callable:
       ```
     </CodeBlock>
 
-    `on_result=` is called with each tool's result and its request id.
+    `on_result=` is called with each tool's result, and its request id when the server supplies one (hypequery Cloud does).
   </Tab>
 </Tabs>
 
@@ -315,7 +321,7 @@ datasets and business context, and request logs. See [Tools for your agent](/doc
 
 The AI SDK (`@ai-sdk/mcp`), Pydantic AI and the OpenAI Agents SDK can each connect to an MCP server themselves. The
 hypequery tools add what hypequery's tools need: errors the model can act on (code, hint, retryable), a token
-function called before every request so short-lived tokens refresh, a request id on every result for explaining an
+function called before every request so short-lived tokens refresh, the request id of each result when the server supplies one (hypequery Cloud does) for explaining an
 answer later, and the same tool shape in your backend or over MCP, so you can switch without changing your code.
 
 ## Related

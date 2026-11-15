@@ -30,11 +30,12 @@ Install the SDK you use alongside it. `ai`, `@anthropic-ai/sdk` and `@openai/age
 
 <CodeBlock>
 ```ts
-import { streamText } from 'ai';
+import { isStepCount, streamText } from 'ai';
 import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
 const tools = await hypequeryTools({ url: mcpUrl, token });
-const result = streamText({ model, tools, messages });
+// Without a step limit the AI SDK stops after the first tool call, before the model can answer.
+const result = streamText({ model, tools, messages, stopWhen: isStepCount(8) });
 ```
 </CodeBlock>
 
@@ -143,8 +144,9 @@ several tenants.
 
 ## Request ids
 
-Every result has the request id hypequery logged it under. Use `onResult` to record the ids so you can look up the
-exact query behind an answer later:
+A result has the request id hypequery logged it under when the server supplies one. hypequery Cloud does on every
+result; tools running in your own backend and `hypequery mcp --http` don't. Use `onResult` to record the ids so you
+can look up the exact query behind an answer later:
 
 <CodeBlock>
 ```ts

@@ -348,8 +348,8 @@ You need a ClickHouse server you can query and Node.js 20+ or Python 3.11+. The 
           export const businessContext = defineBusinessContext({
             summary: 'An online store selling to businesses in the UK, US and Germany.',
             kpis: [
-              { name: 'Revenue', definition: 'Sum of completed order amounts, in USD. Refunded orders are excluded.' },
-              { name: 'Average order value', definition: 'Revenue divided by completed orders.' },
+              { name: 'Revenue', definition: 'The revenue measure sums every order amount, in USD. Filter status to completed to leave out refunded and pending orders.' },
+              { name: 'Average order value', definition: 'Revenue divided by the order count, over the same orders. Filter status to completed for completed orders only.' },
             ],
             glossary: [
               { term: 'Order', meaning: 'One checkout. An order with several items is still one order.' },
