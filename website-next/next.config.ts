@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
         destination: 'https://hypequery.com/:path*',
         statusCode: 301,
       },
+      // One page per topic (2026-11-15). PRs #965 and #967 proposed second pages for the same
+      // searches; these redirects keep the published versions canonical even if those land later.
+      { source: '/clickhouse-ai-sdk', destination: '/clickhouse-ai', permanent: true },
+      { source: '/clickhouse-ai-agents', destination: '/clickhouse-ai', permanent: true },
+      { source: '/semantic-layer/agentic-analytics', destination: '/blog/agentic-analytics', permanent: true },
       // every compare page also exists as a seed blog post; canonical home is /compare
       ...comparePages.map((page) => ({
         source: `/blog/${page.slug}`,
