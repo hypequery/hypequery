@@ -11,6 +11,7 @@ import { RiOpenaiFill } from 'react-icons/ri';
 import { AppChat, ClaudeTerminal, useAiAnswers } from './AiAnswers';
 import { DeployWaitlist } from './DeployWaitlist';
 import { HypequeryMascotIcon } from '../HypequeryMascotIcon';
+import { marketing } from '../ui/marketing';
 import './ProductExplainer.css';
 
 const CONNECTIONS = [
