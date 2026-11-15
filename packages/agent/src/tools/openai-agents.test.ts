@@ -2,7 +2,7 @@ import { Agent, run, setTracingDisabled } from '@openai/agents';
 import { assistantMessage, functionCall, ScriptedModel } from '@openai/agents/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
-import { createHypequeryToolsClient } from './client.js';
+import { createRemoteToolsClient } from './client.js';
 import { hypequeryTools } from './openai-agents.js';
 import type { HypequeryToolsClient } from './types.js';
 
@@ -15,7 +15,7 @@ setTracingDisabled(true);
 
 beforeEach(async () => {
   server = await startFixtureServer(TOKEN);
-  client = createHypequeryToolsClient({ url: server.url, token: async () => TOKEN });
+  client = createRemoteToolsClient({ url: server.url, token: async () => TOKEN });
 });
 afterEach(async () => {
   await client.close();

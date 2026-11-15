@@ -38,7 +38,7 @@ export function resolveToolsClient(source: HypequeryToolsSource): HypequeryTools
     // as a client would hand the model unparsed envelopes.
     throw new TypeError('hypequeryTools: pass an MCP executor as { executor }, e.g. hypequeryTools({ executor: createMCPExecutor(...) }).');
   }
-  return isClient(source) ? source : createHypequeryToolsClient(source as HypequeryToolsOptions);
+  return isClient(source) ? source : createRemoteToolsClient(source as HypequeryToolsOptions);
 }
 
 /** The session is gone (expired, or the server restarted): reconnecting is safe. */
@@ -200,9 +200,12 @@ class HypequeryMCPToolsClient implements HypequeryToolsClient {
  * without an MCP client of their own. The adapters build on it; use it directly
  * to call tools from your own loop or to manage the session's lifetime.
  */
-export function createHypequeryToolsClient(options: HypequeryToolsOptions): HypequeryToolsClient {
+export function createRemoteToolsClient(options: HypequeryToolsOptions): HypequeryToolsClient {
   return new HypequeryMCPToolsClient(options);
 }
+
+/** @deprecated Renamed to {@link createRemoteToolsClient}; this name will be removed in a major release. */
+export const createHypequeryToolsClient = createRemoteToolsClient;
 
 /** What the model sees for a result: the data, or `{ error }` with hypequery's envelope. */
 export function toModelOutput(result: HypequeryToolResult): unknown {
