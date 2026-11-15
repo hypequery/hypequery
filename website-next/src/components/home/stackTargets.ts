@@ -12,17 +12,12 @@ export type StackGroup = { label: string; targets: StackTarget[] };
 
 export const AGENT_GROUPS: StackGroup[] = [
   {
-    label: 'In your app (TypeScript)',
+    label: 'In your app',
     targets: [
-      { id: 'ai-sdk', name: 'Vercel AI SDK', detail: 'Tools for streamText and generateText', href: '/docs/agents/quickstart' },
-      { id: 'anthropic-sdk', name: 'Anthropic SDK', detail: 'Tool definitions and tool_result helpers', href: '/docs/agents/tools#anthropic-sdk' },
-      { id: 'openai-agents', name: 'OpenAI Agents SDK', detail: 'Function tools for new Agent({ tools })', href: '/docs/agents/tools#openai-agents-sdk' },
-    ],
-  },
-  {
-    label: 'In your app (Python)',
-    targets: [
-      { id: 'pydantic-ai', name: 'Pydantic AI', detail: 'Tools for Agent(tools=...)', href: '/clickhouse-pydantic' },
+      { id: 'ai-sdk', name: 'Vercel AI SDK', detail: 'TypeScript: tools for streamText and generateText', href: '/docs/agents/quickstart' },
+      { id: 'pydantic-ai', name: 'Pydantic AI', detail: 'Python: tools for Agent(tools=...)', href: '/clickhouse-pydantic' },
+      { id: 'anthropic-sdk', name: 'Anthropic SDK', detail: 'TypeScript and Python: tool definitions and tool_result helpers', href: '/docs/agents/tools#anthropic-sdk' },
+      { id: 'openai-agents', name: 'OpenAI Agents SDK', detail: 'TypeScript and Python: function tools for an Agent', href: '/docs/agents/tools#openai-agents-sdk' },
     ],
   },
   {
