@@ -40,7 +40,7 @@ ClickHouse Cloud is the managed service run by ClickHouse, Inc., the company beh
 - Limits: Basic tops out at 1 TB of storage and 8 to 12 GiB of memory in one availability zone. Scale adds two or more zones, private networking and compute-compute separation.
 - Extras: ClickPipes for managed ingestion, [Query API endpoints](https://clickhouse.com/docs/products/cloud/features/sql-console-features/query-endpoints) built from saved queries, and HTTPS, native and MySQL wire protocol access.
 
-It suits teams that want the fewest operational decisions and an intermittent or growing workload where paying per compute minute helps.
+It suits teams that want the fewest operational decisions and an intermittent or growing workload where paying per compute minute helps. [ClickHouse Cloud pricing](/clickhouse-cloud-pricing) has the plan table and worked monthly costs.
 
 ## Tinybird
 
