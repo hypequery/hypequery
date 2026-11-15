@@ -9,7 +9,7 @@
     "---Quick start---",
     "quick-start/index",
     "quick-start/api-and-dashboard",
-    "[Connect Claude and Cursor](/docs/mcp/quickstart)",
+    "[Connect via MCP](/docs/mcp/quickstart)",
     "[Add AI chat to your app](/docs/agents/quickstart)"
   ]
 }
