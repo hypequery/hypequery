@@ -138,7 +138,7 @@ db.table('events')
   .select([
     'id',
     toDateTime('occurred_at', 'event_ts'),
-    formatDateTime('occurred_at', 'Y-MM-dd', { alias: 'event_date' }),
+    formatDateTime('occurred_at', '%Y-%m-%d', { alias: 'event_date' }),
   ])
   .where('event_type', 'eq', 'purchase')
 

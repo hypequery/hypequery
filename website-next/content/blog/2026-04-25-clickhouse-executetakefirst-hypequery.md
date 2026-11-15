@@ -4,6 +4,7 @@ description: "Looking for executeTakeFirst in ClickHouse? If you're coming from 
 seoTitle: "ClickHouse executeTakeFirst Alternative — hypequery vs Kysely"
 seoDescription: "Looking for executeTakeFirst in ClickHouse? If you're coming from Kysely, here's how hypequery handles single-row queries and what the equivalent patterns look like."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-executetakefirst-hypequery
 status: published
@@ -65,7 +66,7 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 // Most recent event for a user
 const rows = await db
   .table('events')
-  .select('event_type', 'created_at', 'properties')
+  .select(['event_type', 'created_at', 'properties'])
   .where('tenant_id', 'eq', tenantId)
   .where('user_id', 'eq', userId)
   .orderBy('created_at', 'DESC')
@@ -107,7 +108,7 @@ async function executeOneOrThrow<T>(
 ```typescript
 const rows = await db
   .table('events')
-  .select('count() AS total')
+  .count('tenant_id', 'total')
   .where('tenant_id', 'eq', tenantId)
   .execute();
 
@@ -121,7 +122,7 @@ const hasData = Number(rows[0]?.total ?? 0) > 0;
 ```typescript
 const rows = await db
   .table('events')
-  .select('max(created_at) AS last_seen')
+  .max('created_at', 'last_seen')
   .where('tenant_id', 'eq', tenantId)
   .execute();
 
@@ -135,7 +136,8 @@ Same idea: `max(...)` already returns a single-row aggregate result.
 ```typescript
 const rows = await db
   .table('events')
-  .select('page_path', 'count() AS views')
+  .select(['page_path'])
+  .count('page_path', 'views')
   .where('tenant_id', 'eq', tenantId)
   .where('event_type', 'eq', 'page_view')
   .groupBy(['page_path'])

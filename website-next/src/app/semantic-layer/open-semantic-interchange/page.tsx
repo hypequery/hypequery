@@ -16,7 +16,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/open-semantic-interchange';
 const TITLE = 'Open Semantic Interchange (OSI), Now Apache Ossie, Explained';
 const DESCRIPTION =
-  'What Open Semantic Interchange is, why it was renamed Apache Ossie, who is behind it, what the spec covers and leaves out, which tools convert to it, and how it relates to a semantic layer defined in code.';
+  'Open Semantic Interchange (OSI), now Apache Ossie: who is behind it, what the spec covers and leaves out, and which tools convert to it.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });

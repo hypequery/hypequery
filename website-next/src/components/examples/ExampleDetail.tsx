@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { marketing } from '@/components/ui/marketing';
-import CodeHighlight from '@/components/CodeHighlight';
+import { StaticCode } from '@/components/home/StaticCode';
 import MarkdownContent from '@/components/MarkdownContent';
 import ExampleCard from '@/components/examples/ExampleCard';
 import {
@@ -25,7 +25,7 @@ function CodeBlock({ title, code, language }: { title: string; code: string; lan
         <p className="font-mono text-xs text-text-dim">{title}</p>
       </div>
       <div className="overflow-x-auto p-4 text-sm">
-        <CodeHighlight code={code} language={language} />
+        <StaticCode code={code} lang={language === 'http' ? 'javascript' : language} className="text-sm! leading-6!" />
       </div>
     </div>
   );

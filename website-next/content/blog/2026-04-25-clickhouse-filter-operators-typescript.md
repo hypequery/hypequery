@@ -1,9 +1,10 @@
 ---
 title: "ClickHouse Filter Operators in TypeScript — WHERE Conditions with hypequery"
 description: "How to express ClickHouse filters in TypeScript with query_params in @clickhouse/client and typed where-chains in hypequery."
-seoTitle: "ClickHouse Filter Operators TypeScript — WHERE, IN, LIKE, BETWEEN"
-seoDescription: "How to express ClickHouse filters in TypeScript with query_params in @clickhouse/client and typed where-chains in hypequery."
+seoTitle: "ClickHouse WHERE, IN, LIKE and BETWEEN in TypeScript"
+seoDescription: "ClickHouse WHERE, IN, LIKE and BETWEEN (inclusive on both ends) from TypeScript: query_params in @clickhouse/client and typed where-chains in hypequery."
 pubDate: 2026-04-25
+updatedAt: 2026-11-14
 heroImage: ""
 slug: clickhouse-filter-operators-typescript
 status: published
@@ -91,7 +92,8 @@ const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 
 const result = await db
   .table('events')
-  .select('event_type', 'count() AS events')
+  .select(['event_type'])
+  .count('event_type', 'events')
   .where('tenant_id', 'eq', 42)
   .where('created_at', 'gte', '2026-04-01 00:00:00')
   .where('created_at', 'lt', '2026-05-01 00:00:00')
@@ -110,7 +112,7 @@ Pass an array as the value:
 // Filter to specific statuses
 const active = await db
   .table('subscriptions')
-  .select('user_id', 'plan', 'created_at')
+  .select(['user_id', 'plan', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('status', 'in', ['active', 'trial', 'past_due'])
   .execute();
@@ -118,7 +120,8 @@ const active = await db
 // Exclude churned users
 const retained = await db
   .table('users')
-  .select('user_id', 'count() AS events')
+  .select(['user_id'])
+  .count('user_id', 'events')
   .where('tenant_id', 'eq', tenantId)
   .where('plan', 'notIn', ['cancelled', 'expired'])
   .groupBy(['user_id'])
@@ -135,7 +138,7 @@ ClickHouse LIKE uses `%` as wildcard. The `'like'` operator passes the pattern t
 // Domain-based filter
 const companyUsers = await db
   .table('users')
-  .select('user_id', 'email', 'created_at')
+  .select(['user_id', 'email', 'created_at'])
   .where('tenant_id', 'eq', tenantId)
   .where('email', 'like', '%@acme.com')
   .execute();
@@ -143,7 +146,8 @@ const companyUsers = await db
 // Prefix match
 const apiEvents = await db
   .table('events')
-  .select('event_type', 'count() AS cnt')
+  .select(['event_type'])
+  .count('event_type', 'cnt')
   .where('tenant_id', 'eq', tenantId)
   .where('page_path', 'like', '/api/%')
   .groupBy(['event_type'])
@@ -152,6 +156,33 @@ const apiEvents = await db
 
 For case-insensitive matching, use `ilike` in raw SQL — hypequery's `'like'` operator is case-sensitive, matching ClickHouse's default behavior.
 
+## BETWEEN Filters (Inclusive on Both Ends)
+
+`x BETWEEN a AND b` in ClickHouse is inclusive: it matches `a`, `b` and everything in between, the same as `x >= a AND x <= b`. hypequery's `'between'` operator, and its `whereBetween()` shorthand, compile to that same `BETWEEN ? AND ?` with both bounds as parameters:
+
+```typescript
+// Orders worth 100 to 500, both ends included
+const midSizeOrders = await db
+  .table('orders')
+  .select(['order_id', 'amount'])
+  .where('tenant_id', 'eq', tenantId)
+  .whereBetween('amount', [100, 500])
+  .execute();
+```
+
+Inclusive bounds catch people out on timestamps. `created_at BETWEEN '2026-11-01' AND '2026-11-30'` compares against `2026-11-30 00:00:00`, so almost all of 30 November is left out. For date ranges, use a half-open range instead:
+
+```typescript
+// Every event in November, including all of 30 November
+const novemberEvents = await db
+  .table('events')
+  .select(['event_type', 'created_at'])
+  .where('tenant_id', 'eq', tenantId)
+  .where('created_at', 'gte', '2026-11-01 00:00:00')
+  .where('created_at', 'lt', '2026-12-01 00:00:00')
+  .execute();
+```
+
 ## OR Conditions and Expressions
 
 When a filter cannot be expressed as a straight AND chain, use `.orWhere()` or an expression builder:
@@ -159,7 +190,8 @@ When a filter cannot be expressed as a straight AND chain, use `.orWhere()` or a
 ```typescript
 const result = await db
   .table('events')
-  .select('page_path', 'count() AS views')
+  .select(['page_path'])
+  .count('page_path', 'views')
   .where('tenant_id', 'eq', tenantId)
   .where('created_at', 'gte', from)
   .where('created_at', 'lt', to)
@@ -202,7 +234,8 @@ const result = await client.query({
 // hypequery — typed, composable
 const result = await db
   .table('events')
-  .select('page_path', 'count() AS views')
+  .select(['page_path'])
+  .count('page_path', 'views')
   .where('tenant_id', 'eq', 42)
   .where('event_type', 'eq', 'page_view')
   .where('created_at', 'gte', from)

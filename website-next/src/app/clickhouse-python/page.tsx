@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
+import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
-const TITLE = 'ClickHouse Python Clients: clickhouse-connect vs driver';
+const TITLE = 'Best ClickHouse Python Client: clickhouse-connect vs driver';
 const DESCRIPTION =
   'clickhouse-connect is the official ClickHouse Python client. Compare it with clickhouse-driver, clickhouse-sqlalchemy and hypequery, with safe dynamic queries.';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: searchTitle(TITLE),
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl('/clickhouse-python') },
   openGraph: {
@@ -332,7 +333,7 @@ export default function ClickHousePythonPage() {
           },
           {
             label: 'Latest release on PyPI',
-            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b3, 5 Nov 2026 (beta)'],
+            cells: ['1.12.0, 3 Nov 2026', '0.2.11, 17 Jul 2026', '0.3.2, 12 Jun 2024', '0.1.0b4, 10 Nov 2026 (beta)'],
           },
           {
             label: 'Python',
@@ -385,7 +386,7 @@ export default function ClickHousePythonPage() {
           },
         ],
         footnote:
-          'Releases and Python ranges from PyPI on 8 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with the versions above.',
+          'Releases and Python ranges from PyPI, rechecked on 14 November 2026. Every example on this page ran against ClickHouse 26.6.2 on Python 3.13 with clickhouse-connect 1.12.0, clickhouse-driver 0.2.11, clickhouse-sqlalchemy 0.3.2 and hypequery 0.1.0b3.',
       }}
       problemsHeading={{
         eyebrow: 'The clients',
@@ -552,7 +553,7 @@ export default function ClickHousePythonPage() {
       ]}
       searchIntentCards={[
         {
-          title: 'clickhouse-connect vs clickhouse-driver',
+          title: 'Should I use clickhouse-connect or clickhouse-driver?',
           copy:
             'clickhouse-connect is maintained by ClickHouse and uses the HTTP interface; clickhouse-driver is a community client for the native TCP protocol. Both returned the same rows in our tests and both escaped the injection payload. Pick clickhouse-connect for new code, for its `{name:Type}` server-side binding and its pandas, NumPy and Arrow methods. Keep clickhouse-driver where code or network rules already depend on the native protocol.',
         },
