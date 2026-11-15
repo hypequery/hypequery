@@ -266,6 +266,7 @@ export default function ClickHouseRealTimeAnalyticsPage() {
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-product-analytics', label: 'ClickHouse Product Analytics' },
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

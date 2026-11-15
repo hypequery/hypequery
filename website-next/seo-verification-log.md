@@ -263,3 +263,15 @@ tests were run and pass. The TypeScript snippets in A2–A4 type-check.
 - **Agentic Data Stack components** (LibreChat, Langfuse): only in AI answers and a repo link; A1 names the repo
   and nothing inside it.
 - **Text-to-SQL benchmark accuracy figures**: no primary source checked; A4 gives none.
+
+# SEO verification log: /clickhouse-semantic-layer options table and FAQ (2026-11-15)
+
+| Claim | Source | Checked |
+|---|---|---|
+| dbt Semantic Layer supports Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino; "Support for other data platforms, such as Fabric, isn't available at this time" (ClickHouse is not listed) | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-15 |
+| ClickHouse Cloud: AGENTS.md is "a special saved query that acts as a semantic layer over the agent's system prompt"; written as instructions "(not actual SQL)"; applied "to all Assistant chat conversations in that service" | https://clickhouse.com/docs/products/cloud/features/ai-ml/aichat/customizing-semantic-layer | 2026-11-15 |
+| Cube: supports ClickHouse among many SQL sources; REST, GraphQL and SQL APIs; MCP server in Cube Cloud; access policies and `queryRewrite` | As logged for P3, G1 and G2 above | 2026-11-12 / 2026-11-14 |
+| dbt MCP server; dbt SL relies on the data platform's physical access policies | As logged for G1 and G2 above | 2026-11-14 |
+
+Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
+reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.

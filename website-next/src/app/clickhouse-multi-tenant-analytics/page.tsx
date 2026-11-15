@@ -179,6 +179,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
