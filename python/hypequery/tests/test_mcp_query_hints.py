@@ -40,15 +40,17 @@ EXPECTED = [
     (
         "orders",
         "/orderBy/0/field",
-        ' Offered by "orders": "amount", "country", "customer.tier", "averageRevenue", "customer.unique", "latestLabel", "orderCount", "revenue".',
+        ' A selected field "orders" can order by, once each: "amount", "country", "customer.tier", "averageRevenue", "customer.unique", "latestLabel", "orderCount", "revenue", "period" (with a grain).',
     ),
     (
         "orders",
-        "/having/0/field",
-        ' Offered by "orders": "averageRevenue", "customer.unique", "latestLabel", "orderCount", "revenue".',
+        "/having/0/measure",
+        ' A selected measure "orders" allows in having: "averageRevenue", "customer.unique", "orderCount", "revenue".',
     ),
+    ("orders", "/having/0/field", ""),
     ("orders", "/filters/0/value", ""),
     ("countries", "/measures/0", ' "countries" offers none.'),
+    ("countries", "/having/0/measure", ' "countries" offers none.'),
 ]
 
 

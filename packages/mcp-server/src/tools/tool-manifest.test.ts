@@ -8,6 +8,14 @@ import { parseToolArgs } from './args.js';
 import { dataset, dimension, measure, projectAgentSafeCatalog } from '@hypequery/datasets';
 
 describe('MCP tool manifest', () => {
+  it('leaves out query_dataset when no dataset may be queried directly, despite its selection allOf', () => {
+    const orders = dataset('orders', { source: 'orders', dimensions: { region: dimension.string() }, measures: { revenue: measure.sum('amount') } });
+    const schemas = buildMCPQuerySchemas({ orders }, undefined, []);
+    expect(schemas.queryDatasetJsonSchema).toHaveProperty('allOf');
+    const names = buildMCPToolManifest(schemas).tools.map(tool => tool.name);
+    expect(names).not.toContain('query_dataset');
+  });
+
   it('advertises a flat query_dataset schema and still validates calls against the exact one', () => {
     const events = dataset('events', { source: 'events', dimensions: { device: dimension.string() }, measures: { events: measure.count() } });
     const orders = dataset('orders', { source: 'orders', dimensions: { region: dimension.string() }, measures: { revenue: measure.sum('amount') } });

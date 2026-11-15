@@ -33,4 +33,10 @@ describe('argument errors for a per-dataset union', () => {
     expect(message({ dataset: 'events', dimensions: ['SECRET'] })).not.toContain('SECRET');
     expect(message({ dataset: 'SECRET' })).not.toContain('SECRET');
   });
+  it('does not repeat an unknown key’s name', () => {
+    const top = message({ dataset: 'events', measures: ['events'], SECRET_KEY: 1 });
+    expect(top).toBe('Invalid query_dataset arguments: arguments: has a key this tool does not accept');
+    const nested = message({ dataset: 'events', measures: ['events'], filters: [{ field: 'device', operator: 'eq', value: 'x', SECRET_KEY: 1 }] });
+    expect(nested).not.toContain('SECRET');
+  });
 });

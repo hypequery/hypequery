@@ -212,3 +212,70 @@ def test_a_shared_option_names_every_dataset() -> None:
     )
     properties: Any = model["properties"]
     assert properties["dimensions"]["anyOf"][0]["description"] == 'For datasets "a", "b" only.'
+
+
+def test_query_metric_options_are_labelled_by_metric_once_each() -> None:
+    def variant(dataset: str, metric: str, order_by: list[str]) -> dict[str, object]:
+        return {
+            "type": "object",
+            "properties": {
+                "dataset": {"const": dataset},
+                "metric": {"const": metric},
+                "dimensions": {"items": {"enum": ["region"]}},
+                "orderBy": {"items": {"enum": order_by}},
+            },
+        }
+
+    model = to_model_input_schema(
+        {
+            "anyOf": [
+                variant("orders", "a", ["a", "region"]),
+                variant("orders", "b", ["b", "region"]),
+                variant("events", "c", ["c"]),
+            ]
+        }
+    )
+    properties: Any = model["properties"]
+    assert [option["description"] for option in properties["orderBy"]["anyOf"]] == [
+        'For metric "a" on "orders" only.',
+        'For metric "b" on "orders" only.',
+        'For metric "c" on "events" only.',
+    ]
+    assert properties["dimensions"] == {"items": {"enum": ["region"]}}
+    assert properties["metric"]["anyOf"] == [{"const": "a"}, {"const": "b"}, {"const": "c"}]
+
+
+def test_options_compare_as_typescript_does() -> None:
+    # Key order never matters, and 1.0 is 1, as in JavaScript.
+    model = to_model_input_schema(
+        {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"const": "a"},
+                        "limit": {"type": "integer", "maximum": 5},
+                    },
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"const": "b"},
+                        "limit": {"maximum": 5.0, "type": "integer"},
+                    },
+                },
+            ]
+        }
+    )
+    properties: Any = model["properties"]
+    assert properties["limit"] == {"type": "integer", "maximum": 5}
+
+
+def test_a_selection_requirement_does_not_hide_an_unsatisfiable_tool() -> None:
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": {"dataset": {"not": {}}},
+        "required": ["dataset"],
+        "allOf": [{"anyOf": [{"required": ["dimensions"]}, {"required": ["measures"]}]}],
+    }
+    assert accepts_no_input(schema)

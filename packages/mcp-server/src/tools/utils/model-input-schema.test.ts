@@ -160,4 +160,30 @@ describe('labels on flattened options', () => {
     });
     expect((model.properties as any).dimensions.anyOf[0].description).toBe('For datasets "a", "b" only.');
   });
+  it('labels query_metric options by metric, once each', () => {
+    const variant = (dataset: string, metric: string, orderBy: string[]) => ({
+      type: 'object',
+      properties: { dataset: { const: dataset }, metric: { const: metric }, dimensions: { items: { enum: ['region'] } }, orderBy: { items: { enum: orderBy } } },
+    });
+    const model = toModelInputSchema({ anyOf: [variant('orders', 'a', ['a', 'region']), variant('orders', 'b', ['b', 'region']), variant('events', 'c', ['c'])] });
+    const properties = model.properties as Record<string, any>;
+    expect(properties.orderBy.anyOf.map((option: any) => option.description)).toEqual([
+      'For metric "a" on "orders" only.',
+      'For metric "b" on "orders" only.',
+      'For metric "c" on "events" only.',
+    ]);
+    // The same for every variant: no label. Neither picker property is labelled.
+    expect(properties.dimensions).toEqual({ items: { enum: ['region'] } });
+    expect(properties.metric.anyOf).toEqual([{ const: 'a' }, { const: 'b' }, { const: 'c' }]);
+  });
+
+  it('treats schemas that differ only in key order as the same option', () => {
+    const model = toModelInputSchema({
+      anyOf: [
+        { type: 'object', properties: { dataset: { const: 'a' }, limit: { type: 'integer', maximum: 5 } } },
+        { type: 'object', properties: { dataset: { const: 'b' }, limit: { maximum: 5, type: 'integer' } } },
+      ],
+    });
+    expect((model.properties as any).limit).toEqual({ type: 'integer', maximum: 5 });
+  });
 });

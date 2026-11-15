@@ -13,10 +13,12 @@ const expected: [string, string, string][] = [
   ["orders", "/dimensions/0", " Offered by \"orders\": \"amount\", \"country\", \"customer.tier\"."],
   ["orders", "/measures/2", " Offered by \"orders\": \"averageRevenue\", \"customer.unique\", \"latestLabel\", \"orderCount\", \"revenue\"."],
   ["orders", "/filters/0/field", " Offered by \"orders\": \"amount\", \"country\", \"customer.active\", \"customer.tier\", \"paidStatus\"."],
-  ["orders", "/orderBy/0/field", " Offered by \"orders\": \"amount\", \"country\", \"customer.tier\", \"averageRevenue\", \"customer.unique\", \"latestLabel\", \"orderCount\", \"revenue\"."],
-  ["orders", "/having/0/field", " Offered by \"orders\": \"averageRevenue\", \"customer.unique\", \"latestLabel\", \"orderCount\", \"revenue\"."],
+  ["orders", "/orderBy/0/field", " A selected field \"orders\" can order by, once each: \"amount\", \"country\", \"customer.tier\", \"averageRevenue\", \"customer.unique\", \"latestLabel\", \"orderCount\", \"revenue\", \"period\" (with a grain)."],
+  ["orders", "/having/0/measure", " A selected measure \"orders\" allows in having: \"averageRevenue\", \"customer.unique\", \"orderCount\", \"revenue\"."],
+  ["orders", "/having/0/field", ""],
   ["orders", "/filters/0/value", ""],
   ["countries", "/measures/0", " \"countries\" offers none."],
+  ["countries", "/having/0/measure", " \"countries\" offers none."],
 ];
 
 describe('client query hints', () => {

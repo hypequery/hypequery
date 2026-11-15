@@ -56,11 +56,15 @@ function toDraft202012(value: unknown): unknown {
  * Whether no input can satisfy `schema`: it requires a property whose schema is
  * `{ not: {} }`. A query tool compiles to that when nothing is offered under it
  * (no queryable dataset, no metric); such a tool is left out of `tools/list`.
+ *
+ * Checked on the model-ready form, so constraint-only combinators beside the
+ * requirement (the local server's "select a dimension or measure") are already
+ * gone and cannot hide it.
  */
 export function acceptsNoInput(schema: JsonSchemaObject): boolean {
-  if (COMBINATORS.some(key => key in schema)) return false;
-  const properties = propertiesOf(schema);
-  return requiredOf(schema).some(name => same(properties[name], { not: {} }));
+  const model = toModelInputSchema(schema);
+  const properties = propertiesOf(model);
+  return requiredOf(model).some(name => same(properties[name], { not: {} }));
 }
 
 function flatten(schema: Schema): Schema {
@@ -83,21 +87,23 @@ function union(variants: Schema[]): Schema {
   const properties: Schema = {};
   const names = new Set(variants.flatMap(variant => Object.keys(propertiesOf(variant))));
   for (const name of names) {
-    // Each distinct schema this property takes, with the datasets that offer it.
-    const options = new Map<string, { schema: unknown; datasets: string[] }>();
+    // Each distinct schema this property takes, with the targets that offer it.
+    const options = new Map<string, { schema: unknown; targets: Target[]; count: number }>();
     for (const variant of variants) {
       const property = propertiesOf(variant)[name];
       if (property === undefined) continue;
-      const key = JSON.stringify(property);
-      const option = options.get(key) ?? { schema: property, datasets: [] };
-      const dataset = datasetOf(variant);
-      if (dataset !== undefined) option.datasets.push(dataset);
+      const key = canonical(property);
+      const option = options.get(key) ?? { schema: property, targets: [], count: 0 };
+      const target = targetOf(variant);
+      if (target !== undefined && !option.targets.some(other => other.name === target.name)) option.targets.push(target);
+      option.count += 1;
       options.set(key, option);
     }
     const offered = [...options.values()];
-    // A property that is the same for every variant needs no label.
-    const label = name !== 'dataset' && (offered.length > 1 || offered[0].datasets.length < variants.length);
-    const schemas = offered.map(option => (label ? labelled(option.schema, option.datasets) : option.schema));
+    // A property that is the same for every variant needs no label, nor do the
+    // properties that pick the variant.
+    const label = !TARGET_KEYS.has(name) && (offered.length > 1 || offered[0].count < variants.length);
+    const schemas = offered.map(option => (label ? labelled(option.schema, option.targets) : option.schema));
     properties[name] = schemas.length === 1 ? schemas[0] : { anyOf: schemas };
   }
   const required = variants
@@ -109,20 +115,35 @@ function union(variants: Schema[]): Schema {
   return accepted;
 }
 
-/** The dataset a variant is for: its `dataset` property's `const`. */
-function datasetOf(variant: Schema): string | undefined {
-  const dataset = propertiesOf(variant).dataset;
-  return isPlainObject(dataset) && typeof dataset.const === 'string' ? dataset.const : undefined;
+/** The properties whose `const` picks a variant: `dataset`, and `metric` for `query_metric`. */
+const TARGET_KEYS = new Set(['dataset', 'metric']);
+
+interface Target { readonly kind: 'dataset' | 'metric'; readonly name: string }
+
+/** What a variant is for: its metric on its dataset, or its dataset. */
+function targetOf(variant: Schema): Target | undefined {
+  const dataset = constOf(propertiesOf(variant).dataset);
+  const metric = constOf(propertiesOf(variant).metric);
+  if (metric !== undefined) {
+    return { kind: 'metric', name: dataset === undefined ? quote(metric) : `${quote(metric)} on ${quote(dataset)}` };
+  }
+  return dataset === undefined ? undefined : { kind: 'dataset', name: quote(dataset) };
+}
+
+function constOf(schema: unknown): string | undefined {
+  return isPlainObject(schema) && typeof schema.const === 'string' ? schema.const : undefined;
 }
 
 /**
- * Says which datasets an option is for, which the flat schema can no longer
- * enforce. The server still does; the label lets the model get it right first.
+ * Says which datasets (or metrics) an option is for, which the flat schema can
+ * no longer enforce. The server still does; the label lets the model get it
+ * right first.
  */
-function labelled(schema: unknown, datasets: string[]): unknown {
-  if (!isPlainObject(schema) || datasets.length === 0) return schema;
-  const names = datasets.map(name => `"${name}"`).join(', ');
-  const which = `${datasets.length === 1 ? 'dataset' : 'datasets'} ${names}`;
+function labelled(schema: unknown, targets: Target[]): unknown {
+  if (!isPlainObject(schema) || targets.length === 0) return schema;
+  const kind = targets[0].kind;
+  const names = targets.map(target => target.name).join(', ');
+  const which = `${targets.length === 1 ? kind : `${kind}s`} ${names}`;
   const label = schema.maxItems === 0 ? `None for ${which}.` : `For ${which} only.`;
   const description = typeof schema.description === 'string' ? `${label} ${schema.description}` : label;
   return { ...schema, description };
@@ -165,7 +186,18 @@ function requiredOf(schema: Schema): string[] {
 }
 
 function same(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return canonical(left) === canonical(right);
+}
+
+/** JSON with object keys sorted, so equal schemas compare equal in either language. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) => (isPlainObject(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]]))
+    : item));
+}
+
+function quote(name: string): string {
+  return JSON.stringify(name);
 }
 
 function isPlainObject(value: unknown): value is Schema {

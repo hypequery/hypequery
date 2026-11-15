@@ -10,12 +10,14 @@ type Issue = z.core.$ZodIssue;
  * every branch's issues nested. This reports the branch the call was aimed at
  * instead: the one whose literals (`dataset`, a filter's `field`) it matched.
  * When no branch matches on a literal, it names the literal and every value
- * the branches offer. Like Zod's own messages, it never repeats a submitted value.
+ * the branches offer. It never repeats a submitted value: an unknown key's name
+ * is submitted data too, so it is reported without its name.
  */
 export function formatArgumentIssues(issues: readonly Issue[], at: readonly PropertyKey[] = []): string[] {
   return issues.flatMap(issue => {
     const path = [...at, ...issue.path];
     if (issue.code === 'invalid_union' && issue.errors.length > 0) return formatUnion(issue.errors, path);
+    if (issue.code === 'unrecognized_keys') return [`${pathOf(path)}: has a key this tool does not accept`];
     return [`${pathOf(path)}: ${issue.message}`];
   });
 }
