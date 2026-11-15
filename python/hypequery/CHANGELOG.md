@@ -4,6 +4,57 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b5 (2026-11-14)
+
+- `hypequery.agent.mint_agent_token()` signs an end-user token for a hypequery Cloud project's tenant MCP endpoint locally, with one of the project's managed signing keys and no network call. `project` and `endpoint` are optional, defaulting to the key JSON's `hq_project` and `hq_endpoint`; an explicit argument wins. It returns `AgentToken(token, mcp_url, expires_at)`, caps the lifetime at 15 minutes and raises `AgentTokenError` (a `ValueError`) naming the option for any input Cloud would refuse. It needs the `jwt` extra, and mints the same token as `@hypequery/agent`'s `mintAgentToken()` for the same input.
+
+- Dimensions and measures accept `synonyms`, `examples`, `format`, `unit` and
+  `currency` (an ISO 4217 code), as in TypeScript:
+  `dimension.string(synonyms=("market",), examples=("DE", "FR"))`,
+  `measure.sum("amount", format="#,##0.00", currency="EUR")`. Client contracts
+  advertise them in field annotations (RFC 0018 amendment, 5 November 2026), and
+  `hypequery mcp` returns them from `get_dataset_schema`, so agents see the
+  names and values people actually use. Deployment contracts do not publish
+  them yet.
+- Field metadata is negotiated so released consumers keep working: live
+  discovery emits it only to requests whose `x-hypequery-client-features` header
+  names `field-metadata` (both MCP backends send it) and varies on that header.
+  Other requests, and `export_client_contract` unless given
+  `field_metadata=True`, get the label/description view that `@hypequery/mcp`
+  and `@hypequery/cli` releases before this one accept. Invalid vocabulary still
+  fails export. `hypequery.protocol` adds `accepts_client_field_metadata`,
+  `parse_client_contract_features`, `without_client_field_metadata` and the
+  header constants.
+
+- MCP tool errors can carry `hint` (the next action, in one sentence), `docsUrl` and `requestId`, set through `McpToolError(..., hint=, docs_url=, request_id=)`. The published error envelope schema lists the three optional fields, matching `@hypequery/mcp`.
+
+- `hypequery mcp --http` serves MCP over Streamable HTTP instead of stdio,
+  bound to loopback by default, with `--port`, `--host`, `--allowed-hosts`
+  and `--allowed-origins`. Every request checks `Host` and `Origin`
+  (DNS-rebinding protection) before its credential.
+- Callers send `HYPEQUERY_MCP_KEY` as a bearer token (one shared key), or,
+  without it, are authenticated by the Api's own auth: the same credential is
+  forwarded on every query, so the API's authentication, policy and tenant
+  apply to each call as over REST. Each request sends only its own credential,
+  never another client's, even for the same user. Each MCP session belongs to
+  the principal that opened it, keeps the executor it started with (dropped when
+  the session is deleted, idle or the app stops) and is never rebuilt silently.
+- With `--allowed-origins`, a browser's preflight is answered before any
+  credential and replies carry the CORS headers a page needs.
+- OAuth resource-server support: `--resource` and `--authorization-servers`
+  publish RFC 9728 protected-resource metadata, 401 and 403 answers carry
+  RFC 6750 challenges pointing at it, and `--required-scopes` is enforced.
+  The Api's `jwt_strategy` must accept the resource URL as its only audience,
+  or the server refuses to start: a strategy accepts a token naming any one of
+  its audiences, so another audience (or none) would let a token issued for
+  another API open an MCP session. There is no authorization server.
+- `hypequery.mcp` exposes `create_mcp_asgi_app` (an ASGI app that also runs
+  the lifespan protocol), `McpPrincipal`, `ApiAuthenticator`,
+  `static_key_authenticator`, `ApiExecutorFactory`, `HttpExecutorFactory`,
+  `ProtectedResource` and `check_resource_audience`.
+  `ClientContractExecutor.invalidated` and `JwtStrategy.audiences` are new
+  read-only properties.
+
 ## 0.1.0b4 (2026-11-10)
 
 - `measure.approx_count_distinct(field)` estimates a distinct count with
