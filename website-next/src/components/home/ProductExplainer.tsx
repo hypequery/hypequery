@@ -43,16 +43,6 @@ const PANEL_HEIGHT = `${300 / PANEL_SCALE}px`;
 const COMPACT_PREVIEW_HEIGHT = 'h-[220px]';
 const COMPACT_PANEL_HEIGHT = `${220 / PANEL_SCALE}px`;
 
-const AI_SDK_CODE = `const tools = await hypequeryTools({
-  executor: createMCPExecutor({
-    datasets,
-    analytics,
-    tenantId: session.tenantId,
-  }),
-});
-
-streamText({ model, tools, messages });`;
-
 // Matches the dashboard's September figures.
 const SLACK_ROWS = [['GB', '64,000'], ['US', '48,000'], ['DE', '16,000']] as const;
 
@@ -66,8 +56,8 @@ const SOURCE_FIELDS = {
   events: 'event · timestamp · tenant_id',
 };
 
-/** `modelCode` and `dashboardCode` are server-highlighted code samples, passed in from the page. */
-export function ProductExplainer({ modelCode, dashboardCode }: { modelCode: ReactNode; dashboardCode: ReactNode }) {
+/** `modelCode`, `dashboardCode` and `aiSdkCode` are server-highlighted code samples, passed in from the page. */
+export function ProductExplainer({ modelCode, dashboardCode, aiSdkCode }: { modelCode: ReactNode; dashboardCode: ReactNode; aiSdkCode: ReactNode }) {
   const reducedMotion = useReducedMotion();
   const [activeConnection, setActiveConnection] = useState<number | null>(null);
   const [dashboardView, setDashboardView] = useState<'preview' | 'code'>('preview');
@@ -231,7 +221,7 @@ ${countries.map(([country, value]) => `  { "country": "${country}", "revenue": "
           <p className="mt-3 max-w-[350px] text-sm leading-6 text-text-muted">Give your own agent the model as tools, scoped to the signed-in customer. It never writes SQL.</p>
           <div className={`mt-6 flex flex-col overflow-hidden rounded-xl border border-border bg-bg-card font-mono text-[10.5px] leading-[1.6] shadow-card ${COMPACT_PREVIEW_HEIGHT}`} aria-label="Example AI SDK route handler using hypequery tools">
             <div className="border-b border-border px-4 py-2.5 text-[10px] text-text-dim">app/api/chat/route.ts</div>
-            <pre className="m-0 min-h-0 flex-1 overflow-hidden px-4 py-3 text-text-muted">{AI_SDK_CODE}</pre>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 py-3">{aiSdkCode}</div>
           </div>
           <Link href="/docs/agents/quickstart" className="explainer-read-more mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">Add AI chat to your app <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
         </motion.article>
