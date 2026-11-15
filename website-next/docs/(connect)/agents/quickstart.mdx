@@ -31,6 +31,19 @@ It builds on the packages from Model your data (`@hypequery/datasets` and `@hype
 
 ## Create the tools for one request
 
+`createMCPExecutor` from `@hypequery/mcp` is the engine behind the tools. Give it your datasets, your dataset client
+(`analytics`) and a tenant, and it:
+
+1. **Checks the setup** when you create it: a tenant-scoped dataset with no `tenantId` throws, so nothing runs
+   unscoped.
+2. **Builds the tools' input schemas** from your datasets, so the model can only name real datasets, dimensions,
+   measures and filters.
+3. **Runs each call**: it validates the arguments against the dataset, runs the query through your `analytics`
+   client with the tenant filter added, and returns the rows, or an error with a hint the model can act on.
+
+It's the same engine `hypequery mcp` serves to Claude and Cursor, which is where the name comes from. Here nothing
+is served: `hypequeryTools({ executor })` calls it directly, in your route, with no MCP server and no network hop.
+
 The executor is bound to one tenant, so create it per request, with the tenant from your server-side session:
 
 <CodeBlock>
