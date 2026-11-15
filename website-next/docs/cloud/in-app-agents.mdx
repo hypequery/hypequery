@@ -15,6 +15,23 @@ tenant MCP endpoint. Minting happens in your process with no network call, so it
 The tenant comes from the signed token, never from the model. A prompt asking for another customer's data has
 nothing to change.
 
+## Start from the starter
+
+The [in-app analytics agent](/examples/in-app-analytics-agent) example is a Next.js app with an AI SDK chat. It mints a
+token per session in a route handler and gives `streamText` the project's tools. It has two demo customers, so you can
+watch each answer change when you switch user. It comes with one demo dataset to deploy and a "Copy for your agent"
+prompt that walks a coding agent through the setup.
+
+<CodeBlock>
+```bash
+npx @hypequery/cli create in-app-analytics-agent -y
+```
+</CodeBlock>
+
+Its test runs the chat route against a scripted model that tries to read the other customer's data, and an in-process
+endpoint that enforces the token's tenant. Only the signed-in customer's rows come back. The test needs no model and no
+Cloud account.
+
 ## Create a signing key
 
 Under **Settings → Customer access → Signing keys for in-app agents**, create a key. Cloud shows the private key once,

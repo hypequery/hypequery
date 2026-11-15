@@ -433,7 +433,8 @@ export function materializeBundle(spec: Spec): unknown {
   switch (spec.type) {
     case 'wrong-root-type': return [];
     case 'unknown-root-field': return { ...value, extra: true };
-    case 'unsupported-version': return { ...value, version: 2 };
+    // Version 2 is the business-context bundle; 3 is the first unknown version.
+    case 'unsupported-version': return { ...value, version: 3 };
     case 'malformed-digest': return { ...value, deployment: { ...deployment, identity: 'bad' } };
     case 'traversal-path': return { ...value, deployment: { ...deployment, path: '../deployment.json' } };
     case 'duplicate-path': return { ...value, artifacts: [{ ...bundleArtifact(), path: deployment.path }] };
