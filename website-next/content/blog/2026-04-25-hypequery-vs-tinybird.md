@@ -54,7 +54,7 @@ The workflow is fully code-first:
 2. Build analytics queries in TypeScript using the composable query builder — filters, aggregations, joins, and time ranges are all typed
 3. Use `@hypequery/serve` to expose those queries as typed HTTP endpoints with OpenAPI documentation generated automatically
 4. Consume the endpoints in React components via typed hooks, or from any HTTP client with the generated types
-5. Add JWT auth, tenant scoping and the `rateLimit` middleware from `@hypequery/serve`, and an optional query result cache in the query builder, where you need them
+5. Add JWT auth, tenant scoping and the `rateLimit` middleware from `@hypequery/serve`, and an optional query result cache in [the query builder](/clickhouse-query-builder), where you need them
 
 The result is an analytics API layer that lives entirely in your existing TypeScript codebase, is versioned alongside your application code, and benefits from TypeScript's full compile-time safety.
 

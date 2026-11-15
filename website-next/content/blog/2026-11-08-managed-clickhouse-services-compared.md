@@ -135,7 +135,7 @@ The closest alternative to Altinity.Cloud is Aiven for ClickHouse or NetApp Inst
 Work through these in order; the first two usually narrow the list to one or two services.
 
 1. Region and account. Check the region list for your cloud. If data must stay in your account, ClickHouse Cloud, Altinity, Aiven and Instaclustr offer BYOC, with conditions (committed contracts on ClickHouse Cloud and Aiven).
-2. Database or platform. If services and BI tools need direct read and write SQL, rule out read-only access paths. If you want hosted endpoints, Tinybird or ClickHouse Cloud's Query API endpoints save you an API layer.
+2. Database or platform. If services and BI tools need direct read and write SQL, rule out read-only access paths. If you want hosted endpoints, Tinybird or ClickHouse Cloud's Query API endpoints save you an [API layer](/clickhouse-api).
 3. Billing shape. Usage billing (ClickHouse Cloud) suits spiky or intermittent load. Fixed plans or per-node pricing (Aiven, Instaclustr, Elestio, Tinybird Developer) suit steady load and fixed budgets.
 4. ClickHouse version and features. Altinity runs any version, ClickHouse Cloud runs its own build with a curated feature set, and Alibaba's Community-compatible Edition is on 22.8 or older.
 5. Exit path. Services that run open-source ClickHouse make moving to self-hosting simpler. Plan how you would export data before you commit.

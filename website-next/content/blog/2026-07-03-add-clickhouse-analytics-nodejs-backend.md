@@ -39,7 +39,7 @@ No. Postgres and your ORM keep the transactional data; ClickHouse holds events a
 
 ## Why this is not like adding another ORM
 
-Your ORM can't help here. Prisma and Drizzle have no native ClickHouse driver, and TypeORM's entity model doesn't fit a columnar, append-heavy database (more in [ClickHouse and ORMs](/clickhouse-orm)).
+Your ORM can't help here. Prisma and [Drizzle](/compare/hypequery-vs-drizzle) have no native ClickHouse driver, and TypeORM's entity model doesn't fit a columnar, append-heavy database (more in [ClickHouse and ORMs](/clickhouse-orm)).
 
 The direction of truth also flips. ClickHouse tables usually exist before the application code: a data engineer created them, or a pipeline already writes events into them. So instead of models and migrations, point a generator at the live database and derive types from what is there.
 

@@ -20,7 +20,7 @@ This post builds that app end to end: about 120 lines of code across four files.
 
 ## Why not let the model write SQL against ClickHouse?
 
-Text-to-SQL is the obvious first try, and on ClickHouse it fails in specific ways. A `ReplacingMergeTree` table read without `FINAL` counts rows twice. `uniq` and `uniqExact` return different numbers for the same question. A `DateTime` column in UTC moves the day boundaries for anyone not in UTC. And in a product with many customers, nothing in a generated SQL string stops a read of another customer's rows. A prompt is not a tenant boundary.
+[Text-to-SQL](/blog/text-to-sql-vs-semantic-layer) is the obvious first try, and on ClickHouse it fails in specific ways. A `ReplacingMergeTree` table read without `FINAL` counts rows twice. `uniq` and `uniqExact` return different numbers for the same question. A `DateTime` column in UTC moves the day boundaries for anyone not in UTC. And in a product with many customers, nothing in a generated SQL string stops a read of another customer's rows. A prompt is not a tenant boundary.
 
 Tool calling fixes this when the tools are narrow. Instead of an `execute_sql` tool, the model gets a semantic layer: datasets with named dimensions and measures, each defined once in code. It can only ask for fields that exist, and a wrong field name comes back as an error it can fix. [Official ClickHouse MCP vs governed MCP](/blog/clickhouse-mcp-servers-compared) compares the two approaches in detail.
 

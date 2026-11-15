@@ -30,10 +30,10 @@ ClickHouse is a columnar analytics database. Its data model is fundamentally dif
 
 - No foreign keys; joins work, but analytics tables are usually denormalised
 - Append-optimised, not transaction-optimised
-- Different SQL dialect — PREWHERE, ARRAY JOIN, materialized views, dictionaries
+- Different SQL dialect — [PREWHERE](/blog/clickhouse-prewhere-vs-where), [ARRAY JOIN](/blog/clickhouse-array-join-typescript), materialized views, dictionaries
 - Runtime type behaviour that differs from standard SQL: DateTime returns as a formatted string, UInt64 can exceed JavaScript's safe integer range (hypequery asks ClickHouse to quote it as a string), and Nullable columns behave differently
 
-An ORM built for Postgres, even a lightweight one like Drizzle, is built around the relational model. ClickHouse does not fit that model — and forcing it produces awkward code, missing features, and type mappings that are wrong at runtime.
+[An ORM](/clickhouse-orm) built for Postgres, even a lightweight one like Drizzle, is built around the relational model. ClickHouse does not fit that model — and forcing it produces awkward code, missing features, and type mappings that are wrong at runtime.
 
 ## What hypequery offers instead
 

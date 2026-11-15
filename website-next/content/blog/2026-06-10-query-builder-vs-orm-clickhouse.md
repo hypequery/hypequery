@@ -120,7 +120,7 @@ whereas that's a query builder's home turf. ORMs treat aggregation as an escape 
 
 **3. Denormalized tables, not relation graphs.** ORMs shine at traversing normalized schemas via foreign keys. ClickHouse best practice pushes the opposite way: wide, denormalized tables so queries scan one table instead of joining five. There's no foreign-key graph for an ORM to model. Joins exist and hypequery supports them (`.leftJoin()`, `.innerJoin()`), but they're a query decision, not a schema-level relationship an ORM should own.
 
-This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and Drizzle's relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/clickhouse-orm).
+This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and [Drizzle](/compare/hypequery-vs-drizzle)'s relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/clickhouse-orm).
 
 ## Where hypequery sits — and what it deliberately isn't
 

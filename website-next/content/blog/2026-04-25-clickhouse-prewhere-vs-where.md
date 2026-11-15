@@ -107,7 +107,7 @@ PREWHERE delivers the biggest gains when all of these are true:
 
 **The remaining columns are expensive.** If all your columns are small integers, PREWHERE doesn't help much because there's not much IO to avoid. The payoff is when you have wide rows with large string or JSON columns.
 
-**MergeTree tables.** PREWHERE is only available on MergeTree family engines (MergeTree, ReplacingMergeTree, AggregatingMergeTree, etc.). It's silently ignored or errors on other engines.
+**MergeTree tables.** PREWHERE is only available on MergeTree family engines (MergeTree, [ReplacingMergeTree](/blog/clickhouse-final-replacingmergetree-typescript), AggregatingMergeTree, etc.). It's silently ignored or errors on other engines.
 
 ## When WHERE Is Enough
 
