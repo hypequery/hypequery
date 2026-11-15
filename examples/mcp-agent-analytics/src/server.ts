@@ -6,8 +6,8 @@ import { Events, Subscriptions } from '../analytics/datasets.js';
 /**
  * A governed MCP server over the seed dataset.
  *
- * The agent gets exactly four tools: list_datasets, get_dataset_schema,
- * query_dataset and query_metric. It can only reach the datasets published
+ * The agent gets list_datasets, get_dataset_schema and query_dataset, plus
+ * query_metric once a dataset defines a named metric. It can only reach the datasets published
  * here, with the dimensions and measures they declare; generated SQL is
  * redacted; and because both datasets have a tenantKey, every query is
  * scoped to the tenant this process was started for. The tenant comes from

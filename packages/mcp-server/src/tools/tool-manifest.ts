@@ -1,6 +1,7 @@
 import { SUPPORTED_TIME_GRAINS } from '@hypequery/datasets';
 import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets/schemas';
 import type { ListToolsResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { acceptsNoInput, toModelInputSchema, type JsonSchemaObject } from './utils/model-input-schema.js';
 import { resultSchema } from './utils/result-schema.js';
 
 const semanticMetadataProperties = {
@@ -267,22 +268,37 @@ export function buildMCPToolManifest(
         outputSchema: DATASET_SCHEMA_OUTPUT_SCHEMA,
         annotations: annotations('Inspect dataset schema'),
       },
-      {
+      ...queryTool(querySchemas.queryMetricJsonSchema, {
         name: 'query_metric',
         title: 'Query named metric',
         description: 'Execute a metric query with optional dimensions, filters, time grain, and sorting',
-        inputSchema: querySchemas.queryMetricJsonSchema as Tool['inputSchema'],
-        outputSchema: QUERY_OUTPUT_SCHEMA,
-        annotations: annotations('Query named metric'),
-      },
-      {
+      }),
+      ...queryTool(querySchemas.queryDatasetJsonSchema, {
         name: 'query_dataset',
         title: 'Query dataset',
         description: 'Execute an ad-hoc dataset query with custom dimensions and measures',
-        inputSchema: querySchemas.queryDatasetJsonSchema as Tool['inputSchema'],
-        outputSchema: QUERY_OUTPUT_SCHEMA,
-        annotations: annotations('Query dataset'),
-      },
+      }),
     ],
   };
+}
+
+/**
+ * A query tool as clients receive it, or none when nothing is offered under it.
+ *
+ * The advertised input schema is the provider-ready form of the exact one: model
+ * APIs reject a top-level `anyOf`, and clients such as Claude Code drop the tool
+ * silently. Calls are still validated against the exact schema.
+ */
+function queryTool(
+  exact: object,
+  tool: Pick<Tool, 'name' | 'title' | 'description'>,
+): Tool[] {
+  const schema = exact as JsonSchemaObject;
+  if (acceptsNoInput(schema)) return [];
+  return [{
+    ...tool,
+    inputSchema: toModelInputSchema(schema) as Tool['inputSchema'],
+    outputSchema: QUERY_OUTPUT_SCHEMA,
+    annotations: annotations(tool.title!),
+  }];
 }

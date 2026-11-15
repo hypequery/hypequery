@@ -1,0 +1,2 @@
+- `hypequery.mcp` now advertises `query_dataset` and `query_metric` with an input schema that model APIs accept: one object with no top-level `anyOf`, `oneOf` or `allOf`. Before, MCP clients such as Claude Code dropped `query_dataset` without any error. Calls are still validated against the exact per-dataset schema, and the manifest hash is unchanged.
+- A query tool with nothing under it (no metric endpoint, or no dataset endpoint) is no longer listed. `hypequery mcp --self-test` and `hypequery demo` report the tool count from the manifest.

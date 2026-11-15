@@ -1,4 +1,4 @@
-"""Serve the four MCP tools from an authorized client contract.
+"""Serve the MCP tools from an authorized client contract.
 
 Ports `@hypequery/mcp`'s `HypequeryMCPHttpExecutor`. The backend owns SQL,
 authentication and tenant scope; the executor advertises the contract's

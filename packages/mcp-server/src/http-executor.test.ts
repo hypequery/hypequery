@@ -170,11 +170,13 @@ describe('authorized HTTP MCP executor', () => {
     const fetchFn = vi.fn(async () => json(authorized([])));
     const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
     const first = await executor.listTools();
-    expect(first.tools.map(tool => tool.name)).toEqual(['list_datasets', 'get_dataset_schema', 'query_metric', 'query_dataset']);
+    // Nothing is offered under either query tool, so neither is listed; a call
+    // to one is still validated and refused.
+    expect(first.tools.map(tool => tool.name)).toEqual(['list_datasets', 'get_dataset_schema']);
     expect((await executor.callTool('list_datasets')).structuredContent).toEqual({ datasets: [], total: 0 });
     expect(code(await executor.callTool('query_dataset', args))).toBe('MCP_INVALID_ARGUMENTS');
     first.tools.length = 0;
-    expect((await executor.listTools()).tools).toHaveLength(4);
+    expect((await executor.listTools()).tools).toHaveLength(2);
   });
 
   it('invalidates the session on a changed authorized view before posting, and requires a new executor', async () => {
