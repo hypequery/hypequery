@@ -217,7 +217,7 @@ It passes because nothing in that list depends on the model behaving. The tenant
 
 ## When you outgrow one backend
 
-Running the tools in process is the simplest setup, and for many products it's enough. When you want a managed endpoint instead, hypequery Cloud serves the same tools: your server mints a short-lived end-user token for the session (locally, no network call) and points `hypequeryTools` at the project's tenant endpoint:
+Running the tools in process is the simplest setup, and for many products it's enough. When you want a managed endpoint instead, hypequery Cloud (launching soon) will serve the same tools, against your own ClickHouse: your server mints a short-lived end-user token for the session (locally, no network call) and points `hypequeryTools` at the project's tenant endpoint:
 
 ```ts
 const tools = await hypequeryTools({ url: mcpUrl, token });

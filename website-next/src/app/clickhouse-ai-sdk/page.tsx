@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse + Vercel AI SDK: Analytics Chat Tools',
   description:
-    'Give a Vercel AI SDK chat tenant-safe ClickHouse analytics: hypequery tools for streamText, with no text-to-SQL and no raw database access. Run them in your own backend or from hypequery Cloud.',
+    'Give a Vercel AI SDK chat tenant-safe ClickHouse analytics: hypequery tools for streamText, with no text-to-SQL and no raw database access. Run them in your own backend today, with hypequery Cloud coming soon.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-ai-sdk'),
   },
@@ -168,16 +168,16 @@ export default function ClickHouseAiSdkPage() {
       }}
       implementationSection={{
         eyebrow: 'Two ways to run it',
-        title: 'In your own backend, or from hypequery Cloud',
+        title: 'In your own backend today, on hypequery Cloud soon',
         description:
-          'Both give streamText the same tools, schemas and errors, so you can start in your backend and move later without touching your chat.',
+          'Both give streamText the same tools, schemas and errors, so you can start in your backend now and move to Cloud when it launches without touching your chat.',
         paragraphs: [
           'In your backend, hypequeryTools({ executor }) runs the tools in process against your ClickHouse connection. The tenant is the tenantId you pass from your session.',
-          'With hypequery Cloud, your server mints a short-lived end-user token for the session and the tools call your project’s tenant endpoint. Cloud verifies the token, scopes every query to its tenant, and logs each request id so you can explain an answer later.',
+          'hypequery Cloud (coming soon) hosts the same tools: your server mints a short-lived end-user token for the session and the tools call your project’s tenant endpoint. Cloud verifies the token, scopes every query to its tenant, queries your ClickHouse with a read-only user, and logs each request id so you can explain an answer later.',
         ],
         codePanel: {
           eyebrow: '@hypequery/agent',
-          title: 'The Cloud variant',
+          title: 'The Cloud variant (coming soon)',
           description: 'Minting is local: no network call. Pass a token function instead of a string to re-mint before it expires in a long chat.',
           code: cloudCode,
         },
@@ -209,7 +209,7 @@ export default function ClickHouseAiSdkPage() {
         {
           question: 'Do I need to host an MCP server?',
           answer:
-            'No. hypequeryTools({ executor }) runs the tools inside your own route handler. If you use hypequery Cloud instead, the tools call your project’s hosted endpoint with a token your server mints.',
+            'No. hypequeryTools({ executor }) runs the tools inside your own route handler. When hypequery Cloud launches, you can point the same tools at your project’s hosted endpoint instead, with a token your server mints.',
         },
         {
           question: 'How does tenant isolation work?',
@@ -239,7 +239,7 @@ export default function ClickHouseAiSdkPage() {
         {
           href: '/docs/agents/tools',
           title: 'Tools for your agent',
-          description: 'The AI SDK, Anthropic and OpenAI Agents adapters with hypequery Cloud.',
+          description: 'The AI SDK, Anthropic and OpenAI Agents adapters with hypequery Cloud (coming soon).',
         },
         {
           href: '/docs/agents/business-context',

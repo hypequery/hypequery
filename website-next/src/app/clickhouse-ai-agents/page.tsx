@@ -28,7 +28,7 @@ const anthropicCode = `import Anthropic from '@anthropic-ai/sdk';
 import { hypequeryTools } from '@hypequery/agent/anthropic';
 
 const anthropic = new Anthropic();
-const hq = await hypequeryTools({ executor });   // or { url, token } for hypequery Cloud
+const hq = await hypequeryTools({ executor });   // or { url, token } for hypequery Cloud, when it launches
 
 for (;;) {
   const response = await anthropic.messages.create({ model, max_tokens: 1024, tools: hq.tools, messages });
@@ -43,7 +43,7 @@ import { hypequeryTools } from '@hypequery/agent/openai-agents';
 const agent = new Agent({
   name: 'Analyst',
   instructions: 'Answer questions about this customer’s usage with the hypequery tools.',
-  tools: await hypequeryTools({ executor }),      // or { url, token } for hypequery Cloud
+  tools: await hypequeryTools({ executor }),      // or { url, token } for hypequery Cloud, when it launches
 });
 const result = await run(agent, 'Which features did we use most last month?');`;
 
@@ -69,7 +69,7 @@ export default function ClickHouseAiAgentsPage() {
       stats={[
         { label: 'Frameworks', value: 'AI SDK, Anthropic, OpenAI Agents, MCP' },
         { label: 'The agent writes', value: 'No SQL' },
-        { label: 'Runs', value: 'Your backend or hypequery Cloud' },
+        { label: 'Runs', value: 'Your backend (Cloud soon)' },
       ]}
       comparisonMatrix={{
         eyebrow: 'Approaches',
@@ -157,7 +157,7 @@ export default function ClickHouseAiAgentsPage() {
           description:
             'The AI SDK adapter returns a tool set for streamText or generateText. The Next.js starter shows the whole chat, with two demo customers and a tenant-isolation test.',
           bullets: [
-            'hypequeryTools({ executor }) in your route handler, or { url, token } with hypequery Cloud',
+            'hypequeryTools({ executor }) in your route handler, or { url, token } with hypequery Cloud when it launches',
             'A token function re-mints before expiry in long conversations',
             'onResult records each request id to explain an answer later',
           ],
@@ -200,7 +200,7 @@ export default function ClickHouseAiAgentsPage() {
         {
           question: 'Do I need hypequery Cloud?',
           answer:
-            'No. The tools run inside your own backend with hypequeryTools({ executor }). Cloud adds a hosted endpoint, signed end-user tokens, permission sets, release history for your datasets and business context, and request logs.',
+            'No. The tools run inside your own backend with hypequeryTools({ executor }), today. hypequery Cloud, coming soon, will add a hosted endpoint, signed end-user tokens, permission sets, release history for your datasets and business context, and request logs, while your data stays in your ClickHouse.',
         },
         {
           question: 'How does the agent know what our metrics mean?',
@@ -221,7 +221,7 @@ export default function ClickHouseAiAgentsPage() {
         },
         {
           href: '/docs/agents/tools',
-          title: 'Tools for your agent with hypequery Cloud',
+          title: 'Tools for your agent with hypequery Cloud (coming soon)',
           description: 'Tokens, sessions, request ids and the error envelope.',
         },
         {

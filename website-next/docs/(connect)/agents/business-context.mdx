@@ -70,7 +70,7 @@ const tools = await hypequeryTools({ executor });
 An MCP server you build with `createMCPServer` takes the same option, so Claude, Cursor and other MCP clients read it
 too.
 
-### In hypequery Cloud
+### In hypequery Cloud (coming soon)
 
 Export a publication from your deployment entrypoint instead of a bare `publishToCloud(...)`:
 
@@ -92,8 +92,8 @@ export const cloud = defineCloudPublication({
 back a release moves both together. A glossary-only edit is a new release.
 
 <Callout type="info">
-Cloud stores the context with each release today. Serving it to agents through the tenant endpoint (in
-`list_datasets` and `get_business_context`) is rolling out; until then, add it to your agent's instructions with
+hypequery Cloud is not live yet. When it launches, it stores the context with each release. Serving it to agents through the tenant endpoint (in
+`list_datasets` and `get_business_context`) follows; until then, add it to your agent's instructions with
 `formatBusinessContext` (below), or run the tools [in your own backend](/docs/agents/quickstart).
 </Callout>
 

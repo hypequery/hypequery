@@ -118,7 +118,10 @@ const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tena
 
 See [Business context](/docs/agents/business-context).
 
-## In your backend or in hypequery Cloud
+## In your backend, or on hypequery Cloud (coming soon)
+
+hypequery Cloud is not live yet. When it launches, it will host the same tools against your ClickHouse, using a
+read-only user, so your data stays where it is.
 
 | | Your backend (`{ executor }`) | hypequery Cloud (`{ url, token }`) |
 |---|---|---|
@@ -129,8 +132,8 @@ See [Business context](/docs/agents/business-context).
 | Business context | Passed to the executor | Published with each release, rolls back with it |
 | Request logs | Yours, via `onResult` | Logged per request id in Cloud |
 
-Both give the model the same tools, schemas and error envelope, so you can start in your backend and move to Cloud
-later without changing your agent loop. The starter switches between them with `HYPEQUERY_MODE`.
+Both give the model the same tools, schemas and error envelope, so you can start in your backend now and move to
+Cloud when it launches without changing your agent loop. The starter switches between them with `HYPEQUERY_MODE`.
 
 ## Related
 

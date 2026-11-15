@@ -32,18 +32,24 @@ export const AGENT_GROUPS: StackGroup[] = [
 
 export const DATABASE_GROUPS: StackGroup[] = [
   {
-    label: 'Your ClickHouse',
+    label: 'Where your data lives',
     targets: [
       { id: 'clickhouse-cloud', name: 'ClickHouse Cloud', detail: 'Connect over HTTPS', href: '/docs/reference/connection' },
       { id: 'self-hosted', name: 'Self-hosted', detail: 'Your own servers or cluster', href: '/docs/reference/connection' },
       { id: 'chdb', name: 'chDB', detail: 'ClickHouse embedded in your process, no server', href: '/docs/chdb' },
     ],
   },
-  {
-    label: 'Hosted by',
-    targets: [
-      { id: 'your-servers', name: 'Your servers', detail: 'A library inside your app', href: '/docs/quick-start/api-and-dashboard' },
-      { id: 'hypequery-cloud', name: 'hypequery Cloud', detail: 'Hosted APIs and MCP, with releases and logs', href: '/docs/cloud' },
-    ],
-  },
 ];
+
+/** The other way to run the backend column: hypequery serves it, against your ClickHouse. */
+export const HOSTED_GROUP: StackGroup = {
+  label: 'Or hosted for you',
+  targets: [
+    {
+      id: 'hypequery-cloud',
+      name: 'hypequery Cloud',
+      detail: 'Coming soon: the same APIs and MCP, hosted, querying your ClickHouse with a read-only user',
+      href: '/docs/cloud',
+    },
+  ],
+};

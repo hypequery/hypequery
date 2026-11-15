@@ -30,7 +30,7 @@ import {
 } from 'react-icons/si';
 import { trackUmamiEvent } from '@/lib/umami';
 import { RUNTIME_EXAMPLES, type RuntimeLanguage } from './runtimeExamples';
-import { AGENT_GROUPS, DATABASE_GROUPS, type StackGroup } from './stackTargets';
+import { AGENT_GROUPS, DATABASE_GROUPS, HOSTED_GROUP, type StackGroup } from './stackTargets';
 
 type Icon = ComponentType<{ className?: string }>;
 
@@ -60,7 +60,6 @@ const ICONS: Record<string, Icon> = {
   'clickhouse-cloud': SiClickhouse,
   'self-hosted': HardDrive,
   chdb: Boxes,
-  'your-servers': Server,
   'hypequery-cloud': Cloud,
 };
 
@@ -70,12 +69,15 @@ const LANGUAGES: Array<{ language: RuntimeLanguage; label: string; Icon: Icon; c
 ];
 
 // The frameworks, grouped by language, in the same shape as the agent and database columns.
-const BACKEND_GROUPS: Array<StackGroup & { Icon: Icon; color: string }> = LANGUAGES.map(({ language, label, Icon, color }) => ({
-  label,
-  Icon,
-  color,
-  targets: RUNTIME_EXAMPLES.filter((example) => example.language === language),
-}));
+const BACKEND_GROUPS: Array<StackGroup & { Icon?: Icon; color?: string; badge?: string }> = [
+  ...LANGUAGES.map(({ language, label, Icon, color }) => ({
+    label,
+    Icon,
+    color,
+    targets: RUNTIME_EXAMPLES.filter((example) => example.language === language),
+  })),
+  { ...HOSTED_GROUP, Icon: Cloud, color: 'text-accent', badge: 'Coming soon' },
+];
 
 function Chip({ id, name, detail, href, column }: { id: string; name: string; detail: string; href: string; column: string }) {
   const ChipIcon = ICONS[id];
@@ -99,7 +101,7 @@ function Column({ id, Icon, title, description, groups }: {
   Icon: Icon;
   title: string;
   description: ReactNode;
-  groups: Array<StackGroup & { Icon?: Icon; color?: string }>;
+  groups: Array<StackGroup & { Icon?: Icon; color?: string; badge?: string }>;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border border-border bg-bg-card/40 p-5 sm:p-6">
@@ -109,11 +111,12 @@ function Column({ id, Icon, title, description, groups }: {
       </div>
       <p className="mt-2 text-sm leading-6 text-text-muted">{description}</p>
       <div className="mt-5 space-y-4">
-        {groups.map(({ label, targets, Icon: GroupIcon, color }) => (
+        {groups.map(({ label, targets, Icon: GroupIcon, color, badge }) => (
           <div key={label}>
             <p className="flex items-center gap-1.5 font-mono text-[11px] text-text-dim">
               {GroupIcon ? <GroupIcon className={`h-3 w-3 ${color ?? ''}`} aria-hidden="true" /> : null}
               {label}
+              {badge ? <span className="ml-1 rounded-full border border-accent/40 bg-accent-soft px-1.5 py-px font-sans text-[9.5px] font-medium text-accent">{badge}</span> : null}
             </p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {targets.map((target) => <Chip key={target.id} {...target} column={id} />)}
@@ -142,7 +145,7 @@ export function RunsWhereYourAppRuns() {
           id="backend"
           Icon={Server}
           title="Your backend"
-          description="Mount it beside your routes, in TypeScript or Python. Same datasets, same endpoints, same tenant rules."
+          description="Mount it beside your routes in TypeScript or Python, or let hypequery Cloud serve the same APIs and MCP for you."
           groups={BACKEND_GROUPS}
         />
         <Column
@@ -156,7 +159,7 @@ export function RunsWhereYourAppRuns() {
           id="database"
           Icon={Database}
           title="Your ClickHouse"
-          description="Cloud, self-hosted or embedded with chDB. Run hypequery in your own app, or let hypequery Cloud host it."
+          description="Cloud, self-hosted or embedded with chDB. Your data stays in your ClickHouse, wherever hypequery runs."
           groups={DATABASE_GROUPS}
         />
       </div>
