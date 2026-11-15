@@ -1,3 +1,5 @@
+import { toModelInputSchema } from "./utils/model-input-schema.js";
+import type { HypequeryJsonSchema } from "./types.js";
 import Anthropic from '@anthropic-ai/sdk';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ROWS, startFixtureServer, TENANT_TOOLS, THROTTLED, type FixtureServer } from '../../test/fixture-server.js';
@@ -62,11 +64,11 @@ async function agentLoop(anthropic: Anthropic, hq: Awaited<ReturnType<typeof hyp
 }
 
 describe('@hypequery/agent/anthropic', () => {
-  it('lists the tenant tools with the server’s input schemas', async () => {
+  it('lists the tenant tools with the server’s input schemas, as models accept them', async () => {
     const hq = await hypequeryTools({ url: server.url, token: TOKEN });
     const listed = await server.executor.listTools();
     expect(hq.tools.map(tool => tool.name)).toEqual(TENANT_TOOLS);
-    expect(hq.tools.map(tool => tool.input_schema)).toEqual(listed.tools.map(tool => tool.inputSchema));
+    expect(hq.tools.map(tool => tool.input_schema)).toEqual(listed.tools.map(tool => toModelInputSchema(tool.inputSchema as HypequeryJsonSchema)));
     expect(hq.tools.map(tool => tool.description)).toEqual(listed.tools.map(tool => tool.description));
     await hq.close();
   });

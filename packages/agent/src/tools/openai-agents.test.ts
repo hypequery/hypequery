@@ -1,3 +1,5 @@
+import { toModelInputSchema } from "./utils/model-input-schema.js";
+import type { HypequeryJsonSchema } from "./types.js";
 import { Agent, run, setTracingDisabled } from '@openai/agents';
 import { assistantMessage, functionCall, ScriptedModel } from '@openai/agents/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -39,18 +41,18 @@ function toolOutput(model: ScriptedModel): string {
 }
 
 describe('@hypequery/agent/openai-agents', () => {
-  it('lists the tenant tools with the server’s input schemas, not strict', async () => {
+  it('lists the tenant tools with the server’s input schemas, as models accept them, not strict', async () => {
     const tools = await hypequeryTools(client);
     const listed = await server.executor.listTools();
     expect(tools.map(tool => tool.name)).toEqual(TENANT_TOOLS);
-    expect(tools.map(tool => tool.parameters)).toEqual(listed.tools.map(tool => tool.inputSchema));
+    expect(tools.map(tool => tool.parameters)).toEqual(listed.tools.map(tool => toModelInputSchema(tool.inputSchema as HypequeryJsonSchema)));
     expect(tools.map(tool => tool.description)).toEqual(listed.tools.map(tool => tool.description));
     expect(tools.every(tool => tool.strict === false)).toBe(true);
 
     const model = scriptedModel('list_datasets', {});
     await run(new Agent({ name: 'Analyst', model, tools }), 'What can I query?');
     const sent = model.calls[0]!.request.tools as { name: string; parameters: unknown }[];
-    expect(sent.map(tool => tool.parameters)).toEqual(listed.tools.map(tool => tool.inputSchema));
+    expect(sent.map(tool => tool.parameters)).toEqual(listed.tools.map(tool => toModelInputSchema(tool.inputSchema as HypequeryJsonSchema)));
   });
 
   it('runs query_dataset in an agent run with the bearer token', async () => {
