@@ -89,7 +89,7 @@ export interface MCPCatalogBudget {
   /**
    * Maximum tools a manifest may advertise. Defaults to 64, ceiling 256.
    *
-   * The local server publishes a fixed four. This exists for the hosted tool
+   * The local server publishes at most four. This exists for the hosted tool
    * modes that publish one tool per dataset or per verified metric, where the
    * count follows the catalog and needs a stop.
    */

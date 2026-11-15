@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@modelcontextprotocol/sdk>ajv': ^8.17.1
+  '@hypequery/mcp>ajv': ^8.17.1
   ajv-formats@3.0.1>ajv: ^8.17.1
   ajv: ^6.14.0
   '@babel/core': ^7.29.6
@@ -611,6 +612,9 @@ importers:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
+      ajv:
+        specifier: ^8.17.1
+        version: 8.20.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

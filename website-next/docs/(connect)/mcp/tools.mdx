@@ -7,6 +7,10 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 The MCP server exposes semantic tools over your dataset registry. Agents do not receive a SQL tool.
 
+`list_datasets` and `get_dataset_schema` are always listed. `query_metric` is listed once a dataset defines a named metric, and `query_dataset` once a dataset can be queried directly; a query tool with nothing under it is left out, so an agent never spends a call on it.
+
+Each query tool's input schema lists every dataset's dimensions, measures and filters in one object, which is the shape Claude, OpenAI and other model APIs accept. Each option is labelled with the datasets it belongs to (for example `For dataset "orders" only.`), but the schema cannot enforce that, so the server checks every call against that dataset's own fields and returns an `MCP_INVALID_ARGUMENTS` error the agent can correct from.
+
 ## `list_datasets`
 
 Lists registered datasets with description, dimension count, measure count, and metric count. Each entry also has `queryable`, which is `false` when the dataset can only be reached through named metrics.
@@ -61,7 +65,7 @@ Labels and descriptions from your dataset definitions are included here, so they
 
 ## `query_metric`
 
-Runs one named metric handle attached to a dataset.
+Runs one named metric handle attached to a dataset. Listed only when at least one dataset defines a metric.
 
 <CodeBlock>
 ```json
