@@ -93,10 +93,21 @@ def _union(variants: Sequence[JsonObject]) -> JsonObject:
 
     properties: JsonObject = {}
     for name in dict.fromkeys(name for variant in variants for name in _properties_of(variant)):
-        options = _distinct(
-            [_properties_of(v)[name] for v in variants if name in _properties_of(v)]
-        )
-        properties[name] = options[0] if len(options) == 1 else {"anyOf": options}
+        # Each distinct schema this property takes, with the datasets that offer it.
+        options: dict[str, tuple[object, list[str]]] = {}
+        for variant in variants:
+            if name not in _properties_of(variant):
+                continue
+            prop = _properties_of(variant)[name]
+            _, datasets = options.setdefault(_key(prop), (prop, []))
+            dataset = _dataset_of(variant)
+            if dataset is not None:
+                datasets.append(dataset)
+        offered = list(options.values())
+        # A property that is the same for every variant needs no label.
+        label = name != "dataset" and (len(offered) > 1 or len(offered[0][1]) < len(variants))
+        schemas = [_labelled(schema, datasets) if label else schema for schema, datasets in offered]
+        properties[name] = schemas[0] if len(schemas) == 1 else {"anyOf": schemas}
     shared = [
         name
         for name in _required_of(variants[0])
@@ -108,6 +119,30 @@ def _union(variants: Sequence[JsonObject]) -> JsonObject:
     if all(variant.get("additionalProperties") is False for variant in variants):
         accepted["additionalProperties"] = False
     return accepted
+
+
+def _dataset_of(variant: Mapping[str, object]) -> str | None:
+    """The dataset a variant is for: its `dataset` property's `const`."""
+
+    dataset = _properties_of(variant).get("dataset")
+    if isinstance(dataset, Mapping) and isinstance(dataset.get("const"), str):
+        return cast(str, dataset["const"])
+    return None
+
+
+def _labelled(schema: object, datasets: list[str]) -> object:
+    """Says which datasets an option is for, which the flat schema can no longer enforce.
+
+    The server still does; the label lets the model get it right first.
+    """
+
+    if not isinstance(schema, Mapping) or not datasets:
+        return schema
+    names = ", ".join(f'"{name}"' for name in datasets)
+    which = f"{'dataset' if len(datasets) == 1 else 'datasets'} {names}"
+    label = f"None for {which}." if schema.get("maxItems") == 0 else f"For {which} only."
+    existing = schema.get("description")
+    return {**schema, "description": f"{label} {existing}" if isinstance(existing, str) else label}
 
 
 def _intersect(left: JsonObject, right: JsonObject) -> JsonObject:
@@ -159,10 +194,6 @@ def _required_of(schema: Mapping[str, object]) -> list[str]:
     if not isinstance(required, list):
         return []
     return [name for name in required if isinstance(name, str)]
-
-
-def _distinct(schemas: Sequence[object]) -> list[object]:
-    return list({_key(schema): schema for schema in schemas}.values())
 
 
 def _same(left: object, right: object) -> bool:

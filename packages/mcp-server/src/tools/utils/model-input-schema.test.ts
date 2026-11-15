@@ -128,3 +128,36 @@ describe('acceptsNoInput', () => {
     expect(acceptsNoInput({ type: 'object', properties: { a: { not: {} } }, required: ['a'] })).toBe(true);
   });
 });
+
+describe('labels on flattened options', () => {
+  it('says which dataset each option is for, and when a dataset has none', () => {
+    const model = toModelInputSchema({
+      anyOf: [
+        { type: 'object', properties: { dataset: { const: 'countries' }, dimensions: { items: { enum: ['country'] } }, measures: { maxItems: 0, items: { not: {} } }, limit: { type: 'integer' } } },
+        { type: 'object', properties: { dataset: { const: 'orders' }, dimensions: { items: { enum: ['country', 'customer.tier'] }, description: 'Group by these.' }, measures: { items: { enum: ['revenue'] } }, limit: { type: 'integer' }, having: { type: 'array' } } },
+      ],
+    });
+    const properties = model.properties as Record<string, any>;
+    expect(properties.dimensions.anyOf.map((option: any) => option.description)).toEqual([
+      'For dataset "countries" only.',
+      'For dataset "orders" only. Group by these.',
+    ]);
+    expect(properties.measures.anyOf[0].description).toBe('None for dataset "countries".');
+    // Offered by only one dataset, so labelled even as the single option.
+    expect(properties.having.description).toBe('For dataset "orders" only.');
+    // The same for every dataset: no label. The dataset choice itself is never labelled.
+    expect(properties.limit).toEqual({ type: 'integer' });
+    expect(properties.dataset.anyOf).toEqual([{ const: 'countries' }, { const: 'orders' }]);
+  });
+
+  it('names every dataset that shares an option', () => {
+    const shared = { items: { enum: ['country'] } };
+    const model = toModelInputSchema({
+      anyOf: ['a', 'b', 'c'].map(name => ({
+        type: 'object',
+        properties: { dataset: { const: name }, dimensions: name === 'c' ? { items: { enum: ['x'] } } : shared },
+      })),
+    });
+    expect((model.properties as any).dimensions.anyOf[0].description).toBe('For datasets "a", "b" only.');
+  });
+});

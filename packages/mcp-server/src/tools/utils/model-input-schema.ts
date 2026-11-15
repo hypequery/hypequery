@@ -83,11 +83,22 @@ function union(variants: Schema[]): Schema {
   const properties: Schema = {};
   const names = new Set(variants.flatMap(variant => Object.keys(propertiesOf(variant))));
   for (const name of names) {
-    const options = distinct(variants.flatMap(variant => {
+    // Each distinct schema this property takes, with the datasets that offer it.
+    const options = new Map<string, { schema: unknown; datasets: string[] }>();
+    for (const variant of variants) {
       const property = propertiesOf(variant)[name];
-      return property === undefined ? [] : [property];
-    }));
-    properties[name] = options.length === 1 ? options[0] : { anyOf: options };
+      if (property === undefined) continue;
+      const key = JSON.stringify(property);
+      const option = options.get(key) ?? { schema: property, datasets: [] };
+      const dataset = datasetOf(variant);
+      if (dataset !== undefined) option.datasets.push(dataset);
+      options.set(key, option);
+    }
+    const offered = [...options.values()];
+    // A property that is the same for every variant needs no label.
+    const label = name !== 'dataset' && (offered.length > 1 || offered[0].datasets.length < variants.length);
+    const schemas = offered.map(option => (label ? labelled(option.schema, option.datasets) : option.schema));
+    properties[name] = schemas.length === 1 ? schemas[0] : { anyOf: schemas };
   }
   const required = variants
     .map(variant => new Set(requiredOf(variant)))
@@ -96,6 +107,25 @@ function union(variants: Schema[]): Schema {
   if (required.size > 0) accepted.required = [...required];
   if (variants.every(variant => variant.additionalProperties === false)) accepted.additionalProperties = false;
   return accepted;
+}
+
+/** The dataset a variant is for: its `dataset` property's `const`. */
+function datasetOf(variant: Schema): string | undefined {
+  const dataset = propertiesOf(variant).dataset;
+  return isPlainObject(dataset) && typeof dataset.const === 'string' ? dataset.const : undefined;
+}
+
+/**
+ * Says which datasets an option is for, which the flat schema can no longer
+ * enforce. The server still does; the label lets the model get it right first.
+ */
+function labelled(schema: unknown, datasets: string[]): unknown {
+  if (!isPlainObject(schema) || datasets.length === 0) return schema;
+  const names = datasets.map(name => `"${name}"`).join(', ');
+  const which = `${datasets.length === 1 ? 'dataset' : 'datasets'} ${names}`;
+  const label = schema.maxItems === 0 ? `None for ${which}.` : `For ${which} only.`;
+  const description = typeof schema.description === 'string' ? `${label} ${schema.description}` : label;
+  return { ...schema, description };
 }
 
 /** One object holding both schemas' properties and requirements. */
@@ -132,12 +162,6 @@ function propertiesOf(schema: Schema): Schema {
 
 function requiredOf(schema: Schema): string[] {
   return Array.isArray(schema.required) ? schema.required.filter((name): name is string => typeof name === 'string') : [];
-}
-
-function distinct(schemas: unknown[]): unknown[] {
-  const seen = new Map<string, unknown>();
-  for (const schema of schemas) seen.set(JSON.stringify(schema), schema);
-  return [...seen.values()];
 }
 
 function same(left: unknown, right: unknown): boolean {

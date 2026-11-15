@@ -1028,7 +1028,8 @@
                     "enum": [
                       "country"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -1040,7 +1041,8 @@
                       "country",
                       "customer.tier"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -1051,7 +1053,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -1513,7 +1516,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -1544,7 +1548,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -1579,7 +1584,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -1597,10 +1603,12 @@
               "anyOf": [
                 {
                   "type": "boolean",
-                  "const": false
+                  "const": false,
+                  "description": "For dataset \"countries\" only."
                 },
                 {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -1611,7 +1619,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 50,
@@ -1625,7 +1634,8 @@
                       "orderCount",
                       "revenue"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -1636,7 +1646,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -2520,7 +2531,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -2543,10 +2555,12 @@
                 "hour",
                 "month",
                 "week"
-              ]
+              ],
+              "description": "For dataset \"orders\" only."
             },
             "timezone": {
-              "type": "string"
+              "type": "string",
+              "description": "For dataset \"orders\" only."
             }
           },
           "required": [
@@ -5075,7 +5089,8 @@
                     "enum": [
                       "country"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -5087,7 +5102,8 @@
                       "country",
                       "customer.tier"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -5098,7 +5114,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -5560,7 +5577,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -5591,7 +5609,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -5626,7 +5645,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -5644,10 +5664,12 @@
               "anyOf": [
                 {
                   "type": "boolean",
-                  "const": false
+                  "const": false,
+                  "description": "For dataset \"countries\" only."
                 },
                 {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -5658,7 +5680,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 50,
@@ -5672,7 +5695,8 @@
                       "orderCount",
                       "revenue"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -5683,7 +5707,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -6567,7 +6592,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -6590,10 +6616,12 @@
                 "hour",
                 "month",
                 "week"
-              ]
+              ],
+              "description": "For dataset \"orders\" only."
             },
             "timezone": {
-              "type": "string"
+              "type": "string",
+              "description": "For dataset \"orders\" only."
             }
           },
           "required": [
@@ -7809,7 +7837,8 @@
                     "enum": [
                       "country"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -7821,7 +7850,8 @@
                       "country",
                       "customer.tier"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -7832,7 +7862,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -8294,7 +8325,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -8325,7 +8357,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -8360,7 +8393,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -8378,10 +8412,12 @@
               "anyOf": [
                 {
                   "type": "boolean",
-                  "const": false
+                  "const": false,
+                  "description": "For dataset \"countries\" only."
                 },
                 {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -8392,7 +8428,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 50,
@@ -8406,7 +8443,8 @@
                       "orderCount",
                       "revenue"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -8417,7 +8455,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -9301,7 +9340,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -9324,10 +9364,12 @@
                 "hour",
                 "month",
                 "week"
-              ]
+              ],
+              "description": "For dataset \"orders\" only."
             },
             "timezone": {
-              "type": "string"
+              "type": "string",
+              "description": "For dataset \"orders\" only."
             }
           },
           "required": [
@@ -10543,7 +10585,8 @@
                     "enum": [
                       "country"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -10555,7 +10598,8 @@
                       "country",
                       "customer.tier"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -10566,7 +10610,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -11028,7 +11073,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -11059,7 +11105,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"countries\" only."
                 },
                 {
                   "maxItems": 50,
@@ -11094,7 +11141,8 @@
                       "direction"
                     ],
                     "additionalProperties": false
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -11112,10 +11160,12 @@
               "anyOf": [
                 {
                   "type": "boolean",
-                  "const": false
+                  "const": false,
+                  "description": "For dataset \"countries\" only."
                 },
                 {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -11126,7 +11176,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 50,
@@ -11140,7 +11191,8 @@
                       "orderCount",
                       "revenue"
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -11151,7 +11203,8 @@
                   "type": "array",
                   "items": {
                     "not": {}
-                  }
+                  },
+                  "description": "None for dataset \"countries\"."
                 },
                 {
                   "maxItems": 100,
@@ -12035,7 +12088,8 @@
                         "additionalProperties": false
                       }
                     ]
-                  }
+                  },
+                  "description": "For dataset \"orders\" only."
                 }
               ]
             },
@@ -12058,10 +12112,12 @@
                 "hour",
                 "month",
                 "week"
-              ]
+              ],
+              "description": "For dataset \"orders\" only."
             },
             "timezone": {
-              "type": "string"
+              "type": "string",
+              "description": "For dataset \"orders\" only."
             }
           },
           "required": [

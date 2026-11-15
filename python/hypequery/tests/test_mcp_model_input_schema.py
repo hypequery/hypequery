@@ -152,3 +152,63 @@ def test_the_advertised_manifests_are_valid_draft_2020_12() -> None:
         for tool in manifest["tools"]:
             jsonschema.Draft202012Validator.check_schema(tool["inputSchema"])
             assert [key for key in COMBINATORS if key in tool["inputSchema"]] == []
+
+
+def test_each_option_says_which_dataset_it_is_for() -> None:
+    model = to_model_input_schema(
+        {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"const": "countries"},
+                        "dimensions": {"items": {"enum": ["country"]}},
+                        "measures": {"maxItems": 0, "items": {"not": {}}},
+                        "limit": {"type": "integer"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"const": "orders"},
+                        "dimensions": {
+                            "items": {"enum": ["country", "customer.tier"]},
+                            "description": "Group by these.",
+                        },
+                        "measures": {"items": {"enum": ["revenue"]}},
+                        "limit": {"type": "integer"},
+                        "having": {"type": "array"},
+                    },
+                },
+            ]
+        }
+    )
+    properties: Any = model["properties"]
+    assert [option["description"] for option in properties["dimensions"]["anyOf"]] == [
+        'For dataset "countries" only.',
+        'For dataset "orders" only. Group by these.',
+    ]
+    assert properties["measures"]["anyOf"][0]["description"] == 'None for dataset "countries".'
+    assert properties["having"]["description"] == 'For dataset "orders" only.'
+    assert properties["limit"] == {"type": "integer"}
+    assert properties["dataset"]["anyOf"] == [{"const": "countries"}, {"const": "orders"}]
+
+
+def test_a_shared_option_names_every_dataset() -> None:
+    shared = {"items": {"enum": ["country"]}}
+    model = to_model_input_schema(
+        {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"const": name},
+                        "dimensions": {"items": {"enum": ["x"]}} if name == "c" else shared,
+                    },
+                }
+                for name in ("a", "b", "c")
+            ]
+        }
+    )
+    properties: Any = model["properties"]
+    assert properties["dimensions"]["anyOf"][0]["description"] == 'For datasets "a", "b" only.'
