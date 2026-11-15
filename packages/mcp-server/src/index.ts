@@ -101,6 +101,7 @@ export {
   type MCPPrincipal,
   type MCPServeAuthContext,
   type MCPServeAuthRequest,
+  type MCPServeHttpMethod,
   type MCPServeAuthStrategy,
   type MCPServeAuthenticatorOptions,
   type MCPStaticKeyAuthenticatorOptions,
