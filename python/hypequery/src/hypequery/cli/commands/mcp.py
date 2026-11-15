@@ -7,7 +7,7 @@ import sys
 from contextlib import redirect_stdout
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import anyio
 
@@ -101,8 +101,10 @@ def run(options: McpOptions) -> None:
         endpoints = executor.contract["endpoints"]
         if options.self_test:
             queryable = sum(1 for e in endpoints if e["kind"] == "dataset")
+            tools = cast(list[object], executor.manifest["tools"])
             print(
-                f"hypequery MCP is ready: 4 tools over {len(endpoints)} authorized endpoints "
+                f"hypequery MCP is ready: {len(tools)} tools over "
+                f"{len(endpoints)} authorized endpoints "
                 f"({queryable} dataset, {len(endpoints) - queryable} metric). "
                 "No query tool was called.",
                 file=sys.stderr,

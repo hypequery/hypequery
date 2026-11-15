@@ -53,5 +53,6 @@ export const marketingPages: readonly string[] = [
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
   '/tinybird-alternative',
+  '/clickhouse-cloud-pricing',
   '/contact-us',
 ];

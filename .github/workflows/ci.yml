@@ -181,6 +181,7 @@ jobs:
         run: |
           cat <<'EOF' > .changeset/canary-release.md
           ---
+          "@hypequery/agent": patch
           "@hypequery/clickhouse": patch
           "@hypequery/cloud-client": patch
           "@hypequery/datasets": patch
@@ -199,6 +200,7 @@ jobs:
           cleanup() {
             git checkout -- \
               pnpm-lock.yaml \
+              packages/agent/package.json \
               packages/clickhouse/package.json \
               packages/clickhouse/CHANGELOG.md \
               packages/cloud-client/package.json \

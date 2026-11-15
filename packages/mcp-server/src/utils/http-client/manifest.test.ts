@@ -10,14 +10,14 @@ const success = JSON.parse(readFileSync(new URL('success.json', directory), 'utf
 
 describe('shared bridge manifest fixture', () => {
   // Python's `hypequery.mcp` advertises these same manifests for the same
-  // contracts; regenerate deliberately with `vitest -u` and review the diff.
+  // contracts, query input schemas included: those are the provider-ready form
+  // of tool-schemas-v1.json's, so this pins the flattening in both languages.
+  // Regenerate deliberately with `vitest -u` and review the diff.
   it('pins tools/list for every success descriptor at default host limits', async () => {
     const manifests = Object.fromEntries(success.map(item => {
       const contract = validateProtocolClientContract(item.value);
       const manifest = clientHttpManifest(buildClientContractQuerySchemas(mcpClientProfile(contract)), contract.contentHash);
-      // Query input schemas are pinned by tool-schemas-v1.json, from the profiled contract.
-      const tools = manifest.tools.map(tool => tool.name.startsWith('query_') ? { ...tool, inputSchema: 'tool-schemas-v1.json' } : tool);
-      return [item.id, { ...manifest, tools }];
+      return [item.id, manifest];
     }));
     await expect(`${JSON.stringify(manifests, null, 2)}\n`)
       .toMatchFileSnapshot(new URL('../../../../../specs/mcp/bridge-manifests-v1.json', import.meta.url).pathname);
