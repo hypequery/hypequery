@@ -31,6 +31,7 @@ import {
 } from 'react-icons/si';
 import { trackUmamiEvent } from '@/lib/umami';
 import { RUNTIME_EXAMPLES, type RuntimeLanguage } from './runtimeExamples';
+import { marketing } from '@/components/ui/marketing';
 import { AGENT_GROUPS, DATABASE_GROUPS, HOSTED_GROUP, type StackGroup } from './stackTargets';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -133,7 +134,7 @@ function Column({ id, Icon, title, description, groups }: {
 /** "Runs where your app runs": the frameworks, agents and ClickHouse hypequery fits into, each linking to its docs. */
 export function RunsWhereYourAppRuns() {
   return (
-    <section aria-labelledby="runs-where-title" className="mx-auto max-w-[1280px] px-5 pt-14 sm:px-8 sm:pt-20">
+    <section aria-labelledby="runs-where-title" className={`mx-auto max-w-[1280px] px-5 sm:px-8 ${marketing.homeSectionSpacing}`}>
       <div className="max-w-[720px]">
         <h2 id="runs-where-title" className="home-section-title text-text">Runs where your app runs</h2>
         <p className="mt-4 text-sm leading-6 text-text-muted sm:text-base">

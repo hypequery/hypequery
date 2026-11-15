@@ -164,4 +164,4 @@ query_dataset { dataset, dimensions, measures } ────▶  publishDatasets
 - [mcp-agent-analytics-python](../mcp-agent-analytics-python): the same governed MCP server in Python.
 - [fastapi-analytics-api](../fastapi-analytics-api): the Python version of the semantic layer.
 
-Tested on ClickHouse 25.8 with `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32; the Docker image on `node:22-slim` with `@hypequery/mcp` 0.12 from npm; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).
+Versions used: ClickHouse 25.8, `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32; the Docker image on `node:22-slim` with `@hypequery/mcp` 0.12 from npm; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).

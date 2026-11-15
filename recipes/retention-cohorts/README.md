@@ -73,4 +73,4 @@ events ─┘        │
 - [nextjs-dashboard](../nextjs-dashboard): where a retention grid would live.
 - [materialized-view-rollups](../materialized-view-rollups): make the view a refreshable table.
 
-Tested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.

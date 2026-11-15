@@ -105,4 +105,4 @@ src/pagination.ts  keysetPage(tenant, 50, cursor)
 - [multi-tenant-embedded-analytics](../../examples/multi-tenant-embedded-analytics): per-tenant APIs where a feed like this lives.
 - [fastapi-analytics-api](../../examples/fastapi-analytics-api): the HTTP side in Python.
 
-Tested on ClickHouse 25.8 with `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/clickhouse` 2.14.
