@@ -1,12 +1,15 @@
 ---
 title: Helper Methods
+seoTitle: 'Inspect and debug hypequery queries: toSQL, raw SQL and settings'
 description: 'hypequery query builder helpers: inspect generated SQL, run raw SQL, pass ClickHouse query settings, debug and inspect queries, and keep them type-safe.'
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
+These are the query builder methods for seeing and adjusting what hypequery sends to ClickHouse: print the generated SQL with `toSQL()` and `toSQLWithParams()`, use raw SQL with `raw()` where the builder has no method, pass ClickHouse query settings per query with `settings()`, and inspect a query with `debug()` and `getQueryNode()`.
+
+For which ClickHouse settings an application backend should set, and why, see [ClickHouse settings for application backends](/blog/clickhouse-settings-for-application-backends).
 
 ## SQL Generation
 

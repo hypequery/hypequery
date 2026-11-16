@@ -1,5 +1,6 @@
 ---
 title: Select
+seoTitle: 'ClickHouse SELECT in TypeScript: columns, aliases and expressions'
 description: Select and transform ClickHouse columns with a type-safe TypeScript query builder. Learn aliases, expressions, joins, and strongly typed result shapes.
 ---
 
@@ -9,7 +10,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Pre } from 'fumadocs-ui/components/codeblock';
 
 
-The `select()` method specifies which columns to return from your query. hypequery provides type-safe column selection with support for aliases, expressions, and helper functions.
+`select()` chooses the columns a hypequery query returns, and what you pass it sets the TypeScript type of the result rows. This page covers selecting columns and `*`, columns from joined tables, aliases, computed columns with `rawAs()` and `selectExpr()`, and how the result type is inferred from your generated ClickHouse schema.
 
 ## Overview
 

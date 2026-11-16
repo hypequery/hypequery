@@ -372,7 +372,7 @@ const rows = await db
 
 The adapter only adds that setting when you haven't set `output_format_json_quote_64bit_integers` yourself in `clickhouse_settings` or per query, so explicit settings win. With the user types from earlier:
 
-- A `readonly = 2` user, or an unrestricted one, works without changes, and so does `.settings({...})`.
+- A `readonly = 2` user, or an unrestricted one, works without changes, and so does [`.settings({...})`](/docs/query-building/helper-methods#query-settings).
 - A `readonly = 1` user works if its profile already sets `output_format_json_quote_64bit_integers = 1`.
 - Any other `readonly = 1` user rejects the setting with code 164. hypequery turns that specific rejection into an error telling you to set `integerJsonEncoding: 'server-default'`. Other readonly errors pass through unchanged.
 

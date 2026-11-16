@@ -250,6 +250,11 @@ export default function ClickHouseTimeSeriesPage() {
       ]}
       readingLinks={[
         {
+          href: '/docs/query-building/time-functions',
+          title: 'Time functions in the query builder',
+          description: 'The reference for toStartOfInterval, groupByTimeInterval, formatDateTime, datePart and time zones in hypequery.',
+        },
+        {
           href: '/clickhouse-product-analytics',
           title: 'ClickHouse Product Analytics',
           description: 'DAU, retention, and funnel queries that build on time-series patterns.',

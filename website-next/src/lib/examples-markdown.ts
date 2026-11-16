@@ -93,8 +93,8 @@ export function markdownResponse(body: string, status = 200): Response {
     status,
     headers: {
       'Content-Type': 'text/markdown; charset=utf-8',
-      // The HTML page is canonical; the twin is for agents and raw readers.
-      'X-Robots-Tag': 'noindex, nofollow',
+      // X-Robots-Tag and the canonical Link are set by src/proxy.ts and next.config.ts,
+      // which know whether the twin was asked for by suffix or at the page's own URL.
     },
   });
 }
