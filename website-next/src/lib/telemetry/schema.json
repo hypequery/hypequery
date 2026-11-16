@@ -239,8 +239,12 @@
             "version",
             "telemetry",
             "skill",
+            "slack",
             "examples",
             "create",
+            "schema",
+            "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -290,6 +294,8 @@
             "--endpoint",
             "--stdout",
             "--cloud-url",
+            "--device",
+            "--capabilities",
             "--bundle-output",
             "--release-output",
             "--no-source",
@@ -301,12 +307,20 @@
             "--release",
             "--agent",
             "--scope",
+            "--socket",
+            "--name",
+            "--thread-history",
             "--kind",
             "--yes",
             "--dir",
             "--no-install",
             "--no-seed",
             "--tag",
+            "--databases",
+            "--samples",
+            "--no-query-history",
+            "--join",
+            "--input-json",
             "--no-telemetry",
             "--json",
             "--no-input",
@@ -1058,6 +1072,10 @@
         "version": {},
         "telemetry": {},
         "skill": {},
+        "slack": {},
+        "schema": {},
+        "onboard": {},
+        "cloud-operation": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -1086,8 +1104,12 @@
               "version",
               "telemetry",
               "skill",
+              "slack",
               "examples",
-              "create"
+              "create",
+              "schema",
+              "onboard",
+              "cloud-operation"
             ],
             "optional": true
           }
@@ -1121,8 +1143,12 @@
               "version",
               "telemetry",
               "skill",
+              "slack",
               "examples",
               "create",
+              "schema",
+              "onboard",
+              "cloud-operation",
               "unknown"
             ],
             "optional": true
@@ -1648,8 +1674,12 @@
             "version",
             "telemetry",
             "skill",
+            "slack",
             "examples",
             "create",
+            "schema",
+            "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -1782,7 +1812,10 @@
     ],
     "login": [
       "--cloud-url",
-      "--environment"
+      "--environment",
+      "--device",
+      "--project",
+      "--capabilities"
     ],
     "logout": [],
     "deploy": [
@@ -1838,6 +1871,14 @@
       "--force",
       "--check"
     ],
+    "slack": [
+      "--url",
+      "--socket",
+      "--name",
+      "--thread-history",
+      "--output",
+      "--force"
+    ],
     "examples": [
       "--kind"
     ],
@@ -1847,6 +1888,23 @@
       "--no-install",
       "--no-seed",
       "--tag"
+    ],
+    "schema": [
+      "--databases",
+      "--tables",
+      "--samples"
+    ],
+    "onboard": [
+      "--databases",
+      "--tables",
+      "--samples",
+      "--no-query-history",
+      "--join"
+    ],
+    "cloud-operation": [
+      "--project",
+      "--yes",
+      "--input-json"
     ],
     "help": [],
     "version": [],

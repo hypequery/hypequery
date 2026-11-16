@@ -153,6 +153,7 @@ To turn a bucket into a JavaScript `Date`, render it in a known zone and parse i
 
 ## Related
 
+- [Time functions in the hypequery query builder](/docs/query-building/time-functions): the `toStartOfInterval()` helper and `groupByTimeInterval()`
 - [toStartOfWeek: Sunday or Monday](/clickhouse/functions/to-start-of-week)
 - [formatDateTime for bucket labels](/clickhouse/functions/format-date-time)
 - [DateTime vs DateTime64 and time zones](/blog/clickhouse-datetime-vs-datetime64-time-zones): why a DateTime64 bucket comes back as DateTime

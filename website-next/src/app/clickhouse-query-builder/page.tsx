@@ -160,6 +160,36 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       readingLinks={[
         {
+          href: '/docs/query-building/setup',
+          title: 'Set up the query builder',
+          description: 'Install @hypequery/clickhouse, generate types from your schema and run a first typed query, without datasets.',
+        },
+        {
+          href: '/docs/query-building/time-functions',
+          title: 'Time functions reference',
+          description: 'toDateTime, formatDateTime, datePart, toStartOfInterval and groupByTimeInterval in the builder, with time zones.',
+        },
+        {
+          href: '/docs/query-building/subqueries-ctes',
+          title: 'Subqueries and CTEs',
+          description: 'withCTE(), recursive CTEs, scalar WITH aliases and subqueries in FROM and WHERE.',
+        },
+        {
+          href: '/docs/query-building/join-relationships',
+          title: 'Reusable join paths',
+          description: 'Declare a join once with JoinRelationships and apply it by name with withRelation().',
+        },
+        {
+          href: '/docs/query-building/advanced-filtering',
+          title: 'Nested AND/OR filters',
+          description: 'CrossFilter predicate trees for filters built from user input, reusable predicates and top-N.',
+        },
+        {
+          href: '/docs/query-building/helper-methods',
+          title: 'Inspect and debug queries',
+          description: 'toSQL(), raw SQL, per-query ClickHouse settings and debug().',
+        },
+        {
           href: '/blog/clickhouse-typescript-type-problem',
           title: 'The ClickHouse TypeScript type problem',
           description: 'Why DateTime, UInt64, Nullable, and Decimal all return the wrong types and how to fix it.',

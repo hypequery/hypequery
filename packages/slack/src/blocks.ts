@@ -64,6 +64,8 @@ export interface RenderOptions {
   showSql?: boolean;
   /** For number formatting. @default 'en-US' */
   locale?: string;
+  /** Blocks to leave free for the caller to append, such as a note. @default 0 */
+  reserveBlocks?: number;
 }
 
 export const SLACK_LIMITS = {
@@ -82,26 +84,30 @@ export function renderSlackAnswer(answer: SlackAnswer, options: RenderOptions = 
   if (answer.title) {
     const title = truncate(answer.title.replace(/\s+/g, ' ').trim(), SLACK_LIMITS.headerText);
     blocks.push({ type: 'header', text: { type: 'plain_text', text: title, emoji: true } });
-    fallback.push(title);
+    fallback.push(escapeMrkdwn(title));
   }
 
   if (answer.text?.trim()) {
     const mrkdwn = markdownToMrkdwn(answer.text);
     for (const chunk of splitText(mrkdwn, SLACK_LIMITS.sectionText)) blocks.push(section(chunk));
-    fallback.push(answer.text.trim());
+    // The fallback is parsed as mrkdwn too (notifications, screen readers).
+    fallback.push(escapeMrkdwn(answer.text.trim()));
   }
 
   if (answer.table && answer.table.rows.length > 0) {
-    const { code, shown } = renderTable(answer.table, options);
+    const { code, shown, hiddenColumns } = renderTable(answer.table, options);
     blocks.push(section(code));
     const total = Math.max(answer.table.totalRows ?? 0, answer.table.rows.length);
-    if (shown < total) blocks.push(context([`Showing ${shown} of ${formatCount(total, options.locale)} rows`]));
+    const notes: string[] = [];
+    if (shown < total) notes.push(`Showing ${shown} of ${formatCount(total, options.locale)} rows`);
+    if (hiddenColumns > 0) notes.push(`${formatCount(hiddenColumns, options.locale)} ${hiddenColumns === 1 ? 'column' : 'columns'} hidden to fit`);
+    if (notes.length > 0) blocks.push(context([notes.join(' · ')]));
   } else if (answer.table) {
     blocks.push(context(['The query returned no rows.']));
   }
 
   if (options.showSql && answer.source?.sql) {
-    blocks.push(section(codeBlock(truncate(escapeMrkdwn(answer.source.sql), SLACK_LIMITS.sectionText - 8))));
+    blocks.push(section(codeBlock(truncateEscaped(escapeMrkdwn(answer.source.sql), SLACK_LIMITS.sectionText - 8))));
   }
 
   const sourceLine = renderSource(answer.source);
@@ -122,11 +128,12 @@ export function renderSlackAnswer(answer: SlackAnswer, options: RenderOptions = 
     });
   }
 
-  if (blocks.length > SLACK_LIMITS.blocks) {
-    blocks.splice(SLACK_LIMITS.blocks - 1, blocks.length, context(['Answer shortened to fit in Slack.']));
+  const maxBlocks = SLACK_LIMITS.blocks - Math.min(Math.max(0, options.reserveBlocks ?? 0), SLACK_LIMITS.blocks - 1);
+  if (blocks.length > maxBlocks) {
+    blocks.splice(maxBlocks - 1, blocks.length, context(['Answer shortened to fit in Slack.']));
   }
 
-  return { text: truncate(fallback.join('\n') || 'Here is your answer.', 3000), blocks };
+  return { text: truncateEscaped(fallback.join('\n') || 'Here is your answer.', 3000), blocks };
 }
 
 export interface SlackErrorInput {
@@ -137,12 +144,14 @@ export interface SlackErrorInput {
 
 /** A short, safe error reply. Never put raw exception text from the server here. */
 export function renderSlackError(error: SlackErrorInput): SlackMessage {
-  const blocks: SlackBlock[] = [section(`:warning: ${escapeMrkdwn(truncate(error.message, 2900))}`)];
+  // Escape first, then shorten: escaping can make the text up to five times longer.
+  const message = truncateEscaped(escapeMrkdwn(error.message), 2900);
+  const blocks: SlackBlock[] = [section(`:warning: ${message}`)];
   const footer = [error.hint ? escapeMrkdwn(error.hint) : null, error.requestId ? `Request \`${escapeMrkdwn(error.requestId)}\`` : null].filter(
     (part): part is string => part !== null,
   );
   if (footer.length > 0) blocks.push(context(footer));
-  return { text: error.message, blocks };
+  return { text: message, blocks };
 }
 
 /**
@@ -204,12 +213,15 @@ function convertInline(text: string): string {
 // ---------------------------------------------------------------------------
 // Table
 
-function renderTable(table: SlackAnswerTable, options: RenderOptions): { code: string; shown: number } {
+function renderTable(
+  table: SlackAnswerTable,
+  options: RenderOptions,
+): { code: string; shown: number; hiddenColumns: number } {
   const locale = options.locale ?? 'en-US';
   const maxRows = Math.max(1, options.maxTableRows ?? 20);
   const maxWidth = Math.max(4, options.maxCellWidth ?? 32);
   const firstRow = table.rows[0] ?? {};
-  const columns: SlackAnswerColumn[] = table.columns ?? Object.keys(firstRow).map(key => ({ key }));
+  const allColumns: SlackAnswerColumn[] = table.columns ?? Object.keys(firstRow).map(key => ({ key }));
 
   const numberFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
   const formatCell = (column: SlackAnswerColumn, value: unknown): string => {
@@ -226,8 +238,22 @@ function renderTable(table: SlackAnswerTable, options: RenderOptions): { code: s
   };
 
   const rows = table.rows.slice(0, maxRows);
-  const header = columns.map(column => truncate(column.label ?? column.key, maxWidth));
-  const cells = rows.map(row => columns.map(column => formatCell(column, row[column.key])));
+  // Keep the escaped code block within one section, header and separator included.
+  const budget = SLACK_LIMITS.sectionText - 8;
+  const allHeader = allColumns.map(column => truncate(column.label ?? column.key, maxWidth));
+  const allCells = rows.map(row => allColumns.map(column => formatCell(column, row[column.key])));
+  const allWidths = allHeader.map((label, i) => Math.max(label.length, ...allCells.map(row => row[i]!.length)));
+  // Drop trailing columns until the header and separator fit, always keeping the first.
+  const headerCost = (count: number) => {
+    const widths = allWidths.slice(0, count);
+    const head = allHeader.slice(0, count).map((label, i) => label.padEnd(widths[i]!)).join('  ').trimEnd();
+    return escapeMrkdwn(`${head}\n${widths.map(width => '-'.repeat(width)).join('  ')}`).length;
+  };
+  let columnCount = allColumns.length;
+  while (columnCount > 1 && headerCost(columnCount) > budget) columnCount--;
+  const columns = allColumns.slice(0, columnCount);
+  const header = allHeader.slice(0, columnCount);
+  const cells = allCells.map(row => row.slice(0, columnCount));
   const aligns = columns.map(
     column =>
       column.align ??
@@ -240,8 +266,6 @@ function renderTable(table: SlackAnswerTable, options: RenderOptions): { code: s
 
   const lines = [line(header), widths.map(width => '-'.repeat(width)).join('  ')];
   let shown = 0;
-  // Keep the escaped code block within one section.
-  const budget = SLACK_LIMITS.sectionText - 8;
   let length = escapeMrkdwn(lines.join('\n')).length;
   for (const row of cells) {
     const next = escapeMrkdwn(line(row)).length + 1;
@@ -250,7 +274,7 @@ function renderTable(table: SlackAnswerTable, options: RenderOptions): { code: s
     length += next;
     shown++;
   }
-  return { code: codeBlock(escapeMrkdwn(lines.join('\n'))), shown };
+  return { code: codeBlock(escapeMrkdwn(lines.join('\n'))), shown, hiddenColumns: allColumns.length - columnCount };
 }
 
 function isNumeric(value: unknown): boolean {
@@ -284,7 +308,7 @@ function context(texts: string[]): SlackBlock {
     type: 'context',
     elements: texts.slice(0, SLACK_LIMITS.contextElements).map(text => ({
       type: 'mrkdwn',
-      text: truncate(text, SLACK_LIMITS.sectionText),
+      text: truncateEscaped(text, SLACK_LIMITS.sectionText),
       verbatim: true,
     })),
   };
@@ -302,7 +326,7 @@ function splitText(text: string, max: number): string[] {
   while (rest.length > max) {
     let cut = rest.lastIndexOf('\n\n', max);
     if (cut < max / 2) cut = rest.lastIndexOf('\n', max);
-    if (cut < max / 2) cut = max;
+    if (cut < max / 2) cut = entitySafeCut(rest, max);
     chunks.push(rest.slice(0, cut).trimEnd());
     rest = rest.slice(cut).trimStart();
   }
@@ -312,6 +336,20 @@ function splitText(text: string, max: number): string[] {
 
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1))}…`;
+}
+
+/** `truncate` for escaped text: never ends inside `&amp;`, `&lt;` or `&gt;`. */
+function truncateEscaped(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, entitySafeCut(text, Math.max(0, max - 1)))}…`;
+}
+
+/** `at`, moved back to the start of an escape entity it would split. */
+function entitySafeCut(text: string, at: number): number {
+  const amp = text.lastIndexOf('&', at - 1);
+  if (amp === -1) return at;
+  const entity = /^&(?:amp|lt|gt);/.exec(text.slice(amp, amp + 5));
+  return entity && amp + entity[0].length > at ? amp : at;
 }
 
 function formatCount(value: number, locale = 'en-US'): string {

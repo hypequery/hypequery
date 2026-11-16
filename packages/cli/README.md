@@ -39,6 +39,7 @@ npx hypequery init \
 | `hypequery dev` | Local API, docs, and hot reload |
 | `hypequery generate` | Fresh TypeScript types from ClickHouse or chDB |
 | `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
+| `hypequery onboard analyze` / `check` | Evidence for a semantic model (findings, grain and join checks, query history), then measure and join checks on your datasets; needs `@hypequery/onboard-engine` |
 | `hypequery generate:client` | TypeScript API types and routes from a Python client contract or the live Cloud release (`--cloud`) |
 | `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
 | `hypequery pull` / `diff` | Live source inspection and comparison |

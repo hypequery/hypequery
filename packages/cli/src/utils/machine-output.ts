@@ -43,7 +43,7 @@ let suppressed = 0;
 /** The next action when a failure carries no more specific hint. */
 const DEFAULT_HINT: Record<ExitClass, string> = {
   correctable: 'Correct what the message names and run the command again.',
-  auth: 'Run `hypequery login`, or set HYPEQUERY_API_TOKEN with --endpoint.',
+  auth: 'Run `hypequery login` (or `hypequery login --device` without a browser), or set HYPEQUERY_API_TOKEN.',
   plan: 'Upgrade the organisation\'s plan in hypequery Cloud, or ask for less.',
   transient: 'Retry in a moment.',
   internal: 'This is a hypequery bug; report it at https://github.com/hypequery/hypequery/issues.',
@@ -165,7 +165,7 @@ export function errorEnvelope(
       code: isCliError(error) ? error.code : code,
       message,
       hint: isCliError(error) && error.hint ? error.hint : DEFAULT_HINT[exitClass],
-      docsUrl: CLI_ERRORS_DOCS_URL,
+      docsUrl: isCliError(error) && error.docsUrl ? error.docsUrl : CLI_ERRORS_DOCS_URL,
       category,
       retryable: isCliError(error) ? error.retryable : exitClass === 'transient',
       // As in Cloud: only correctable_input is something to fix and resubmit.

@@ -269,6 +269,11 @@ npx hypequery mcp --http --tenant acme
       ]}
       readingLinks={[
         {
+          href: '/docs/query-building/setup',
+          title: 'The typed query builder underneath',
+          description: 'Datasets are built on hypequery\'s ClickHouse query builder. Use it directly for the one-off queries in your app code.',
+        },
+        {
           href: '/blog/clickhouse-ai-chat-vercel-ai-sdk',
           title: 'Build an AI analytics chat with the Vercel AI SDK',
           description: 'The full Next.js walkthrough: dataset, MCP endpoint, route handler and useChat component.',

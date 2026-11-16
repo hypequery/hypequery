@@ -1,5 +1,6 @@
 import { cloudHttpError, type CloudErrorDetails } from './cli-error.js';
 import { parseCloudErrorBody } from './cloud-error-body.js';
+import { terminalSafeText } from './terminal-text.js';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {
@@ -214,12 +215,15 @@ function parseResponse(
 async function failure(response: Response): Promise<{ message: string; cloud: CloudErrorDetails }> {
   let body = '';
   try { body = await response.text(); } catch { /* The status stays authoritative. */ }
-  let message = response.statusText;
+  const statusText = terminalSafeText(response.statusText, 128) ?? '';
+  let message = statusText;
   try {
     const input = JSON.parse(body) as { error?: { code?: unknown; message?: unknown } };
-    const code = typeof input.error?.code === 'string' ? `${input.error.code}: ` : '';
-    if (typeof input.error?.message === 'string') message = `${code}${input.error.message}`;
-    else if (code) message = `${code}${response.statusText}`;
+    const safeCode = terminalSafeText(input.error?.code, 64);
+    const code = safeCode ? `${safeCode}: ` : '';
+    const safeMessage = terminalSafeText(input.error?.message);
+    if (safeMessage) message = `${code}${safeMessage}`;
+    else if (code) message = `${code}${statusText}`;
   } catch { /* Not JSON. */ }
   return { message, cloud: parseCloudErrorBody(body) };
 }

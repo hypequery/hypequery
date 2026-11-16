@@ -128,7 +128,7 @@ hypequery's builder covers `INNER`, `LEFT`, `RIGHT`, and `FULL` joins with typed
 
 ### Option 1: a raw-SQL CTE inside the typed builder
 
-`.withCTE()` accepts either another builder or a plain SQL string. That means you can express the ASOF match as a CTE, then do the rest of the query — the standard equality joins, filters, ordering — in the typed builder:
+[`.withCTE()`](/docs/query-building/subqueries-ctes) accepts either another builder or a plain SQL string. That means you can express the ASOF match as a CTE, then do the rest of the query — the standard equality joins, filters, ordering — in the typed builder:
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';

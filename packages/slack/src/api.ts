@@ -73,7 +73,7 @@ export interface SlackClient {
   }): Promise<{ ok: true }>;
   setThreadTitle(args: { channel_id: string; thread_ts: string; title: string }): Promise<{ ok: true }>;
   /** Messages in a thread, oldest first, parent included. Follows pagination up to `limit`. */
-  threadReplies(args: { channel: string; ts: string; limit?: number }): Promise<SlackThreadMessage[]>;
+  threadReplies(args: { channel: string; ts: string; limit?: number; latest?: string }): Promise<SlackThreadMessage[]>;
 }
 
 export function createSlackClient(options: SlackClientOptions): SlackClient {
@@ -101,8 +101,10 @@ export function createSlackClient(options: SlackClientOptions): SlackClient {
 
       if (response.status === 429) {
         const retryAfter = Number(response.headers.get('retry-after') ?? 1) || 1;
-        if (attempt < maxRetries) {
-          await sleep(Math.min(retryAfter, 30) * 1000);
+        // Never retry before Slack allows it; a wait longer than we will hold
+        // the request open fails now, with the wait on the error.
+        if (attempt < maxRetries && retryAfter <= MAX_RETRY_WAIT_SECONDS) {
+          await sleep(retryAfter * 1000);
           continue;
         }
         throw new SlackApiError(method, 'ratelimited', 429, retryAfter);
@@ -124,13 +126,13 @@ export function createSlackClient(options: SlackClientOptions): SlackClient {
     setAssistantStatus: args => call('assistant.threads.setStatus', args),
     setSuggestedPrompts: args => call('assistant.threads.setSuggestedPrompts', args),
     setThreadTitle: args => call('assistant.threads.setTitle', args),
-    async threadReplies({ channel, ts, limit = 200 }) {
+    async threadReplies({ channel, ts, limit = 200, latest }) {
       const messages: SlackThreadMessage[] = [];
       let cursor: string | undefined;
       do {
         const page = await call<{ messages?: SlackThreadMessage[]; response_metadata?: { next_cursor?: string } }>(
           'conversations.replies',
-          { channel, ts, cursor, limit: Math.min(limit - messages.length, 200) },
+          { channel, ts, cursor, latest, limit: Math.min(limit - messages.length, 200) },
         );
         messages.push(...(page.messages ?? []));
         cursor = page.response_metadata?.next_cursor || undefined;
@@ -139,6 +141,8 @@ export function createSlackClient(options: SlackClientOptions): SlackClient {
     },
   };
 }
+
+const MAX_RETRY_WAIT_SECONDS = 30;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

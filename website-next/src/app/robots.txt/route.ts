@@ -38,8 +38,8 @@ function group(userAgents: string[]): string[] {
     ...userAgents.map((ua) => `User-Agent: ${ua}`),
     ...preferences,
     // Allow the LLM-oriented routes (/llms.txt, /llms-full.txt, /llms.mdx/*) so
-    // agents can fetch clean Markdown. The per-page Markdown route still sends
-    // `X-Robots-Tag: noindex` to keep it out of search results.
+    // agents can fetch clean Markdown. The suffixed and /llms.mdx copies send
+    // `X-Robots-Tag: noindex` (src/proxy.ts, next.config.ts) to stay out of search results.
     'Allow: /',
     ...disallow.map((path) => `Disallow: ${path}`),
   ];

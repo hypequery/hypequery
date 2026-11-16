@@ -110,7 +110,7 @@ hypequery supports this path: you can express both your transformation queries a
 
 ## The dbt-only path (and why it falls short for application queries)
 
-Some teams try to handle everything in dbt — pre-computing all possible query shapes as materialized views and exposing them via ClickHouse's HTTP interface. This can work for a small, fixed set of metrics.
+Some teams try to handle everything in dbt — pre-computing all possible query shapes as materialized views and exposing them via ClickHouse's HTTP interface. This can work for a small, fixed set of metrics. dbt's own metrics layer doesn't help here yet: the hosted [dbt Semantic Layer](/semantic-layer/dbt-metricflow) doesn't list ClickHouse, and MetricFlow's ClickHouse support is experimental and unreleased.
 
 It falls apart when:
 

@@ -47,6 +47,14 @@ function isAbort(error: unknown, signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true || (error instanceof Error && error.name === 'AbortError');
 }
 
+/** fetch rejects a redirect it was told not to follow with a TypeError whose cause says so. */
+function isRedirectRefusal(error: unknown): boolean {
+  for (let current = error, depth = 0; current instanceof Error && depth < 3; current = current.cause, depth += 1) {
+    if (/redirect/i.test(current.message)) return true;
+  }
+  return false;
+}
+
 async function readBody(response: Response): Promise<{ ok: true; value: unknown } | { ok: false }> {
   const text = await response.text();
   if (!text.trim()) return { ok: false };
@@ -112,10 +120,25 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
         headers: request.headers,
         ...(request.body === undefined ? {} : { body: request.body }),
         ...(callOptions.signal ? { signal: callOptions.signal } : {}),
+        // Never follow a redirect: the request carries the bearer token, and
+        // Cloud does not redirect `/v1` calls.
+        redirect: 'error',
       });
       body = await readBody(response);
     } catch (error) {
       if (isAbort(error, callOptions.signal)) throw error;
+      if (isRedirectRefusal(error)) {
+        throw new CloudApiError({
+          operation: operation.name,
+          code: 'UNEXPECTED_RESPONSE',
+          message: `hypequery Cloud at ${baseUrl} answered ${operation.name} with a redirect, which the client does not follow `
+            + 'so the token goes only to the URL you configured. Check the Cloud URL (for example, http:// instead of https://).',
+          category: 'internal',
+          retryable: false,
+          correctable: false,
+          cause: error,
+        });
+      }
       throw new CloudApiError({
         operation: operation.name,
         code: 'NETWORK_ERROR',

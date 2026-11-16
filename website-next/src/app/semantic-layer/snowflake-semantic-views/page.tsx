@@ -15,7 +15,7 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/snowflake-semantic-views';
-const TITLE = 'Snowflake Semantic Views vs a Code-Defined Semantic Layer';
+const TITLE = 'Snowflake Semantic Views: How to Create and Query Them (2026)';
 const DESCRIPTION =
   'How Snowflake semantic views work: CREATE SEMANTIC VIEW, SEMANTIC_VIEW() and AGG(), Cortex Analyst and access policies, compared with a semantic layer in code.';
 const VERIFIED_ON = 'November 10, 2026';
@@ -198,7 +198,7 @@ export default function SnowflakeSemanticViewsPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('Snowflake semantic views')}
-      title="Snowflake semantic views, compared with a semantic layer in code"
+      title="Snowflake semantic views: how to create and query them"
       lead={
         <p>
           How to define and query a Snowflake semantic view, what reads it, how access policies apply, and how the same
