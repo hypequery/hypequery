@@ -243,3 +243,72 @@ describe('createSlackBot history scopes', () => {
     expect(posts()[0]!.method).toBe('chat.postMessage');
   });
 });
+
+describe('createSlackBot (review fixes)', () => {
+  it('reads the thread up to the question and keeps the newest turns', async () => {
+    const thread = Array.from({ length: 60 }, (_, i) => ({ ts: `${i + 1}.0`, user: 'U2', text: `message ${i + 1}` }));
+    const { slack } = fakeSlack(thread);
+    const answer = vi.fn(async () => 'ok');
+    const bot = createSlackBot<Access>({ slack, resolveAccess: () => allowThread, answer, historyLimit: 5 });
+    const event = mention('and last week?', { thread_ts: '1.0', ts: '61.0' });
+    await bot.onEvent(event, ctx(event));
+
+    expect(slack.threadReplies).toHaveBeenCalledWith(expect.objectContaining({ ts: '1.0', latest: '61.0', limit: 1_000 }));
+    const [question] = answer.mock.calls[0] as unknown as [{ history: Array<{ text: string }> }];
+    expect(question.history.map(turn => turn.text)).toEqual(['message 56', 'message 57', 'message 58', 'message 59', 'message 60']);
+  });
+
+  it('gives up when the answer outlives timeoutMs, and tells the asker', async () => {
+    const { slack, posts } = fakeSlack();
+    const onError = vi.fn();
+    const bot = createSlackBot<Access>({
+      slack,
+      resolveAccess: () => allowThread,
+      answer: () => new Promise(() => undefined),
+      timeoutMs: 20,
+      onError,
+    });
+    const event = mention('slow?');
+    await bot.onEvent(event, ctx(event));
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(posts()).toHaveLength(1);
+    expect(posts()[0]!.method).toBe('chat.postEphemeral');
+  });
+
+  it('keeps a long private answer, note included, within 50 blocks', async () => {
+    const { slack, posts } = fakeSlack();
+    const long = Array.from({ length: 80 }, (_, i) => `Paragraph ${i} ${'x'.repeat(2_900)}`).join('\n\n');
+    const bot = createSlackBot<Access>({
+      slack,
+      resolveAccess: () => ({ allow: true, access: { role: 'admin' }, reply: 'private' }),
+      answer: () => long,
+    });
+    const event = mention('everything?');
+    await bot.onEvent(event, ctx(event));
+    const [post] = posts();
+    expect(post!.args.blocks).toHaveLength(50);
+    expect(JSON.stringify(post!.args.blocks.at(-1))).toContain('Only you can see this answer');
+  });
+
+  it('does not wait for the status line before answering', async () => {
+    const { slack, calls, posts } = fakeSlack();
+    let releaseStatus!: () => void;
+    (slack.setAssistantStatus as any).mockImplementationOnce(
+      (args: any) =>
+        new Promise(resolve => {
+          calls.push({ method: 'assistant.threads.setStatus', args });
+          releaseStatus = () => resolve({ ok: true });
+        }),
+    );
+    const answered = vi.fn(async () => 'fast');
+    const bot = createSlackBot<Access>({ slack, resolveAccess: () => allowThread, answer: answered });
+    const event = mention('quick?');
+    const done = bot.onEvent(event, ctx(event));
+    await vi.waitFor(() => expect(posts()).toHaveLength(1));
+    releaseStatus();
+    await done;
+    const statuses = calls.filter(c => c.method === 'assistant.threads.setStatus').map(c => c.args.status);
+    expect(statuses).toEqual(['is looking at the data…', '']);
+  });
+});
+

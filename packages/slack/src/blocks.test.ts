@@ -142,3 +142,36 @@ describe('escapeMrkdwn', () => {
     expect(escapeMrkdwn('a & <b>')).toBe('a &amp; &lt;b&gt;');
   });
 });
+
+describe('Slack limits and escaping (review fixes)', () => {
+  it('escapes the notification fallback text, not just the blocks', () => {
+    const answer = renderSlackAnswer({ title: 'Hi <!here>', text: 'Ping <!channel> and <@U123> & co' });
+    expect(answer.text).not.toMatch(/<[!@]/);
+    expect(answer.text).toContain('&lt;!channel&gt;');
+    expect(answer.text).toContain('&lt;@U123&gt; &amp; co');
+    const error = renderSlackError({ message: 'Bad <!everyone>' });
+    expect(error.text).toBe('Bad &lt;!everyone&gt;');
+  });
+
+  it('keeps an escaped error within the section limit, without splitting an entity', () => {
+    const error = renderSlackError({ message: '&'.repeat(1_000) });
+    const [text] = sectionTexts(error.blocks);
+    expect(text!.length).toBeLessThanOrEqual(SLACK_LIMITS.sectionText);
+    expect(text!.replace(/^:warning: /, '').replace(/…$/, '')).toMatch(/^(&amp;)+$/);
+    expect(error.text.length).toBeLessThanOrEqual(3_000);
+  });
+
+  it('drops columns from a table whose header alone would pass the section limit', () => {
+    const row = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`column_with_a_long_name_${String(i).padStart(4, '0')}`, i]));
+    const { blocks } = renderSlackAnswer({ table: { rows: [row] } });
+    for (const text of sectionTexts(blocks)) expect(text.length).toBeLessThanOrEqual(SLACK_LIMITS.sectionText);
+    expect(JSON.stringify(blocks)).toMatch(/\d+ columns hidden to fit/);
+    expect(sectionTexts(blocks)[0]).toContain('column_with_a_long_name_0000');
+  });
+
+  it('leaves room for blocks the caller appends', () => {
+    const long = Array.from({ length: 80 }, (_, i) => `Paragraph ${i} ${'x'.repeat(2_900)}`).join('\n\n');
+    expect(renderSlackAnswer({ text: long }).blocks).toHaveLength(SLACK_LIMITS.blocks);
+    expect(renderSlackAnswer({ text: long }, { reserveBlocks: 1 }).blocks).toHaveLength(SLACK_LIMITS.blocks - 1);
+  });
+});

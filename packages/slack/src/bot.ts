@@ -78,6 +78,8 @@ export interface SlackBot {
 }
 
 const PRIVATE_NOTE = 'Only you can see this answer: it uses data beyond what this channel can see.';
+/** The most thread messages read for history; the newest `historyLimit` turns are kept. */
+const MAX_THREAD_MESSAGES = 1_000;
 const SHARED_CHANNEL_MESSAGE = "I don't answer in channels shared with other organizations. Ask me in a DM instead.";
 
 export function createSlackBot<TAccess>(options: SlackBotOptions<TAccess>): SlackBot {
@@ -148,23 +150,29 @@ export function createSlackBot<TAccess>(options: SlackBotOptions<TAccess>): Slac
     }
     const mode = inDm ? 'thread' : decision.reply;
 
+    // Never wait on the status before answering: a rate-limited status call
+    // must not delay the answer. It is cleared once the first call settles.
     const setStatus = (value: string) =>
       slack.setAssistantStatus({ channel_id: event.channelId, thread_ts: event.threadTs, status: value }).catch(() => undefined);
-    await setStatus(status);
+    const statusSet = setStatus(status);
 
     const signal = AbortSignal.timeout(timeoutMs);
     try {
-      const history = event.inThread ? await loadHistory(slack, event) : [];
-      const result = await options.answer({ text: event.text, history, access: decision.access, context, signal });
+      const result = await untilAborted(signal, async () => {
+        const history = event.inThread ? await loadHistory(slack, event) : [];
+        return options.answer({ text: event.text, history, access: decision.access, context, signal });
+      });
       const answer: SlackAnswer = typeof result === 'string' ? { text: result } : result;
-      const message = renderSlackAnswer(answer, options.render);
-      if (mode === 'private' && !inDm) message.blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: PRIVATE_NOTE }] });
+      const privateInChannel = mode === 'private' && !inDm;
+      const message = renderSlackAnswer(answer, privateInChannel ? { ...options.render, reserveBlocks: 1 } : options.render);
+      if (privateInChannel) message.blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: PRIVATE_NOTE }] });
       await replyTo(message, mode);
     } catch (error) {
       onError(error, { eventId: event.eventId });
       // Errors go to the asker only: they can mention datasets the channel can't see.
       await replyTo(renderSlackError(describeError(error)), 'private');
     } finally {
+      await statusSet;
       await setStatus('');
     }
   }
@@ -172,8 +180,10 @@ export function createSlackBot<TAccess>(options: SlackBotOptions<TAccess>): Slac
   async function loadHistory(slack: SlackClient, event: QuestionEvent): Promise<SlackConversationTurn[]> {
     // Channel threads need channels:history / groups:history, which an app may
     // not request. Without them, answer without context rather than fail.
+    // Replies come oldest first, so read up to the current message and keep
+    // the newest turns; stopping at the first page would keep the oldest.
     const messages = await slack
-      .threadReplies({ channel: event.channelId, ts: event.threadTs, limit: historyLimit + 5 })
+      .threadReplies({ channel: event.channelId, ts: event.threadTs, latest: event.ts, limit: MAX_THREAD_MESSAGES })
       .catch(() => []);
     return threadToTurns(messages, { botUserId: event.botUserId, currentTs: event.ts, limit: historyLimit });
   }
@@ -188,6 +198,25 @@ export function createSlackBot<TAccess>(options: SlackBotOptions<TAccess>): Slac
       }
     },
   };
+}
+
+/** `work()`, rejected with the signal's reason if it aborts first (for `timeoutMs`). */
+function untilAborted<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work().then(
+      value => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      error => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      },
+    );
+  });
 }
 
 /**

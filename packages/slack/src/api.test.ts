@@ -60,3 +60,12 @@ describe('createSlackClient', () => {
     expect((fetch.mock.calls[1]![1]!.body as URLSearchParams).get('cursor')).toBe('c2');
   });
 });
+
+describe('createSlackClient rate limits (review fixes)', () => {
+  it('fails at once rather than retrying before a long Retry-After', async () => {
+    const fetch = vi.fn(async () => new Response('', { status: 429, headers: { 'retry-after': '120' } }));
+    const client = createSlackClient({ token: 'xoxb-1', fetch });
+    await expect(client.call('auth.test')).rejects.toMatchObject({ code: 'ratelimited', retryAfterSeconds: 120 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

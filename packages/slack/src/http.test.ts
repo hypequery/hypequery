@@ -42,6 +42,26 @@ describe('createSlackRequestHandler', () => {
     expect((await handler(await signed(mention))).status).toBe(413);
   });
 
+  it('stops reading an undeclared-length body once it passes the limit', async () => {
+    const handler = createSlackRequestHandler({ signingSecret: secret, maxBodyBytes: 1_000 });
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(400));
+      },
+    });
+    const request = new Request('https://bot.example/slack/events', {
+      method: 'POST',
+      body: endless,
+      // @ts-expect-error Node's fetch needs duplex for a stream body.
+      duplex: 'half',
+    });
+    expect(request.headers.get('content-length')).toBeNull();
+    expect((await handler(request)).status).toBe(413);
+    expect(pulled).toBeLessThan(10);
+  });
+
   it('acks before the handler finishes and hands the work to waitUntil', async () => {
     let release!: () => void;
     const gate = new Promise<void>(resolve => (release = resolve));

@@ -36,8 +36,10 @@ export function createSlackRequestHandler(options: SlackRequestHandlerOptions): 
 
     const declaredLength = Number(request.headers.get('content-length') ?? 0);
     if (declaredLength > maxBodyBytes) return text(413, 'Payload Too Large');
-    const body = await request.text();
-    if (new TextEncoder().encode(body).byteLength > maxBodyBytes) return text(413, 'Payload Too Large');
+    // Count bytes as they arrive: a chunked body declares no length, and the
+    // signature can only be checked once the body is in hand.
+    const body = await readBodyWithin(request, maxBodyBytes);
+    if (body === null) return text(413, 'Payload Too Large');
 
     const verification = await verifySlackRequest({
       signingSecret: options.signingSecret,
@@ -59,6 +61,31 @@ export function createSlackRequestHandler(options: SlackRequestHandlerOptions): 
     if (work) schedule(work());
     return new Response(null, { status: 200 });
   };
+}
+
+/** The body as UTF-8 text, or `null` (and the stream cancelled) once it passes `maxBytes`. */
+async function readBodyWithin(request: Request, maxBytes: number): Promise<string | null> {
+  if (request.body === null) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function retryInfo(headers: Headers): SlackRetryInfo | null {
