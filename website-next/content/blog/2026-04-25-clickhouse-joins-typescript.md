@@ -120,6 +120,8 @@ See [ClickHouse ARRAY JOIN in TypeScript](/blog/clickhouse-array-join-typescript
 
 ## JOINs in TypeScript with hypequery
 
+The builder has typed `innerJoin()`, `leftJoin()`, `rightJoin()` and `fullJoin()` methods (see the [joins docs](/docs/query-building/joins)), and [join relationships](/docs/query-building/join-relationships) let you declare a join once and apply it by name in any query.
+
 hypequery is focused on typed query composition, but for more complex JOIN shapes it is reasonable to use raw SQL:
 
 ```typescript

@@ -1,12 +1,13 @@
 ---
 title: Advanced Filtering
+seoTitle: 'Nested AND/OR filters for ClickHouse in TypeScript (CrossFilter)'
 description: 'Complex ClickHouse filters with hypequery: predicate trees with CrossFilter, its methods, CrossFilter with validated input, and date filtering patterns.'
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-hypequery exposes powerful filtering controls. Use fluent `where` clauses for simple logic or the `CrossFilter` helper when you need nested groups, reusable predicates, or top-N shortcuts.
+This page covers ClickHouse filters that a chain of `where()` calls can't express well: nested AND/OR groups, filters built from user input, reusable predicate sets and top-N shortcuts. hypequery's `CrossFilter` helper builds them as a typed predicate tree that you apply to any query. For single conditions and the list of operators, start with [Where](/docs/query-building/where).
 
 <Callout type="info" title="Query builder syntax">
   These examples use a typed standalone `db` client so the query builder stays the focus.

@@ -420,6 +420,7 @@ For a fuller tour of the builder see [hypequery for ClickHouse in TypeScript](/c
 
 ## Related
 
+- [Time functions and time zones in the hypequery query builder](/docs/query-building/time-functions#time-zone-support)
 - [ClickHouse date functions in TypeScript](/blog/clickhouse-date-functions-typescript)
 - [toDate function reference](/clickhouse/functions/to-date)
 - [formatDateTime function reference](/clickhouse/functions/format-date-time)
