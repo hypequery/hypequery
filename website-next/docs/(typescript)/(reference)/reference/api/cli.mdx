@@ -434,9 +434,9 @@ with `ONBOARD_ENGINE_MISSING` (or `ONBOARD_ENGINE_INCOMPATIBLE` for an out-of-ra
 
 <CodeBlock>
 ```bash
-npm i -D @hypequery/onboard-engine
+npm i -D '@hypequery/onboard-engine@^0.1'
 # or, outside a Node.js project (for example a Python one):
-npx -p @hypequery/cli -p @hypequery/onboard-engine hypequery onboard analyze --json
+npx -p @hypequery/cli -p '@hypequery/onboard-engine@^0.1' hypequery onboard analyze --json
 ```
 </CodeBlock>
 
@@ -673,6 +673,9 @@ datasets and query them without guessing the API:
 
 - `hypequery-datasets`: defining datasets, measures, tenancy and relationships in TypeScript or Python.
 - `hypequery-query`: answering questions through the MCP tools or HTTP endpoints instead of writing SQL.
+- `hypequery-onboard`: onboarding a ClickHouse project end to end: `schema inspect` and `onboard analyze`, asking
+  the user which tables, questions and tenant column (never inferred), writing the datasets, `onboard check` until
+  clean, then optionally deploying and printing the MCP configuration.
 
 ```bash
 npx hypequery skill install
