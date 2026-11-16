@@ -78,6 +78,9 @@ const tools = await hypequeryTools({ url: mcpUrl, token });
 const result = streamText({ model, tools, messages });
 ```
 
+Full walkthrough with `useChat` and Next.js:
+[Build an AI analytics chat on ClickHouse with the Vercel AI SDK](https://hypequery.com/blog/clickhouse-ai-chat-vercel-ai-sdk).
+
 ### Anthropic SDK
 
 ```ts
@@ -133,8 +136,8 @@ const tools = await hypequeryTools({
 
 ### Without an SDK
 
-`createHypequeryToolsClient` (exported from `@hypequery/agent` and from every
-subpath) returns a client with `listTools()`, `callTool(name, input)` and
+`createRemoteToolsClient` (exported from `@hypequery/agent` and from every
+subpath; formerly `createHypequeryToolsClient`, which still works) returns a client with `listTools()`, `callTool(name, input)` and
 `close()`, for any other agent loop. Every adapter also accepts a client in
 place of its options, so you can close the MCP session yourself. If you don't
 close it, the session closes after `idleTimeoutMs` with no calls (default 60

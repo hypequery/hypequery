@@ -185,7 +185,7 @@ const categories: Category[] = [
         tenancy: 'Tenants plus SSO for interactive embeds; locked parameters in a signed token for guest embeds.',
         pricing: <>Open source free; Pro from $575 a month plus $12 per user; Enterprise from $20,000 a year. See {pricingLink}.</>,
         bestFor: 'Budget-conscious teams who want a working embed on day one and may self-host.',
-        watchOut: 'Free and Starter embeds carry a “Powered by Metabase” badge. Interactive SSO embeds bill every viewer as a user.',
+        watchOut: <>Free and Starter embeds carry a “Powered by Metabase” badge. Interactive SSO embeds bill every viewer as a user. See the <Link href="/compare/hypequery-vs-metabase" className={inlineLink}>Metabase alternative</Link> comparison.</>,
       },
       {
         id: 'power-bi',

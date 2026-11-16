@@ -46,7 +46,7 @@ describe('ready-to-paste client configs', () => {
       const server = load(file);
       expect(server.env.TENANT_ID).toBe('153');
       const { tools, events } = await toolsFrom(server);
-      expect(tools).toEqual(['get_dataset_schema', 'list_datasets', 'query_dataset', 'query_metric']);
+      expect(tools).toEqual(['get_dataset_schema', 'list_datasets', 'query_dataset']);
       expect(events).toBeGreaterThan(0);
     });
   }

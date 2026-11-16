@@ -1,9 +1,10 @@
 ---
 title: "TypeScript vs dbt for ClickHouse: Choosing the Right Analytics Layer"
 description: "dbt and TypeScript solve overlapping but different problems on top of ClickHouse. Here's how to think about which one belongs in your stack — and when you need both."
-seoTitle: "TypeScript vs dbt for ClickHouse Analytics — What to Use and When"
-seoDescription: "dbt and TypeScript query builders both help you build on top of ClickHouse, but they solve different problems. This guide explains the trade-offs and when to use each."
+seoTitle: "JavaScript/TypeScript vs dbt for ClickHouse: When to Use Each"
+seoDescription: "dbt transforms data inside ClickHouse; JavaScript/TypeScript (Node.js) code serves it to your app. Which layer owns what, where they overlap, and when you need both."
 pubDate: 2026-05-18
+updatedAt: 2026-11-14
 heroImage: ""
 slug: typescript-vs-dbt-clickhouse
 status: published
@@ -13,7 +14,7 @@ tags:
   - Semantic layer
 ---
 
-dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.
+Short answer: dbt transforms and models data inside ClickHouse, while JavaScript or TypeScript code in a Node.js backend queries that data and serves it to your application. dbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.
 
 This post breaks down what each tool actually does on top of ClickHouse, where they overlap, where they don't, and how teams typically combine them.
 
@@ -32,7 +33,7 @@ dbt's relationship with ClickHouse is functional but imperfect. The [dbt-clickho
 
 ## What TypeScript gives you
 
-A TypeScript analytics layer — whether that's raw `@clickhouse/client`, a query builder like hypequery, or a custom abstraction — handles a different job: **query execution at runtime**.
+A TypeScript analytics layer — whether that's raw `@clickhouse/client`, [a query builder](/clickhouse-query-builder) like hypequery, or a custom abstraction — handles a different job: **query execution at runtime**.
 
 Your application code needs to query ClickHouse in response to user requests. It needs typed results. It needs to pass user-provided parameters safely. It needs to compose queries based on runtime conditions (filters, date ranges, tenant IDs). None of this is what dbt is for — dbt runs on a schedule or trigger, not in response to an API call.
 
@@ -97,7 +98,7 @@ const dailyRevenue = await db
 
 ## The TypeScript-only path
 
-Not every team uses dbt. Many TypeScript teams handle their transformation logic directly — using ClickHouse materialized views, scheduled queries, or application-level aggregations instead of dbt models.
+Not every team uses dbt. Many TypeScript teams handle their transformation logic directly — using [ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse), scheduled queries, or application-level aggregations instead of dbt models.
 
 This works well when:
 

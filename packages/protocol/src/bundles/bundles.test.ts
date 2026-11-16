@@ -90,7 +90,7 @@ function materialize(type: string): unknown {
   switch (type) {
     case 'wrong-root-type': return [];
     case 'unknown-root-field': return { ...value, extra: true };
-    case 'unsupported-version': return { ...value, version: 2 };
+    case 'unsupported-version': return { ...value, version: 3 };
     case 'malformed-digest': return { ...value, deployment: { ...value.deployment, identity: 'bad' } };
     case 'traversal-path': return { ...value, deployment: { ...value.deployment, path: '../deployment.json' } };
     case 'duplicate-path': return {
@@ -266,5 +266,70 @@ describe('deployment bundle manifest v1', () => {
     expect(() => validateProtocolDeploymentBundleManifest(baseManifest(), {
       limits: { maxArtifacts: 101 },
     })).toThrow(/deployment bundle v1 maximum/);
+  });
+});
+
+describe('deployment bundle manifest v2 (business context)', () => {
+  function contextEntry() {
+    return {
+      path: 'business-context.json',
+      identity: '3'.repeat(64),
+      sha256: '4'.repeat(64),
+      byteLength: 10,
+    };
+  }
+  function v2Manifest() {
+    return { ...baseManifest(), version: 2, artifacts: [], businessContext: contextEntry() };
+  }
+  function failure(input: unknown): string | undefined {
+    try {
+      validateProtocolDeploymentBundleManifest(input);
+    } catch (error) {
+      if (error instanceof ProtocolDeploymentBundleError) return `${error.code} ${error.path}`;
+      throw error;
+    }
+    return undefined;
+  }
+
+  it('accepts a v2 manifest and keeps the context entry', () => {
+    const manifest = validateProtocolDeploymentBundleManifest(v2Manifest());
+    expect(manifest.version).toBe(2);
+    expect(manifest.businessContext).toEqual(contextEntry());
+  });
+
+  it('includes the context entry in the bundle identity', () => {
+    const before = hashProtocolDeploymentBundleManifest(v2Manifest());
+    const after = hashProtocolDeploymentBundleManifest({
+      ...v2Manifest(),
+      businessContext: { ...contextEntry(), identity: '5'.repeat(64) },
+    });
+    expect(before).not.toBe(after);
+  });
+
+  it('rejects context in v1 and v2 without context', () => {
+    expect(failure({ ...baseManifest(), businessContext: contextEntry() }))
+      .toBe('HQ_BUNDLE_UNKNOWN_FIELD $.businessContext');
+    expect(failure({ ...baseManifest(), version: 2 }))
+      .toBe('HQ_BUNDLE_TYPE $.businessContext');
+    expect(failure({ ...baseManifest(), version: 3 }))
+      .toBe('HQ_BUNDLE_INVALID_VERSION $.version');
+  });
+
+  it('rejects a context entry that collides with another bundle path', () => {
+    expect(failure({
+      ...v2Manifest(),
+      businessContext: { ...contextEntry(), path: 'deployment.json' },
+    })).toBe('HQ_BUNDLE_INVALID_REFERENCE $');
+  });
+
+  it('enforces the business context byte limit and exact fields', () => {
+    expect(failure({
+      ...v2Manifest(),
+      businessContext: { ...contextEntry(), byteLength: 1_024 * 1_024 + 1 },
+    })).toBe('HQ_BUNDLE_TOO_LARGE $.businessContext.byteLength');
+    expect(failure({
+      ...v2Manifest(),
+      businessContext: { ...contextEntry(), memory: true },
+    })).toBe('HQ_BUNDLE_UNKNOWN_FIELD $.businessContext.memory');
   });
 });

@@ -25,6 +25,13 @@ New to hypequery MCP? Start with the [Quickstart](/docs/mcp/quickstart): its las
 
 ## Quick start: one shared key
 
+<Callout type="warn">
+  **Python:** the HTTP transport on this page (`hypequery mcp --http`, `ApiAuthenticator`, `ApiExecutorFactory`,
+  `ProtectedResource`) is on `main` but not in the latest PyPI release. `hypequery` 0.1.0b4 supports stdio only, and
+  its `hypequery mcp` has no `--http` flag. The TypeScript packages (`@hypequery/mcp` 0.13.0, `@hypequery/cli` 1.30.0)
+  include everything shown here.
+</Callout>
+
 Run this in a project `hypequery mcp` already serves (see [Overview](/docs/mcp/overview)):
 
 <CodeBlock>

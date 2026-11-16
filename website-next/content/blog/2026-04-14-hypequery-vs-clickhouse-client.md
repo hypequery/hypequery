@@ -53,7 +53,7 @@ None of this is a criticism of the client. It's doing exactly what it promises. 
 hypequery is built on top of `@clickhouse/client`. It adds three things the client doesn't have:
 
 1. type safety derived from your live schema
-2. a query builder that enforces that schema at compile time
+2. [a query builder](/clickhouse-query-builder) that enforces that schema at compile time
 3. a server layer that exposes those queries as typed HTTP endpoints
 
 ### Type safety from your schema
@@ -132,7 +132,7 @@ No hand-rolling API handlers for every analytics query. No manually duplicating 
 
 hypequery adds an abstraction layer, and abstraction layers have costs.
 
-**The query builder doesn't cover every possible ClickHouse expression.** It does cover ClickHouse-native work such as `PREWHERE`, `FINAL`, `LIMIT BY`, array joins, CTEs, settings, percentiles, and `argMax`. Window expressions use `selectExpr()`, and highly specialised SQL can still use a focused raw escape hatch. The [capability matrix](/docs/capabilities) tracks the current surface.
+**The query builder doesn't cover every possible ClickHouse expression.** It does cover ClickHouse-native work such as [`PREWHERE`](/blog/clickhouse-prewhere-vs-where), `FINAL`, `LIMIT BY`, array joins, CTEs, settings, percentiles, and `argMax`. Window expressions use `selectExpr()`, and highly specialised SQL can still use a focused raw escape hatch. The [capability matrix](/docs/capabilities) tracks the current surface.
 
 **Schema generation is explicit.** If your ClickHouse schema changes, you need to rerun the generator. The types do not update themselves.
 

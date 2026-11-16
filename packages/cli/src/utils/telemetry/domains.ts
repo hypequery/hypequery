@@ -24,7 +24,7 @@ export type TelemetryCommand = typeof COMMANDS[number];
 export const EXAMPLE_SLUGS = [
   'async-inserts-node', 'chdb-embedded-analytics', 'clickhouse-docker-compose', 'clickhouse-rest-api-openapi',
   'clickhouse-vs-postgres-app-analytics', 'cursor-pagination', 'dictionary-lookups', 'django-analytics',
-  'fastapi-analytics-api', 'funnel-windowfunnel', 'grouparray-user-timelines', 'iso-week-bucketing',
+  'fastapi-analytics-api', 'funnel-windowfunnel', 'grouparray-user-timelines', 'in-app-analytics-agent', 'iso-week-bucketing',
   'materialized-view-rollups', 'mcp-agent-analytics', 'mcp-agent-analytics-python', 'multi-tenant-embedded-analytics',
   'multiif-bucketing', 'nextjs-dashboard', 'p95-latency', 'postgres-app-clickhouse-analytics',
   'projection-for-dataset-queries', 'refreshable-materialized-views', 'replacingmergetree-upserts', 'retention-cohorts',

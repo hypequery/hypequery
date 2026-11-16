@@ -1,7 +1,8 @@
 """A native MCP server for hypequery client contracts.
 
-Exposes the same four tools as `@hypequery/mcp` (`list_datasets`,
-`get_dataset_schema`, `query_metric`, `query_dataset`) and its `dataset_guide`
+Exposes the same tools as `@hypequery/mcp` (`list_datasets`,
+`get_dataset_schema`, `query_metric`, `query_dataset`, each query tool only when
+something is offered under it) and its `dataset_guide`
 prompt, over an authorized client contract served by a `hypequery.serve` API:
 in this process (`ApiContractBackend`) or over HTTPS (`HttpContractBackend`).
 The SDK-backed servers (`create_mcp_server` with `serve_stdio`, and the

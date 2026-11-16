@@ -111,10 +111,9 @@ describe('HypequeryMCPDiscoveryExecutor', () => {
     // The metric is still offered, named against its dataset.
     expect(schema('query_metric')).toContain('totalRevenue');
     expect(schema('query_metric')).toContain('orders');
-    // The dataset is not offered as a `query_dataset` target.
-    expect(schema('query_dataset')).not.toContain('totalRevenue');
-    expect(JSON.parse(schema('query_dataset')).properties.dataset)
-      .not.toMatchObject({ enum: ['orders'] });
+    // No dataset is a `query_dataset` target, so that tool is not listed at all.
+    expect(tools.map(tool => tool.name)).not.toContain('query_dataset');
+    expect((await executor.callTool('query_dataset', { dataset: 'orders', measures: ['totalRevenue'] })).isError).toBe(true);
     // And it is still listed, or the metric would be undiscoverable.
     const listed = await executor.callTool('list_datasets');
     expect(JSON.parse(listed.content[0].type === 'text' ? listed.content[0].text : ''))

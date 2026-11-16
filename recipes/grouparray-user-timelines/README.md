@@ -103,4 +103,4 @@ src/dataset.ts  argMin/argMax(path, occurred_at) ──▶ must equal paths[0] a
 
 - [nextjs-dashboard](../nextjs-dashboard): where a user journey view would live.
 
-Tested on ClickHouse 25.8 with `@hypequery/clickhouse` 2.14 and `@hypequery/datasets` 0.29.
+Versions used: ClickHouse 25.8, `@hypequery/clickhouse` 2.14 and `@hypequery/datasets` 0.29.

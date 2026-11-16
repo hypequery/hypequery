@@ -65,6 +65,44 @@ afterEach(async () => {
 });
 
 describe('deployment bundle filesystem', () => {
+  it('writes a v2 bundle with canonical business context', async () => {
+    const output = path.join(await temporaryDirectory(), 'bundle');
+    const written = await writeDeploymentBundle(
+      output,
+      prepareProtocolDeploymentContract(deployment()),
+      undefined,
+      {
+        kind: 'hypequery-business-context',
+        version: 1,
+        glossary: [{ term: ' active customer ', meaning: 'ordered in 30 days' }],
+      },
+    );
+
+    expect(written.manifest.version).toBe(2);
+    expect(written.businessContext?.glossary?.[0]?.term).toBe('active customer');
+    const verified = await verifyDeploymentBundle(output);
+    expect(verified.identity).toBe(written.identity);
+    expect(verified.businessContext).toEqual(written.businessContext);
+  });
+
+  it('writes a v1 bundle when business context is empty', async () => {
+    const prepared = prepareProtocolDeploymentContract(deployment());
+    const withEmpty = await writeDeploymentBundle(
+      path.join(await temporaryDirectory(), 'bundle'),
+      prepared,
+      undefined,
+      { kind: 'hypequery-business-context', version: 1 },
+    );
+    const without = await writeDeploymentBundle(
+      path.join(await temporaryDirectory(), 'bundle'),
+      prepared,
+    );
+
+    expect(withEmpty.manifest.version).toBe(1);
+    expect(withEmpty.businessContext).toBeUndefined();
+    expect(withEmpty.identity).toBe(without.identity);
+  });
+
   it('writes and verifies a deterministic deployment bundle', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');

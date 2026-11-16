@@ -199,6 +199,11 @@ const servingLinks: HubLink[] = [
     title: 'ClickHouse MCP from Python',
     description: 'Give MCP clients your Python datasets. Python keeps the SQL, auth and tenant.',
   },
+  {
+    href: '/clickhouse-pydantic',
+    title: 'ClickHouse with Pydantic AI',
+    description: 'Typed analytics tools for a Pydantic AI agent. Datasets are Pydantic models.',
+  },
 ];
 
 const comparisonLinks: HubLink[] = [
@@ -260,7 +265,7 @@ export default function ClickHouseHubPage() {
         </p>
       }
       primaryCta={{ href: '/docs/quick-start', label: 'TypeScript quick start', target: 'docs_quick_start' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start', target: 'docs_python_quick_start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start', target: 'docs_python_quick_start' }}
       definition={{
         term: 'What does using ClickHouse from application code involve?',
         body: (

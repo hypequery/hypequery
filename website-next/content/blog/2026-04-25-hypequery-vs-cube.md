@@ -22,7 +22,7 @@ So this is less a feature checklist than a fit question. The tools solve adjacen
 
 Cube is designed for organisations that want a centralised metrics definition layer — a "metrics store" that multiple consumers (dashboards, APIs, spreadsheets, BI tools) all read from. Its strengths are:
 
-- **Multi-framework consumption**: the same metric definition can be consumed by Tableau, Metabase, a custom React dashboard, and a REST API simultaneously. BI tools connect through a Postgres-compatible SQL API
+- **Multi-framework consumption**: the same metric definition can be consumed by Tableau, [Metabase](/compare/hypequery-vs-metabase), a custom React dashboard, and a REST API simultaneously. BI tools connect through a Postgres-compatible SQL API
 - **Caching and pre-aggregations**: Cube Store manages the query cache, the queue and pre-aggregations for performance at scale
 - **Access control**: row-level security and tenant isolation are handled in the Cube data model layer
 - **No-code and low-code consumption**: non-engineers can query the semantic layer from BI tools without writing code

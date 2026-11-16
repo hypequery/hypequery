@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/agent",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Put a hypequery Cloud project's tenant-safe analytics in your own agent: mint end-user tokens locally, and use the hosted MCP tools as AI SDK, Anthropic SDK and OpenAI Agents SDK tools",
   "keywords": [
     "hypequery",
@@ -8,6 +8,8 @@
     "ai-agents",
     "mcp",
     "ai-sdk",
+    "vercel-ai-sdk",
+    "vercel-ai",
     "anthropic",
     "openai-agents",
     "tools",
@@ -15,7 +17,10 @@
     "semantic-layer",
     "jwt",
     "multi-tenant",
-    "analytics"
+    "analytics",
+    "text-to-sql",
+    "ai-analytics",
+    "llm-tools"
   ],
   "license": "Apache-2.0",
   "type": "module",

@@ -1,7 +1,8 @@
 """A governed ClickHouse MCP server in Python.
 
-The agent gets four tools (list_datasets, get_dataset_schema, query_dataset,
-query_metric) over the datasets published below, and nothing else: no SQL,
+The agent gets list_datasets, get_dataset_schema and query_dataset (plus
+query_metric once a metric endpoint is published) over the datasets published
+below, and nothing else: no SQL,
 no table it was not given, and one tenant, fixed by TENANT_ID in the
 environment the MCP client launches this process with.
 
