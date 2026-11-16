@@ -2,7 +2,7 @@
 title: "Introducing hypequery Datasets: A Semantic Layer for ClickHouse in TypeScript"
 description: "Define dimensions, measures, and metrics once in TypeScript, then reuse them across application code, HTTP APIs, dashboards, jobs, and AI agents."
 seoTitle: "Introducing hypequery Datasets for ClickHouse and TypeScript"
-seoDescription: "hypequery Datasets is a code-first semantic layer for ClickHouse. Define typed dimensions, measures, metrics, tenant scope, and time semantics once, then reuse them everywhere."
+seoDescription: "hypequery Datasets is a code-first semantic layer for ClickHouse: typed dimensions, measures, metrics, tenant scope and time semantics, defined once and reused."
 pubDate: 2026-06-23
 heroImage: ""
 slug: introducing-hypequery-datasets
@@ -32,7 +32,7 @@ As an analytics feature grows, its logic tends to spread across API handlers, da
 
 The database may be fast and every query may be valid, but the product no longer has one answer to a basic question.
 
-A semantic layer fixes that by putting a stable contract between physical tables and their consumers. Existing semantic-layer products often introduce a separate server, configuration language, or deployment surface. That can be the right choice for a central data platform. It is often a poor fit for a TypeScript team building ClickHouse-backed product features.
+A [semantic layer](/clickhouse-semantic-layer) fixes that by putting a stable contract between physical tables and their consumers. Existing semantic-layer products often introduce a separate server, configuration language, or deployment surface. That can be the right choice for a central data platform. It is often a poor fit for a TypeScript team building ClickHouse-backed product features.
 
 Datasets keep that contract in the codebase where the product is built.
 
@@ -190,7 +190,7 @@ The first release includes:
 - generated dataset and metric endpoints through `@hypequery/serve`
 - schema introspection and governed query tools for MCP consumers
 
-There are deliberate boundaries. Datasets are not a data transformation framework, a BI tool, or a replacement for ClickHouse materialized views. Cross-dataset derived metrics and derived-from-derived metrics are not part of the current public surface. The goal is a small, explicit semantic contract for application analytics, with escape hatches into the normal query builder when a use case is genuinely bespoke.
+There are deliberate boundaries. Datasets are not a data transformation framework, a BI tool, or a replacement for [ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse). Cross-dataset derived metrics and derived-from-derived metrics are not part of the current public surface. The goal is a small, explicit semantic contract for application analytics, with escape hatches into the normal query builder when a use case is genuinely bespoke.
 
 ## Start with one table
 

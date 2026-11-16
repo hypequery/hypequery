@@ -2,7 +2,7 @@
 title: "FINAL vs ReplacingMergeTree Dedup in TypeScript Queries"
 description: "ReplacingMergeTree deduplicates at merge time, so queries can see duplicates until merges run. Learn when the FINAL keyword is the right fix, what it costs, and when the argMax or LIMIT BY patterns are better — with typed TypeScript examples."
 seoTitle: "ClickHouse FINAL Keyword: ReplacingMergeTree Dedup Explained"
-seoDescription: "The ClickHouse FINAL keyword forces ReplacingMergeTree deduplication at query time, at a performance cost. When FINAL is fine, when to use argMax or LIMIT BY instead, and how to write all three in TypeScript."
+seoDescription: "ClickHouse FINAL forces ReplacingMergeTree deduplication at query time, at a cost. When FINAL is fine, and when argMax or LIMIT BY is the better choice."
 pubDate: 2026-06-24
 heroImage: ""
 slug: clickhouse-final-replacingmergetree-typescript
@@ -217,5 +217,6 @@ The nice thing about having `.final()`, `.argMax()`, and `.limitBy()` as first-c
 
 - [LIMIT BY in TypeScript](/blog/clickhouse-limit-by-typescript) — the full guide to top-N-per-group queries, including pagination interactions.
 - [A guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse) — precompute deduped state instead of paying at query time.
+- [Upserts and deletes with ReplacingMergeTree](/recipes/replacingmergetree-upserts) — a runnable recipe with a typed dataset over the deduplicated table.
 - [ClickHouse for real-time analytics](/clickhouse-real-time-analytics) — where merge-time semantics fit in a streaming ingest architecture.
 - [Quick start](/docs/quick-start) — generate types from your schema and run your first typed query in about five minutes.

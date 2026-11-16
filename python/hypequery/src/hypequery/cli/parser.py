@@ -232,7 +232,7 @@ def _add_mcp(
     mcp = commands.add_parser(
         "mcp",
         help="serve an API's datasets to AI agents over MCP stdio or HTTP (requires the mcp extra)",
-        description="Serve the four hypequery MCP tools over stdio, from an Api in this "
+        description="Serve the hypequery MCP tools over stdio, from an Api in this "
         "process (module:attribute) or from a served API's client contract "
         "(--client-contract-url). The API authenticates and scopes every call; "
         "HYPEQUERY_API_KEY, when set, is sent as a bearer token.",

@@ -70,7 +70,7 @@ export async function buildDeploymentCommand(
   }
 
   const bundleOutput = options.bundleOutput ?? DEFAULT_BUNDLE_OUTPUT;
-  const contract = await loadCloudPublication(sourcePath);
+  const { contract, businessContext } = await loadCloudPublication(sourcePath);
   const candidate = contract as unknown as { queries?: unknown[]; artifacts?: unknown[] };
   if ((Array.isArray(candidate.queries) && candidate.queries.length > 0)
     || (Array.isArray(candidate.artifacts) && candidate.artifacts.length > 0)) {
@@ -80,7 +80,12 @@ export async function buildDeploymentCommand(
   const sourceSnapshot = options.source === false
     ? undefined
     : await captureDeploymentSourceSnapshot(sourcePath);
-  const bundle = await writeDeploymentBundle(bundleOutput, prepared, sourceSnapshot);
+  const bundle = await writeDeploymentBundle(
+    bundleOutput,
+    prepared,
+    sourceSnapshot,
+    businessContext,
+  );
   logger.success(`Deployment bundle written to ${bundle.directory}`);
   if (bundle.manifest.source) {
     logger.info(
@@ -95,6 +100,23 @@ export async function buildDeploymentCommand(
   logger.info(`Bundle identity: ${bundle.identity}`);
   logger.info(`Deployment identity: ${prepared.identity}`);
   warnUnscopedTenantCandidates(prepared.contract);
+  const context = bundle.businessContext;
+  const businessContextSummary = context
+    ? {
+        identity: bundle.manifest.businessContext!.identity,
+        glossaryTerms: context.glossary?.length ?? 0,
+        kpis: context.kpis?.length ?? 0,
+      }
+    : undefined;
+  if (businessContextSummary) {
+    logger.info(
+      `Business context: ${businessContextSummary.glossaryTerms} glossary `
+      + `${businessContextSummary.glossaryTerms === 1 ? 'term' : 'terms'}, `
+      + `${businessContextSummary.kpis} ${businessContextSummary.kpis === 1 ? 'KPI' : 'KPIs'}`,
+    );
+  } else if (businessContext) {
+    logger.warn('Business context is empty, so the bundle carries none.');
+  }
   emitResult({
     bundle: {
       directory: path.resolve(bundle.directory),
@@ -103,6 +125,7 @@ export async function buildDeploymentCommand(
     },
     deployment: { identity: prepared.identity, datasets: prepared.contract.datasets.map(dataset => dataset.name) },
     unscopedTenantCandidates: unscopedTenantCandidates(prepared.contract),
+    ...(businessContextSummary ? { businessContext: businessContextSummary } : {}),
   });
   return prepared.contract;
 }

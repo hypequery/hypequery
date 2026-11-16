@@ -4,9 +4,35 @@ import { describe, expect, it } from 'vitest';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
 import { buildMCPToolManifest, DATASET_SCHEMA_OUTPUT_SCHEMA } from './tool-manifest.js';
 import { getDatasetSchemaTool } from './introspect.js';
+import { parseToolArgs } from './args.js';
 import { dataset, dimension, measure, projectAgentSafeCatalog } from '@hypequery/datasets';
 
 describe('MCP tool manifest', () => {
+  it('leaves out query_dataset when no dataset may be queried directly, despite its selection allOf', () => {
+    const orders = dataset('orders', { source: 'orders', dimensions: { region: dimension.string() }, measures: { revenue: measure.sum('amount') } });
+    const schemas = buildMCPQuerySchemas({ orders }, undefined, []);
+    expect(schemas.queryDatasetJsonSchema).toHaveProperty('allOf');
+    const names = buildMCPToolManifest(schemas).tools.map(tool => tool.name);
+    expect(names).not.toContain('query_dataset');
+  });
+
+  it('advertises a flat query_dataset schema and still validates calls against the exact one', () => {
+    const events = dataset('events', { source: 'events', dimensions: { device: dimension.string() }, measures: { events: measure.count() } });
+    const orders = dataset('orders', { source: 'orders', dimensions: { region: dimension.string() }, measures: { revenue: measure.sum('amount') } });
+    const schemas = buildMCPQuerySchemas({ events, orders });
+    expect(schemas.queryDatasetJsonSchema).toHaveProperty('anyOf');
+
+    const tool = buildMCPToolManifest(schemas).tools.find(item => item.name === 'query_dataset')!;
+    expect(Object.keys(tool.inputSchema).filter(key => ['anyOf', 'oneOf', 'allOf'].includes(key))).toEqual([]);
+    const validate = new AjvJsonSchemaValidator().getValidator(tool.inputSchema);
+    // The flat schema can no longer tie a field to its dataset...
+    const mixed = { dataset: 'events', dimensions: ['region'], measures: ['events'] };
+    expect(validate(mixed).valid).toBe(true);
+    // ...so the server keeps that rule: the exact schema rejects the call.
+    expect(() => parseToolArgs(schemas.queryDataset, 'query_dataset', mixed)).toThrow(/Invalid query_dataset arguments/);
+    expect(parseToolArgs(schemas.queryDataset, 'query_dataset', { ...mixed, dimensions: ['device'] })).toMatchObject({ dataset: 'events' });
+  });
+
   it('advertises every field get_dataset_schema emits for a fully annotated dataset', async () => {
     const orders = dataset('orders', {
       source: 'orders',

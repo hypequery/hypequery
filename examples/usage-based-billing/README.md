@@ -125,4 +125,4 @@ billing job: pnpm invoices      ───▶ invoicePreview() in-process, same d
 - [materialized-view-rollups](../materialized-view-rollups): pre-aggregate events so metering stays cheap at any volume.
 - [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): signed tokens and an embeddable widget for the usage page.
 
-Tested on ClickHouse 25.8 with `@hypequery/clickhouse` 2.14, `@hypequery/serve` 0.24, `@hypequery/datasets` 0.29 and Hono 4.
+Versions used: ClickHouse 25.8, `@hypequery/clickhouse` 2.14, `@hypequery/serve` 0.24, `@hypequery/datasets` 0.29 and Hono 4.

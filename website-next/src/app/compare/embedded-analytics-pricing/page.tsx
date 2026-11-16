@@ -4,16 +4,17 @@ import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components
 import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-data';
+import { updatedFor } from '@/data/page-dates';
 
 // RE-VERIFY QUARTERLY. Vendor prices on this page go stale faster than any other
 // page on the site. Re-check every row against the source URLs below, update
-// VERIFIED_ON and UPDATED, and update seo-verification-log.md. Next check due: February 2027.
+// VERIFIED_ON here and this page's date in src/data/page-dates.ts, and update seo-verification-log.md. Next check due: February 2027.
 const PATH = '/compare/embedded-analytics-pricing';
 const TITLE = 'Embedded Analytics Pricing: Costs Compared (2026)';
 const DESCRIPTION =
   'Compare Power BI, Metabase, Luzmo, Cube and other embedded analytics vendors by starting price, billing model and estimated cost for 1,000 viewers.';
 const PUBLISHED = '2026-11-12';
-const UPDATED = '2026-11-12';
+const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {

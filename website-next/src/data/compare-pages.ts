@@ -15,7 +15,8 @@ export type ComparePageConfig = {
     | 'hypequery-vs-metabase'
     | 'hypequery-vs-clickhouse-http'
     | 'hypequery-vs-raw-sql'
-    | 'hypequery-vs-clickhouse-connect';
+    | 'hypequery-vs-clickhouse-connect'
+    | 'hypequery-vs-clickhouse-agents';
   href: string;
   title: string;
   verdict: string;
@@ -1142,6 +1143,80 @@ export const comparePages: ComparePageConfig[] = [
         question: 'Can they share a connection?',
         answer:
           'Yes. `ClickHouseExecutor` accepts an existing clickhouse-connect client, so you can reuse one you already create.',
+      },
+    ],
+  },
+  {
+    slug: 'hypequery-vs-clickhouse-agents',
+    href: '/compare/hypequery-vs-clickhouse-agents',
+    title: 'hypequery vs ClickHouse Agents',
+    verdict:
+      'ClickHouse Agents is a managed chat and agent builder for your own team, inside ClickHouse Cloud. hypequery gives the agent you ship in your product governed, tenant-scoped ClickHouse tools, so your customers can ask questions about their own data. Many teams will want both.',
+    alternativeLabel: 'ClickHouse Agents',
+    alternativeName: 'ClickHouse Agents',
+    chooseAlternativeWhen: [
+      'The people asking questions are your own team, and you want a managed chat over ClickHouse Cloud without building one.',
+      'You want a no-code agent builder, a sandboxed code interpreter, memories and shareable artifacts out of the box.',
+      'Your data is already in ClickHouse Cloud and access through Cloud RBAC and SSO is the model you want.',
+      'You do not want to run or pay for model APIs yourself: Claude Sonnet and Haiku come pre-configured.',
+    ],
+    rows: [
+      {
+        label: 'Who asks the questions',
+        hypequery: 'Your customers, inside your product (and your team, through any MCP client)',
+        alternative: 'Your own team: ClickHouse describes it as "built for your teams"',
+      },
+      {
+        label: 'What it is',
+        hypequery: 'Open-source libraries: datasets, an MCP server, and tool adapters for the AI SDK, Anthropic SDK and OpenAI Agents SDK',
+        alternative: 'A fully managed agentic analytics service in ClickHouse Cloud, with a chat UI and no-code agent builder',
+      },
+      {
+        label: 'Where it runs',
+        hypequery: 'In your backend, against ClickHouse Cloud, self-hosted ClickHouse or chDB',
+        alternative: 'ClickHouse Cloud only',
+      },
+      {
+        label: 'How the agent reaches data',
+        hypequery: 'Named datasets, measures and dimensions; no SQL tool',
+        alternative: 'Generates SQL against live data, grounded by skills and context files you add',
+      },
+      {
+        label: 'Access control',
+        hypequery: 'Tenant comes from a signed token or your API auth; tenant-keyed datasets fail closed',
+        alternative: 'Governed by Cloud RBAC, with SSO and sharing permissions',
+      },
+      {
+        label: 'Models',
+        hypequery: 'Any model your agent SDK supports',
+        alternative: 'Claude Sonnet and Haiku by default; other models can be configured per agent',
+      },
+      {
+        label: 'Status and pricing',
+        hypequery: 'Released, open source (Apache 2.0); hypequery Cloud is on a waitlist',
+        alternative: 'Public beta, at no additional charge; pricing "will be available soon"',
+      },
+      {
+        label: 'API for your own app',
+        hypequery: 'Yes: hypequeryTools() for the AI SDK, Anthropic SDK and OpenAI Agents SDK',
+        alternative: 'An Agent API is listed as a future plan',
+      },
+    ],
+    faq: [
+      {
+        question: 'Can I put ClickHouse Agents in front of my customers?',
+        answer:
+          'ClickHouse describes Agents as built for your teams, and for AI inside your own product suggests using ClickHouse as the data layer under your own agent stack. An Agent API for programmatic access is listed as a future plan. hypequery is built for that in-product case today.',
+      },
+      {
+        question: 'Can I use ClickHouse Agents and hypequery together?',
+        answer:
+          'Yes. ClickHouse Agents can attach MCP servers, so a hypequery MCP endpoint can give your internal agents the same governed datasets your product uses, while your customers reach those datasets through the agent in your app.',
+      },
+      {
+        question: 'Does hypequery need ClickHouse Cloud?',
+        answer:
+          'No. hypequery runs in your own backend against ClickHouse Cloud, self-hosted ClickHouse or chDB. ClickHouse Agents runs only in ClickHouse Cloud.',
       },
     ],
   },

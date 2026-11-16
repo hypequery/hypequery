@@ -3,7 +3,7 @@
   "slug": "mcp-agent-analytics-python",
   "kind": "example",
   "title": "A governed ClickHouse MCP server in Python: agents query datasets, not SQL",
-  "outcome": "Give Claude Code, Cursor or Claude Desktop ClickHouse analytics from Python: four tools over published datasets, tenant fixed by env, no SQL.",
+  "outcome": "Give Claude Code, Cursor or Claude Desktop ClickHouse analytics from Python: a fixed set of query tools over published datasets, tenant fixed by env, no SQL.",
   "language": "python",
   "stack": [
     "python",

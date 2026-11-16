@@ -3,11 +3,13 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
 } from '@hypequery/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
   DEPLOYMENT_BUNDLE_CONTRACT,
   DEPLOYMENT_BUNDLE_MANIFEST,
   verifyDeploymentBundle,
@@ -49,7 +51,13 @@ const deployment = {
 
 async function writeBundle(
   contract: unknown,
-  options: { readonly extraArtifactBytes?: Uint8Array; readonly nonCanonicalDeployment?: boolean } = {},
+  options: {
+    readonly extraArtifactBytes?: Uint8Array;
+    readonly nonCanonicalDeployment?: boolean;
+    readonly businessContext?: unknown;
+    readonly contextBytes?: (canonical: string) => string;
+    readonly contextIdentity?: string;
+  } = {},
 ): Promise<string> {
   const parent = await mkdtemp(path.join(tmpdir(), 'hypequery-bundle-verify-'));
   temporaryDirectories.push(parent);
@@ -73,15 +81,30 @@ async function writeBundle(
       byteLength: options.extraArtifactBytes.byteLength,
     });
   }
+  let businessContext: Record<string, unknown> | undefined;
+  if (options.businessContext !== undefined) {
+    const context = prepareProtocolBusinessContext(options.businessContext);
+    const bytes = new TextEncoder().encode(
+      options.contextBytes?.(context.canonical) ?? `${context.canonical}\n`,
+    );
+    await writeFile(path.join(directory, DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT), bytes);
+    businessContext = {
+      path: DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
+      identity: options.contextIdentity ?? context.identity,
+      sha256: sha256(bytes),
+      byteLength: bytes.byteLength,
+    };
+  }
   const manifest = prepareProtocolDeploymentBundleManifest({
     kind: 'hypequery-deployment-bundle',
-    version: 1,
+    version: businessContext ? 2 : 1,
     deployment: {
       path: DEPLOYMENT_BUNDLE_CONTRACT,
       identity: prepared.identity,
       sha256: sha256(deploymentBytes),
       byteLength: deploymentBytes.byteLength,
     },
+    ...(businessContext ? { businessContext } : {}),
     artifacts,
   });
   await writeFile(path.join(directory, DEPLOYMENT_BUNDLE_MANIFEST), `${manifest.canonical}\n`);
@@ -114,5 +137,57 @@ describe('deployment bundle verification', () => {
     await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
       /Deployment JSON must contain canonical JSON/,
     );
+  });
+
+  const context = {
+    kind: 'hypequery-business-context',
+    version: 1,
+    summary: 'Grocery delivery',
+    glossary: [{ term: 'active customer', meaning: 'ordered in the last 30 days' }],
+  };
+
+  it('reads business context from a v2 bundle', async () => {
+    const directory = await writeBundle(deployment, { businessContext: context });
+
+    const verified = await verifyDeploymentBundle(directory);
+
+    expect(verified.manifest.version).toBe(2);
+    expect(verified.businessContext).toEqual(context);
+  });
+
+  it('has no business context for a v1 bundle', async () => {
+    const verified = await verifyDeploymentBundle(await writeBundle(deployment));
+    expect(verified.businessContext).toBeUndefined();
+  });
+
+  it('refuses non-canonical business context JSON', async () => {
+    const directory = await writeBundle(deployment, {
+      businessContext: context,
+      contextBytes: canonical => `${JSON.stringify(JSON.parse(canonical), null, 2)}\n`,
+    });
+
+    await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
+      /Business context JSON must contain canonical JSON/,
+    );
+  });
+
+  it('refuses business context whose identity disagrees with the manifest', async () => {
+    const directory = await writeBundle(deployment, {
+      businessContext: context,
+      contextIdentity: 'a'.repeat(64),
+    });
+
+    await expect(verifyDeploymentBundle(directory)).rejects.toThrow(
+      /Business context identity does not match/,
+    );
+  });
+
+  it('refuses invalid business context even when its digest matches', async () => {
+    const directory = await writeBundle(deployment, {
+      businessContext: context,
+      contextBytes: () => '{"kind":"hypequery-business-context","memory":"x","version":1}\n',
+    });
+
+    await expect(verifyDeploymentBundle(directory)).rejects.toThrow(/HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD/);
   });
 });

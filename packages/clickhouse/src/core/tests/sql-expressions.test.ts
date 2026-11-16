@@ -103,6 +103,20 @@ describe('SQL Expressions', () => {
       const aliasedExpr = datePart('month', 'created_at', 'month_num');
       expect(aliasedExpr.toSql()).toBe('toMonth(created_at) AS month_num');
     });
+
+    it('maps every datePart unit to a real ClickHouse function', () => {
+      expect(datePart('year', 'created_at').toSql()).toBe('toYear(created_at)');
+      expect(datePart('quarter', 'created_at').toSql()).toBe('toQuarter(created_at)');
+      expect(datePart('month', 'created_at').toSql()).toBe('toMonth(created_at)');
+      expect(datePart('week', 'created_at').toSql()).toBe('toWeek(created_at)');
+      expect(datePart('day', 'created_at').toSql()).toBe('toDayOfMonth(created_at)');
+      expect(datePart('hour', 'created_at').toSql()).toBe('toHour(created_at)');
+      expect(datePart('minute', 'created_at').toSql()).toBe('toMinute(created_at)');
+      expect(datePart('second', 'created_at').toSql()).toBe('toSecond(created_at)');
+      expect(datePart('day', 'created_at', 'day_of_month').toSql()).toBe(
+        'toDayOfMonth(created_at) AS day_of_month'
+      );
+    });
   });
 
   describe('Integration with QueryBuilder', () => {

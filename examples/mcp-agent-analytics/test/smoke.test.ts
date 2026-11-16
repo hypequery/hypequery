@@ -14,9 +14,10 @@ afterAll(async () => {
 });
 
 describe('governed MCP server', () => {
-  it('exposes the four governed tools and only the published datasets', async () => {
+  it('exposes the governed query tools and only the published datasets', async () => {
     const t = await runTranscript('153');
-    expect(t.tools).toEqual(['get_dataset_schema', 'list_datasets', 'query_dataset', 'query_metric']);
+    // The seed defines no named metric, so query_metric is not listed.
+    expect(t.tools).toEqual(['get_dataset_schema', 'list_datasets', 'query_dataset']);
     const names = JSON.stringify(t.datasets);
     expect(names).toContain('events');
     expect(names).toContain('subscriptions');

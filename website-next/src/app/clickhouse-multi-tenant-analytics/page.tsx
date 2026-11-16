@@ -147,6 +147,11 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           description: 'The detailed configuration guide for tenant extraction and auto-injection.',
         },
         {
+          href: '/blog/ai-agent-multi-tenant-data-isolation',
+          title: 'Tenant isolation for AI agents',
+          description: 'Stop an analytics agent reading another customer\'s data: row policies, scoped tools and scoped tokens.',
+        },
+        {
           href: '/use-cases/multi-tenant-saas',
           title: 'Multi-tenant SaaS use case',
           description: 'See how the product use case is framed for teams evaluating hypequery.',
@@ -174,6 +179,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-python', label: 'ClickHouse Python' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

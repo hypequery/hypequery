@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse with SQLAlchemy: Where a Semantic Layer Fits';
 const DESCRIPTION =
-  'SQLAlchemy builds queries. hypequery defines what your metrics mean. Use both against ClickHouse: SQLAlchemy for ad hoc SQL, hypequery for shared, tenant-scoped measures.';
+  'SQLAlchemy builds queries; hypequery defines what your metrics mean. Use SQLAlchemy for ad hoc ClickHouse SQL and hypequery for shared, tenant-scoped measures.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -58,7 +58,7 @@ export default function ClickHouseSqlAlchemyPage() {
       leadPage="/clickhouse-sqlalchemy"
       eyebrow="ClickHouse SQLAlchemy"
       title="SQLAlchemy writes queries. hypequery defines your metrics."
-      description="If you use SQLAlchemy with ClickHouse, you already have a good way to build SQL. What you don’t have is one shared definition of revenue, scoped to the right customer. hypequery adds that layer next to SQLAlchemy, not instead of it."
+      description="Yes, SQLAlchemy works with ClickHouse: through clickhouse-connect's clickhousedb:// dialect, or clickhouse-sqlalchemy's clickhouse+http:// and clickhouse+native:// drivers. If you use SQLAlchemy with ClickHouse, you already have a good way to build SQL. What you don’t have is one shared definition of revenue, scoped to the right customer. hypequery adds that layer next to SQLAlchemy, not instead of it."
       primaryCta={{ href: '/docs/python/sqlalchemy', label: 'SQLAlchemy guide' }}
       secondaryCta={{ href: '/python-semantic-layer', label: 'Python semantic layer' }}
       language="python"
@@ -118,6 +118,7 @@ export default function ClickHouseSqlAlchemyPage() {
         },
       }}
       searchIntentCards={[
+        { title: 'Can I use SQLAlchemy with ClickHouse?', copy: 'Yes. clickhouse-connect ships a `clickhousedb://` dialect, and the clickhouse-sqlalchemy package adds `clickhouse+http://` and `clickhouse+native://`. Either gives you a SQLAlchemy engine for ClickHouse.' },
         { title: 'clickhouse-sqlalchemy vs hypequery', copy: 'clickhouse-sqlalchemy is a dialect for building SQL. hypequery is a semantic layer for shared measures. Many teams want both.' },
         { title: 'SQLAlchemy ORM for ClickHouse analytics', copy: 'ORMs map rows to objects. Analytics wants aggregations by dimension, which is what datasets describe.' },
         { title: 'Using one ClickHouse config', copy: '`executor_from_engine(engine)` points hypequery at the server your `clickhousedb://` or `clickhouse+http://` engine uses.' },
@@ -125,7 +126,7 @@ export default function ClickHouseSqlAlchemyPage() {
       ]}
       readingLinks={[
         { href: '/docs/python/sqlalchemy', title: 'SQLAlchemy guide', description: 'Engines, supported dialects, and URLs.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/cli', title: 'Python CLI', description: 'Generate datasets from your ClickHouse schema.' },
         { href: '/compare/hypequery-vs-clickhouse-connect', title: 'hypequery vs clickhouse-connect', description: 'Driver or semantic layer: what each one is for.' },
       ]}
@@ -140,7 +141,7 @@ export default function ClickHouseSqlAlchemyPage() {
         eyebrow: 'Next step',
         title: 'Move one shared number into a dataset',
         description: 'Find the aggregation you copy most often, define it as a measure, and query it by name.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/cli', label: 'Generate datasets' },
       }}
     />

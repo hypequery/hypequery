@@ -7,6 +7,7 @@ import { marketing } from '@/components/ui/marketing';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { hubs } from '@/data/hubs';
+import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/embedded-analytics';
 const TITLE = 'Embedded Analytics for Developers: Build vs Buy';
@@ -226,6 +227,11 @@ const faqItems: FaqItem[] = [
 
 const guides: HubLink[] = [
   {
+    href: '/compare/embedded-analytics-typescript',
+    title: "Embedded analytics buyer's guide for TypeScript teams",
+    description: 'A governance and metric-consistency checklist, with proof to request from every option.',
+  },
+  {
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description: 'Twelve vendors in three groups, each with a best-for and a watch-out.',
@@ -308,7 +314,7 @@ const articleJsonLd = {
   headline: TITLE,
   description: DESCRIPTION,
   url: absoluteUrl(PATH).toString(),
-  dateModified: '2026-11-12',
+  dateModified: updatedFor(PATH),
   author: { '@type': 'Organization', name: 'hypequery' },
   publisher: { '@type': 'Organization', name: 'hypequery', url: absoluteUrl('/').toString() },
 };

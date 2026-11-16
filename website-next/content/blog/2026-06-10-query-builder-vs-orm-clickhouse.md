@@ -2,7 +2,7 @@
 title: "Query Builder vs ORM: What's the Difference for ClickHouse?"
 description: "ORMs manage entities, relations, and migrations for transactional databases. Query builders construct typed SQL. Here's why that distinction matters for ClickHouse, and where hypequery deliberately sits."
 seoTitle: "Query Builder vs ORM: What's the Difference for ClickHouse?"
-seoDescription: "Query builder vs ORM explained: ORMs map rows to entities and manage their lifecycle; query builders construct typed SQL. Learn why analytical databases like ClickHouse favor query builders."
+seoDescription: "ORMs map rows to entities and manage their lifecycle; query builders build typed SQL. Why analytical databases like ClickHouse favor query builders over ORMs."
 pubDate: 2026-06-10
 heroImage: ""
 slug: query-builder-vs-orm-clickhouse
@@ -120,7 +120,7 @@ whereas that's a query builder's home turf. ORMs treat aggregation as an escape 
 
 **3. Denormalized tables, not relation graphs.** ORMs shine at traversing normalized schemas via foreign keys. ClickHouse best practice pushes the opposite way: wide, denormalized tables so queries scan one table instead of joining five. There's no foreign-key graph for an ORM to model. Joins exist and hypequery supports them (`.leftJoin()`, `.innerJoin()`), but they're a query decision, not a schema-level relationship an ORM should own.
 
-This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and Drizzle's relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/clickhouse-orm).
+This is also the honest answer to "why is there no Prisma for ClickHouse": the entity model at the heart of Prisma, TypeORM, and [Drizzle](/compare/hypequery-vs-drizzle)'s relational layer assumes row-level transactional semantics that ClickHouse intentionally doesn't have. Prisma has no native ClickHouse connector, and the MySQL-wire workaround breaks on ClickHouse-specific syntax — the practical details are in [using Prisma with ClickHouse](/clickhouse-orm).
 
 ## Where hypequery sits — and what it deliberately isn't
 

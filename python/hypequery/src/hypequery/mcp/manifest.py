@@ -1,14 +1,16 @@
-"""The fixed four-tool manifest for an authorized client contract.
+"""The tool manifest for an authorized client contract.
 
 Mirrors `@hypequery/mcp`'s HTTP-bridge manifest (`clientHttpManifest` over
 `buildMCPToolManifest`): the same names, titles, descriptions, annotations,
-input schemas (`build_client_contract_tool_schemas`) and output schemas.
+input schemas (the provider-ready form of `build_client_contract_tool_schemas`'s,
+leaving out a query tool nothing is offered under) and output schemas.
 """
 
 from __future__ import annotations
 
 from ..protocol import ClientContractToolSchemas
 from .errors import McpToolErrorCategory, McpToolErrorCode
+from .utils.model_input_schema import accepts_no_input, to_model_input_schema
 
 JsonSchema = dict[str, object]
 
@@ -180,6 +182,30 @@ def _annotations(title: str) -> dict[str, object]:
     }
 
 
+def _query_tool(
+    exact: JsonSchema, name: str, title: str, description: str
+) -> list[dict[str, object]]:
+    """A query tool as clients receive it, or none when nothing is offered under it.
+
+    The advertised input schema is the provider-ready form of the exact one: model
+    APIs reject a top-level `anyOf`, and clients such as Claude Code drop the tool
+    silently. Calls are still validated against the exact schema.
+    """
+
+    if accepts_no_input(exact):
+        return []
+    return [
+        {
+            "name": name,
+            "title": title,
+            "description": description,
+            "inputSchema": to_model_input_schema(exact),
+            "outputSchema": _query_output(),
+            "annotations": _annotations(title),
+        }
+    ]
+
+
 def client_tool_manifest(
     schemas: ClientContractToolSchemas, authorized_hash: str
 ) -> dict[str, object]:
@@ -216,27 +242,18 @@ def client_tool_manifest(
                 "outputSchema": _profile_output(),
                 "annotations": _annotations("Inspect dataset schema"),
             },
-            {
-                "name": "query_metric",
-                "title": "Query named metric",
-                "description": (
-                    "Execute a metric query with optional dimensions, filters, time grain, "
-                    "and sorting"
-                ),
-                "inputSchema": schemas["query_metric"],
-                "outputSchema": _query_output(),
-                "annotations": _annotations("Query named metric"),
-            },
-            {
-                "name": "query_dataset",
-                "title": "Query dataset",
-                "description": (
-                    "Execute an ad-hoc dataset query with custom dimensions and measures"
-                ),
-                "inputSchema": schemas["query_dataset"],
-                "outputSchema": _query_output(),
-                "annotations": _annotations("Query dataset"),
-            },
+            *_query_tool(
+                schemas["query_metric"],
+                "query_metric",
+                "Query named metric",
+                "Execute a metric query with optional dimensions, filters, time grain, and sorting",
+            ),
+            *_query_tool(
+                schemas["query_dataset"],
+                "query_dataset",
+                "Query dataset",
+                "Execute an ad-hoc dataset query with custom dimensions and measures",
+            ),
         ],
         "_meta": {
             "com.hypequery/clientContractHash": authorized_hash,

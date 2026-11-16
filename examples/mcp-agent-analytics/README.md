@@ -105,7 +105,7 @@ Ask any of them "what was our error rate by event type last month?" and watch it
 
 ## What it shows
 
-- **Four tools, nothing else** (`src/server.ts`): `createMCPServer` exposes `list_datasets`, `get_dataset_schema`, `query_dataset` and `query_metric`. There is no `run_sql`; the agent composes dimensions and measures, hypequery writes the SQL.
+- **A fixed set of tools, nothing else** (`src/server.ts`): `createMCPServer` exposes `list_datasets`, `get_dataset_schema` and `query_dataset`, plus `query_metric` once a dataset defines a named metric (this seed defines none). There is no `run_sql`; the agent composes dimensions and measures, hypequery writes the SQL.
 - **Only what you publish** (`src/server.ts`): `publishDatasets().publish(Events).publish(Subscriptions)` is the allowlist. The seed's `tenants` table exists, but the agent cannot see it.
 - **Tenant from the launch, not the prompt** (`analytics/datasets.ts`, `src/server.ts`): both datasets have `tenantKey`, so the server refuses to start without `TENANT_ID`, injects the tenant predicate on every query, and rejects a prompt-injected `tenantId` filter.
 - **Descriptions are the agent's documentation** (`analytics/datasets.ts`): `label` and `description` on dimensions and measures are what `get_dataset_schema` returns, so the agent picks `errorRate` instead of guessing a formula.
@@ -164,4 +164,4 @@ query_dataset { dataset, dimensions, measures } ────▶  publishDatasets
 - [mcp-agent-analytics-python](../mcp-agent-analytics-python): the same governed MCP server in Python.
 - [fastapi-analytics-api](../fastapi-analytics-api): the Python version of the semantic layer.
 
-Tested on ClickHouse 25.8 with `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32; the Docker image on `node:22-slim` with `@hypequery/mcp` 0.12 from npm; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).
+Versions used: ClickHouse 25.8, `@hypequery/mcp` 0.11, `@hypequery/datasets` 0.29 and `@modelcontextprotocol/sdk` 1.32; the Docker image on `node:22-slim` with `@hypequery/mcp` 0.12 from npm; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).

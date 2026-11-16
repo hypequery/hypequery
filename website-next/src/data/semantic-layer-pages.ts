@@ -36,6 +36,31 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     label: 'Open Semantic Interchange (OSI)',
     description: 'The vendor-neutral spec for exchanging semantic models: who is behind it, what the format covers and what it leaves out.',
   },
+  {
+    href: '/semantic-layer/open-source-tools',
+    label: 'Open-source semantic layer tools',
+    description: 'Open-source semantic layers compared by licence, model format, databases, APIs and MCP support, including Cube Core, MetricFlow and hypequery.',
+  },
+  {
+    href: '/semantic-layer/ai-agents',
+    label: 'Semantic layer for AI agents',
+    description: 'Why agents need named metrics instead of raw SQL, what to check (no SQL tool, tenant scope, query limits) and how each semantic layer exposes MCP tools.',
+  },
+  {
+    href: '/semantic-layer/analytics-mcp-server',
+    label: 'Analytics MCP server',
+    description: 'Database MCP servers that run SQL versus semantic layer servers that query named metrics, what to check before production, and how the main servers compare.',
+  },
+  {
+    href: '/semantic-layer/access-control',
+    label: 'Data access control',
+    description: 'Tenant isolation, row-level and column-level rules, cache scoping and a pre-launch test list for dashboards, embedded analytics and agents.',
+  },
+  {
+    href: '/semantic-layer/dbt-semantic-layer-alternatives',
+    label: 'dbt Semantic Layer alternatives',
+    description: 'Nine alternatives compared by model format, databases (including ClickHouse), APIs, MCP and licence, and when to stay on dbt.',
+  },
 ];
 
 export const semanticLayerPages: SemanticLayerPage[] = [semanticLayerHub, ...semanticLayerSpokes];

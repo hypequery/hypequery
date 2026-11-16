@@ -1,0 +1,154 @@
+---
+title: Vercel AI SDK
+seoTitle: 'ClickHouse tools for the Vercel AI SDK: streamText, useChat and MCP'
+description: Give a Vercel AI SDK agent governed, tenant-scoped ClickHouse analytics with hypequeryTools(), for streamText, generateText and useChat, without an MCP client.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`hypequeryTools()` from `@hypequery/agent/ai-sdk` turns a hypequery MCP endpoint into an AI SDK tool set. Pass it to
+`streamText` or `generateText` and the model can list your datasets, read their schemas and query them. It can't
+write SQL, and it can only ask for fields your datasets define.
+
+<CodeBlock>
+```bash
+npm install @hypequery/agent ai
+```
+</CodeBlock>
+
+`ai` 5, 6 and 7 are supported. The endpoint can be one you run with [`hypequery mcp --http`](/docs/mcp/remote), or a
+[hypequery Cloud](/docs/cloud/in-app-agents) tenant endpoint.
+
+## Stream a chat answer
+
+In a Next.js route handler, list the tools, give them to `streamText`, and return the UI message stream that `useChat`
+reads:
+
+<CodeBlock>
+```ts
+// app/api/chat/route.ts
+import { anthropic } from '@ai-sdk/anthropic';
+import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json();
+
+  const tools = await hypequeryTools({
+    url: process.env.HYPEQUERY_MCP_URL!,
+    token: process.env.HYPEQUERY_MCP_KEY!,
+  });
+
+  const result = streamText({
+    model: anthropic('claude-sonnet-5-5'),
+    instructions: 'Answer questions about our data with the hypequery tools. Only report numbers a tool returned.',
+    messages: await convertToModelMessages(messages),
+    tools,
+    stopWhen: isStepCount(8),
+  });
+
+  return result.toUIMessageStreamResponse();
+}
+```
+</CodeBlock>
+
+On the client, `useChat` from `@ai-sdk/react` needs nothing hypequery-specific. Tool calls arrive as message parts, so
+`isToolUIPart(part)` and `getToolName(part)` from `ai` let you show which tool ran and with what input.
+
+On AI SDK 5 or 6, use `system` instead of `instructions` and `stepCountIs` instead of `isStepCount`.
+
+<Callout type="info">
+  The full walkthrough, with the dataset, the MCP server and the chat component, is in [Build an AI analytics chat on
+  ClickHouse with the Vercel AI SDK](/blog/clickhouse-ai-chat-vercel-ai-sdk).
+</Callout>
+
+## Generate an answer without streaming
+
+The same tool set works with `generateText`, for jobs, Slack bots or anything that doesn't stream:
+
+<CodeBlock>
+```ts
+import { generateText, isStepCount } from 'ai';
+import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const tools = await hypequeryTools({ url: mcpUrl, token });
+
+const { text, steps } = await generateText({
+  model,
+  tools,
+  prompt: 'Which five airlines had the highest average departure delay in 2022?',
+  stopWhen: isStepCount(8),
+});
+```
+</CodeBlock>
+
+`steps` holds every tool call and its result, which is useful in tests and evals.
+
+## What the model gets
+
+The tools are the ones the endpoint serves. A self-hosted `hypequery mcp --http` serves `list_datasets`,
+`get_dataset_schema`, `query_metric` and `query_dataset`. A Cloud tenant endpoint serves `list_datasets`,
+`get_dataset_schema` and `query_dataset`. Each tool's input schema is passed to the AI SDK exactly as the server lists
+it, through `jsonSchema()`, so the model sees enums of your real field names. See the [tools reference](/docs/mcp/tools)
+for every argument.
+
+A tool call that fails because of its input, for example an unknown field, returns hypequery's error envelope as the
+tool output, so the model can read it and retry:
+
+<CodeBlock>
+```json
+{
+  "error": {
+    "code": "MCP_INVALID_ARGUMENTS",
+    "category": "correctable_input",
+    "message": "Invalid query_dataset arguments: dimensions.0: Invalid option: expected one of \"airline\"|\"month\"|\"origin\"|\"year\"",
+    "retryable": false,
+    "correctable": true
+  }
+}
+```
+</CodeBlock>
+
+A refused token or an unreachable endpoint throws `HypequeryToolsError` instead, because the model can't fix it.
+
+## Options
+
+| Option | |
+| --- | --- |
+| `url` | The MCP endpoint, for example `http://127.0.0.1:3333/mcp` or `https://<endpoint>.hypequery.app/mcp`. Must use `https`, except on localhost. |
+| `token` | Sent as `Authorization: Bearer <token>`. A string, or a function (sync or async) called before every request, for tokens that expire. |
+| `headers` | Extra headers on every request, such as `x-hypequery-tenant-id`. |
+| `onResult` | Called after every tool call with `{ tool, ok, data or error, requestId }`. Use it to log which query produced an answer. |
+| `idleTimeoutMs` | Close the MCP session after this long without a call. `0` keeps it open until `close()`. Defaults to 60000. |
+| `fetch` | A custom `fetch`, for tests, proxies or runtimes without a global one. |
+| `clientName` | The client name reported to the server. Defaults to `@hypequery/agent`. |
+
+## One customer per conversation
+
+The token decides whose data the model sees, so mint or look it up from the signed-in user in your route, never from
+anything in the messages. With a self-hosted endpoint, run `hypequery mcp --http` with your API's own auth and pass the
+user's credential as `token` ([Remote MCP](/docs/mcp/remote#reuse-your-applications-auth)). With Cloud, mint a token
+per session with `mintAgentToken()` ([In-app agents](/docs/cloud/in-app-agents)).
+
+## Close the session yourself
+
+`hypequeryTools()` opens one MCP session on first use and closes it after `idleTimeoutMs` without calls. To close it
+when a conversation ends, create the client yourself and pass it in:
+
+<CodeBlock>
+```ts
+import { createHypequeryToolsClient, hypequeryTools } from '@hypequery/agent/ai-sdk';
+
+const client = createHypequeryToolsClient({ url: mcpUrl, token });
+const tools = await hypequeryTools(client);
+// ...
+await client.close();
+```
+</CodeBlock>
+
+## Related
+
+- [Tools for your agent](/docs/agents/tools): the Anthropic SDK and OpenAI Agents SDK adapters
+- [MCP quickstart](/docs/mcp/quickstart): define a dataset and serve it
+- [MCP safety model](/docs/mcp/safety): what the tools can and can't reach

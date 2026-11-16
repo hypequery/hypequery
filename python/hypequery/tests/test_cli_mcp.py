@@ -96,7 +96,8 @@ def test_self_test_reads_the_contract_in_process(
     assert main(["mcp", target, "--self-test"]) == 0
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "4 tools over 1 authorized endpoints (1 dataset, 0 metric)" in captured.err
+    # No metric endpoint, so query_metric is not listed.
+    assert "3 tools over 1 authorized endpoints (1 dataset, 0 metric)" in captured.err
     assert "import chatter" in captured.err
 
 
@@ -192,7 +193,11 @@ def test_a_real_stdio_session(project: Path) -> None:
         )
         async with mcp.Client(parameters) as client:
             tools = await client.list_tools()
-            assert len(tools.tools) == 4
+            assert [tool.name for tool in tools.tools] == [
+                "list_datasets",
+                "get_dataset_schema",
+                "query_dataset",
+            ]
             result = await client.call_tool(
                 "query_dataset",
                 {"dataset": "orders", "dimensions": ["country"], "measures": ["total"]},
