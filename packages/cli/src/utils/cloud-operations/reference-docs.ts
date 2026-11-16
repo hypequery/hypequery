@@ -65,8 +65,8 @@ function renderCommand(shape: CloudCommandShape): string[] {
   const fields = shape.fields.filter(field => field.placement !== 'confirm');
   lines.push('| Argument or flag | Value | Description |', '| --- | --- | --- |');
   for (const field of fields) lines.push(`| ${flagCell(field)} | ${value(field)} | ${describe(field, shape)} |`);
-  if (shape.confirmation !== 'none') {
-    lines.push(`| ${code('--yes')} | flag | ${shape.confirmation === 'required'
+  if (shape.confirmation !== 'none' || shape.sensitive) {
+    lines.push(`| ${code('--yes')} | flag | ${shape.confirmation === 'required' || shape.sensitive
       ? 'Confirms the change. Required without a terminal.'
       : 'Confirms a change Cloud asks about.'} |`);
   }
@@ -74,6 +74,7 @@ function renderCommand(shape: CloudCommandShape): string[] {
   lines.push('');
   const notes = [`Operation ${code(shape.operation.name)}; your role needs ${code(shape.operation.capability)}.`];
   if (shape.confirmation === 'required') notes.push('Destructive: refused without `--yes` unless you confirm at a terminal.');
+  if (shape.sensitive) notes.push('Changes access or credentials: refused without `--yes` unless you confirm at a terminal.');
   if (shape.confirmation === 'optional') notes.push('Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.');
   if (shape.secretOutput) notes.push('Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.');
   lines.push(notes.join(' '), '');
@@ -108,9 +109,11 @@ export function renderCloudCommandReference(shapes: readonly CloudCommandShape[]
     '- **Exit codes.** 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal.',
     '- **Destructive operations** need `--yes`. At a terminal the CLI asks instead; without one (or with `--json`,',
     '  `--no-input` or `CI`) it refuses with `CONFIRMATION_REQUIRED` and changes nothing.',
+    '- **Access and credential changes** (creating keys, inviting members, trusting an identity provider, changing',
+    '  access policy or permission sets) are confirmed the same way, though Cloud does not require it.',
     '- **Secrets.** Secret inputs (a ClickHouse password, an OIDC client secret) come from stdin with',
-    '  `--<field>-stdin`, a hidden prompt, or `--input-json`, never a flag value. New keys are printed to stdout once,',
-    '  with a warning on stderr.',
+    '  `--<field>-stdin`, a hidden prompt, or `--input-json` from `@file` or `-`; never a flag value or inline',
+    '  JSON. New keys are printed to stdout once, with a warning on stderr.',
     '- **Values.** Lists repeat the flag (`--scopes a --scopes b`); `null` sends JSON null where a field allows it;',
     '  object fields take JSON. `--input-json` takes the whole input as an object, inline, from `@file` or from `-` (stdin).',
     '',

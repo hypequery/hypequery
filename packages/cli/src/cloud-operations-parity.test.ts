@@ -15,6 +15,7 @@ import {
   SECRET_LOOKING_INPUT,
   SECRET_OUTPUT_OPERATIONS,
 } from './utils/cloud-operations/secrets.js';
+import { SENSITIVE_OPERATIONS } from './utils/cloud-operations/sensitive.js';
 
 /**
  * AG-09f: operation parity, CLI column. Cloud offers every operation in
@@ -98,6 +99,21 @@ describe('Cloud operation parity: the CLI column', () => {
       }
       expect(longs.has('--input-json')).toBe(true);
       if (operation.destructive) expect(longs.has('--yes'), `${name} needs --yes`).toBe(true);
+    }
+  });
+
+  it('confirms every sensitive operation, and lists only operations the spec has that are not destructive', () => {
+    const byName = new Map(spec.operations.map(operation => [operation.name, operation]));
+    const commands = operationCommands();
+    for (const [name, reason] of Object.entries(SENSITIVE_OPERATIONS)) {
+      const operation = byName.get(name);
+      expect(operation, `SENSITIVE_OPERATIONS names unknown operation ${name}`).toBeDefined();
+      expect(operation!.destructive, `${name} is destructive, so it is confirmed already`).toBe(false);
+      expect(reason.trim(), `${name} needs a reason`).not.toBe('');
+      const command = commands.get(name);
+      expect(command, `${name} has no command`).toBeDefined();
+      expect(cloudOperationOf(command!)!.sensitive).toBe(true);
+      expect(command!.options.some(option => option.long === '--yes'), `${name} needs --yes`).toBe(true);
     }
   });
 

@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { CliError, type CliInputIssue } from '../cli-error.js';
 import type { CloudCommandField, CloudCommandShape } from './command-shape.js';
 
@@ -17,6 +18,10 @@ export interface OperationInputContext {
   /** A hidden prompt for a secret field, when a person is at a terminal; undefined otherwise. */
   readonly promptSecret?: (field: CloudCommandField) => Promise<string>;
   readonly readTextFile?: (path: string) => Promise<string>;
+  /** Where a relative `--input-json @<file>` resolves from. Defaults to `process.cwd()`. */
+  readonly cwd?: string;
+  /** Writes a notice to stderr. */
+  readonly warn?: (message: string) => void;
 }
 
 function invalid(field: CloudCommandField, message: string): CliError {
@@ -68,16 +73,48 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * The file `--input-json @<file>` names. A relative path that climbs out of
+ * the working directory (`@../../x.json`) is refused: an agent told to run a
+ * command could otherwise send any JSON file it can reach to Cloud. An
+ * absolute path is the user's explicit choice; when it is outside the working
+ * directory, the CLI names the file on stderr.
+ */
+function inputJsonFile(source: string, context: OperationInputContext): string {
+  const file = source.slice(1);
+  const cwd = context.cwd ?? process.cwd();
+  const resolved = path.resolve(cwd, file);
+  const relative = path.relative(cwd, resolved);
+  const outside = relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+  if (!outside) return resolved;
+  if (!path.isAbsolute(file)) {
+    throw new CliError('INVALID_OPTION', `--input-json @${file} is outside the working directory (${resolved}).`, {
+      hint: 'Pass the file\'s absolute path, or run the command from the directory that holds it.',
+      issues: [{ path: '--input-json', message: 'relative path outside the working directory' }],
+    });
+  }
+  (context.warn ?? ((message: string) => { process.stderr.write(`${message}\n`); }))(
+    `Reading --input-json from ${resolved}, outside the working directory.`,
+  );
+  return resolved;
+}
+
+type InputJsonSource = 'inline' | 'file' | 'stdin';
+
 async function readInputJson(
   source: string,
   context: OperationInputContext,
-): Promise<Record<string, unknown>> {
+): Promise<{ readonly input: Record<string, unknown>; readonly from: InputJsonSource }> {
   let text: string;
+  let from: InputJsonSource;
   if (source === '-') {
     text = await context.readStdin();
+    from = 'stdin';
   } else if (source.startsWith('@')) {
+    const file = inputJsonFile(source, context);
+    from = 'file';
     try {
-      text = await (context.readTextFile ?? ((path: string) => readFile(path, 'utf8')))(source.slice(1));
+      text = await (context.readTextFile ?? ((name: string) => readFile(name, 'utf8')))(file);
     } catch {
       throw new CliError('INVALID_OPTION', `--input-json could not read ${source.slice(1)}.`, {
         hint: 'Pass a JSON object, @<file> or - for stdin.',
@@ -86,6 +123,7 @@ async function readInputJson(
     }
   } else {
     text = source;
+    from = 'inline';
   }
   let parsed: unknown;
   try {
@@ -99,7 +137,7 @@ async function readInputJson(
       issues: [{ path: '--input-json', message: 'not a JSON object' }],
     });
   }
-  return parsed;
+  return { input: parsed, from };
 }
 
 function stripTrailingNewline(text: string): string {
@@ -124,9 +162,20 @@ export async function buildOperationInput(
     });
   }
 
-  const input: Record<string, unknown> = typeof options.inputJson === 'string'
-    ? await readInputJson(options.inputJson, context)
-    : {};
+  const read = typeof options.inputJson === 'string' ? await readInputJson(options.inputJson, context) : undefined;
+  const input: Record<string, unknown> = read?.input ?? {};
+  // Inline JSON is a command-line argument: shell history and `ps` would keep the secret.
+  const inlineSecrets = read?.from === 'inline'
+    ? shape.fields.filter(field => field.placement === 'secret' && input[field.property] !== undefined)
+    : [];
+  if (inlineSecrets.length > 0) {
+    const names = inlineSecrets.map(field => field.property).join(', ');
+    throw new CliError('INVALID_OPTION', `--input-json holds ${names} inline, so it would stay in shell history and the process list. `
+      + 'Nothing was sent.', {
+      hint: `Pipe the secret to ${inlineSecrets[0]!.flag}, or pass --input-json as @<file> or - (stdin).`,
+      issues: inlineSecrets.map(field => ({ path: `--input-json.${field.property}`, message: 'secret given inline' })),
+    });
+  }
   // `--yes` is the only way to confirm; a `confirm` inside --input-json is ignored.
   delete input.confirm;
 

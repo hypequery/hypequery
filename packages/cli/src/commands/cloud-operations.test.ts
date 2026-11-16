@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { Readable } from 'node:stream';
 import type { Command } from 'commander';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -87,6 +90,20 @@ function sample(field: CloudCommandField): { readonly argv: readonly string[]; r
   }
 }
 
+const secretDirectory = mkdtempSync(path.join(tmpdir(), 'hypequery-cloud-operations-'));
+let secretFiles = 0;
+
+function secretFile(secrets: Record<string, unknown>): string {
+  const file = path.join(secretDirectory, `input-${secretFiles++}.json`);
+  writeFileSync(file, JSON.stringify(secrets));
+  return file;
+}
+
+/** `--yes` where the command asks first: destructive or sensitive operations, or Cloud may ask. */
+function confirmFlag(shape: CloudCommandShape): string[] {
+  return shape.confirmation === 'none' && !shape.sensitive ? [] : ['--yes'];
+}
+
 /** Every field of the operation on the command line, and the input Cloud should receive. */
 function fullInvocation(shape: CloudCommandShape) {
   const positionals: string[] = [];
@@ -112,7 +129,8 @@ function fullInvocation(shape: CloudCommandShape) {
     else if (field.kind === 'list') for (const item of argv) options.push(field.flag, item);
     else options.push(field.flag, argv[0]!);
   }
-  if (Object.keys(secrets).length > 0) options.push('--input-json', JSON.stringify(secrets));
+  // Secrets never go inline (shell history, `ps`): pass them in a file.
+  if (Object.keys(secrets).length > 0) options.push('--input-json', `@${secretFile(secrets)}`);
   return { argv: [shape.group, shape.action, ...positionals, ...options], expected };
 }
 
@@ -183,13 +201,12 @@ describe.each(CLOUD_COMMAND_SHAPES.map(shape => [`${shape.group} ${shape.action}
         if (field.placement === 'argument') expect(help).toContain(field.flag.slice(1, -1));
         else if (field.placement !== 'confirm') expect(help).toContain(field.flag);
       }
-      if (shape.confirmation !== 'none') expect(help).toContain('--yes');
+      if (shape.confirmation !== 'none' || shape.sensitive) expect(help).toContain('--yes');
     });
 
     it('maps every flag to the input and prints the output as the --json document', async () => {
       const { argv, expected } = fullInvocation(shape);
-      const confirm = shape.confirmation === 'none' ? [] : ['--yes'];
-      const result = await run([...argv, ...confirm]);
+      const result = await run([...argv, ...confirmFlag(shape)]);
       expect(result.exitCode).toBe(0);
       expect(requests).toHaveLength(1);
       const [request] = requests;
@@ -220,7 +237,7 @@ describe.each(CLOUD_COMMAND_SHAPES.map(shape => [`${shape.group} ${shape.action}
         },
       }, 409);
       const { argv } = fullInvocation(shape);
-      const result = await run([...argv, ...(shape.confirmation === 'none' ? [] : ['--yes'])]);
+      const result = await run([...argv, ...confirmFlag(shape)]);
       expect(result.exitCode).toBe(1);
       expect(result.document!.error).toMatchObject({
         code: 'RELEASE_MOVED',
@@ -233,7 +250,7 @@ describe.each(CLOUD_COMMAND_SHAPES.map(shape => [`${shape.group} ${shape.action}
       });
     });
 
-    if (shape.confirmation === 'required') {
+    if (shape.confirmation === 'required' || shape.sensitive) {
       it('refuses without --yes and without a terminal, before calling Cloud', async () => {
         const { argv } = fullInvocation(shape);
         const result = await run(argv);
@@ -268,7 +285,7 @@ describe('a representative command per group', () => {
       method: 'POST', path: '/v1/projects/shop/onboarding/customer-scope/confirm', body: { dataset: 'orders', confirm: true },
     },
     {
-      argv: ['sample-policy', 'set', '--project', 'shop', '--policy', '{"mode":"none","overrides":[]}'],
+      argv: ['sample-policy', 'set', '--project', 'shop', '--policy', '{"mode":"none","overrides":[]}', '--yes'],
       method: 'PUT', path: '/v1/projects/shop/sample-policy', body: { policy: { mode: 'none', overrides: [] } },
     },
     {
@@ -287,7 +304,7 @@ describe('a representative command per group', () => {
     },
     {
       argv: ['permission-sets', 'create', '--project', 'shop', '--name', 'viewers', '--label', 'Viewers', '--datasets', '"*"',
-        '--starter-prompts', 'Revenue, by month', '--starter-prompts', 'Churn'],
+        '--starter-prompts', 'Revenue, by month', '--starter-prompts', 'Churn', '--yes'],
       method: 'POST', path: '/v1/projects/shop/customers/permission-sets',
       body: { name: 'viewers', label: 'Viewers', datasets: '*', starterPrompts: ['Revenue, by month', 'Churn'] },
     },
@@ -302,12 +319,12 @@ describe('a representative command per group', () => {
       method: 'DELETE', path: '/v1/projects/shop/customers/mcp-grants/grant_1', query: { confirm: 'true' },
     },
     {
-      argv: ['customer-access', 'set-mode', '--project', 'shop', '--mode', 'jwt'],
+      argv: ['customer-access', 'set-mode', '--project', 'shop', '--mode', 'jwt', '--yes'],
       method: 'PATCH', path: '/v1/projects/shop/customers/access', body: { mode: 'jwt' },
     },
     {
       argv: ['customer-settings', 'set', '--project', 'shop', '--allowed-origins', 'https://app.example.com',
-        '--expected-revision', '0', '--tenant-registration', 'listed'],
+        '--expected-revision', '0', '--tenant-registration', 'listed', '--yes'],
       method: 'PATCH', path: '/v1/projects/shop/customers/settings',
       body: { allowedOrigins: ['https://app.example.com'], expectedRevision: 0, tenantRegistration: 'listed' },
     },
@@ -326,17 +343,17 @@ describe('a representative command per group', () => {
       body: { enabled: true, displayName: 'Acme', expectedRevision: 0, confirm: true },
     },
     {
-      argv: ['members', 'invite', '--email', 'ada@example.com', '--role', 'member'],
+      argv: ['members', 'invite', '--email', 'ada@example.com', '--role', 'member', '--yes'],
       method: 'POST', path: '/v1/org/members/invitations', body: { email: 'ada@example.com', role: 'member' },
     },
     {
-      argv: ['org', 'set-access-policy', '--invite-mode', 'approved-domains', '--approved-domains', 'example.com'],
+      argv: ['org', 'set-access-policy', '--invite-mode', 'approved-domains', '--approved-domains', 'example.com', '--yes'],
       method: 'PUT', path: '/v1/org/access-policy', body: { inviteMode: 'approved-domains', approvedDomains: ['example.com'] },
     },
     { argv: ['deploy-keys', 'list', '--project', 'shop'], method: 'GET', path: '/v1/projects/shop/deploy-keys', query: {} },
     {
       argv: ['api-keys', 'create', '--project', 'shop', '--label', 'web', '--tenant-authority', '{"kind":"trusted-server"}',
-        '--expires-in-days', '30'],
+        '--expires-in-days', '30', '--yes'],
       method: 'POST', path: '/v1/projects/shop/api-keys',
       body: { label: 'web', tenantAuthority: { kind: 'trusted-server' }, expiresInDays: 30 },
     },
@@ -402,8 +419,9 @@ describe('exit codes follow Cloud\'s category', () => {
   it('refuses a non-local HTTP endpoint without sending the token', async () => {
     vi.stubEnv('HYPEQUERY_DEPLOYMENT_ENDPOINT', 'http://cloud.example.com/v1/deployments/submissions');
     const result = await run(['projects', 'list']);
-    expect(result.exitCode).toBe(1);
-    expect(result.document!.error).toMatchObject({ code: 'CLOUD_ENDPOINT_INSECURE', category: 'correctable_input' });
+    // A management token goes only to its own Cloud origin (AG-08).
+    expect(result.exitCode).toBe(2);
+    expect(result.document!.error).toMatchObject({ code: 'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH' });
     expect(requests).toEqual([]);
   });
 
@@ -515,7 +533,7 @@ describe('runCloudOperation', () => {
     respond = () => json({ key: { id: 'key_1', token: 'hqak_secret_value' } });
     const streams = io();
     await runCloudOperation(shapeOf('apiKeys.create'), [], {
-      project: 'shop', label: 'web', tenantAuthority: '{"kind":"trusted-server"}',
+      project: 'shop', label: 'web', tenantAuthority: '{"kind":"trusted-server"}', yes: true,
     }, { ...streams, stdin: pipe('') });
     expect(streams.out.join('')).toContain('hqak_secret_value');
     expect(streams.err.join('')).toContain('Cloud shows this secret only once');
@@ -525,7 +543,7 @@ describe('runCloudOperation', () => {
   it('reads a secret input from stdin with --<field>-stdin, never from argv', async () => {
     const streams = io();
     await runCloudOperation(shapeOf('connections.save'), [], {
-      project: 'shop', host: 'https://ch.example.com:8443', database: 'default', username: 'reader', passwordStdin: true,
+      project: 'shop', host: 'https://ch.example.com:8443', database: 'default', username: 'reader', passwordStdin: true, yes: true,
     }, { ...streams, stdin: pipe('hunter2\n') });
     expect(requests[0]!.body).toMatchObject({ password: 'hunter2', username: 'reader' });
   });
@@ -534,7 +552,7 @@ describe('runCloudOperation', () => {
     const streams = io();
     const promptSecret = vi.fn(async () => 'typed-hidden');
     await runCloudOperation(shapeOf('connections.save'), [], {
-      project: 'shop', host: 'https://ch.example.com:8443', database: 'default', username: 'reader', passwordStdin: true,
+      project: 'shop', host: 'https://ch.example.com:8443', database: 'default', username: 'reader', passwordStdin: true, yes: true,
     }, { ...streams, stdin: terminal('echoed-if-read\n'), promptSecret });
     expect(promptSecret).toHaveBeenCalledWith('password (hidden)');
     expect(requests[0]!.body).toMatchObject({ password: 'typed-hidden' });
@@ -543,7 +561,7 @@ describe('runCloudOperation', () => {
   it('prompts for a required secret at a terminal, and refuses without one', async () => {
     const streams = io();
     const promptSecret = vi.fn(async () => 'from-prompt');
-    const options = { project: 'shop', host: 'https://ch.example.com', database: 'default', username: 'reader' };
+    const options = { project: 'shop', host: 'https://ch.example.com', database: 'default', username: 'reader', yes: true };
     await runCloudOperation(shapeOf('connections.save'), [], options, { ...streams, stdin: terminal(), promptSecret });
     expect(promptSecret).toHaveBeenCalledWith('password (hidden)');
     expect(requests[0]!.body).toMatchObject({ password: 'from-prompt' });
@@ -614,19 +632,76 @@ describe('runCloudOperation', () => {
     expect(requests[2]!.body).toEqual({ kind: 'bug', summary: 'x' });
   });
 
+  it('strips control characters from Cloud\'s error before it reaches the terminal', async () => {
+    respond = () => json({ error: {
+      code: 'FORBIDDEN', message: 'No\u001b]0;pwned\u0007 access\u001b[2K', hint: 'Ask\u001b[8m an admin',
+      docsUrl: 'https://hypequery.com/docs\u001b[1A', category: 'forbidden', retryable: false, correctable: false,
+      requestId: 'req\u009b1', issues: [{ path: 'a\u001b[31m', message: 'b\u0007' }],
+    } }, 403);
+    const error = await runCloudOperation(shapeOf('projects.list'), [], {}, { ...io(), stdin: pipe('') })
+      .catch((caught: unknown) => caught as Record<string, unknown>);
+    expect(error).toMatchObject({ code: 'FORBIDDEN', exitClass: 'auth' });
+    expect(JSON.stringify([error.message, error.hint, error.docsUrl, error.requestId, error.issues]))
+      .not.toMatch(/\\u00(1b|07)|\u009b/);
+    expect(error.message).toContain('access');
+  });
+
+  it('confirms a sensitive change like a destructive one, without sending confirm', async () => {
+    const streams = io();
+    const options = { email: 'ada@example.com', role: 'admin' };
+    await expect(runCloudOperation(shapeOf('members.invite'), [], options, { ...streams, stdin: pipe('') }))
+      .rejects.toMatchObject({ code: 'CONFIRMATION_REQUIRED', message: expect.stringContaining('who can reach') });
+    expect(requests).toHaveLength(0);
+
+    const confirm = vi.fn(async () => false);
+    await expect(runCloudOperation(shapeOf('members.invite'), [], options, { ...streams, stdin: terminal(), confirm }))
+      .rejects.toMatchObject({ code: 'CONFIRMATION_DECLINED' });
+    expect(confirm.mock.calls[0]![0]).toContain('members.invite on your organisation');
+    expect(requests).toHaveLength(0);
+
+    confirm.mockResolvedValueOnce(true);
+    await runCloudOperation(shapeOf('members.invite'), [], options, { ...streams, stdin: terminal(), confirm });
+    await runCloudOperation(shapeOf('members.invite'), [], { ...options, yes: true }, { ...streams, stdin: pipe('') });
+    expect(requests.map(request => request.body)).toEqual([
+      { email: 'ada@example.com', role: 'admin' },
+      { email: 'ada@example.com', role: 'admin' },
+    ]);
+  });
+
+  it('refuses a secret inline in --input-json, and takes it from a file or stdin', async () => {
+    const streams = io();
+    const base = { project: 'shop', host: 'https://ch.example.com', database: 'default', username: 'reader', yes: true };
+    await expect(runCloudOperation(shapeOf('connections.save'), [], {
+      ...base, inputJson: '{"password":"hunter2"}',
+    }, { ...streams, stdin: pipe('') })).rejects.toMatchObject({
+      code: 'INVALID_OPTION',
+      hint: expect.stringContaining('--password-stdin'),
+      issues: [{ path: '--input-json.password' }],
+    });
+    expect(requests).toHaveLength(0);
+
+    await runCloudOperation(shapeOf('connections.save'), [], { ...base, inputJson: `@${secretFile({ password: 'from-file' })}` }, {
+      ...streams, stdin: pipe(''),
+    });
+    await runCloudOperation(shapeOf('connections.save'), [], { ...base, inputJson: '-' }, {
+      ...streams, stdin: pipe('{"password":"from-stdin"}'),
+    });
+    expect(requests.map(request => request.body?.password)).toEqual(['from-file', 'from-stdin']);
+  });
+
   it('takes the whole input as --input-json, with flags on top and its confirm ignored', async () => {
     const streams = io();
     await runCloudOperation(shapeOf('members.invite'), [], {
-      inputJson: '{"email":"ada@example.com","role":"admin","confirm":true}', role: 'member',
+      inputJson: '{"email":"ada@example.com","role":"admin","confirm":true}', role: 'member', yes: true,
     }, { ...streams, stdin: pipe('') });
     expect(requests[0]!.body).toEqual({ email: 'ada@example.com', role: 'member' });
 
-    await runCloudOperation(shapeOf('members.invite'), [], { inputJson: '-' }, {
+    await runCloudOperation(shapeOf('members.invite'), [], { inputJson: '-', yes: true }, {
       ...streams, stdin: pipe('{"email":"bob@example.com","role":"member"}'),
     });
     expect(requests[1]!.body).toEqual({ email: 'bob@example.com', role: 'member' });
 
-    await expect(runCloudOperation(shapeOf('members.invite'), [], { inputJson: '[1]' }, { ...streams, stdin: pipe('') }))
+    await expect(runCloudOperation(shapeOf('members.invite'), [], { inputJson: '[1]', yes: true }, { ...streams, stdin: pipe('') }))
       .rejects.toMatchObject({ code: 'INVALID_OPTION' });
   });
 

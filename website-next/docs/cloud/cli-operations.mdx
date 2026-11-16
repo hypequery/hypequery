@@ -46,9 +46,11 @@ the same operations spec as the REST API, so they cover everything an agent or t
 - **Exit codes.** 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal.
 - **Destructive operations** need `--yes`. At a terminal the CLI asks instead; without one (or with `--json`,
   `--no-input` or `CI`) it refuses with `CONFIRMATION_REQUIRED` and changes nothing.
+- **Access and credential changes** (creating keys, inviting members, trusting an identity provider, changing
+  access policy or permission sets) are confirmed the same way, though Cloud does not require it.
 - **Secrets.** Secret inputs (a ClickHouse password, an OIDC client secret) come from stdin with
-  `--<field>-stdin`, a hidden prompt, or `--input-json`, never a flag value. New keys are printed to stdout once,
-  with a warning on stderr.
+  `--<field>-stdin`, a hidden prompt, or `--input-json` from `@file` or `-`; never a flag value or inline
+  JSON. New keys are printed to stdout once, with a warning on stderr.
 - **Values.** Lists repeat the flag (`--scopes a --scopes b`); `null` sends JSON null where a field allows it;
   object fields take JSON. `--input-json` takes the whole input as an object, inline, from `@file` or from `-` (stdin).
 
@@ -507,9 +509,10 @@ Set which columns' sample values the assistant may see.
 | --- | --- | --- |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
 | `--policy` | JSON | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `samplePolicy.set`; your role needs `connection:manage`.
+Operation `samplePolicy.set`; your role needs `connection:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ## connections
 
@@ -536,9 +539,10 @@ Test and save the project's ClickHouse connection; once a release is live, datab
 | `--username` | text | Required. |
 | `--password-stdin` | stdin | Reads `password` from stdin. At a terminal the CLI asks for it without echoing; never pass it as a flag value. Required. |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `connections.save`; your role needs `connection:manage`.
+Operation `connections.save`; your role needs `connection:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery connections link`
 
@@ -733,9 +737,10 @@ Create a permission set: the datasets and fields a customer's users may query.
 | `--show-query` / `--no-show-query` | flag | `showQuery` |
 | `--model-tier` | `standard`, `premium` | `modelTier` |
 | `--limits` | JSON | `limits` |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `permissionSets.create`; your role needs `embed:manage`.
+Operation `permissionSets.create`; your role needs `embed:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery permission-sets update <permission-set>`
 
@@ -753,9 +758,10 @@ Change a permission set, guarded by the revision you read; fields you leave out 
 | `--show-query` / `--no-show-query` | flag | `showQuery` |
 | `--model-tier` | `standard`, `premium` | `modelTier` |
 | `--limits` | JSON | `limits` |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `permissionSets.update`; your role needs `embed:manage`.
+Operation `permissionSets.update`; your role needs `embed:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery permission-sets remove <permission-set>`
 
@@ -857,9 +863,10 @@ Choose how the app identifies its customers' users: jwt (your provider), minted 
 | --- | --- | --- |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
 | `--mode` | `jwt`, `minted`, `backend`, `internal` | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `customerAccess.setMode`; your role needs `credentials:manage`.
+Operation `customerAccess.setMode`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery customer-access create-key`
 
@@ -871,9 +878,10 @@ Create the server key a minted or backend mode uses, for any customer. Its token
 | `--mode` | `minted`, `backend` | Required. |
 | `--roles` | text, repeatable | `roles` |
 | `--scopes` | text, repeatable | `scopes` |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `customerAccess.createKey`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+Operation `customerAccess.createKey`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
 
 ### `hypequery customer-access prove`
 
@@ -913,9 +921,10 @@ Replace the browser origins allowed to call customer endpoints, and choose wheth
 | `--allowed-origins` | text, repeatable | Required. |
 | `--expected-revision` | whole number | From customerSettings.get; 0 before any save. Required. |
 | `--tenant-registration` | `automatic`, `listed` | `tenantRegistration` |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `customerSettings.set`; your role needs `credentials:manage`.
+Operation `customerSettings.set`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ## jwt-issuer
 
@@ -951,9 +960,10 @@ Trust your identity provider's JWTs: issuer, audience, JWKS URL and which claims
 | `--max-token-lifetime-seconds` | whole number | `maxTokenLifetimeSeconds` |
 | `--expected-revision` | whole number | `expectedRevision` |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `jwtIssuer.save`; your role needs `credentials:manage`.
+Operation `jwtIssuer.save`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery jwt-issuer remove`
 
@@ -992,10 +1002,10 @@ Let customers' users sign in to MCP with your identity provider: issuer, client 
 | `--scopes` | text, repeatable | `scopes` |
 | `--expected-revision` | whole number | `expectedRevision` |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
-| `--yes` | flag | Confirms a change Cloud asks about. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `oidcClient.save`; your role needs `credentials:manage`. Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.
+Operation `oidcClient.save`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal. Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.
 
 ### `hypequery oidc-client remove`
 
@@ -1032,9 +1042,10 @@ Create a signing key your backend mints in-app agent tokens with. Its private ke
 | `--roles` | text, repeatable | `roles` |
 | `--scopes` | text, repeatable | `scopes` |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `signingKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+Operation `signingKeys.create`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
 
 ### `hypequery signing-keys revoke <key>`
 
@@ -1098,9 +1109,10 @@ Invite someone by email as a Developer (member) or an Admin; they get an email t
 | --- | --- | --- |
 | `--email` | text | Required. |
 | `--role` | `member`, `admin` | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `members.invite`; your role needs `organization:manage`.
+Operation `members.invite`; your role needs `organization:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery members cancel-invitation <invitation>`
 
@@ -1159,9 +1171,10 @@ Choose who may be invited: any email, or only approved email domains.
 | --- | --- | --- |
 | `--invite-mode` | `any-email`, `approved-domains` | Required. |
 | `--approved-domains` | text, repeatable | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `org.setAccessPolicy`; your role needs `organization:manage`.
+Operation `org.setAccessPolicy`; your role needs `organization:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal.
 
 ### `hypequery org update`
 
@@ -1197,9 +1210,10 @@ Create a deploy key for CI; its token is returned once.
 | --- | --- | --- |
 | `--project` | text | Cloud project slug. Defaults to the project your sign-in names. |
 | `--label` | text | Required. |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `deployKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+Operation `deployKeys.create`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
 
 ### `hypequery deploy-keys revoke <key>`
 
@@ -1239,9 +1253,10 @@ Create an API key with roles, scopes and which customers it may act for; its tok
 | `--scopes` | text, repeatable | `scopes` |
 | `--tenant-authority` | JSON | trusted-server: your backend names the customer per request; bound: only these customers. Required. |
 | `--expires-in-days` | whole number | `expiresInDays` |
+| `--yes` | flag | Confirms the change. Required without a terminal. |
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
-Operation `apiKeys.create`; your role needs `credentials:manage`. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
+Operation `apiKeys.create`; your role needs `credentials:manage`. Changes access or credentials: refused without `--yes` unless you confirm at a terminal. Returns a secret Cloud shows once: it is printed to stdout only, with a warning on stderr, and never saved or logged.
 
 ### `hypequery api-keys revoke <key>`
 

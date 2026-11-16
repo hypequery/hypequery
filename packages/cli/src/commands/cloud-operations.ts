@@ -16,6 +16,7 @@ import { buildOperationInput } from '../utils/cloud-operations/operation-input.j
 import { isUnattended } from '../utils/input-mode.js';
 import { emitResult, isJsonOutput } from '../utils/machine-output.js';
 import { promptConfirmation, promptSecret } from '../utils/prompts.js';
+import { terminalSafeText } from '../utils/terminal-text.js';
 
 /**
  * `hypequery <group> <action>`: one command per hypequery Cloud `/v1`
@@ -73,11 +74,19 @@ function commandLine(shape: CloudCommandShape): string {
   return `hypequery ${shape.group} ${shape.action}`;
 }
 
+/** Asked before calling Cloud: destructive operations, and sensitive ones (SENSITIVE_OPERATIONS). */
+function needsConfirmation(shape: CloudCommandShape): boolean {
+  return shape.confirmation === 'required' || shape.sensitive;
+}
+
 function confirmationRefused(shape: CloudCommandShape): CliError {
   const spec = CLOUD_ERRORS.CONFIRMATION_REQUIRED;
+  const why = shape.sensitive
+    ? 'changes who can reach your organisation or its data'
+    : 'changes something that is hard to undo';
   return new CliError(
     'CONFIRMATION_REQUIRED',
-    `${commandLine(shape)} changes something that is hard to undo: ${shape.operation.summary} `
+    `${commandLine(shape)} ${why}: ${shape.operation.summary} `
       + 'Nothing was changed. Run it again with --yes once the change is agreed.',
     {
       hint: 'Run the command again with --yes once the change is agreed.',
@@ -103,7 +112,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Run one operation: build its input, confirm if it is destructive, call Cloud, print the output. */
+/** Run one operation: build its input, confirm if it is destructive or sensitive, call Cloud, print the output. */
 export async function runCloudOperation(
   shape: CloudCommandShape,
   positionals: readonly string[],
@@ -114,7 +123,7 @@ export async function runCloudOperation(
   const interactive = canPrompt(stdin);
   const confirmed = options.yes === true;
   // Refuse before reading credentials or calling Cloud: nobody can say yes.
-  if (shape.confirmation === 'required' && !confirmed && !interactive) throw confirmationRefused(shape);
+  if (needsConfirmation(shape) && !confirmed && !interactive) throw confirmationRefused(shape);
 
   const access = await resolveCloudApiAccess(dependencies);
   const ask = dependencies.confirm ?? ((message: string) => promptConfirmation(message, '--yes'));
@@ -129,7 +138,7 @@ export async function runCloudOperation(
       : {}),
   });
 
-  if (shape.confirmation === 'required' && !confirmed) {
+  if (needsConfirmation(shape) && !confirmed) {
     const agreed = await ask(`${shape.operation.summary} This runs ${shape.operation.name} on ${target(input)}. Continue?`);
     if (!agreed) throw confirmationDeclined();
   }
@@ -168,7 +177,7 @@ export async function runCloudOperation(
     // Cloud says which, and a person at a terminal can agree and retry.
     if (error.code === 'CONFIRMATION_REQUIRED' && shape.confirmation === 'optional' && !confirmed) {
       if (!interactive) throw cliErrorFromCloud(error, { hint: 'Run the command again with --yes once the change is agreed.' });
-      if (!await ask(`${error.message} Continue?`)) throw confirmationDeclined();
+      if (!await ask(`${terminalSafeText(error.message) ?? shape.operation.summary} Continue?`)) throw confirmationDeclined();
       try {
         output = await send({ ...input, confirm: true });
       } catch (retryError) {
@@ -249,7 +258,10 @@ function helpFooter(shape: CloudCommandShape): string {
   ];
   if (shape.confirmation === 'required') {
     lines.push('Destructive: refused without --yes, unless you confirm at a terminal.');
-  } else if (shape.confirmation === 'optional') {
+  } else if (shape.sensitive) {
+    lines.push('Changes access or credentials: refused without --yes, unless you confirm at a terminal.');
+  }
+  if (shape.confirmation === 'optional') {
     lines.push('Some changes need confirming: pass --yes, or confirm at a terminal when Cloud asks.');
   }
   if (shape.secretOutput) lines.push('Returns a secret Cloud shows once: printed to stdout only, never saved or logged.');
@@ -309,7 +321,7 @@ export function registerCloudOperationCommands(
     // Help still shows path parameters as required: `releases get [options] <version>`.
     command.usage(['[options]', ...shape.fields.filter(field => field.placement === 'argument').map(field => field.flag)].join(' '));
     command.option('--input-json <json>', 'The whole input as a JSON object (inline, @<file>, or - for stdin); flags override its fields');
-    if (shape.confirmation !== 'none') command.option('-y, --yes', 'Confirm the change without a prompt');
+    if (shape.confirmation !== 'none' || shape.sensitive) command.option('-y, --yes', 'Confirm the change without a prompt');
     command.addHelpText('after', helpFooter(shape));
     const argumentCount = shape.fields.filter(field => field.placement === 'argument').length;
     command.action(wrap(async (...args: unknown[]) => {

@@ -43,14 +43,20 @@ describe('cloudApiOrigin', () => {
 
 describe('resolveCloudApiAccess', () => {
   it('refuses HYPEQUERY_API_TOKEN with a non-local HTTP endpoint before any request', async () => {
+    // A management token goes only to its Cloud origin, which is always HTTPS
+    // or loopback, so an HTTP endpoint on another host is refused there.
     await expect(resolveCloudApiAccess({
       env: { HYPEQUERY_API_TOKEN: TOKEN, HYPEQUERY_DEPLOYMENT_ENDPOINT: 'http://cloud.example.com/v1/deployments/submissions' },
-    })).rejects.toMatchObject({ code: 'CLOUD_ENDPOINT_INSECURE' });
+    })).rejects.toMatchObject({ code: 'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH' });
   });
 
-  it('uses the origin of an HTTPS endpoint', async () => {
+  it('uses the origin of an HTTPS endpoint on the token\'s Cloud', async () => {
     await expect(resolveCloudApiAccess({
-      env: { HYPEQUERY_API_TOKEN: TOKEN, HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://cloud.example.com/v1/deployments/submissions' },
+      env: {
+        HYPEQUERY_API_TOKEN: TOKEN,
+        HYPEQUERY_CLOUD_URL: 'https://cloud.example.com',
+        HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://cloud.example.com/v1/deployments/submissions',
+      },
     })).resolves.toMatchObject({ baseUrl: 'https://cloud.example.com', token: TOKEN, source: 'env' });
   });
 

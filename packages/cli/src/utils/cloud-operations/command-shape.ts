@@ -1,4 +1,5 @@
 import { isSecretInput, SECRET_OUTPUT_OPERATIONS } from './secrets.js';
+import { isSensitiveOperation } from './sensitive.js';
 import type { CloudOperationSpec, JsonSchema } from './spec-types.js';
 
 /**
@@ -46,6 +47,12 @@ export interface CloudCommandShape {
   readonly action: string;
   readonly fields: readonly CloudCommandField[];
   readonly confirmation: ConfirmationMode;
+  /**
+   * Not destructive, but it grants access, creates a credential or changes
+   * authentication (SENSITIVE_OPERATIONS). The CLI confirms it like a
+   * destructive operation; Cloud does not need `confirm`, so none is sent.
+   */
+  readonly sensitive: boolean;
   /** Cloud returns a secret once; it goes to stdout only, with a warning on stderr. */
   readonly secretOutput: boolean;
 }
@@ -181,6 +188,7 @@ export function commandShape(operation: CloudOperationSpec): CloudCommandShape {
     action,
     fields,
     confirmation,
+    sensitive: !operation.destructive && isSensitiveOperation(operation.name),
     secretOutput: SECRET_OUTPUT_OPERATIONS.has(operation.name),
   };
 }
