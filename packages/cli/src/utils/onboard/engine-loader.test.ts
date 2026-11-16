@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -55,6 +55,33 @@ describe('loadOnboardEngine', () => {
     const cli = await directory(false);
     await installFakeEngine(cli, '0.1.0');
     expect(await loadOnboardEngine('schema inspect', { cwd, cliDirectory: cli })).toMatchObject({ from: 'cli', version: '0.1.0' });
+  });
+
+  it('ignores an engine in an ancestor of the project (/tmp, $HOME) and uses the one beside the CLI', async () => {
+    const outside = await directory(false);
+    await installFakeEngine(outside, '0.1.9');
+    const cwd = path.join(outside, 'app');
+    await mkdir(cwd);
+    await writeFile(path.join(cwd, 'package.json'), '{"name":"app","private":true}');
+    const cli = await directory(false);
+    await installFakeEngine(cli, '0.1.0');
+    expect(await loadOnboardEngine('onboard analyze', { cwd, cliDirectory: cli })).toMatchObject({ from: 'cli', version: '0.1.0' });
+    // Without a package.json anywhere above, the working directory is the project: still not its parent.
+    const bare = path.join(outside, 'scratch');
+    await mkdir(bare);
+    expect(await loadOnboardEngine('onboard analyze', { cwd: bare, cliDirectory: cli })).toMatchObject({ from: 'cli', version: '0.1.0' });
+  });
+
+  it('finds the project root\'s engine from a subdirectory, and follows a pnpm symlink in it', async () => {
+    const root = await directory();
+    const store = await directory(false);
+    const real = await installFakeEngine(store, '0.1.2');
+    await mkdir(path.join(root, 'node_modules', '@hypequery'), { recursive: true });
+    await symlink(real, path.join(root, 'node_modules', '@hypequery', 'onboard-engine'), 'dir');
+    const cwd = path.join(root, 'src', 'analytics');
+    await mkdir(cwd, { recursive: true });
+    expect(await loadOnboardEngine('onboard analyze', { cwd, cliDirectory: await directory(false) }))
+      .toMatchObject({ from: 'project', version: '0.1.2', directory: real });
   });
 
   it('prefers a compatible CLI copy over an out-of-range project copy', async () => {

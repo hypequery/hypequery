@@ -9,7 +9,8 @@ import type {
   DiscoveredSchema,
   OnboardEngine,
 } from './engine-types.js';
-import { onboardConnectionFromEnv } from './onboard-connection.js';
+import { logger } from '../logger.js';
+import { cleartextCredentialsWarning, onboardConnectionFromEnv } from './onboard-connection.js';
 
 /** What every onboarding command starts from: the engine, the connection and a transport. */
 export interface OnboardSession {
@@ -27,12 +28,23 @@ export interface OnboardSessionDependencies extends EngineLoaderDependencies {
   readonly input?: ClickHouseConnectionInput;
 }
 
+let warnedCleartext = false;
+
+/** Warns on stderr, once per process, when credentials would travel in cleartext. */
+function warnCleartextOnce(host: string) {
+  const warning = cleartextCredentialsWarning(host);
+  if (!warning || warnedCleartext) return;
+  warnedCleartext = true;
+  logger.warn(warning);
+}
+
 export async function openOnboardSession(
   command: string,
   options: { readonly databases?: string },
   dependencies: OnboardSessionDependencies = {},
 ): Promise<OnboardSession> {
   const input = dependencies.input ?? onboardConnectionFromEnv(options.databases);
+  warnCleartextOnce(input.host);
   const engine = dependencies.engine ?? await loadOnboardEngine(command, dependencies);
   const query = dependencies.query ?? createClickHouseHttpQuery(engine.modules['clickhouse-query'].ClickHouseConnectionError);
   return { engine, input, query };

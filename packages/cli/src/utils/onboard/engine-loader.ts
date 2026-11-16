@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -63,6 +63,36 @@ async function findEngine(directory: string, from: OnboardEngine['from']): Promi
     }
     return undefined;
   }
+  return readEngine(manifestPath, from);
+}
+
+/** The nearest directory at or above `cwd` with a package.json: the project. Without one, `cwd`. */
+export function projectRoot(cwd: string): string {
+  for (let directory = path.resolve(cwd); ; directory = path.dirname(directory)) {
+    if (existsSync(path.join(directory, 'package.json'))) return directory;
+    if (path.dirname(directory) === directory) return path.resolve(cwd);
+  }
+}
+
+/**
+ * The project's own engine: only `node_modules` in the project root, never an
+ * ancestor's (`/tmp/node_modules` or `~/node_modules` is not the project's,
+ * and anyone who can write there would choose the code the CLI runs). A
+ * symlink there (pnpm) is followed to the package it links.
+ */
+async function findProjectEngine(cwd: string): Promise<EnginePackage | undefined> {
+  const linked = path.join(projectRoot(cwd), 'node_modules', ...ONBOARD_ENGINE_PACKAGE.split('/'), 'package.json');
+  if (!existsSync(linked)) return undefined;
+  let manifestPath: string;
+  try {
+    manifestPath = await realpath(linked);
+  } catch (error) {
+    throw unreadable(`Could not read ${ONBOARD_ENGINE_PACKAGE}'s package.json at ${linked}`, error);
+  }
+  return readEngine(manifestPath, 'project');
+}
+
+async function readEngine(manifestPath: string, from: OnboardEngine['from']): Promise<EnginePackage> {
   let manifest: { version?: unknown; exports?: unknown };
   try {
     manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { version?: unknown; exports?: unknown };
@@ -155,7 +185,8 @@ function canOffer(stdin: { readonly isTTY?: boolean }, cwd: string): boolean {
 
 /**
  * Load `@hypequery/onboard-engine` within {@link ONBOARD_ENGINE_RANGE}: from
- * the project's node_modules first, then from beside the CLI. When neither has
+ * the project's node_modules first (the project root's only, see
+ * {@link findProjectEngine}), then from beside the CLI. When neither has
  * a compatible version, a person at a terminal is offered an install; under
  * `--json`, `--no-input`, CI or without a TTY the command fails with
  * `ONBOARD_ENGINE_MISSING` or `ONBOARD_ENGINE_INCOMPATIBLE`.
@@ -163,7 +194,7 @@ function canOffer(stdin: { readonly isTTY?: boolean }, cwd: string): boolean {
 export async function loadOnboardEngine(command: string, dependencies: EngineLoaderDependencies = {}): Promise<OnboardEngine> {
   const cwd = dependencies.cwd ?? process.cwd();
   const candidates = [
-    await findEngine(cwd, 'project'),
+    await findProjectEngine(cwd),
     await findEngine(dependencies.cliDirectory ?? CLI_DIRECTORY, 'cli'),
   ].filter((found): found is EnginePackage => found !== undefined);
   const compatible = candidates.find(found => satisfiesCaret(found.version, ONBOARD_ENGINE_RANGE));
@@ -195,7 +226,7 @@ export async function loadOnboardEngine(command: string, dependencies: EngineLoa
     logger.info('The onboarding analysis engine is a separate package, released on its own schedule.');
     if (await (dependencies.confirm ?? confirmInstallOnboardEngine)(manual)) {
       if (await (dependencies.install ?? installDevDependency)(SPECIFIER, cwd)) {
-        const installed = await findEngine(cwd, 'project');
+        const installed = await findProjectEngine(cwd);
         if (installed && satisfiesCaret(installed.version, ONBOARD_ENGINE_RANGE)) return importEngine(installed);
       }
     }

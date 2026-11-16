@@ -2,19 +2,22 @@ import path from 'node:path';
 import { CliError } from '../utils/cli-error.js';
 import { logger } from '../utils/logger.js';
 import { emitResult } from '../utils/machine-output.js';
+import { terminalText } from '../utils/terminal-text.js';
 import { unscopedTenantCandidates } from '../utils/tenant-key-candidates.js';
-import type { ClickHouseQuery, ColumnRoleHint, DiscoveredSchema, JoinCandidateReport, JoinCheck, MeasureCheck } from '../utils/onboard/engine-types.js';
+import type { ClickHouseQuery, ColumnRoleHint, DiscoveredSchema, JoinCandidate, JoinCandidateReport, JoinCheck, MeasureCheck } from '../utils/onboard/engine-types.js';
 import { connectionFingerprint } from '../utils/onboard/onboard-connection.js';
 import { loadOnboardContract } from '../utils/onboard/onboard-contract.js';
 import { declaredJoins, parseJoinPairs, type JoinToCheck } from '../utils/onboard/onboard-joins.js';
 import {
   EMPTY_CONTRACT,
   parseList,
+  partitionIdShown,
   SAMPLE_MODES,
   samplePolicy,
   selectTables,
   tenantKeyCandidates,
   withoutCustomerOnly,
+  withPolicyPartition,
   withPolicySplit,
   type OnboardWarning,
   type SampleMode,
@@ -53,11 +56,19 @@ function sampleMode(value: string | undefined): SampleMode {
   throw new CliError('USAGE', `Unknown --samples ${value}; use ${SAMPLE_MODES.join(', ')}.`, { hint: 'Pass --samples detected, none or all.' });
 }
 
+/** Text from ClickHouse or the engine, for the terminal: see {@link terminalText}. */
+const shown = (value: unknown) => terminalText(String(value));
+
 function warn(warnings: readonly OnboardWarning[]) {
   for (const warning of warnings) {
-    logger.warn(warning.message);
-    if (warning.hint) logger.indent(warning.hint);
+    logger.warn(shown(warning.message));
+    if (warning.hint) logger.indent(shown(warning.hint));
   }
+}
+
+/** Whether a table's partition IDs may appear in a report under `mode`. */
+function partitionsShown(session: OnboardSession, schema: DiscoveredSchema, mode: SampleMode) {
+  return partitionIdShown(schema, mode, session.engine.modules['sample-policy'].withheldBy(schema, samplePolicy(mode)));
 }
 
 /** Discovery as an agent may read it, optionally narrowed to some tables. */
@@ -66,7 +77,9 @@ function inspectedSchema(session: OnboardSession, schema: DiscoveredSchema, mode
   const { analysis: _analysis, columnRoleHints: _hints, ...rest } = safe as DiscoveredSchema & { columnRoleHints?: unknown };
   void _analysis;
   void _hints;
-  return tables ? { ...rest, tables: rest.tables.filter(table => tables.includes(table.name)) } : rest;
+  const partitions = partitionsShown(session, schema, mode);
+  const all = rest.tables.map(table => withPolicyPartition(table, table.name, partitions));
+  return { ...rest, tables: tables ? all.filter(table => tables.includes(table.name)) : all };
 }
 
 /** `hypequery schema inspect`: tables, columns, engine metadata and sampled column stats. */
@@ -84,10 +97,10 @@ export async function schemaCommand(action: string | undefined, options: Onboard
 
   const inspected = inspectedSchema(session, schema, mode, parseList(options.tables) ? tables : undefined);
   logger.header('hypequery schema inspect');
-  logger.success(`${connectionInfo(session.input).host} · ${schema.tables.length} tables (engine ${session.engine.version})`);
+  logger.success(shown(`${connectionInfo(session.input).host} · ${schema.tables.length} tables (engine ${session.engine.version})`));
   for (const table of inspected.tables) {
     const rows = table.rows === undefined ? '' : `, ${table.rows.toLocaleString('en-US')} rows`;
-    logger.info(`${table.name}  ${table.engine ?? 'unknown engine'}${rows}, ${table.columns.length} columns${table.supported ? '' : ' (unsupported)'}`);
+    logger.info(shown(`${table.name}  ${table.engine ?? 'unknown engine'}${rows}, ${table.columns.length} columns${table.supported ? '' : ' (unsupported)'}`));
   }
   warn(warnings);
   emitResult({
@@ -188,6 +201,7 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
   const safeAnalysis = engine.modules['sample-policy'].schemaForAssistant(grained, samplePolicy(mode)).analysis;
   const findings = safeAnalysis?.findings ?? [];
   const candidates = tenantKeyCandidates(discovered);
+  const partitions = partitionsShown(session, discovered, mode);
   const report = {
     engine: engineInfo(engine),
     connection: {
@@ -207,8 +221,8 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
       question: finding.question,
       askBeforeDraft: finding.askBeforeDraft === true,
     })),
-    grainChecks: (grained.grainChecks ?? []).map(withoutCustomerOnly),
-    joinCandidates: joinReport(joins, splitValuesShown(session, discovered, mode)),
+    grainChecks: (grained.grainChecks ?? []).map(check => withPolicyPartition(withoutCustomerOnly(check), check.table, partitions)),
+    joinCandidates: joinReport(joins, splitValuesShown(session, discovered, mode), partitions),
     columnRoles: columnRoles(session, discovered, tables),
     queryHistory,
     tenantKeyCandidates: {
@@ -218,7 +232,7 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
     warnings,
   };
 
-  printAnalysis(report, joins);
+  printAnalysis(report);
   warn(warnings);
   emitResult(report);
 }
@@ -237,9 +251,15 @@ function splitValuesShown(session: OnboardSession, schema: DiscoveredSchema, mod
   };
 }
 
-function joinReport(report: JoinCandidateReport, valuesShown: (table: string, column: string) => boolean) {
+function joinReport(
+  report: JoinCandidateReport,
+  valuesShown: (table: string, column: string) => boolean,
+  partitions: (table: string) => boolean,
+) {
   return {
-    candidates: report.candidates.map(candidate => withPolicySplit(withoutCustomerOnly(candidate), valuesShown)),
+    // A join's sample scope is the child table's.
+    candidates: report.candidates.map(candidate =>
+      withPolicyPartition(withPolicySplit(withoutCustomerOnly(candidate), valuesShown), candidate.child.table, partitions)),
     omitted: report.omitted,
     ...(report.skippedTables?.length ? { skippedTables: report.skippedTables } : {}),
   };
@@ -252,25 +272,27 @@ function printAnalysis(report: {
   grainChecks: readonly { status: string; table: string; summary: string }[];
   queryHistory: Record<string, unknown>;
   tenantKeyCandidates: { candidates: readonly { table: string; column: string }[] };
-}, joins: JoinCandidateReport) {
+  joinCandidates: { candidates: readonly JoinCandidate[] };
+}) {
   logger.header('hypequery onboard analyze');
-  logger.success(`${report.connection.host} · ${report.tables.length} tables analysed`
-    + (report.connection.readonly === undefined ? '' : ` · readonly = ${report.connection.readonly}`));
+  logger.success(shown(`${report.connection.host} · ${report.tables.length} tables analysed`
+    + (report.connection.readonly === undefined ? '' : ` · readonly = ${report.connection.readonly}`)));
   if (report.connection.risks?.length) logger.warn(`${report.connection.risks.length} settings-profile risk(s); see connection.profileFix in --json.`);
   if (report.findings.length) {
     logger.info('Findings:');
-    for (const finding of report.findings.slice(0, 20)) logger.indent(`${finding.table}: ${finding.finding}`);
+    for (const finding of report.findings.slice(0, 20)) logger.indent(shown(`${finding.table}: ${finding.finding}`));
   }
-  for (const check of report.grainChecks.filter(item => item.status === 'finding')) logger.indent(`${check.table}: ${check.summary}`);
-  const proposed = joins.candidates.filter(candidate => candidate.outcome === 'proposed');
+  for (const check of report.grainChecks.filter(item => item.status === 'finding')) logger.indent(shown(`${check.table}: ${check.summary}`));
+  // The report's candidates, not the engine's: a withheld split's values are out of its reason.
+  const proposed = report.joinCandidates.candidates.filter(candidate => candidate.outcome === 'proposed');
   if (proposed.length) {
     logger.info('Join candidates:');
-    for (const candidate of proposed) logger.indent(`${candidate.child.table}.${candidate.child.column} → ${candidate.parent.table}.${candidate.parent.column}: ${candidate.reason}`);
+    for (const candidate of proposed) logger.indent(shown(`${candidate.child.table}.${candidate.child.column} → ${candidate.parent.table}.${candidate.parent.column}: ${candidate.reason}`));
   }
-  logger.info(`Query history: ${String(report.queryHistory.status)}`);
+  logger.info(shown(`Query history: ${String(report.queryHistory.status)}`));
   if (report.tenantKeyCandidates.candidates.length) {
     logger.info('Possible tenant columns (ask the user; never apply automatically):');
-    logger.indent(report.tenantKeyCandidates.candidates.map(item => `${item.table}.${item.column}`).join(', '));
+    logger.indent(shown(report.tenantKeyCandidates.candidates.map(item => `${item.table}.${item.column}`).join(', ')));
   }
   logger.info('Run with --json for the full report.');
 }
@@ -346,6 +368,7 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
   const budgeted: ClickHouseQuery = (target, sql, queryOptions) =>
     query(target, sql, { ...queryOptions, deadlineMs: Math.min(queryOptions.deadlineMs ?? deadline, deadline) });
   const valuesShown = splitValuesShown(session, schema, 'detected');
+  const partitions = partitionsShown(session, schema, 'detected');
   const joinChecker = engine.modules['join-check'];
   const toCheck: JoinToCheck[] = [...declaredJoins(contract, engine.modules['field-column'].resolveFieldColumn), ...extraJoins];
   const joinChecks: CheckedJoin[] = [];
@@ -364,7 +387,7 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
     const check = await joinChecker.checkJoin(schema, { child: join.child, parent: join.parent }, joinQuery);
     joinChecks.push({
       ...join,
-      ...withPolicySplit(withoutCustomerOnly(check), valuesShown),
+      ...withPolicyPartition(withPolicySplit(withoutCustomerOnly(check), valuesShown), join.child.table, partitions),
       summary: joinChecker.joinCheckSummary(check),
       problem: joinChecker.joinProblem(check),
     });
@@ -398,11 +421,11 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
   const ok = missingSources.length === 0 && failedMeasures.length === 0 && failedJoins.length === 0;
 
   logger.header('hypequery onboard check');
-  logger.success(`${path.relative(process.cwd(), loaded.source) || loaded.source}: ${contract.datasets.length} datasets (${loaded.kind})`);
+  logger.success(shown(`${path.relative(process.cwd(), loaded.source) || loaded.source}: ${contract.datasets.length} datasets (${loaded.kind})`));
   logger.info(`Measures: ${summary.measures.passed} passed, ${summary.measures.failed} failed, ${summary.measures.skipped} skipped`);
   logger.info(`Joins: ${summary.joins.passed} passed, ${summary.joins.failed} failed, ${summary.joins.skipped} not measured`);
-  for (const check of failedMeasures) logger.error(`${check.dataset}.${check.measure ?? ''} (${check.check ?? 'check'}): ${check.reason ?? 'failed'}`);
-  for (const check of failedJoins) logger.error(`${check.child.table}.${check.child.column} → ${check.parent.table}.${check.parent.column}: ${check.problem}`);
+  for (const check of failedMeasures) logger.error(shown(`${check.dataset}.${check.measure ?? ''} (${check.check ?? 'check'}): ${check.reason ?? 'failed'}`));
+  for (const check of failedJoins) logger.error(shown(`${check.child.table}.${check.child.column} → ${check.parent.table}.${check.parent.column}: ${check.problem}`));
   warn(warnings);
 
   if (!ok) {
