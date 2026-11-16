@@ -40,19 +40,28 @@ marketplace under `/plugin` → Marketplaces.
 
 ## Connector URL
 
-`.mcp.json` reads the URL as `${HYPEQUERY_APP_MCP_URL:-https://mcp.hypequery.com/mcp}`.
-To point the connector at another hypequery app origin, such as staging, set
-`HYPEQUERY_APP_MCP_URL` before starting Claude Code:
+`.mcp.json` fixes the URL at `https://mcp.hypequery.com/mcp`, with no
+environment override: an environment variable set by a project, a shell profile
+or a CI job could otherwise send the connector's OAuth sign-in and every tool
+call to another server.
+
+To use another hypequery app origin, such as staging or a self-hosted app, add
+it as a separate MCP server in your own user scope, under its own name:
 
 ```bash
-HYPEQUERY_APP_MCP_URL=https://staging.example.com/mcp claude
+claude mcp add --transport http --scope user hypequery-staging https://staging.example.com/mcp
 ```
+
+It appears in `/mcp` next to the plugin's connector, signs in with OAuth the
+same way, and `claude mcp remove --scope user hypequery-staging` removes it.
 
 **Until `mcp.hypequery.com` has DNS and a certificate (Cloud rows D-01 and
 D-02), the default URL doesn't resolve.** The skills work without it: they
 drive the `hypequery` CLI locally. A project that deploys to hypequery Cloud
 can also print its own deployment's MCP URL with
-`npx hypequery deployment:status --mcp-config`.
+`npx --no-install hypequery deployment:status --mcp-config`, after
+`npm i -D @hypequery/cli` (`--no-install` stops npx from fetching the unrelated
+unscoped `hypequery` package).
 
 ## Layout
 
@@ -71,7 +80,9 @@ Code copies the plugin directory into its cache and doesn't follow links out of
 it. `generate-skills.mjs --check` and
 `packages/cli/src/templates/claude-code-plugin.test.ts` fail when a copy drifts
 from `skills/`; the test also checks that the manifest, the marketplace entry
-and `.mcp.json` parse and agree.
+and `.mcp.json` parse and agree. The script accepts only skill directory names
+that match `^[a-z0-9][a-z0-9-]*$`, and refuses symbolic links where it reads,
+writes or deletes.
 
 ## Validate
 

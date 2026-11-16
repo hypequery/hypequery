@@ -360,11 +360,15 @@ npx @hypequery/cli generate:datasets --path analytics --check
 
 <CodeBlock>
 ```bash
-npx hypequery schema inspect --json
-npx hypequery onboard analyze --json
-npx hypequery onboard check analytics/datasets.ts --json
+npm i -D @hypequery/cli @hypequery/onboard-engine
+npx --no-install hypequery schema inspect --json
+npx --no-install hypequery onboard analyze --json
+npx --no-install hypequery onboard check analytics/datasets.ts --json
 ```
 </CodeBlock>
+
+`--no-install` makes npx fail when the CLI isn't installed, instead of fetching the unrelated unscoped `hypequery`
+npm package.
 
 These commands run hypequery Cloud's onboarding analysis against your own ClickHouse, so a coding agent (or you)
 can design datasets from evidence instead of guesses. They connect with the same `CLICKHOUSE_*` settings as

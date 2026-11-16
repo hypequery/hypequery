@@ -31,11 +31,20 @@ Ask Claude to "set up hypequery on my ClickHouse database", or run `/hypequery:h
   `hypequery` CLI in your project.
 </Callout>
 
-## Point the connector elsewhere
+## Staging and self-hosted apps
 
-The connector's URL is `${HYPEQUERY_APP_MCP_URL:-https://mcp.hypequery.com/mcp}`. Set `HYPEQUERY_APP_MCP_URL` before
-starting Claude Code to use another hypequery app origin. For a project you deployed to hypequery Cloud,
-`npx hypequery deployment:status --mcp-config` prints that deployment's own MCP configuration; see [Cloud MCP](/docs/cloud/mcp).
+The plugin's connector always uses `https://mcp.hypequery.com/mcp`; no environment variable changes it. To use another
+hypequery app origin, such as staging or a self-hosted app, add it as a separate MCP server in your user scope:
+
+<CodeBlock>
+```bash
+claude mcp add --transport http --scope user hypequery-staging https://staging.example.com/mcp
+```
+</CodeBlock>
+
+It appears in `/mcp` next to the plugin's connector and signs in with OAuth the same way. For a project you deployed to
+hypequery Cloud, `npx --no-install hypequery deployment:status --mcp-config` (after `npm i -D @hypequery/cli`) prints
+that deployment's own MCP configuration; see [Cloud MCP](/docs/cloud/mcp).
 
 ## Updates
 
