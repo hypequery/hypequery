@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse with Django: Governed Analytics in Your Views';
 const DESCRIPTION =
-  'Query ClickHouse from Django with shared, tenant-scoped definitions. Define measures once in Python, call them from views and tasks, and keep the Django ORM for your transactional data.';
+  'Query ClickHouse from Django with shared, tenant-scoped definitions. Define measures once in Python, call them from views, and keep the ORM for app data.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -75,7 +75,7 @@ export default function ClickHouseDjangoPage() {
       title="Use ClickHouse from Django without raw SQL in every view"
       description="The Django ORM is built for your transactional database. For analytics in ClickHouse, hypequery gives your views and tasks named measures and dimensions, scoped to the signed-in customer, from definitions you write once in Python."
       primaryCta={{ href: '/docs/python/django', label: 'Django guide' }}
-      secondaryCta={{ href: '/docs/python/quick-start', label: 'Python quick start' }}
+      secondaryCta={{ href: '/docs/quick-start#python', label: 'Python quick start' }}
       language="python"
       stats={[
         { label: 'Works in', value: 'Sync and async views' },
@@ -133,14 +133,14 @@ export default function ClickHouseDjangoPage() {
         },
       }}
       searchIntentCards={[
-        { title: 'Django ClickHouse backend', copy: 'You don’t need ClickHouse as a Django database. Keep the ORM on Postgres and query ClickHouse through datasets.' },
         { title: 'Django analytics dashboard', copy: 'Views return measures by dimension and time grain, scoped to the user’s organisation.' },
         { title: 'Celery jobs on ClickHouse', copy: 'Reports and exports use the same definitions as the app, with an explicit tenant for each run.' },
+        { title: 'Can the Django ORM query ClickHouse?', copy: 'Through a third-party database backend: the community django-clickhouse-backend package (2.0 on PyPI, checked 14 November 2026) lets Django models target ClickHouse. hypequery takes the other route: the ORM stays on your transactional database, and analytics go through named, tenant-scoped measures.' },
         { title: 'Is there a Django integration?', copy: 'Yes: `hypequery.contrib.django` adds settings, a system check, `request.analytics` middleware, and clients for tasks and commands.' },
       ]}
       readingLinks={[
         { href: '/docs/python/django', title: 'Django guide', description: 'Settings, middleware, async views, and tasks.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/multi-tenancy', title: 'Multi-tenancy', description: 'Tenant keys and tenant-bound clients.' },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Typed DataFrames for reports and exports.' },
       ]}
@@ -156,7 +156,7 @@ export default function ClickHouseDjangoPage() {
         title: 'Replace one raw SQL view',
         description: 'Define the dataset behind one Django report, then swap its SQL for a scoped dataset query.',
         primaryCta: { href: '/docs/python/django', label: 'Django guide' },
-        secondaryCta: { href: '/docs/python/quick-start', label: 'Python quick start' },
+        secondaryCta: { href: '/docs/quick-start#python', label: 'Python quick start' },
       }}
     />
   );

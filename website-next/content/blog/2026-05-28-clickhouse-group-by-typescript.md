@@ -1,7 +1,7 @@
 ---
 title: "ClickHouse GROUP BY and Aggregations in TypeScript"
 description: "How to write GROUP BY queries against ClickHouse from TypeScript: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing — all with typed results."
-seoTitle: "ClickHouse GROUP BY in TypeScript: Aggregations, HAVING, WITH TOTALS"
+seoTitle: "ClickHouse GROUP BY in TypeScript: HAVING and WITH TOTALS"
 seoDescription: "Write ClickHouse GROUP BY queries in TypeScript with typed aggregations: sum, avg, count, countDistinct, quantile, argMax, WITH TOTALS, HAVING, and time bucketing."
 pubDate: 2026-05-28
 heroImage: ""
@@ -135,7 +135,7 @@ const latestOrders = await db
   .execute();
 ```
 
-`.argMax(column, argColumn, alias)` returns the value of `column` on the row where `argColumn` is largest; `.argMin()` is the mirror image. This pattern shows up constantly in ClickHouse — "latest row per group" without a self-join — and it's also the standard workaround for deduplicating ReplacingMergeTree data without paying the `FINAL` cost.
+`.argMax(column, argColumn, alias)` returns the value of `column` on the row where `argColumn` is largest; `.argMin()` is the mirror image. This pattern shows up constantly in ClickHouse — "latest row per group" without a self-join — and it's also the standard workaround for deduplicating [ReplacingMergeTree](/blog/clickhouse-final-replacingmergetree-typescript) data without paying the `FINAL` cost.
 
 ## Percentiles: quantile
 

@@ -33,9 +33,10 @@ def transcripts() -> dict[str, dict]:
     return {t: anyio.run(run_transcript, t) for t in ("153", "170")}
 
 
-def test_exposes_four_tools_and_only_the_published_datasets(transcripts: dict[str, dict]) -> None:
+def test_exposes_the_query_tools_and_only_the_published_datasets(transcripts: dict[str, dict]) -> None:
     t = transcripts["153"]
-    assert t["tools"] == ["get_dataset_schema", "list_datasets", "query_dataset", "query_metric"]
+    # No metric endpoint is published, so query_metric is not listed.
+    assert t["tools"] == ["get_dataset_schema", "list_datasets", "query_dataset"]
     assert [d["name"] for d in t["datasets"]["datasets"]] == ["events", "subscriptions"]
     assert "tenants" not in json.dumps(t["datasets"])
     measures = t["eventsSchema"]["endpoints"][0]["measures"]
@@ -71,7 +72,7 @@ def test_the_checked_in_client_configs_start_the_server(config: str) -> None:
     async def session() -> int:
         server = StdioServerParameters(command=entry["command"], args=args, cwd=str(Path(ROOT)), env=env)
         async with Client(server) as client:
-            assert len((await client.list_tools()).tools) == 4
+            assert len((await client.list_tools()).tools) == 3
             result = await client.call_tool("query_dataset", {"dataset": "events", "measures": ["events"]})
             return int(result.structured_content["data"][0]["events"])
 

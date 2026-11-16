@@ -105,4 +105,4 @@ On `Tenants` it generates `FROM replacingmergetree_upserts_tenants FINAL WHERE r
 
 - [multi-tenant-embedded-analytics](../multi-tenant-embedded-analytics): tenant-scoped datasets over the same tenants.
 
-Tested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.

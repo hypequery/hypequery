@@ -94,4 +94,4 @@ src/table.ts ── system.parts (merges stopped) ──▶ output.json (parts a
 
 - [materialized-view-rollups](../../examples/materialized-view-rollups): roll up rows as they land.
 
-Tested on ClickHouse 25.8 with `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/clickhouse` 2.14.

@@ -19,6 +19,7 @@ hypequery is an open-source embedded analytics toolkit for ClickHouse that runs 
 | `@hypequery/serve` | Serves queries and datasets as validated HTTP endpoints with OpenAPI, authentication, tenancy, and rate limits |
 | `@hypequery/react` | Typed TanStack Query hooks for queries, metrics, and datasets |
 | `@hypequery/mcp` | An MCP server that exposes datasets and metrics to AI agents as governed tools, without raw SQL access |
+| `@hypequery/agent` | The same tools for the agent in your own product, as Vercel AI SDK, Anthropic SDK and OpenAI Agents SDK tools, run in your backend; plus `mintAgentToken` for end-user tokens |
 | `@hypequery/cli` | `hypequery init`, `dev`, and `generate`: scaffolding, schema introspection, and code generation |
 
 `@hypequery/protocol` and `@hypequery/deployment` hold the shared contracts the other packages are built on. Most
@@ -44,30 +45,10 @@ React hooks and MCP clients work whether the backend is TypeScript or Python.
 
 All comparisons are listed on the [compare page](/compare).
 
-## Status
-
-As of November 2026:
-
-| Package | Version | Release line |
-| --- | --- | --- |
-| `@hypequery/clickhouse` | 2.14.0 | Past 1.0 |
-| `@hypequery/cli` | 1.28.0 | Past 1.0 |
-| `@hypequery/datasets` | 0.29.0 | Pre-1.0 |
-| `@hypequery/serve` | 0.24.4 | Pre-1.0 |
-| `@hypequery/mcp` | 0.11.3 | Pre-1.0 |
-| `@hypequery/react` | 0.8.0 | Pre-1.0 |
-| `hypequery` (Python) | 0.1.0b3 | Beta: APIs may change before 1.0, so pin the version you deploy |
-
-Every package is released under the Apache 2.0 license; the source is on
-[GitHub](https://github.com/hypequery/hypequery), and each package's `CHANGELOG.md` there lists its releases.
-
-[hypequery cloud](/docs/cloud), a planned hosted service for serving datasets as REST and MCP endpoints, is not live
-yet and has no sign-up. Everything on this page runs in your own infrastructure today.
-
 ## Get started
 
 - [Quick start: TypeScript](/docs/quick-start): install the packages, generate types, and run a first query or dataset.
-- [Quick start: Python](/docs/python/quick-start): define a dataset and serve it.
+- [Quick start: Python](/docs/quick-start#python): define a dataset and serve it.
 - [Why hypequery](/docs/why-hypequery): the problem it solves and when to pick something else.
 - [Core concepts](/docs/core-concepts): datasets, serving, and clients, and how they relate.
 - [TypeScript capabilities](/docs/capabilities): the shipped builder, dataset, Serve, React, and MCP surface.

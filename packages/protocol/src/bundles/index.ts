@@ -11,6 +11,7 @@ export { DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS } from './limits.js';
 export { validateProtocolDeploymentBundleManifest } from './validate.js';
 export type {
   ProtocolDeploymentBundleArtifact,
+  ProtocolDeploymentBundleBusinessContext,
   ProtocolDeploymentBundleDeployment,
   ProtocolDeploymentBundleErrorCode,
   ProtocolDeploymentBundleFile,

@@ -1,6 +1,6 @@
 # A governed ClickHouse MCP server in Python: agents query datasets, not SQL
 
-Give Claude Code, Cursor or Claude Desktop ClickHouse analytics from Python: four tools over published datasets, tenant fixed by env, no SQL.
+Give Claude Code, Cursor or Claude Desktop ClickHouse analytics from Python: a fixed set of query tools over published datasets, tenant fixed by env, no SQL.
 
 ## Demo
 
@@ -75,7 +75,7 @@ Walkthrough: [ClickHouse MCP in Codex](https://hypequery.com/blog/clickhouse-mcp
 
 ## What it shows
 
-- **Four tools, nothing else** (`server.py`): `create_mcp_server` serves `list_datasets`, `get_dataset_schema`, `query_dataset` and `query_metric`, the same tools, schemas and `MCP_*` errors as `@hypequery/mcp`. There is no `run_sql`.
+- **A fixed set of tools, nothing else** (`server.py`): `create_mcp_server` serves `list_datasets`, `get_dataset_schema` and `query_dataset`, plus `query_metric` once a metric endpoint is published (this seed has none): the same tools, schemas and `MCP_*` errors as `@hypequery/mcp`. There is no `run_sql`.
 - **Only what you publish** (`server.py`): each `add_dataset_endpoint(..., client_profile=ClientQueryProfile())` is an allowlist entry, and `add_client_contract_endpoint` is the catalog the tools are built from. The seed's `tenants` table is not in it, so the agent cannot see it.
 - **Tenant from the launch, not the prompt** (`server.py`, `analytics/datasets.py`): `authenticate` returns a `Principal` with `TENANT_ID` from the environment, `EndpointPolicy(tenant="required")` refuses tenant-free calls, `tenant_key` injects the predicate, and a `tenant_id` filter from the agent is rejected before it reaches ClickHouse.
 - **The same pipeline as HTTP, without a socket** (`server.py`): `ApiContractBackend` sends every tool call through `Api.handle`, so auth, policy and row caps are the ones an HTTP caller would meet, but nothing listens on a port. The bearer key is random per process.
@@ -124,7 +124,7 @@ async def main() -> None:
 MCP client (Claude Code, Cursor, agent.py)       server.py (stdio)                                      ClickHouse
 ──────────────────────────────────────────        ──────────────────────────────────────────────          ──────────
 launches: uv run server.py  TENANT_ID=153  ──▶    authenticate ─▶ Principal(tenant_id=153)
-tools/list                  ◀──────────────────── ClientContractExecutor: 4 tools from the client contract
+tools/list                  ◀──────────────────── ClientContractExecutor: 3 tools from the client contract
 query_dataset { dataset, dimensions, measures } ▶ ApiContractBackend ─▶ Api.handle ─▶ EndpointPolicy
                             ◀── { data }  (no sql)   ─▶ dataset(tenant_key) ─▶ SELECT ... WHERE tenant_id = 153 ─▶
 ```
@@ -146,4 +146,4 @@ query_dataset { dataset, dimensions, measures } ▶ ApiContractBackend ─▶ Ap
 - [mcp-agent-analytics](../mcp-agent-analytics): the same governed MCP server in TypeScript, with a Docker image.
 - [fastapi-analytics-api](../fastapi-analytics-api): the same Python datasets served over HTTP with signed tokens.
 
-Tested on ClickHouse 25.8 with `hypequery` 0.1.0b3 from the monorepo (the `mcp` extra; not yet on PyPI), `mcp` 2.3, Python 3.12 and uv 0.12; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).
+Versions used: ClickHouse 25.8, `hypequery` 0.1.0b3 from the monorepo (the `mcp` extra; not yet on PyPI), `mcp` 2.3, Python 3.12 and uv 0.12; `claude mcp add` and `.mcp.json` checked with Claude Code 2.1 (`claude mcp list`: Connected).

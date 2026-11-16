@@ -21,8 +21,7 @@ from hypequery.mcp import (
     McpToolError,
     QueryLimits,
 )
-from hypequery.mcp.utils.profile import mcp_client_profile
-from hypequery.protocol import build_client_contract_tool_schemas, validate_protocol_client_contract
+from hypequery.protocol import validate_protocol_client_contract
 from hypequery.serve import EndpointPolicy, add_metric_endpoint, create_api
 from mcp_support import READER, Executor, build_api
 
@@ -85,16 +84,9 @@ def test_the_manifest_matches_the_typescript_bridge(case: dict[str, object]) -> 
         catalog_budget=CatalogBudget(),
         max_contract_bytes=262_144,
     )
+    # The fixture pins the advertised query input schemas too: the provider-ready
+    # form of the exact ones, which calls are still validated against.
     manifest = executor.manifest
-    tools = cast(list[dict[str, object]], manifest["tools"])
-    schemas = build_client_contract_tool_schemas(mcp_client_profile(contract, QueryLimits()))
-    for tool in tools:
-        if tool["name"] in ("query_dataset", "query_metric"):
-            expected = schemas[
-                "query_dataset" if tool["name"] == "query_dataset" else "query_metric"
-            ]
-            assert tool["inputSchema"] == expected
-            tool["inputSchema"] = "tool-schemas-v1.json"
     assert json.dumps(manifest) == json.dumps(MANIFESTS[cast(str, case["id"])])
 
 
@@ -192,19 +184,19 @@ def test_queries_run_through_the_api_as_its_principal() -> None:
             "query_dataset",
             {"dataset": "secret"},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query target.",
+            'Invalid client query target. Datasets: "orders".',
         ),
         (
             "query_metric",
             {"dataset": "orders", "metric": "total"},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query target.",
+            'Invalid client query target. Metrics: "ordersTotal" on "orders".',
         ),
         (
             "query_dataset",
             {"dataset": "orders", "dimensions": ["amount"]},
             "MCP_INVALID_ARGUMENTS",
-            "Invalid client query at /dimensions/0.",
+            'Invalid client query at /dimensions/0. Offered by "orders": "country", "status".',
         ),
         (
             "query_dataset",

@@ -227,6 +227,11 @@ const faqItems: FaqItem[] = [
 
 const guides: HubLink[] = [
   {
+    href: '/compare/embedded-analytics-typescript',
+    title: "Embedded analytics buyer's guide for TypeScript teams",
+    description: 'A governance and metric-consistency checklist, with proof to request from every option.',
+  },
+  {
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description: 'Twelve vendors in three groups, each with a best-for and a watch-out.',

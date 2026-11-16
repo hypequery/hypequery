@@ -30,7 +30,7 @@ Not by default. On 26.6 `Decimal` is sent as a JSON number, so values with more 
 
 ### How do I generate TypeScript types from a ClickHouse schema?
 
-Run `npx hypequery generate`. It introspects your tables and writes a schema file the query builder uses to type every query's columns, filters and results. See [the fix](#the-fix-generate-types-from-the-live-schema).
+Run `npx hypequery generate`. It introspects your tables and writes a schema file [the query builder](/clickhouse-query-builder) uses to type every query's columns, filters and results. See [the fix](#the-fix-generate-types-from-the-live-schema).
 
 ---
 

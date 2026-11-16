@@ -2,8 +2,9 @@
 title: "Does Prisma Support ClickHouse? What to Use Instead"
 description: "Prisma has no ClickHouse connector, and the MySQL-compat-port workaround breaks on real analytics workloads. Here's why, and the Prisma-plus-ClickHouse-native pattern teams actually run in production."
 seoTitle: "Does Prisma Support ClickHouse? No — Here's What to Use Instead"
-seoDescription: "Does Prisma support ClickHouse? No — there is no ClickHouse connector. Learn why the MySQL port 9004 workaround fails and how to pair Prisma with a type-safe ClickHouse layer."
+seoDescription: "No: Prisma has no ClickHouse connector. Why the MySQL port 9004 workaround fails, and how to pair Prisma with a type-safe ClickHouse layer instead."
 pubDate: 2026-07-01
+updatedAt: 2026-11-14
 heroImage: ""
 slug: does-prisma-support-clickhouse
 status: published
@@ -12,7 +13,7 @@ tags:
   - TypeScript
 ---
 
-No — Prisma does not support ClickHouse. There is no ClickHouse connector, and the feature requests tracking one ([#16174](https://github.com/prisma/prisma/issues/16174) and [#23292](https://github.com/prisma/prisma/issues/23292)) have been open for years without a connector on the roadmap.
+No — Prisma does not support ClickHouse. There is no ClickHouse connector, and the main feature request ([#16174](https://github.com/prisma/orm/issues/16174), open since November 2022) has no connector on the roadmap. A second request ([#23292](https://github.com/prisma/orm/issues/23292)) was closed as not planned in February 2024.
 
 **Short answer:** you cannot point Prisma at ClickHouse and expect it to work. The one workaround people try — Prisma's MySQL provider against ClickHouse's MySQL compatibility port (9004) — breaks quickly on real workloads because ClickHouse only speaks a subset of MySQL's SQL and none of Prisma's assumptions about migrations, transactions, or types hold. The pattern that actually works in production is to keep Prisma for your transactional Postgres or MySQL database and add a ClickHouse-native TypeScript layer for analytics. That's the setup this post walks through, with both clients living in the same service.
 
@@ -43,7 +44,7 @@ DATABASE_URL="mysql://default:password@clickhouse-host:9004/analytics"
 
 **2. ClickHouse-specific types don't map.** ClickHouse tables in the wild use `Array(String)`, `Map(String, String)`, `LowCardinality(String)`, `AggregateFunction(uniq, UInt64)`, `Enum8`, nested tuples. None of these exist in Prisma's schema language. Introspection either mangles them into strings or fails outright, and there's no way to write a `schema.prisma` that round-trips them. `UInt64` alone is a problem: it exceeds JavaScript's safe integer range and comes back as a string, which Prisma's MySQL type mapping doesn't expect.
 
-**3. You lose all ClickHouse semantics.** Even when a query happens to execute, you can't express the things you moved to ClickHouse for: `FINAL` on a `ReplacingMergeTree`, `LIMIT BY` for top-N-per-group, `PREWHERE`, `argMax`, `uniq`, quantiles, array joins, materialized view targets. Prisma's query API has no vocabulary for any of it, and `prisma migrate` will happily try to run DDL that has no meaning for MergeTree engines.
+**3. You lose all ClickHouse semantics.** Even when a query happens to execute, you can't express the things you moved to ClickHouse for: [`FINAL`](/blog/clickhouse-final-replacingmergetree-typescript) on a `ReplacingMergeTree`, `LIMIT BY` for top-N-per-group, [`PREWHERE`](/blog/clickhouse-prewhere-vs-where), `argMax`, `uniq`, quantiles, array joins, materialized view targets. Prisma's query API has no vocabulary for any of it, and `prisma migrate` will happily try to run DDL that has no meaning for MergeTree engines.
 
 The workaround demos well and fails in production. Treat port 9004 as what it is — a compatibility shim for MySQL clients like BI tools — not a foundation for an application data layer. There's a fuller breakdown on the [Prisma + ClickHouse page](/clickhouse-orm).
 
@@ -144,7 +145,7 @@ The `tenantKey` line is worth pausing on: it means a query that's missing a tena
 | What handles ClickHouse? | A ClickHouse-native typed layer alongside Prisma |
 | Do the two clients conflict? | No — separate schemas, separate migration workflows, one service |
 
-If you're evaluating hypequery specifically against what Prisma gives you on the OLTP side — generated types, a fluent client, guardrails — the [hypequery vs Prisma comparison](/compare/hypequery-vs-prisma) maps each Prisma feature to its analytics-side equivalent honestly, including the places where a query builder deliberately isn't an ORM.
+If you're evaluating hypequery specifically against what Prisma gives you on the OLTP side — generated types, a fluent client, guardrails — the [hypequery vs Prisma comparison](/compare/hypequery-vs-prisma) maps each Prisma feature to its analytics-side equivalent honestly, including the places where [a query builder](/clickhouse-query-builder) deliberately isn't an ORM.
 
 ## Where to go from here
 

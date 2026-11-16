@@ -189,7 +189,8 @@ def test_the_self_test_answers_match_hand_written_sql(
             daily[d] for d in days[position - 6 : position + 1]
         )
 
-    assert (answers["tools"], answers["datasets"]) == (4, 3)
+    # The demo defines no named metric, so query_metric is not listed.
+    assert (answers["tools"], answers["datasets"]) == (3, 3)
 
 
 # The command
@@ -203,7 +204,7 @@ def test_self_test_prints_the_overcount_beside_the_resolved_read(tmp_path: Path)
     assert "plain read, no FINAL                     2,864    $229,567.18" in result.stdout
     assert "hypequery, resolved_rows.replacing()     1,536    $122,017.49" in result.stdout
     assert "count_distinct (uniqExact)                      124,674" in result.stdout
-    assert "MCP: 4 tools over 3 datasets are ready." in result.stdout
+    assert "MCP: 3 tools over 3 datasets are ready." in result.stdout
     # The database lived in a temporary directory, not the working directory.
     assert list(tmp_path.iterdir()) == []
 
@@ -296,7 +297,6 @@ def test_an_agent_lists_the_tools_and_queries_over_stdio(tmp_path: Path) -> None
             assert [tool.name for tool in tools.tools] == [
                 "list_datasets",
                 "get_dataset_schema",
-                "query_metric",
                 "query_dataset",
             ]
             listed = await client.call_tool("list_datasets", {})

@@ -101,4 +101,4 @@ or `count()` as the source requires.
 
 - Next.js dashboard (coming in this series)
 
-Tested on ClickHouse 25.8 with hypequery `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.

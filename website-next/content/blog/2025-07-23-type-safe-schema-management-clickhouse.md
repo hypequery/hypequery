@@ -67,7 +67,7 @@ Use appropriate table engines:
 
 - MergeTree for most cases.
 - ReplicatedMergeTree for HA clusters.
-- ReplacingMergeTree, CollapsingMergeTree, AggregatingMergeTree for special use cases
+- [ReplacingMergeTree](/blog/clickhouse-final-replacingmergetree-typescript), CollapsingMergeTree, AggregatingMergeTree for special use cases
 
 ### Partitioning and Ordering
 
