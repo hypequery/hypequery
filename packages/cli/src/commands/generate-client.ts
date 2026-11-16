@@ -34,7 +34,7 @@ export interface GenerateClientDependencies extends CloudDeploymentAccessDepende
 /** The live release's contract, and the origin it is served from when Cloud says. */
 async function readCloudClientContract(options: GenerateClientOptions, dependencies: GenerateClientDependencies) {
   const access = await resolveDeploymentCredential(options.endpoint, dependencies);
-  const target = deploymentTargetFromOptions(options, access.storedCredential);
+  const target = deploymentTargetFromOptions(options, access);
   const request = { endpoint: access.endpoint, token: access.token, target, fetch: dependencies.fetch };
   const [text, endpoints] = await Promise.all([
     fetchCloudClientContract(request),

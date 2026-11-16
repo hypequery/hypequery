@@ -4,6 +4,7 @@ import { program } from '../cli.js';
 import { CliError } from '../utils/cli-error.js';
 import { emitError, enableJsonOutput, errorEnvelope, flushJsonOutput } from '../utils/machine-output.js';
 import { loadEnvFiles } from '../utils/load-env-files.js';
+import { recordShellEnvironment } from '../utils/env-provenance.js';
 import { CommandExit, finishAndExit, installCommandExitFinalizer } from '../utils/command-exit.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
@@ -15,18 +16,11 @@ import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
 
 async function loadEnv() {
-  try {
-    const dotenvx = await import('@dotenvx/dotenvx');
-    if (dotenvx?.config && typeof dotenvx.config.load === 'function') {
-      await dotenvx.config.load();
-      // Deliberately falls through to the dotenv cascade below. dotenvx has
-      // already set whatever it found, and dotenv will not overwrite it, so this
-      // only fills in files dotenvx does not read (notably `.env.local`).
-    }
-  } catch {
-    // Optional dependency, ignore if missing
-  }
-
+  // Before any file is read: credential resolution must know which Cloud
+  // URLs came from the shell and which from a project .env.
+  recordShellEnvironment();
+  // The only place env files reach process.env at startup. It never
+  // overwrites a set variable and ignores dotenv's override switches.
   await loadEnvFiles(process.cwd());
 }
 

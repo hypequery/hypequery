@@ -95,6 +95,22 @@ describe('live deployment client', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('strips control characters from the error Cloud sends before it reaches the terminal', async () => {
+    const failure = fetchLiveDeployment({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: 'secret-token',
+      target,
+      resource: 'state',
+      fetch: (async () => Response.json({
+        error: { code: 'DENIED\u001b[2J', message: 'No access\u001b]0;pwned\u0007\u001b[1A\u009b31m', hint: 'Ask\u001b[8m' },
+      }, { status: 400 })) as typeof fetch,
+    });
+    await expect(failure).rejects.toThrow(/No access/);
+    const error = await failure.catch((caught: unknown) => caught as { message: string; hint?: string });
+    expect(error.message).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/);
+    expect(error.hint ?? '').not.toMatch(/[\u0000-\u001f\u007f-\u009f]/);
+  });
+
   it('rejects unsafe Cloud endpoints before sending the credential', async () => {
     const fetchMock = vi.fn();
 

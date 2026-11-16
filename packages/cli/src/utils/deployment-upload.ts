@@ -15,6 +15,7 @@ import {
 import { logger } from './logger.js';
 import type { CloudErrorDetails } from './cli-error.js';
 import { parseCloudErrorBody } from './cloud-error-body.js';
+import { terminalSafeText } from './terminal-text.js';
 import { deploymentBundleFiles } from '@hypequery/deployment';
 import type { DeploymentSubmissionResponse as BaseDeploymentSubmissionResponse } from '@hypequery/deployment';
 import { parseDraftDeploymentResult, validateDraftDeploymentOptions, type DraftDeploymentResult } from './draft-deployment.js';
@@ -410,6 +411,11 @@ function validateSubmissionResponse(
   });
 }
 
+function statusText(response: DeploymentHttpResponse): string {
+  const text = terminalSafeText(response.statusText, 128);
+  return text ? ` ${text}` : '';
+}
+
 function rejectedMessage(response: DeploymentHttpResponse, body: string): string {
   let detail = '';
   try {
@@ -422,17 +428,14 @@ function rejectedMessage(response: DeploymentHttpResponse, body: string): string
       const message = (error as Record<string, unknown>).message;
       if (typeof code === 'string' && /^[A-Z0-9_:-]{1,64}$/.test(code)) detail += ` ${code}`;
       if (typeof message === 'string') {
-        const safe = [...message].map(character => {
-          const codePoint = character.codePointAt(0) ?? 0;
-          return codePoint <= 0x1f || codePoint === 0x7f ? ' ' : character;
-        }).join('').slice(0, 512).trim();
+        const safe = terminalSafeText(message);
         if (safe) detail += `: ${safe}`;
       }
     }
   } catch {
     // Rejection bodies are optional; status remains authoritative.
   }
-  return `Deployment service rejected the submission (${response.status} ${response.statusText})${detail}.`;
+  return `Deployment service rejected the submission (${response.status}${statusText(response)})${detail}.`;
 }
 
 function nestedUploadError(input: unknown): DeploymentUploadError | undefined {
