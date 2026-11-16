@@ -405,7 +405,17 @@ grant that would add it. History is summarised (tables, joins, filters, counts);
 its result rows) and example rows stay out of them, and sampled values follow `--samples`. That includes the
 values a join candidate's match rate is split by: when the split column's samples are withheld, each group keeps
 its counts, loses its value, and the split carries `valuesWithheld: true` (values an `Enum` or `Bool` type
-declares are always shown).
+declares are always shown); the candidate's `reason` then names the split column without its values. A table's
+`recentPartitionId` (and a check's sample `scope.partitionId`) is built from partition-key values, so it is shown
+only when `--samples` shows every column the partition key reads: it is withheld under `--samples none`, and the
+table carries `recentPartitionWithheld: true`.
+
+**Connecting safely.** The commands send `CLICKHOUSE_USERNAME` and `CLICKHOUSE_PASSWORD` as HTTP basic
+authentication. With plain `http://` to a host other than `localhost`, they warn once on stderr that the
+credentials travel unencrypted; use `https://` or an SSH tunnel. They don't follow HTTP redirects, which would
+resend the credentials elsewhere: a redirect fails with `CONNECTION_FAILED`. Text that comes from ClickHouse
+(table names, comments, engine names, error messages) is printed without terminal control characters; `--json`
+reports it as ClickHouse returned it.
 
 ### The onboarding engine
 
@@ -413,7 +423,8 @@ The analysis lives in a separate Apache-2.0 package, `@hypequery/onboard-engine`
 from the hypequery Cloud repository. It is not a dependency of `@hypequery/cli`: these commands load it at
 runtime, within the range the CLI supports (`^0.1.0`), so engine fixes reach you without a CLI release.
 
-The CLI looks in the project's `node_modules` first, then beside the CLI itself. When neither has a compatible
+The CLI looks in the project's `node_modules` first (the `node_modules` of the nearest directory with a
+`package.json`, never a parent directory's), then beside the CLI itself. When neither has a compatible
 version, it offers to install it at a terminal; under `--json`, `--no-input`, CI or without a terminal it fails
 with `ONBOARD_ENGINE_MISSING` (or `ONBOARD_ENGINE_INCOMPATIBLE` for an out-of-range version) and the command to run:
 

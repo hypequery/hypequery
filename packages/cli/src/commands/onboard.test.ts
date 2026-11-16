@@ -2,6 +2,7 @@ import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '../utils/logger.js';
 import { disableJsonOutput, enableJsonOutput } from '../utils/machine-output.js';
 import type { DiscoveredSchema, OnboardEngine, OnboardEngineModules } from '../utils/onboard/engine-types.js';
 import { CHECK_JOINS_BUDGET_MS, onboardCommand, schemaCommand } from './onboard.js';
@@ -266,7 +267,10 @@ describe('hypequery onboard analyze', () => {
           verifyJoinCandidates: async () => ({
             candidates: ['region', 'email', 'channel'].map(column => ({
               id: column, child: { table: 'orders', column: 'customer_id' }, parent: { table: 'customers', column: 'id' },
-              outcome: 'rejected', reason: 'Depends on a column.', split: split(column),
+              outcome: 'proposed',
+              // The engine's own wording, with the matching values in it.
+              reason: `orders.customer_id matches customers.id only where orders.${column} is secret-a; other rows don't match. Whether to join for those rows is a question for the user.`,
+              split: split(column),
             })),
             omitted: 0,
           }),
@@ -282,6 +286,19 @@ describe('hypequery onboard analyze', () => {
       expect(valuesOf(result, 'region').groups.map(group => group.value)).toEqual(['secret-a', 'secret-b']);
       expect(valuesOf(result, 'email')).toMatchObject({ valuesWithheld: true, groups: [{ childRows: 10, matchedRows: 10 }, { childRows: 10, matchedRows: 0 }] });
       expect(valuesOf(result, 'email').groups.every(group => !('value' in group))).toBe(true);
+      const reasons = Object.fromEntries(result.joinCandidates.candidates.map((candidate: { id: string; reason: string }) => [candidate.id, candidate.reason]));
+      expect(reasons.region).toContain('is secret-a');
+      expect(reasons.email).toBe('orders.customer_id matches customers.id only for some values of orders.email (values withheld by the sample policy); '
+        + 'other rows don\'t match. Whether to join for those rows is a question for the user.');
+    });
+
+    it('keeps withheld values out of the printed join reasons too', async () => {
+      vi.mocked(logger.indent).mockClear();
+      const { engine } = withSplits();
+      await onboardCommand('analyze', undefined, { samples: 'none' }, { engine, query, input });
+      const printed = vi.mocked(logger.indent).mock.calls.map(call => String(call[0])).filter(line => line.includes('→'));
+      expect(printed).toHaveLength(3);
+      expect(printed.filter(line => line.includes('secret-'))).toEqual([expect.stringContaining('orders.channel is secret-a')]);
     });
 
     it('withholds every sampled split value under --samples none, but not values the type declares', async () => {
@@ -292,6 +309,99 @@ describe('hypequery onboard analyze', () => {
       expect(valuesOf(result, 'channel').groups.map(group => group.value)).toEqual(['secret-a', 'secret-b']);
       expect(JSON.stringify(result.joinCandidates.candidates.filter((candidate: { id: string }) => candidate.id !== 'channel'))).not.toContain('secret-');
     });
+  });
+
+  describe('partition IDs follow the sample policy', () => {
+    // A table partitioned by tenant: its partition ID is a tenant ID.
+    const partitioned = (partitionKey: string): DiscoveredSchema => ({
+      ...SCHEMA,
+      tables: SCHEMA.tables.map(table => (table.name === 'orders' ? { ...table, partitionKey, recentPartitionId: 'acme-corp' } : table)),
+    });
+    function engineFor(schema: DiscoveredSchema) {
+      return fakeEngine({
+        introspection: { discoverSchema: async () => schema },
+        'grain-check-runner': {
+          verifyGrainChecks: async (_i: unknown, _q: unknown, discovered: DiscoveredSchema) => ({
+            ...discovered,
+            grainChecks: [{ id: 'G2', table: 'orders', status: 'passed', summary: 'ok', scope: { kind: 'recent-partition', partitionId: 'acme-corp', maxRows: 10 } }],
+          }),
+        },
+        'join-candidate-runner': {
+          verifyJoinCandidates: async () => ({
+            candidates: [{ id: 'j1', child: { table: 'orders', column: 'customer_id' }, parent: { table: 'customers', column: 'id' }, outcome: 'proposed', reason: 'ok', scope: { kind: 'recent-partition', partitionId: 'acme-corp', maxRows: 10 } }],
+            omitted: 0,
+          }),
+        },
+      });
+    }
+
+    it('withholds them everywhere under --samples none', async () => {
+      const { engine } = engineFor(partitioned('region'));
+      const result = await json(() => onboardCommand('analyze', undefined, { samples: 'none' }, { engine, query, input }));
+      expect(JSON.stringify(result)).not.toContain('acme-corp');
+      expect(result.schema.tables[0]).toMatchObject({ name: 'orders', recentPartitionWithheld: true });
+      expect(result.grainChecks[0].scope).toEqual({ kind: 'recent-partition', maxRows: 10, partitionWithheld: true });
+      expect(result.joinCandidates.candidates[0].scope).toMatchObject({ partitionWithheld: true });
+      const inspected = await json(() => schemaCommand('inspect', { samples: 'none' }, { engine, query, input }));
+      expect(JSON.stringify(inspected)).not.toContain('acme-corp');
+    });
+
+    it('withholds them by default when the partition key reads a withheld column, or no column', async () => {
+      for (const key of ['cityHash64(email) % 16', 'rand()']) {
+        const { engine } = engineFor(partitioned(key));
+        const result = await json(() => onboardCommand('analyze', undefined, {}, { engine, query, input }));
+        expect(JSON.stringify(result)).not.toContain('acme-corp');
+      }
+    });
+
+    it('keeps them when the policy shows the key\'s columns, and under --samples all', async () => {
+      const { engine } = engineFor(partitioned('region'));
+      const result = await json(() => onboardCommand('analyze', undefined, {}, { engine, query, input }));
+      expect(result.schema.tables[0].recentPartitionId).toBe('acme-corp');
+      expect(result.grainChecks[0].scope.partitionId).toBe('acme-corp');
+      const all = await json(() => schemaCommand('inspect', { samples: 'all' }, { engine: engineFor(partitioned('rand()')).engine, query, input }));
+      expect(all.schema.tables[0].recentPartitionId).toBe('acme-corp');
+    });
+  });
+
+  it('prints ClickHouse names and engine text without terminal control characters', async () => {
+    const hostile = '\u001b]0;owned\u0007\u001b[2J\u009b31m';
+    const schema: DiscoveredSchema = {
+      ...SCHEMA,
+      tables: [...SCHEMA.tables, { name: `evil${hostile}`, comment: hostile, supported: false, engine: `Log${hostile}`, columns: [] }],
+      analysis: { ...SCHEMA.analysis!, findings: [{ id: 'f', table: 'orders', kind: 'x', finding: `Look${hostile}`, question: `Ask${hostile}` }] },
+    };
+    const { engine } = fakeEngine({
+      introspection: { discoverSchema: async () => schema },
+      'join-candidate-runner': {
+        verifyJoinCandidates: async () => ({
+          candidates: [{ id: 'j1', child: { table: 'orders', column: 'customer_id' }, parent: { table: 'customers', column: 'id' }, outcome: 'proposed', reason: `Reason${hostile}` }],
+          omitted: 0,
+        }),
+      },
+    });
+    const printed = () => Object.values(logger).flatMap(fn => (vi.mocked(fn).mock.calls as unknown[][]).map(call => String(call[0])));
+    for (const fn of Object.values(logger)) vi.mocked(fn).mockClear();
+    await onboardCommand('analyze', undefined, { tables: `orders,evil${hostile}` }, { engine, query, input });
+    await schemaCommand('inspect', {}, { engine, query, input });
+    const lines = printed();
+    expect(lines.join('\n')).toContain('evil ]0;owned');
+    expect(lines.join('\n')).toContain('Reason ]0;owned');
+    for (const line of lines) expect(line).not.toMatch(/[\u0000-\u0008\u000a-\u001f\u007f-\u009f]/);
+    // --json keeps the values as ClickHouse returned them; JSON escapes them.
+    const result = await json(() => schemaCommand('inspect', {}, { engine, query, input }));
+    expect(result.schema.tables.at(-1).name).toBe(`evil${hostile}`);
+  });
+
+  it('warns once on stderr when credentials would go over plain http to a remote host', async () => {
+    vi.mocked(logger.warn).mockClear();
+    const { engine } = fakeEngine();
+    const remote = { ...input, host: 'http://ch.internal:8123' };
+    await schemaCommand('inspect', {}, { engine, query, input: remote });
+    await schemaCommand('inspect', {}, { engine, query, input: remote });
+    const warnings = vi.mocked(logger.warn).mock.calls.filter(call => String(call[0]).includes('unencrypted'));
+    expect(warnings).toHaveLength(1);
+    expect(String(warnings[0]![0])).toContain('ch.internal');
   });
 
   it('refuses a file or --join', async () => {

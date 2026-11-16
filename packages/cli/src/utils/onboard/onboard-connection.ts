@@ -60,3 +60,30 @@ export function onboardConnectionFromEnv(databases?: string): ClickHouseConnecti
 export function connectionFingerprint(input: ClickHouseConnectionInput): string {
   return createHash('sha256').update(JSON.stringify([input.host, input.username, input.database])).digest('hex');
 }
+
+/** Hosts whose traffic stays on this machine. */
+function loopbackHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  return host === 'localhost'
+    || host.endsWith('.localhost')
+    || host === '::1'
+    || /^127(?:\.\d{1,3}){3}$/.test(host)
+    || /^::ffff:127(?:\.\d{1,3}){3}$/.test(host);
+}
+
+/**
+ * A warning when the connection sends basic-auth credentials in cleartext:
+ * plain `http://` to a host that is not loopback. Not refused, since a
+ * private network or an SSH tunnel may make it acceptable.
+ */
+export function cleartextCredentialsWarning(host: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(host);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'http:' || loopbackHost(url.hostname)) return undefined;
+  return `CLICKHOUSE_URL uses http:// to ${url.hostname}, so the ClickHouse user name and password travel unencrypted. `
+    + 'Use https:// (ClickHouse Cloud and most hosted services serve HTTPS on port 8443), or an SSH tunnel to localhost.';
+}

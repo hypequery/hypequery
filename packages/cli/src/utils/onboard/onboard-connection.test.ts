@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { connectionFingerprint, onboardConnectionFromEnv } from './onboard-connection.js';
+import { cleartextCredentialsWarning, connectionFingerprint, onboardConnectionFromEnv } from './onboard-connection.js';
 
 const KEYS = ['CLICKHOUSE_URL', 'CLICKHOUSE_HOST', 'CLICKHOUSE_DATABASE', 'CLICKHOUSE_USERNAME', 'CLICKHOUSE_USER', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_PASS'];
 let saved: Record<string, string | undefined>;
@@ -50,5 +50,18 @@ describe('onboardConnectionFromEnv', () => {
     const input = { host: 'http://h', database: 'd', username: 'u', password: 'one' };
     expect(connectionFingerprint(input)).toBe(connectionFingerprint({ ...input, password: 'two' }));
     expect(connectionFingerprint(input)).not.toBe(connectionFingerprint({ ...input, database: 'e' }));
+  });
+});
+
+describe('cleartextCredentialsWarning', () => {
+  it('warns for plain http to a host that is not loopback', () => {
+    expect(cleartextCredentialsWarning('http://ch.internal:8123')).toContain('travel unencrypted');
+    expect(cleartextCredentialsWarning('http://10.0.0.5:8123')).toContain('10.0.0.5');
+  });
+
+  it('is silent for https and for loopback hosts', () => {
+    for (const host of ['https://ch.example.com:8443', 'http://localhost:8123', 'http://127.0.0.1:8123', 'http://[::1]:8123', 'http://ch.localhost:8123']) {
+      expect(cleartextCredentialsWarning(host)).toBeUndefined();
+    }
   });
 });

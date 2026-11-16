@@ -1,6 +1,6 @@
 import type { ProtocolDeploymentContract } from '@hypequery/protocol';
 import { isTenantKeyCandidateName } from '../tenant-key-candidates.js';
-import type { DiscoveredSchema, JoinSplit, SamplePolicy } from './engine-types.js';
+import type { DiscoveredSchema, JoinKey, JoinSplit, SamplePolicy } from './engine-types.js';
 
 /**
  * Report helpers. Everything `--json` prints may be read by a coding agent and
@@ -25,8 +25,12 @@ export function withoutCustomerOnly<T extends object>(value: T): T {
  * the sample policy like any sampled value: when `valuesShown` says the
  * column's samples are withheld, the groups keep their counts and lose their
  * values, and the split says so with `valuesWithheld`.
+ *
+ * The engine also writes the matching values into the candidate's `reason`
+ * ("... only where orders.region is emea or apac; ..."), so with the values
+ * withheld the reason is rebuilt without them.
  */
-export function withPolicySplit<T extends { readonly split?: JoinSplit }>(
+export function withPolicySplit<T extends { readonly split?: JoinSplit; readonly reason?: string; readonly child?: JoinKey; readonly parent?: JoinKey }>(
   value: T,
   valuesShown: (table: string, column: string) => boolean,
 ): T {
@@ -34,12 +38,64 @@ export function withPolicySplit<T extends { readonly split?: JoinSplit }>(
   if (!split || valuesShown(split.table, split.column)) return value;
   return {
     ...value,
+    ...(typeof value.reason === 'string' ? { reason: withheldSplitReason(value, split) } : {}),
     split: {
       ...split,
       groups: split.groups.map(group => ({ childRows: group.childRows, matchedRows: group.matchedRows })),
       valuesWithheld: true,
     },
   };
+}
+
+/** The engine's split reason without the split column's values. */
+function withheldSplitReason(value: { readonly child?: JoinKey; readonly parent?: JoinKey }, split: JoinSplit): string {
+  const join = value.child && value.parent
+    ? `${value.child.table}.${value.child.column} matches ${value.parent.table}.${value.parent.column}`
+    : 'The join matches';
+  return `${join} only for some values of ${split.table}.${split.column} (values withheld by the sample policy); other rows don't match. `
+    + 'Whether to join for those rows is a question for the user.';
+}
+
+/**
+ * A partition ID is built from the partition key's values (a tenant ID when a
+ * table is partitioned by tenant), so it follows the sample policy too: it is
+ * shown only when every column the partition key names may show its samples.
+ * It is withheld under `--samples none`, and under `detected` when the key
+ * names no column of the table; `--samples all` shows it.
+ */
+export function partitionIdShown(
+  schema: DiscoveredSchema,
+  mode: SampleMode,
+  withheld: (table: string, column: string) => boolean,
+): (table: string) => boolean {
+  return (name) => {
+    if (mode === 'all') return true;
+    if (mode === 'none') return false;
+    const table = schema.tables.find(item => item.name === name);
+    const key = typeof table?.partitionKey === 'string' ? table.partitionKey : '';
+    const identifiers = new Set(key.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []);
+    const columns = (table?.columns ?? []).filter(column => identifiers.has(column.name));
+    return columns.length > 0 && columns.every(column => !withheld(name, column.name));
+  };
+}
+
+/**
+ * A table, grain check or join with its partition ID removed when `shown`
+ * says so: the table's `recentPartitionId` and a sample scope's `partitionId`.
+ */
+export function withPolicyPartition<T extends object>(value: T, table: string | undefined, shown: (table: string) => boolean): T {
+  if (table === undefined || shown(table)) return value;
+  const copy = { ...value } as Record<string, unknown>;
+  const hadPartition = 'recentPartitionId' in copy;
+  delete copy.recentPartitionId;
+  if (hadPartition) copy.recentPartitionWithheld = true;
+  const scope = copy.scope;
+  if (scope && typeof scope === 'object' && 'partitionId' in scope) {
+    const { partitionId: _partitionId, ...rest } = scope as Record<string, unknown>;
+    void _partitionId;
+    copy.scope = { ...rest, partitionWithheld: true };
+  }
+  return copy as T;
 }
 
 /** A contract with no datasets: column role hints before any model exists. */
