@@ -20,6 +20,7 @@ from hypequery.mcp import (
     McpPrincipal,
     format_business_context,
 )
+from hypequery.mcp.manifest import LIST_DATASETS_DESCRIPTION
 from hypequery.mcp.utils.business_context import (
     LIST_DATASETS_CONTEXT_INLINE_BYTES,
     list_datasets_business_context,
@@ -86,7 +87,9 @@ def test_the_tool_and_list_datasets_additions_match_typescript() -> None:
         SNAPSHOT["getBusinessContextTool"]
     )
     listing = advertised["list_datasets"]
-    assert listing["description"] == SNAPSHOT["listDatasetsDescription"]
+    # The bridge keeps its client-contract sentence and adds TypeScript's clause.
+    clause = SNAPSHOT["listDatasetsDescription"].split(", with the ", 1)[1]
+    assert listing["description"] == f"{LIST_DATASETS_DESCRIPTION} Also returns the {clause}."
     success = listing["outputSchema"]["oneOf"][0]
     assert json.dumps(success["properties"]["businessContext"]) == json.dumps(
         SNAPSHOT["listDatasetsBusinessContextSchema"]
@@ -206,6 +209,53 @@ def test_a_large_context_lists_only_its_summary() -> None:
     assert "glossary" not in listed
     full = structured(run(lambda: executor.call_tool("get_business_context")))
     assert len(full["businessContext"]["glossary"]) == 10
+
+
+def test_a_context_at_the_v1_ceiling_is_readable_in_full() -> None:
+    # Over half the 1 MiB response budget, so its text-plus-structured response is
+    # over it: get_business_context must still return the whole document.
+    meaning = "y" * 4_096
+    document = {
+        **HEADER,
+        "summary": "At the ceiling.",
+        "goals": [meaning] * 30,
+        "glossary": [{"term": f"Term {index}", "meaning": meaning} for index in range(100)],
+    }
+    executor = connect(document)
+    listed = structured(run(lambda: executor.call_tool("list_datasets")))["businessContext"]
+    assert listed["truncated"] is True
+    got = run(lambda: executor.call_tool("get_business_context"))
+    assert "isError" not in got
+    assert len(json.dumps(got).encode("utf-8")) > 1_048_576
+    full = structured(got)["businessContext"]
+    assert len(full["glossary"]) == 100
+    assert len(full["goals"]) == 30
+
+
+def test_tool_results_do_not_share_the_executors_document() -> None:
+    async def session() -> None:
+        api, _ = build_api()
+        executor = await ClientContractExecutor.create(
+            ApiContractBackend(api, headers=READER), business_context=CONTEXT
+        )
+        for name in ("list_datasets", "get_business_context"):
+            first = structured(await executor.call_tool(name))["businessContext"]
+            first["glossary"][0]["meaning"] = "changed"
+            first["caveats"].append("injected")
+            again = structured(await executor.call_tool(name))["businessContext"]
+            assert again == EXPECTED
+
+    asyncio.run(session())
+
+
+def test_executor_factories_keep_their_own_copy_of_the_context() -> None:
+    api, _ = build_api()
+    document = {**HEADER, "summary": "Owned.", "caveats": ["First."]}
+    factory = ApiExecutorFactory(api, headers=READER, business_context=document)
+    cast(list[str], document["caveats"]).append("   ")
+    executor = run(lambda: factory(McpPrincipal(subject="alice"), dict))
+    got = structured(run(lambda: executor.call_tool("get_business_context")))
+    assert got == {"businessContext": {"summary": "Owned.", "caveats": ["First."]}}
 
 
 def test_executor_factories_pass_the_context_on() -> None:

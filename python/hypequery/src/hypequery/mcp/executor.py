@@ -47,6 +47,7 @@ from .responses import (
 from .utils.arguments import tool_arguments
 from .utils.business_context import (
     McpBusinessContext,
+    copy_business_context,
     list_datasets_business_context,
     resolve_mcp_business_context,
 )
@@ -304,8 +305,13 @@ class ClientContractExecutor:
         await self._current()
         value: dict[str, object]
         if context and self._business_context is not None:
-            value = {"businessContext": dict(self._business_context)}
-        elif plan is not None:
+            # The document was bounded when the executor was built (at most 1 MiB
+            # canonical, the business context v1 ceiling), and the response carries
+            # it twice (text and structured). Checking it against the per-query
+            # response budget would refuse a valid document that `list_datasets`
+            # points the agent at, so, as in `@hypequery/mcp`, it is returned whole.
+            return tool_response({"businessContext": copy_business_context(self._business_context)})
+        if plan is not None:
             endpoint = plan["endpoint"]
             response = await self._backend.query(
                 endpoint["path"],

@@ -7,6 +7,7 @@ only, so it never changes the manifest hash or what a query returns.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping
 from typing import Any
 
@@ -48,11 +49,17 @@ def resolve_mcp_business_context(
     return {key: value for key, value in validated.items() if key not in ("kind", "version")}
 
 
+def copy_business_context(context: McpBusinessContext) -> McpBusinessContext:
+    """A deep copy, so a tool result never shares lists or entries with the executor's document."""
+
+    return copy.deepcopy(context)
+
+
 def list_datasets_business_context(context: McpBusinessContext) -> dict[str, object]:
     """The context `list_datasets` returns: all of it when small, else the summary and a pointer."""
 
     if len(compact_json(context).encode("utf-8")) <= LIST_DATASETS_CONTEXT_INLINE_BYTES:
-        return dict(context)
+        return copy_business_context(context)
     listed: dict[str, object] = {}
     if "summary" in context:
         listed["summary"] = context["summary"]

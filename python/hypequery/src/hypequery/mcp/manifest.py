@@ -270,10 +270,12 @@ LIST_DATASETS_DESCRIPTION = (
     "List authorized dataset groups with their descriptions, including "
     "metric-only groups whose queryable flag is false."
 )
-#: `@hypequery/mcp`'s wording when `list_datasets` carries business context.
+#: The client-contract wording plus `@hypequery/mcp`'s business-context clause.
+#: The bridge keeps its own first sentence: it lists an authorized subset, which
+#: may include metric-only groups, not every dataset in the semantic layer.
 LIST_DATASETS_WITH_CONTEXT_DESCRIPTION = (
-    "List all available datasets in the semantic layer, with the business context "
-    "(KPIs, glossary, conventions, caveats) to interpret them"
+    f"{LIST_DATASETS_DESCRIPTION} Also returns the business context "
+    "(KPIs, glossary, conventions, caveats) to interpret them."
 )
 
 

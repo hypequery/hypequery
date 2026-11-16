@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
+from ..protocol import validate_protocol_business_context
 from ..serve import Api
 from .backends import ApiContractBackend, BackendHeaders, HttpContractBackend
 from .budgets import CatalogBudget, ExecutionBudget, QueryLimits
@@ -14,6 +15,21 @@ from .executor import ClientContractExecutor
 from .http_auth import ApiAuthenticator, McpAuthenticator, McpPrincipal
 from .utils.business_context import resolve_mcp_business_context
 from .utils.oauth import ProtectedResource
+
+
+def _owned_business_context(
+    document: Mapping[str, object] | None,
+) -> Mapping[str, object] | None:
+    """Validate *document* now and return a fresh copy the factory owns.
+
+    Raises `ProtocolBusinessContextError` for an invalid document, so a factory
+    refuses it at construction rather than on the first session.
+    """
+
+    if document is None:
+        return None
+    resolve_mcp_business_context(document)
+    return validate_protocol_business_context(dict(document))
 
 
 class ApiExecutorFactory:
@@ -46,10 +62,10 @@ class ApiExecutorFactory:
     ) -> None:
         if not isinstance(api, Api):
             raise TypeError("ApiExecutorFactory serves a hypequery.serve Api")
-        # Refuse an invalid document now rather than on the first session.
-        resolve_mcp_business_context(business_context)
+        # Refuse an invalid document now rather than on the first session, and keep
+        # the validated copy so later edits to the caller's dict change nothing.
+        self._business_context = _owned_business_context(business_context)
         self._api = api
-        self._business_context = business_context
         self._headers = headers
         self._execution_budget = execution_budget
         self._query_limits = query_limits
@@ -88,10 +104,9 @@ class HttpExecutorFactory:
     ) -> None:
         # Validates the URL and the context now rather than on the first session.
         HttpContractBackend(url, headers=headers)
-        resolve_mcp_business_context(business_context)
+        self._business_context = _owned_business_context(business_context)
         self._url = url
         self._headers = dict(headers or {})
-        self._business_context = business_context
 
     async def __call__(
         self, principal: McpPrincipal, credentials: Callable[[], Mapping[str, str]]
