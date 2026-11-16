@@ -55,6 +55,7 @@ import {
   isJsonOutput,
 } from './utils/machine-output.js';
 import { telemetryErrorCode } from './utils/telemetry/error-code.js';
+import { terminalText } from './utils/terminal-text.js';
 
 const program = new Command();
 
@@ -164,7 +165,9 @@ function runCommand<TArgs extends unknown[]>(
       const telemetryCode = isCliError(error) ? error.telemetryCode : telemetryErrorCode(error);
       const exitClass = isCliError(error) ? error.exitClass : exitClassFor(telemetryCode, error);
       if (isJsonOutput()) emitError(errorEnvelope(error, exitClass, envelopeCode(telemetryCode)));
-      console.error(error instanceof Error ? error.message : error);
+      // Error messages can quote ClickHouse or Cloud text: no control characters reach the terminal.
+      const message = error instanceof Error ? error.message : error;
+      console.error(typeof message === 'string' ? terminalText(message, { multiline: true }) : message);
       throw new CommandExit(EXIT_CODES[exitClass], 'failure', telemetryCode);
     }
     if (!isJsonOutput()) return;

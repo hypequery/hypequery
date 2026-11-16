@@ -1,4 +1,5 @@
 import { readCapped } from '../read-capped.js';
+import { terminalText } from '../terminal-text.js';
 import type {
   ClickHouseConnectionErrorClass,
   ClickHouseConnectionInput,
@@ -11,10 +12,13 @@ const ACCESS_CODES = new Set([192, 194, 497, 516]);
 const MAX_MESSAGE_CHARS = 300;
 export const USERNAME_COLON = 'CLICKHOUSE_USERNAME contains ":", which HTTP basic authentication cannot send. Connect as a ClickHouse user whose name has no colon.';
 
-/** ClickHouse's own message: the first line, without the `Code: N. DB::Exception:` prefix or version. */
+/**
+ * ClickHouse's own message: the first line, without the `Code: N. DB::Exception:`
+ * prefix or version, and without control characters (it reaches a terminal).
+ */
 export function clickHouseMessage(body: string): string {
   const line = body.trim().split('\n')[0] ?? '';
-  const text = line
+  const text = terminalText(line)
     .replace(/^Code:\s*\d+\.\s*/, '')
     .replace(/^DB::Exception:\s*/, '')
     .replace(/\s*\(version [^()]*(?:\([^()]*\))?\)\s*$/, '')
@@ -23,9 +27,14 @@ export function clickHouseMessage(body: string): string {
   return text.length > MAX_MESSAGE_CHARS ? `${text.slice(0, MAX_MESSAGE_CHARS - 1)}…` : text;
 }
 
+export const REDIRECT_REFUSED = 'ClickHouse answered with a redirect, which the CLI does not follow: it would resend the credentials to another address. '
+  + 'Set CLICKHOUSE_URL to the address the HTTP interface serves directly.';
+
 function networkMessage(error: unknown): string {
-  const cause = (error as { cause?: { code?: unknown } } | undefined)?.cause;
+  const cause = (error as { cause?: { code?: unknown; message?: unknown } } | undefined)?.cause;
   const code = typeof cause?.code === 'string' ? cause.code : '';
+  // fetch with `redirect: 'error'` fails with "fetch failed" caused by "unexpected redirect".
+  if (typeof cause?.message === 'string' && /redirect/i.test(cause.message)) return REDIRECT_REFUSED;
   if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return 'Could not resolve the ClickHouse host. Check CLICKHOUSE_URL.';
   if (code === 'ECONNREFUSED') return 'Connection to ClickHouse was refused. Check CLICKHOUSE_URL and that the server is running.';
   return 'Could not connect to ClickHouse. Check CLICKHOUSE_URL and network access.';
@@ -74,6 +83,8 @@ export function createClickHouseHttpQuery(
           'Content-Type': 'text/plain; charset=utf-8',
         },
         body: sql,
+        // A redirect would resend the Authorization header to wherever it points.
+        redirect: 'error',
         signal: controller.signal,
       });
     } catch (error) {
