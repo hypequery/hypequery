@@ -15,7 +15,10 @@
  * validators a query is checked against have to come from one catalog.
  *
  * So this shares the schema compiler and the catalog tools, and refuses the two
- * tools that need a query engine. Listing a tool it will not run is deliberate:
+ * tools that need a query engine. Business context is guidance, not a query, so
+ * a gateway passes the release's document and it is served exactly as
+ * `HypequeryMCPExecutor` serves it: in `list_datasets` and from
+ * `get_business_context`. Listing a tool it will not run is deliberate:
  * the manifest a client caches must be the one it will keep seeing once
  * execution is wired in behind it, or every client re-lists on the day that
  * lands.
@@ -28,9 +31,11 @@ import type {
   ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { CanonicalSemanticQuerySchemas } from '@hypequery/datasets/schemas';
+import type { ProtocolBusinessContext } from '@hypequery/protocol';
 import { MCPToolError } from './errors.js';
 import type { MCPToolExecutor } from './executor.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
+import { getBusinessContextTool } from './tools/get-business-context.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { buildMCPToolManifest } from './tools/tool-manifest.js';
@@ -42,6 +47,7 @@ import {
 } from './tools/utils/catalog-budget.js';
 import { createMCPErrorResponse } from './tools/utils/tool-response.js';
 import type { DatasetRegistry, MCPCatalogBudget, MCPQueryLimits } from './types.js';
+import { resolveMCPBusinessContext, type MCPBusinessContext } from './utils/business-context.js';
 
 /**
  * Provenance a client needs to cache a manifest and know when it went stale.
@@ -85,6 +91,15 @@ export interface MCPDiscoveryExecutorConfig {
   catalogBudget?: MCPCatalogBudget;
   /** Attached to `listTools`, so a client can pin what it listed. */
   meta?: MCPToolManifestMeta;
+  /**
+   * Reviewed business context published with the deployment (from
+   * `defineBusinessContext`, or a version 2 bundle's `business-context.json`).
+   * `list_datasets` carries it and `get_business_context` returns it, as with
+   * `createMCPExecutor`. Pass it only to callers who may read it: unlike the
+   * catalog, it is not narrowed by `datasets`. Guidance only, so it never
+   * changes the manifest hash.
+   */
+  businessContext?: ProtocolBusinessContext;
 }
 
 const NOT_EXECUTABLE =
@@ -103,14 +118,17 @@ function metaEntries(meta: MCPToolManifestMeta | undefined): Record<string, stri
 /**
  * A read-only executor over a catalog.
  *
- * `list_datasets`, `get_dataset_schema`, and the prompts read the agent-safe
- * catalog and need no query engine, so they answer normally. `query_dataset`
- * and `query_metric` are advertised with their exact schemas and refuse.
+ * `list_datasets`, `get_dataset_schema`, `get_business_context` and the prompts
+ * read the agent-safe catalog or the configured context and need no query
+ * engine, so they answer normally. `query_dataset` and `query_metric` are
+ * advertised as the local executor advertises them (the model-ready form of
+ * the exact schema) and refuse.
  */
 export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
   private readonly querySchemas: CanonicalSemanticQuerySchemas;
   private readonly catalogBudget: EffectiveCatalogBudget;
   private readonly meta: Record<string, string> | undefined;
+  private readonly businessContext: MCPBusinessContext | undefined;
 
   constructor(private readonly config: MCPDiscoveryExecutorConfig) {
     // Deliberately no tenant assertion. A gateway has no fixed tenant to
@@ -122,6 +140,7 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
     );
     this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
     this.meta = metaEntries(config.meta);
+    this.businessContext = resolveMCPBusinessContext(config.businessContext);
   }
 
   /** The catalog these tools were compiled from, for caching by content. */
@@ -133,7 +152,9 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
     // Budgeted before `_meta` is attached, so the ceiling measures the catalog
     // rather than the provenance a gateway chose to stamp on it.
     const manifest = assertManifestWithinBudget(
-      buildMCPToolManifest(this.querySchemas),
+      buildMCPToolManifest(this.querySchemas, {
+        businessContext: this.businessContext !== undefined,
+      }),
       this.catalogBudget,
     );
     return this.meta === undefined ? manifest : { ...manifest, _meta: this.meta };
@@ -143,7 +164,13 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
     try {
       switch (name) {
         case 'list_datasets':
-          return await listDatasetsTool(this.config.datasets);
+          return await listDatasetsTool(this.config.datasets, this.businessContext);
+
+        case 'get_business_context':
+          if (this.businessContext === undefined) {
+            throw new MCPToolError('MCP_UNKNOWN_TOOL', `Unknown tool: ${name}`);
+          }
+          return await getBusinessContextTool(this.businessContext);
 
         case 'get_dataset_schema':
           return await getDatasetSchemaTool(this.config.datasets, args);

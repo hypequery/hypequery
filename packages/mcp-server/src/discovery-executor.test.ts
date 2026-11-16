@@ -208,3 +208,72 @@ describe('HypequeryMCPDiscoveryExecutor', () => {
       .not.toBe(createMCPDiscoveryExecutor({ datasets: datasets() }).getManifestHash());
   });
 });
+
+describe('HypequeryMCPDiscoveryExecutor business context', () => {
+  const businessContext = {
+    kind: 'hypequery-business-context',
+    version: 1,
+    summary: 'B2B analytics platform sold per seat.',
+    kpis: [{ name: 'Net revenue', definition: 'Gross revenue minus refunds, in USD.' }],
+    glossary: [{ term: 'Workspace', meaning: 'One paying customer account.' }],
+  } as const;
+
+  function structured(result: { structuredContent?: unknown }): Record<string, unknown> {
+    return result.structuredContent as Record<string, unknown>;
+  }
+
+  it('serves it exactly as the executor that can run queries does', async () => {
+    // A gateway's agents read the same tools and the same context as a local
+    // server's, so an SDK can't tell the two apart.
+    const discovery = createMCPDiscoveryExecutor({ datasets: datasets(), businessContext });
+    const full = new HypequeryMCPExecutor({
+      datasets: datasets() as never, analytics: {} as never, tenantId: 'acme', businessContext,
+    });
+
+    const { _meta: _discoveryMeta, ...listed } = await discovery.listTools();
+    expect(listed).toEqual(await full.listTools());
+    expect(listed.tools.at(-1)?.name).toBe('get_business_context');
+
+    for (const tool of ['list_datasets', 'get_business_context']) {
+      expect(await discovery.callTool(tool)).toEqual(await full.callTool(tool));
+    }
+    const { kind: _kind, version: _version, ...expected } = businessContext;
+    expect(structured(await discovery.callTool('get_business_context')))
+      .toEqual({ businessContext: expected });
+  });
+
+  it('never changes the manifest hash, because it is guidance, not a query', () => {
+    const without = createMCPDiscoveryExecutor({ datasets: datasets() });
+    const withContext = createMCPDiscoveryExecutor({ datasets: datasets(), businessContext });
+
+    expect(withContext.getManifestHash()).toBe(without.getManifestHash());
+  });
+
+  it('adds nothing without context, or with an empty document', async () => {
+    for (const executor of [
+      createMCPDiscoveryExecutor({ datasets: datasets() }),
+      createMCPDiscoveryExecutor({
+        datasets: datasets(),
+        businessContext: { kind: 'hypequery-business-context', version: 1 },
+      }),
+    ]) {
+      expect((await executor.listTools()).tools.map(tool => tool.name))
+        .not.toContain('get_business_context');
+      expect(structured(await executor.callTool('list_datasets')))
+        .not.toHaveProperty('businessContext');
+      expect(structured(await executor.callTool('get_business_context')))
+        .toMatchObject({ error: { code: 'MCP_UNKNOWN_TOOL' } });
+    }
+  });
+
+  it('rejects an invalid document at construction', () => {
+    expect(() => createMCPDiscoveryExecutor({
+      datasets: datasets(),
+      businessContext: {
+        kind: 'hypequery-business-context',
+        version: 1,
+        glossary: [{ term: 'Seat', meaning: 'A user' }, { term: 'Seat', meaning: 'Twice' }],
+      },
+    })).toThrow();
+  });
+});
