@@ -4,6 +4,7 @@ import { program } from '../cli.js';
 import { CliError } from '../utils/cli-error.js';
 import { emitError, enableJsonOutput, errorEnvelope, flushJsonOutput } from '../utils/machine-output.js';
 import { loadEnvFiles } from '../utils/load-env-files.js';
+import { recordShellEnvironment } from '../utils/env-provenance.js';
 import { CommandExit, finishAndExit, installCommandExitFinalizer } from '../utils/command-exit.js';
 import { CommandLifecycle } from '../utils/telemetry/lifecycle.js';
 import { telemetryErrorCode } from '../utils/telemetry/error-code.js';
@@ -15,6 +16,9 @@ import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
 
 async function loadEnv() {
+  // Before any file is read: credential resolution must know which Cloud
+  // URLs came from the shell and which from a project .env.
+  recordShellEnvironment();
   try {
     const dotenvx = await import('@dotenvx/dotenvx');
     if (dotenvx?.config && typeof dotenvx.config.load === 'function') {

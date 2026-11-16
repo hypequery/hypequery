@@ -7,6 +7,7 @@ import {
 } from './cloud-deployment-access.js';
 import type { StoredCloudCredential } from './cloud-credential-store.js';
 import type { StoredManagementCredential } from './management-token-store.js';
+import { envFileVariableNames, recordShellEnvironment, resetShellEnvironment } from './env-provenance.js';
 
 const MANAGEMENT_TOKEN = `hqmt_v1_${'m'.repeat(43)}`;
 const DEPLOY_KEY = `hqdp_v1_${'d'.repeat(43)}`;
@@ -176,6 +177,62 @@ describe('resolveDeploymentCredential', () => {
       loadCredential: async () => null,
       loadManagementCredential: async () => null,
     })).rejects.toMatchObject({ code: 'CLOUD_NOT_SIGNED_IN', exitClass: 'auth', hint: expect.stringContaining('--device') });
+  });
+});
+
+describe('HYPEQUERY_API_TOKEN and destinations from a project .env file', () => {
+  const fileOnly = (...names: string[]) => new Set(names);
+
+  it('refuses to send a shell token to a HYPEQUERY_CLOUD_URL a .env file set', async () => {
+    await expect(resolveDeploymentCredential(undefined, {
+      env: { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_CLOUD_URL: 'https://attacker.example.test' },
+      envFileVariables: fileOnly('HYPEQUERY_CLOUD_URL'),
+      ...untouchedStores(),
+    })).rejects.toMatchObject({ code: 'CLOUD_URL_FROM_ENV_FILE', exitClass: 'auth' });
+  });
+
+  it('refuses to send a shell token to a HYPEQUERY_DEPLOYMENT_ENDPOINT a .env file set', async () => {
+    await expect(resolveDeploymentCredential(undefined, {
+      env: { HYPEQUERY_API_TOKEN: 'opaque-token', HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://attacker.example.test/x' },
+      envFileVariables: fileOnly('HYPEQUERY_DEPLOYMENT_ENDPOINT'),
+      ...untouchedStores(),
+    })).rejects.toThrow(/HYPEQUERY_DEPLOYMENT_ENDPOINT comes from a \.env file/);
+  });
+
+  it('allows a destination from the shell, from --endpoint, or with the token from a .env file too', async () => {
+    const env = { HYPEQUERY_API_TOKEN: DEPLOY_KEY, HYPEQUERY_CLOUD_URL: 'http://localhost:3000' };
+    await expect(resolveDeploymentCredential(undefined, { env, envFileVariables: fileOnly(), ...untouchedStores() }))
+      .resolves.toMatchObject({ endpoint: 'http://localhost:3000/v1/deployments/submissions' });
+    await expect(resolveDeploymentCredential(undefined, {
+      env, envFileVariables: fileOnly('HYPEQUERY_CLOUD_URL', 'HYPEQUERY_API_TOKEN'), ...untouchedStores(),
+    })).resolves.toMatchObject({ endpoint: 'http://localhost:3000/v1/deployments/submissions' });
+    await expect(resolveDeploymentCredential('https://deploy.example.test/v1/releases', {
+      env: { ...env, HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://ignored.example.test' },
+      envFileVariables: fileOnly('HYPEQUERY_CLOUD_URL', 'HYPEQUERY_DEPLOYMENT_ENDPOINT'),
+      ...untouchedStores(),
+    })).resolves.toMatchObject({ endpoint: 'https://deploy.example.test/v1/releases' });
+  });
+
+  it('still lets a .env HYPEQUERY_CLOUD_URL pick which stored sign-in to use', async () => {
+    await expect(resolveDeploymentCredential(undefined, {
+      env: { HYPEQUERY_CLOUD_URL: 'https://cloud.example.test' },
+      envFileVariables: fileOnly('HYPEQUERY_CLOUD_URL'),
+      loadCredential: vi.fn(async () => null),
+      loadManagementCredential: vi.fn(async () => stored()),
+    })).resolves.toMatchObject({ source: 'management-token', token: MANAGEMENT_TOKEN });
+  });
+
+  it('records which variables an env file added after the shell environment was captured', () => {
+    const env: NodeJS.ProcessEnv = { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_CLOUD_URL: '' };
+    try {
+      expect(envFileVariableNames(env)).toEqual(new Set());
+      recordShellEnvironment(env);
+      env.HYPEQUERY_CLOUD_URL = 'https://attacker.example.test';
+      env.HYPEQUERY_DEPLOYMENT_ENDPOINT = 'https://attacker.example.test/x';
+      expect(envFileVariableNames(env)).toEqual(new Set(['HYPEQUERY_DEPLOYMENT_ENDPOINT']));
+    } finally {
+      resetShellEnvironment();
+    }
   });
 });
 

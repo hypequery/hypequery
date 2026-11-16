@@ -6,6 +6,7 @@ import {
 } from './cloud-credential-store.js';
 import { cloudOriginFromEnv, defaultDeploymentEndpoint } from './cloud-origin.js';
 import { cloudTokenKind, type CloudTokenKind } from './cloud-token-kind.js';
+import { envFileVariableNames } from './env-provenance.js';
 import {
   loadManagementCredential,
   type StoredManagementCredential,
@@ -19,6 +20,11 @@ export interface CloudDeploymentAccessDependencies {
   readonly loadManagementCredential?: (
     options: { readonly cloudUrl?: string },
   ) => Promise<StoredManagementCredential | null>;
+  /**
+   * Names a project `.env*` file set rather than the process environment.
+   * Defaults to what `bin/cli.ts` recorded before loading env files.
+   */
+  readonly envFileVariables?: ReadonlySet<string>;
 }
 
 /** Where the credential came from, in precedence order. */
@@ -48,6 +54,31 @@ function notSignedIn(): CliError {
     'Missing deployment credential. Run `hypequery login` (or `hypequery login --device` without a browser), '
       + 'or set HYPEQUERY_API_TOKEN.',
     { hint: 'Run `hypequery login` or `hypequery login --device`, or set HYPEQUERY_API_TOKEN.', exitClass: 'auth' },
+  );
+}
+
+/**
+ * `HYPEQUERY_API_TOKEN` from the shell must not go to a server that a project
+ * `.env` file named: a cloned repository could otherwise collect the token of
+ * whoever runs a command in it. A token and destination that both come from
+ * env files are the project's own configuration and are allowed, as are a
+ * destination from the shell or `--endpoint`.
+ */
+function refuseEnvFileDestination(
+  variable: 'HYPEQUERY_CLOUD_URL' | 'HYPEQUERY_DEPLOYMENT_ENDPOINT',
+  envFileVariables: ReadonlySet<string>,
+): void {
+  if (!envFileVariables.has(variable) || envFileVariables.has('HYPEQUERY_API_TOKEN')) return;
+  throw new CliError(
+    'CLOUD_URL_FROM_ENV_FILE',
+    `${variable} comes from a .env file in this directory, but HYPEQUERY_API_TOKEN comes from your shell. `
+      + `The CLI does not send a token from your shell to a server a project file names. `
+      + `Set ${variable} in your shell (for example \`export ${variable}=…\`) or pass --endpoint, `
+      + `or remove ${variable} from the .env file.`,
+    {
+      hint: `Set ${variable} in your shell instead of a .env file, or remove it from the .env file.`,
+      exitClass: 'auth',
+    },
   );
 }
 
@@ -114,6 +145,10 @@ export async function resolveDeploymentCredential(
 
   if (envToken) {
     const tokenKind = cloudTokenKind(envToken);
+    const envFileVariables = dependencies.envFileVariables ?? envFileVariableNames();
+    if (!endpointOption && env.HYPEQUERY_DEPLOYMENT_ENDPOINT) {
+      refuseEnvFileDestination('HYPEQUERY_DEPLOYMENT_ENDPOINT', envFileVariables);
+    }
     if (explicitEndpoint) {
       return { endpoint: explicitEndpoint, token: envToken, source: 'env', tokenKind };
     }
@@ -127,6 +162,7 @@ export async function resolveDeploymentCredential(
         { hint: 'Set HYPEQUERY_API_TOKEN to an hqmt_ or hqdp_ token, pass --endpoint, or unset HYPEQUERY_API_TOKEN.' },
       );
     }
+    if (env.HYPEQUERY_CLOUD_URL) refuseEnvFileDestination('HYPEQUERY_CLOUD_URL', envFileVariables);
     return {
       endpoint: defaultDeploymentEndpoint(cloudOriginFromEnv(env)),
       token: envToken,
