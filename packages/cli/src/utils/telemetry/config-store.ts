@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { configDirectory } from '../config-directory.js';
+import { configDirectory, explicitConfigDirectory } from '../config-directory.js';
 import { parseTelemetryConfig, TELEMETRY_SCHEMA_VERSION, type TelemetryConfig } from './config-schema.js';
 import { matchesTelemetryFormat } from './value-formats.js';
 import { acquireSettingsLock, type SettingsLock, type SettingsLockIdentity } from './settings-lock.js';
@@ -45,11 +45,10 @@ export class TelemetryConfigStore {
   private async directory(): Promise<string | null> {
     if (this.dependencies.configDirectory) return this.dependencies.configDirectory;
     const home = this.platform === 'win32' ? this.env.USERPROFILE : this.env.HOME;
-    const explicit = this.env.HYPEQUERY_CONFIG_DIR
-      || (this.platform === 'win32' ? this.env.APPDATA || this.env.LOCALAPPDATA
-        : this.platform !== 'darwin' ? this.env.XDG_CONFIG_HOME : undefined);
-    if (!explicit && (!home || !(await stat(home)).isDirectory())) return null;
-    return configDirectory(this.env, this.platform, home ?? '');
+    const explicit = explicitConfigDirectory(this.env, this.platform);
+    if (explicit) return explicit;
+    if (!home || !(await stat(home)).isDirectory()) return null;
+    return configDirectory(this.env, this.platform, home);
   }
 
   /** Read/create settings only when collection is allowed. All failures fail closed. */
