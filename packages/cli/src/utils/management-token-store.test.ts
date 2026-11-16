@@ -68,6 +68,25 @@ describe('management token store', () => {
     await expect(loadManagementCredential({}, dependencies)).resolves.toEqual(credential());
   });
 
+  it('returns the different token a save replaced for the same origin, so login can revoke it', async () => {
+    const older = `hqmt_v1_${'o'.repeat(43)}`;
+    for (const vault of [true, false]) {
+      const dependencies = await store({ vault });
+      await expect(saveManagementCredential(credential({ token: older }), dependencies))
+        .resolves.not.toHaveProperty('replacedToken');
+      await expect(saveManagementCredential(credential(), dependencies))
+        .resolves.toMatchObject({ replacedToken: older });
+      // Saving the same token again replaces nothing.
+      await expect(saveManagementCredential(credential(), dependencies))
+        .resolves.not.toHaveProperty('replacedToken');
+      // Another origin's token is never reported as replaced.
+      await expect(saveManagementCredential(credential({
+        cloudUrl: 'https://other.example.test',
+        deploymentEndpoint: 'https://other.example.test/v1/deployments/submissions',
+      }), dependencies)).resolves.not.toHaveProperty('replacedToken');
+    }
+  });
+
   it('falls back to an owner-only file when the vault is unavailable', async () => {
     const dependencies = await store({ vault: false });
     await expect(saveManagementCredential(credential(), dependencies))

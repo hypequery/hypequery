@@ -19,7 +19,7 @@ import { CliError, cloudHttpError } from '../utils/cli-error.js';
 import { parseCloudErrorBody } from '../utils/cloud-error-body.js';
 import { isUnattended } from '../utils/input-mode.js';
 import { parseCapabilityList } from '../utils/capability-list.js';
-import { DEFAULT_CLOUD_URL } from '../utils/cloud-origin.js';
+import { cloudOriginFromEnv } from '../utils/cloud-origin.js';
 import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
 import { VaultUnavailableError } from '../utils/cloud-vault.js';
 import {
@@ -31,6 +31,7 @@ import {
   deleteManagementCredentials,
   loadAllManagementCredentials,
   saveManagementCredential,
+  type SavedManagementCredential,
   type StoredManagementCredential,
 } from '../utils/management-token-store.js';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -236,6 +237,31 @@ function tokenResponse(
   };
 }
 
+/**
+ * A new sign-in replaced the stored management token for this origin. The old
+ * one is still live on Cloud for up to 30 days, so revoke it. Best effort:
+ * signing in has already succeeded, and the token expires on its own.
+ */
+async function revokeReplacedManagementToken(
+  origin: string,
+  saved: SavedManagementCredential,
+  dependencies: LoginDependencies,
+): Promise<void> {
+  if (!saved.replacedToken) return;
+  const revoked = await revokeCloudToken(origin, saved.replacedToken, {
+    fetch: dependencies.fetch,
+    requestTimeoutMs: dependencies.requestTimeoutMs,
+  });
+  if (!revoked) {
+    logger.warn('The previous management token for this Cloud could not be revoked; it will expire automatically.');
+  }
+}
+
+function isInvalidScope(body: unknown): boolean {
+  return typeof body === 'object' && body !== null
+    && (body as Record<string, unknown>).error === 'invalid_scope';
+}
+
 function capabilityCap(options: LoginOptions): string[] | undefined {
   return options.capabilities === undefined ? undefined : parseCapabilityList(options.capabilities);
 }
@@ -284,6 +310,7 @@ async function storeBrowserManagementToken(
       if (saved.storage === 'file') {
         logger.warn(`The operating-system credential vault is unavailable, so the management token is stored in ${saved.path} (readable only by you).`);
       }
+      await revokeReplacedManagementToken(origin, saved, dependencies);
       return management;
     } catch (error) {
       if (deployCredentialError) throw error;
@@ -342,6 +369,7 @@ async function deviceLogin(
   });
   if (!credential) throw new Error('Cloud returned an invalid device sign-in response.');
   const saved = await (dependencies.saveManagementCredential ?? saveManagementCredential)(credential);
+  await revokeReplacedManagementToken(origin, saved, dependencies);
   logger.success('Logged in to Hypequery Cloud');
   if (saved.storage === 'file') {
     logger.warn(`The operating-system credential vault is unavailable, so the token is stored in ${saved.path} (readable only by you).`);
@@ -374,9 +402,9 @@ export async function loginCommand(
   options: LoginOptions = {},
   dependencies: LoginDependencies = {},
 ) {
-  const origin = normalizeCloudOrigin(
-    options.cloudUrl ?? process.env.HYPEQUERY_CLOUD_URL ?? DEFAULT_CLOUD_URL,
-  );
+  const origin = options.cloudUrl
+    ? normalizeCloudOrigin(options.cloudUrl)
+    : cloudOriginFromEnv(process.env);
   if (options.device) {
     await deviceLogin(origin, options, dependencies);
     return;
@@ -418,6 +446,9 @@ export async function loginCommand(
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
+  // AG-04: the approval must cover the management token the exchange asks
+  // for, or Cloud refuses the exchange with invalid_scope.
+  authorizeUrl.searchParams.set('management_token', 'true');
   if (environment) authorizeUrl.searchParams.set('environment', environment);
 
   try {
@@ -426,8 +457,7 @@ export async function loginCommand(
     logger.info(`If the browser did not open, visit:\n${authorizeUrl}`);
     const code = await callback.code;
     callback.close();
-    const request = dependencies.fetch ?? fetch;
-    const response = await request(new URL('/api/cli/token', origin), {
+    const exchange = (managementToken: boolean) => (dependencies.fetch ?? fetch)(new URL('/api/cli/token', origin), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -436,15 +466,27 @@ export async function loginCommand(
         code_verifier: verifier,
         redirect_uri: callback.redirectUri,
         // AG-04: also issue a management token. Older Cloud ignores this.
-        management_token: true,
+        ...(managementToken ? { management_token: true } : {}),
       }),
       redirect: 'error',
       signal: AbortSignal.timeout(
         dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
       ),
     });
+    let response = await exchange(true);
+    let rejection: unknown = null;
     if (!response.ok) {
-      const rejection = await boundedJsonResponse(response).catch(() => null);
+      rejection = await boundedJsonResponse(response).catch(() => null);
+      // A Cloud that did not record the approval as covering a management
+      // token refuses with invalid_scope before it claims the code, so the
+      // same code can still be exchanged for the deploy credential alone.
+      if (response.status === 400 && isInvalidScope(rejection)) {
+        logger.warn('Cloud did not approve a management token for this sign-in; continuing with the deploy credential.');
+        response = await exchange(false);
+        rejection = response.ok ? null : await boundedJsonResponse(response).catch(() => null);
+      }
+    }
+    if (!response.ok) {
       // An invalid or expired authorization code (400) means signing in again.
       throw cloudHttpError(
         response.status === 400 ? 401 : response.status,

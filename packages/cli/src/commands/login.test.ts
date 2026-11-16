@@ -149,6 +149,31 @@ describe('Cloud CLI authentication', () => {
     expect(authorizeUrl?.searchParams.get('environment')).toBe('development');
   });
 
+  it('asks the approval page to cover the management token the exchange requests', async () => {
+    const authorizeUrl = await authorizeUrlForLogin();
+
+    expect(authorizeUrl?.searchParams.get('management_token')).toBe('true');
+  });
+
+  it('treats an empty HYPEQUERY_CLOUD_URL as unset, like every other command', async () => {
+    const previous = process.env.HYPEQUERY_CLOUD_URL;
+    process.env.HYPEQUERY_CLOUD_URL = '';
+    try {
+      let authorizeUrl: URL | undefined;
+      await expect(loginCommand({}, {
+        openBrowser: async (input) => {
+          authorizeUrl = new URL(input);
+          throw new Error('stop after the browser opens');
+        },
+        timeoutMs: 2_000,
+      })).rejects.toThrow('stop after the browser opens');
+      expect(authorizeUrl?.origin).toBe('https://cloud.hypequery.com');
+    } finally {
+      if (previous === undefined) delete process.env.HYPEQUERY_CLOUD_URL;
+      else process.env.HYPEQUERY_CLOUD_URL = previous;
+    }
+  });
+
   it('rejects an invalid explicit deployment environment before opening a browser', async () => {
     const openBrowser = vi.fn();
 

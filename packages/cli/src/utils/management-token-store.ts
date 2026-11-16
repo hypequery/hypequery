@@ -203,14 +203,25 @@ async function deleteVaultToken(origin: string, dependencies: ManagementTokenSto
   }
 }
 
+export interface SavedManagementCredential {
+  readonly storage: ManagementTokenStorage;
+  readonly path: string;
+  /**
+   * The different token this save replaced for the same origin, still live on
+   * Cloud. The caller revokes it; the store only forgets it.
+   */
+  readonly replacedToken?: string;
+}
+
 /**
  * Stores a management token for its Cloud origin and makes that origin the
- * default. Returns where the token went, so `login` can say when it is a file.
+ * default. Returns where the token went, so `login` can say when it is a file,
+ * and the token it replaced, so `login` can revoke it.
  */
 export async function saveManagementCredential(
   credential: StoredManagementCredential,
   dependencies: ManagementTokenStoreDependencies = {},
-): Promise<{ readonly storage: ManagementTokenStorage; readonly path: string }> {
+): Promise<SavedManagementCredential> {
   const { directory, file } = location(dependencies);
   const origin = normalizeCloudOrigin(credential.cloudUrl);
   if (!isManagementTokenValue(credential.token) || !Number.isFinite(Date.parse(credential.expiresAt))) {
@@ -264,11 +275,17 @@ export async function saveManagementCredential(
       }
       throw error;
     }
+    const previousEntry = previous?.origins[origin];
+    const replaced = previousEntry?.storage === 'file' ? previousEntry.token : previousPassword ?? undefined;
     // A token that moved from the vault to the file must not linger in the vault.
-    if (storage === 'file' && previous?.origins[origin]?.storage === 'vault') {
+    if (storage === 'file' && previousEntry?.storage === 'vault') {
       await deleteVaultToken(origin, dependencies);
     }
-    return { storage, path: file };
+    return {
+      storage,
+      path: file,
+      ...(replaced && replaced !== credential.token && isManagementTokenValue(replaced) ? { replacedToken: replaced } : {}),
+    };
   });
 }
 

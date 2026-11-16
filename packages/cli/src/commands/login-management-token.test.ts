@@ -129,6 +129,44 @@ describe('hypequery login --device', () => {
     } satisfies StoredManagementCredential);
   });
 
+  it('revokes the management token a new device sign-in replaced', async () => {
+    const older = `hqmt_v1_${'o'.repeat(43)}`;
+    const cloud = deviceCloud(() => approved());
+    const deletes: Array<{ url: string; authorization: string }> = [];
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        deletes.push({ url: String(url), authorization: String((init.headers as Record<string, string>).Authorization) });
+        return new Response(null, { status: 204 });
+      }
+      return cloud.fetch(url, init);
+    });
+    await loginCommand({ cloudUrl: ORIGIN, device: true }, deviceDependencies(cloud, {
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      saveManagementCredential: vi.fn(async () => ({ storage: 'vault' as const, path: '/x', replacedToken: older })),
+    }));
+    expect(deletes).toEqual([{ url: `${ORIGIN}/api/cli/token`, authorization: `Bearer ${older}` }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('still signs in when the replaced management token cannot be revoked, and never prints it', async () => {
+    const older = `hqmt_v1_${'o'.repeat(43)}`;
+    const cloud = deviceCloud(() => approved());
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === 'DELETE') throw new TypeError('fetch failed');
+      return cloud.fetch(url, init);
+    });
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await loginCommand({ cloudUrl: ORIGIN, device: true }, deviceDependencies(cloud, {
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      saveManagementCredential: vi.fn(async () => ({ storage: 'vault' as const, path: '/x', replacedToken: older })),
+    }));
+    const printed = [...stderr.mock.calls, ...vi.mocked(logger.warn).mock.calls].flat().join('\n');
+    stderr.mockRestore();
+    expect(logger.success).toHaveBeenCalledWith('Logged in to Hypequery Cloud');
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not be revoked'));
+    expect(printed).not.toContain(older);
+  });
+
   it('opens a browser only when a person is at the terminal', async () => {
     const headless = deviceDependencies(deviceCloud(() => approved()));
     await loginCommand({ cloudUrl: ORIGIN, device: true }, headless);
@@ -228,6 +266,69 @@ describe('hypequery login (browser) and management tokens', () => {
       signedInWith: 'browser',
     }));
     expect(deleteManagementCredentials).not.toHaveBeenCalled();
+  });
+
+  it('exchanges the code again without a management token when Cloud did not approve one', async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const saveCredential = vi.fn();
+    await loginCommand({ cloudUrl: ORIGIN }, {
+      fetch: vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        bodies.push(body);
+        return body.management_token
+          ? json(400, { error: 'invalid_scope', error_description: 'not approved' })
+          : json(200, tokenResponse());
+      }) as typeof fetch,
+      now: () => NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential,
+      saveManagementCredential: vi.fn(),
+      deleteManagementCredentials: vi.fn(async () => undefined),
+      timeoutMs: 2_000,
+    });
+    expect(bodies.map(body => body.management_token)).toEqual([true, undefined]);
+    expect(bodies[1]?.code).toBe(bodies[0]?.code);
+    expect(saveCredential).toHaveBeenCalledWith(expect.objectContaining({ token: DEPLOY_TOKEN }));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('did not approve a management token'));
+  });
+
+  it('does not retry an exchange Cloud refused for another reason', async () => {
+    const fetch = vi.fn(async () => json(400, { error: 'invalid_grant' }));
+    await expect(loginCommand({ cloudUrl: ORIGIN }, {
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      now: () => NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(),
+      timeoutMs: 2_000,
+    })).rejects.toThrow('Cloud rejected the CLI authorization code');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('revokes the management token a browser sign-in replaced', async () => {
+    const older = `hqmt_v1_${'o'.repeat(43)}`;
+    const revoked: string[] = [];
+    await loginCommand({ cloudUrl: ORIGIN }, {
+      fetch: vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          revoked.push(String((init.headers as Record<string, string>).Authorization));
+          return new Response(null, { status: 204 });
+        }
+        return json(200, tokenResponse({
+          management_token: MANAGEMENT_TOKEN,
+          management_token_expires_at: '2030-01-30T12:00:00.000Z',
+          management_api: `${ORIGIN}/v1`,
+          organization_id: 'org_1',
+          project: 'shop',
+          project_limited: false,
+        }));
+      }) as typeof fetch,
+      now: () => NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(),
+      saveManagementCredential: vi.fn(async () => ({ storage: 'vault' as const, path: '/x', replacedToken: older })),
+      timeoutMs: 2_000,
+    });
+    expect(revoked).toEqual([`Bearer ${older}`]);
   });
 
   it('works against a Cloud without management tokens, dropping any older one for that origin', async () => {
