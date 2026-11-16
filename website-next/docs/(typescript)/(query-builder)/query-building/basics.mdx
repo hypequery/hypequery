@@ -8,14 +8,37 @@ description: Learn the hypequery ClickHouse query builder for TypeScript. Build 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
+## Short answer
+
+The hypequery query builder turns a typed ClickHouse schema into fluent TypeScript queries. Start with `db.table()`,
+add filters and a projection, then call `.execute()`. Table names, column names, filter values, and the returned row
+shape are checked against the generated schema.
+
+<CodeBlock>
+```typescript
+const activeUsers = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name', 'email'])
+  .orderBy('id', 'ASC')
+  .limit(20)
+  .execute();
+```
+</CodeBlock>
+
+This query reads as: take `users`, keep active rows, return three columns, sort by `id`, and stop after 20 rows.
+TypeScript infers the result from those selected columns. A misspelled table or column fails type checking before the
+query reaches ClickHouse.
+
 ## Core Concepts
 
 The query builder is designed to be:
+
 - **Type-safe** - TypeScript ensures columns and types are correct
 - **Fluent** - Chain methods naturally to build complex queries
 - **ClickHouse-first** - Models ClickHouse query building directly instead of pretending every database behaves the same way
 
-## Start with a typed ClickHouse client
+## Create a typed ClickHouse client
 
 Start by generating types from your ClickHouse schema if you have not done so already. See the [CLI reference](/docs/reference/api/cli) for `hypequery generate`.
 
@@ -35,16 +58,12 @@ const client = createClient({
 });
 
 const db = createQueryBuilder<Schema>({ client });
-
-const activeUsers = await db
-  .table('users')
-  .where('status', 'eq', 'active')
-  .select(['id', 'name', 'email'])
-  .execute();
 ```
 </CodeBlock>
 
-When you move into query definitions, the builder chain stays the same. The Query Building section keeps examples in terms of a standalone typed `db` client so the builder API is easier to learn in isolation.
+The `Schema` type is the contract behind the first example. When you move into query definitions, the builder chain
+stays the same. The Query Building section keeps examples in terms of a standalone typed `db` client so the builder API
+is easier to learn in isolation.
 
 ## Query Builder Pattern
 

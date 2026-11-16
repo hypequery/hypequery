@@ -38,7 +38,7 @@ use, with defaults that match `docker-compose.yml`:
 
 ClickHouse is pinned to `clickhouse/clickhouse-server:25.8` (LTS). Bumping it
 is a deliberate change: re-run `seed:write-checksums`, commit the new
-`checksums.json`, and update the "Tested on ClickHouse" line in the guides.
+`checksums.json`, and update the ClickHouse version in the guides.
 
 ## Tables
 

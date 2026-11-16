@@ -126,4 +126,4 @@ st.download_button ◀── DataFrame.to_csv()
 - [django-analytics](../django-analytics): the same measures served as tenant-scoped JSON from Django views.
 - [fastapi-analytics-api](../fastapi-analytics-api): the same datasets behind a FastAPI API with JWT tenant scoping.
 
-Tested on ClickHouse 25.8 with `hypequery` 0.1.0b3 (PyPI), Streamlit 1.67, pandas 3.1 and Python 3.12.
+Versions used: ClickHouse 25.8, `hypequery` 0.1.0b3 (PyPI), Streamlit 1.67, pandas 3.1 and Python 3.12.

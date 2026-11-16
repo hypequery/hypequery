@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { disableJsonOutput, enableJsonOutput } from '../utils/machine-output.js';
 import type { DiscoveredSchema, OnboardEngine, OnboardEngineModules } from '../utils/onboard/engine-types.js';
-import { onboardCommand, schemaCommand } from './onboard.js';
+import { CHECK_JOINS_BUDGET_MS, onboardCommand, schemaCommand } from './onboard.js';
 
 vi.mock('../utils/logger.js', () => ({
   logger: { header: vi.fn(), success: vi.fn(), info: vi.fn(), indent: vi.fn(), warn: vi.fn(), error: vi.fn(), newline: vi.fn() },
@@ -30,6 +30,9 @@ const SCHEMA: DiscoveredSchema = {
         { name: 'tenant_id', type: 'String', comment: '', supported: true },
         { name: 'customer_id', type: 'UInt64', comment: '', supported: true },
         { name: 'email', type: 'String', comment: '', supported: true, stats: { distinct: 3, samples: ['a@x.com'] } },
+        { name: 'region', type: 'LowCardinality(String)', comment: '', supported: true, stats: { distinct: 2, samples: ['emea'] } },
+        { name: 'channel', type: "Enum8('web' = 1, 'app' = 2)", comment: '', supported: true },
+        { name: 'amount', type: 'Float64', comment: '', supported: true },
       ],
     },
     { name: 'customers', comment: '', supported: true, rows: 3, engine: 'MergeTree', columns: [{ name: 'id', type: 'UInt64', comment: '', supported: true }] },
@@ -93,7 +96,20 @@ function fakeEngine(overrides: Partial<{ [K in keyof OnboardEngineModules]: Part
         { table: table.name, column: 'x', candidates: [], ambiguous: false, kind: 'metadata-hint' },
       ],
     },
+    'join-sql': {
+      keyFamily: (column: { type: string }) => (/Int/.test(column.type) ? 'integer' : /^(LowCardinality\()?String/.test(column.type) ? 'text' : undefined),
+      keyColumn: (table: { columns: { name: string; type: string; supported: boolean }[] }, name: string) =>
+        table.columns.find(column => column.name === name && column.supported && /Int|String/.test(column.type)),
+      declaredValues: (column: { type: string }) => /^Enum|^Bool/.test(column.type),
+    },
     'sample-policy': {
+      // Withholds a column's samples under `none`, or under `detected` when they look like an email.
+      withheldBy: (schema: DiscoveredSchema, policy: { mode: string }) => (table: string, column: string) => {
+        if (policy.mode === 'none') return true;
+        if (policy.mode === 'all') return false;
+        const found = schema.tables.find(item => item.name === table)?.columns.find(item => item.name === column);
+        return !found || (found.stats?.samples ?? []).some(sample => sample.includes('@'));
+      },
       schemaForAssistant: (schema: DiscoveredSchema, policy?: { mode: string }) => {
         record('policy', [policy]);
         const { grainChecks: _g, joinCandidates: _j, ...rest } = schema;
@@ -224,14 +240,58 @@ describe('hypequery onboard analyze', () => {
     expect((calls.capabilities![0] as unknown[])[3]).toEqual({ includeQueryLog: false });
   });
 
-  it('warns and skips capability checks when the settings profile is unreadable', async () => {
+  it('fails with CLICKHOUSE_PROFILE_UNREADABLE (not retryable) when the settings profile is unreadable', async () => {
     const { engine, calls } = fakeEngine();
     const unreadable = vi.fn(async () => 'garbage');
-    const result = await json(() => onboardCommand('analyze', undefined, { tables: 'orders' }, { engine, query: unreadable, input }));
-    expect(result.warnings.map((warning: { code: string }) => warning.code)).toContain('ACCESS_PROFILE_UNREADABLE');
-    expect(result.connection.capabilities).toEqual([]);
-    expect(calls.capabilities).toBeUndefined();
-    expect(calls.grain).toEqual([[['orders']]]);
+    const error = await onboardCommand('analyze', undefined, {}, { engine, query: unreadable, input }).catch(caught => caught);
+    expect(error).toMatchObject({ code: 'CLICKHOUSE_PROFILE_UNREADABLE', category: 'correctable_input', exitClass: 'correctable', retryable: false });
+    expect(error.hint).toContain('settings profile');
+    expect(calls.grain).toBeUndefined();
+  });
+
+  it('maps the engine\'s unexpected-profile error from discovery to CLICKHOUSE_PROFILE_UNREADABLE', async () => {
+    const { engine } = fakeEngine({
+      introspection: { discoverSchema: async () => { throw new ClickHouseConnectionError('ClickHouse returned an unexpected access profile.'); } },
+    });
+    await expect(schemaCommand('inspect', {}, { engine, query, input }))
+      .rejects.toMatchObject({ code: 'CLICKHOUSE_PROFILE_UNREADABLE', retryable: false });
+  });
+
+  describe('join split values follow the sample policy', () => {
+    const groups = [{ value: 'secret-a', childRows: 10, matchedRows: 10 }, { value: 'secret-b', childRows: 10, matchedRows: 0 }];
+    const split = (column: string) => ({ table: 'orders', column, groups, truncated: false, conditional: true });
+    function withSplits() {
+      return fakeEngine({
+        'join-candidate-runner': {
+          verifyJoinCandidates: async () => ({
+            candidates: ['region', 'email', 'channel'].map(column => ({
+              id: column, child: { table: 'orders', column: 'customer_id' }, parent: { table: 'customers', column: 'id' },
+              outcome: 'rejected', reason: 'Depends on a column.', split: split(column),
+            })),
+            omitted: 0,
+          }),
+        },
+      });
+    }
+    const valuesOf = (result: { joinCandidates: { candidates: { id: string; split: { groups: { value?: unknown }[]; valuesWithheld?: boolean } }[] } }, id: string) =>
+      result.joinCandidates.candidates.find(candidate => candidate.id === id)!.split;
+
+    it('keeps values the default policy sends, and withholds detected ones', async () => {
+      const { engine } = withSplits();
+      const result = await json(() => onboardCommand('analyze', undefined, {}, { engine, query, input }));
+      expect(valuesOf(result, 'region').groups.map(group => group.value)).toEqual(['secret-a', 'secret-b']);
+      expect(valuesOf(result, 'email')).toMatchObject({ valuesWithheld: true, groups: [{ childRows: 10, matchedRows: 10 }, { childRows: 10, matchedRows: 0 }] });
+      expect(valuesOf(result, 'email').groups.every(group => !('value' in group))).toBe(true);
+    });
+
+    it('withholds every sampled split value under --samples none, but not values the type declares', async () => {
+      const { engine } = withSplits();
+      const result = await json(() => onboardCommand('analyze', undefined, { samples: 'none' }, { engine, query, input }));
+      expect(valuesOf(result, 'region')).toMatchObject({ valuesWithheld: true, conditional: true });
+      expect(valuesOf(result, 'email')).toMatchObject({ valuesWithheld: true });
+      expect(valuesOf(result, 'channel').groups.map(group => group.value)).toEqual(['secret-a', 'secret-b']);
+      expect(JSON.stringify(result.joinCandidates.candidates.filter((candidate: { id: string }) => candidate.id !== 'channel'))).not.toContain('secret-');
+    });
   });
 
   it('refuses a file or --join', async () => {
@@ -288,14 +348,100 @@ describe('hypequery onboard check', () => {
     const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
     prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
     try {
-      const error = await onboardCommand('check', file, { join: 'orders.tenant_id=customers.id' }, { engine, query, input }).catch(caught => caught);
+      const error = await onboardCommand('check', file, { join: 'orders.id=customers.id' }, { engine, query, input }).catch(caught => caught);
       expect(error).toMatchObject({ code: 'ONBOARD_CHECK_FAILED', exitClass: 'correctable' });
       expect(error.issues).toEqual([
         { path: 'measures/orders.revenue/M2', message: 'Routes differ by 12%.' },
-        { path: 'joins/orders.tenant_id=customers.id', message: 'Not unique.' },
+        { path: 'joins/orders.id=customers.id', message: 'Not unique.' },
       ]);
     } finally {
       prepare.mockRestore();
+    }
+  });
+
+  async function withContract<T>(datasets: unknown[], run: (file: string) => Promise<T>): Promise<T> {
+    const { file } = await contractFile(datasets);
+    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
+    prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
+    try {
+      return await run(file);
+    } finally {
+      prepare.mockRestore();
+    }
+  }
+
+  it.each([
+    ['a misspelled column', { from: 'custmer_id', to: 'id' }, 'orders has no column custmer_id.'],
+    ['keys of different types', { from: 'tenant_id', to: 'id' }, 'have different key types'],
+  ])('fails a declared relationship with %s, without measuring it', async (_name, keys, message) => {
+    const checkJoin = vi.fn();
+    const { engine } = fakeEngine({ 'join-check': { checkJoin } });
+    await withContract([
+      dataset('orders', 'orders', [{ name: 'customer', kind: 'belongsTo', target: 'customers', queryable: true, ...keys }]),
+      dataset('customers', 'customers'),
+    ], async (file) => {
+      const error = await onboardCommand('check', file, {}, { engine, query, input }).catch(caught => caught);
+      expect(error).toMatchObject({ code: 'ONBOARD_CHECK_FAILED' });
+      expect(error.issues).toEqual([{ path: 'joins/orders.customer', message: expect.stringContaining(message) }]);
+    });
+    expect(checkJoin).not.toHaveBeenCalled();
+  });
+
+  it('fails a --join whose table does not exist', async () => {
+    const { engine } = fakeEngine();
+    await withContract([dataset('orders', 'orders')], async (file) => {
+      await expect(onboardCommand('check', file, { join: 'orders.customer_id=custmers.id' }, { engine, query, input }))
+        .rejects.toMatchObject({ issues: [{ path: 'joins/orders.customer_id=custmers.id', message: 'Table custmers was not found in ClickHouse.' }] });
+    });
+  });
+
+  it('warns, and still passes, when a join exists but cannot be measured', async () => {
+    const { engine } = fakeEngine({
+      'join-check': { checkJoin: async (_schema: unknown, request: object) => ({ ...request, status: 'skipped', reason: 'The bounded query exceeded its read limit.' }) },
+    });
+    await withContract([
+      dataset('orders', 'orders', [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true }]),
+      dataset('customers', 'customers'),
+    ], async (file) => {
+      const result = await json(() => onboardCommand('check', file, { join: 'orders.amount=customers.id' }, { engine, query, input }));
+      expect(result.ok).toBe(true);
+      expect(result.summary.joins).toEqual({ passed: 0, failed: 0, skipped: 2 });
+      expect(result.warnings.filter((warning: { code: string }) => warning.code === 'JOIN_NOT_MEASURED')).toHaveLength(2);
+      expect(result.joinChecks[1]).toMatchObject({ status: 'skipped', problem: expect.stringContaining('not a key type') });
+    });
+  });
+
+  it('bounds every join query by one overall deadline, and skips joins once it has passed', async () => {
+    let clock = 1_000_000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    const deadlines: (number | undefined)[] = [];
+    const { engine } = fakeEngine({
+      'join-candidate-runner': {
+        boundedJoinQuery: async (target: typeof input, run: (i: typeof input, sql: string, options: { maxBytes: number; timeoutMs: number; deadlineMs?: number }) => Promise<string>) =>
+          async (sql: string) => run(target, sql, { maxBytes: 1, timeoutMs: 5_000, deadlineMs: clock + 30_000 }),
+      },
+      'join-check': {
+        checkJoin: async (_schema: unknown, request: object, joinQuery: (sql: string) => Promise<string>) => {
+          await joinQuery('SELECT join');
+          clock += CHECK_JOINS_BUDGET_MS - 1_000;
+          return { ...request, status: 'measured', reason: '', unique: true };
+        },
+        joinProblem: () => null,
+      },
+    });
+    const recording = vi.fn(async (_i: unknown, sql: string, options: { deadlineMs?: number }) => {
+      if (sql === 'SELECT join') deadlines.push(options.deadlineMs);
+      return sql === 'SELECT profile' ? 'profile' : '';
+    });
+    try {
+      await withContract([dataset('orders', 'orders')], async (file) => {
+        const result = await json(() => onboardCommand('check', file, { join: 'orders.customer_id=customers.id,orders.id=customers.id,orders.tenant_id=orders.email' }, { engine, query: recording, input }));
+        expect(deadlines).toEqual([1_000_000 + 30_000, 1_000_000 + CHECK_JOINS_BUDGET_MS]);
+        expect(result.joinChecks[2]).toMatchObject({ status: 'skipped', reason: expect.stringContaining('join budget') });
+        expect(result.ok).toBe(true);
+      });
+    } finally {
+      now.mockRestore();
     }
   });
 

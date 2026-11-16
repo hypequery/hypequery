@@ -130,6 +130,16 @@ prefix it routed through (`Api.handle(..., mounted_at=...)`); client contracts
 and discovery name paths under that prefix unless the API's
 `client_mount_path` says otherwise.
 
+## Agent tokens
+
+`hypequery.agent.mint_agent_token()` mirrors `@hypequery/agent`'s
+`mintAgentToken()`: it signs an end-user token for a Cloud project's tenant MCP
+endpoint with a managed signing key (AG-18a), locally. Both serialize the JWT
+by hand with a fixed member order, so Ed25519's deterministic signatures make
+the two languages' tokens identical; `specs/agent-token/fixtures/mint-v1` pins
+the bytes and the refusals, and `tests/agent_verifier.py` ports Cloud's
+verifier. `cryptography` (the `jwt` extra) is imported only when minting.
+
 ## Verification
 
 Run `uv run pytest`, `uv run mypy`, `uv run ruff check .`,

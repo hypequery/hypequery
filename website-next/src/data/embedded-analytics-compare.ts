@@ -10,10 +10,22 @@ export type EmbeddedAnalyticsComparePage = {
 
 export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
   {
+    href: '/compare/embedded-analytics-typescript',
+    title: "Embedded analytics buyer's guide for TypeScript teams",
+    description:
+      'Compare architectures by metric governance, tenant isolation, type safety, change control and UI ownership, with a proof-based evaluation checklist.',
+  },
+  {
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description:
       'Twelve platforms grouped by approach: code-first and headless, embedded BI, and BI tools with embedding. Embedding method, multi-tenancy, pricing model and who each suits.',
+  },
+  {
+    href: '/compare/build-vs-buy-embedded-analytics',
+    title: 'Build vs buy embedded analytics',
+    description:
+      'What each part of embedded analytics costs to build, when buying a platform wins, and the middle path: an open-source data layer with your own front end.',
   },
   {
     href: '/compare/embedded-analytics-pricing',

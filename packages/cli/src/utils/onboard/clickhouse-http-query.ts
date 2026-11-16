@@ -9,6 +9,7 @@ import type {
 /** ClickHouse's codes for a user it won't serve: denied, unknown, or bad credentials. */
 const ACCESS_CODES = new Set([192, 194, 497, 516]);
 const MAX_MESSAGE_CHARS = 300;
+export const USERNAME_COLON = 'CLICKHOUSE_USERNAME contains ":", which HTTP basic authentication cannot send. Connect as a ClickHouse user whose name has no colon.';
 
 /** ClickHouse's own message: the first line, without the `Code: N. DB::Exception:` prefix or version. */
 export function clickHouseMessage(body: string): string {
@@ -50,6 +51,10 @@ export function createClickHouseHttpQuery(
     }
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new ClickHouseConnectionError('CLICKHOUSE_URL must use http or https.');
+    }
+    // Basic auth joins user and password with ':', so a user name can't contain one (RFC 7617).
+    if (input.username.includes(':')) {
+      throw new ClickHouseConnectionError(USERNAME_COLON, undefined, 'access');
     }
     if (input.database) url.searchParams.set('database', input.database);
     for (const [name, value] of Object.entries(options.settings ?? {})) url.searchParams.set(name, String(value));

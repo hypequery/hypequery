@@ -129,6 +129,7 @@ export default function ClickHousePandasPage() {
       searchIntentCards={[
         { title: 'ClickHouse to pandas DataFrame', copy: 'Query measures through hypequery and call `result.to_pandas()` for typed columns.' },
         { title: 'Metrics layer for notebooks', copy: 'Analysts and the product read the same definitions, so numbers match across decks and dashboards.' },
+        { title: 'How do I load ClickHouse data into pandas?', copy: 'With clickhouse-connect, `client.query_df(sql)` returns a pandas DataFrame and `client.insert_df(table, df)` writes one back. For a metric your product already defines, hypequery returns the same DataFrame by measure name instead of SQL.' },
         { title: 'clickhouse-connect query_df', copy: 'clickhouse-connect returns DataFrames for raw SQL. hypequery returns them for named measures, with validation and tenancy.' },
         { title: 'Polars or Arrow?', copy: '`result.to_polars()` and `result.to_arrow()` use the same column types. Install `hypequery[polars]` or `hypequery[arrow]`.' },
       ]}
@@ -139,9 +140,10 @@ export default function ClickHousePandasPage() {
           description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
         },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Column types, timezones, and exact decimals.' },
-        { href: '/docs/python/quick-start', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
+        { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },
         { href: '/docs/python/datasets/time-grains', title: 'Time grains', description: 'Bucket measures by day, week, or month.' },
         { href: '/docs/python/datasets/caching', title: 'Caching', description: 'Reuse results across notebook runs.' },
+        { href: '/blog/chdb-python-tutorial', title: 'chDB Python tutorial', description: 'Query pandas DataFrames, Parquet and CSV with ClickHouse SQL, in process.' },
       ]}
       relatedPillars={[
         { href: '/clickhouse', label: 'ClickHouse with TypeScript and Python' },
@@ -154,7 +156,7 @@ export default function ClickHousePandasPage() {
         eyebrow: 'Next step',
         title: 'Rebuild one notebook query on a dataset',
         description: 'Pick the query behind your most-shared chart, define it as a dataset, and compare the numbers.',
-        primaryCta: { href: '/docs/python/quick-start', label: 'Get started' },
+        primaryCta: { href: '/docs/quick-start#python', label: 'Get started' },
         secondaryCta: { href: '/docs/python/datasets/measures', label: 'Measures docs' },
       }}
     />

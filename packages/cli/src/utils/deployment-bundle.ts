@@ -10,12 +10,16 @@ import {
 import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
+  isEmptyProtocolBusinessContext,
+  prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
   type PreparedProtocolDeploymentContract,
+  type ProtocolBusinessContext,
   type ProtocolDeploymentContract,
   type ProtocolDeploymentBundleManifest,
 } from '@hypequery/protocol';
 import {
+  DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
   DEPLOYMENT_BUNDLE_CONTRACT,
   DEPLOYMENT_BUNDLE_MANIFEST,
   verifyDeploymentBundle,
@@ -24,6 +28,7 @@ import type { VerifiedDeploymentBundle } from '@hypequery/deployment';
 import { logger } from './logger.js';
 
 export {
+  DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
   DEPLOYMENT_BUNDLE_CONTRACT,
   DEPLOYMENT_BUNDLE_MANIFEST,
   verifyDeploymentBundle,
@@ -51,6 +56,8 @@ export interface WrittenDeploymentBundle {
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
   readonly contract: ProtocolDeploymentContract;
+  /** Business context written into the bundle; absent for a v1 bundle. */
+  readonly businessContext?: ProtocolBusinessContext;
 }
 
 const utf8Encoder = new TextEncoder();
@@ -131,6 +138,7 @@ export async function writeDeploymentBundle(
   outputDirectory: string,
   prepared: PreparedProtocolDeploymentContract,
   sourceSnapshot?: DeploymentBundleSourceSnapshot,
+  businessContextInput?: ProtocolBusinessContext,
 ): Promise<WrittenDeploymentBundle> {
   const destination = path.resolve(outputDirectory);
   if (destination === path.parse(destination).root) {
@@ -138,15 +146,30 @@ export async function writeDeploymentBundle(
   }
   const source = validateSourceSnapshot(sourceSnapshot);
   const deploymentBytes = utf8Encoder.encode(`${prepared.canonical}\n`);
+  // Empty context is the same as none: emit v1 so the bundle keeps one identity.
+  const businessContext = businessContextInput === undefined
+    ? undefined
+    : prepareProtocolBusinessContext(businessContextInput);
+  const context = businessContext && !isEmptyProtocolBusinessContext(businessContext.context)
+    ? { prepared: businessContext, bytes: utf8Encoder.encode(`${businessContext.canonical}\n`) }
+    : undefined;
   const manifestInput = {
     kind: 'hypequery-deployment-bundle',
-    version: 1,
+    version: context ? 2 : 1,
     deployment: {
       path: DEPLOYMENT_BUNDLE_CONTRACT,
       identity: prepared.identity,
       sha256: sha256(deploymentBytes),
       byteLength: deploymentBytes.byteLength,
     },
+    ...(context ? {
+      businessContext: {
+        path: DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
+        identity: context.prepared.identity,
+        sha256: sha256(context.bytes),
+        byteLength: context.bytes.byteLength,
+      },
+    } : {}),
     // A deployment carries datasets: there is nothing else to put here.
     artifacts: [],
     ...(source ? {
@@ -169,6 +192,13 @@ export async function writeDeploymentBundle(
   const staging = await mkdtemp(path.join(parent, `.${path.basename(destination)}.tmp-`));
   try {
     await writeFile(path.join(staging, DEPLOYMENT_BUNDLE_CONTRACT), deploymentBytes, { flag: 'wx' });
+    if (context) {
+      await writeFile(
+        path.join(staging, DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT),
+        context.bytes,
+        { flag: 'wx' },
+      );
+    }
     for (const file of source?.files ?? []) {
       const outputPath = path.join(staging, SOURCE_ROOT, ...file.path.split('/'));
       await mkdir(path.dirname(outputPath), { recursive: true });
@@ -212,5 +242,6 @@ export async function writeDeploymentBundle(
     manifest: preparedManifest.manifest,
     identity: preparedManifest.identity,
     contract: prepared.contract,
+    ...(context ? { businessContext: context.prepared.context } : {}),
   });
 }

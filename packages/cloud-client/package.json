@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/cloud-client",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Typed client for hypequery Cloud's /v1 operations, generated from the operations spec",
   "keywords": [
     "hypequery",

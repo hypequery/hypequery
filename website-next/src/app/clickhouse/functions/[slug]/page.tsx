@@ -30,7 +30,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const canonical = absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`);
 
   return {
-    title: fn.metaTitle,
+    // A title too long to show with the ' | hypequery' suffix drops the suffix, so results
+    // keep the function's own wording instead of cutting it off.
+    title: fn.metaTitle.length > 53 ? { absolute: fn.metaTitle } : fn.metaTitle,
     description: fn.metaDescription,
     alternates: { canonical },
     // Pages without search demand stay readable but out of the index.
@@ -317,7 +319,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
                   )}
                   <div className="mt-8 flex flex-wrap gap-4">
                     <Link
-                      href="/docs/python/quick-start"
+                      href="/docs/quick-start#python"
                       data-umami-event="cta_click"
                       data-umami-event-target="docs_python_quick_start"
                       data-umami-event-location="python_example_panel"

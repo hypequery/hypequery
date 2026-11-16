@@ -141,13 +141,16 @@ describe('HypequeryMCPServer', () => {
     const result = await handler?.({ params: {} }) as {
       tools: Array<{
         name: string;
-        inputSchema: { anyOf: Array<{ properties: Record<string, any> }> };
+        inputSchema: { properties: Record<string, any>; anyOf?: unknown };
       }>;
     };
     const metric = result.tools.find(tool => tool.name === 'query_metric');
     const dataset = result.tools.find(tool => tool.name === 'query_dataset');
-    const metricProperties = metric?.inputSchema.anyOf[0].properties;
-    const datasetProperties = dataset?.inputSchema.anyOf[0].properties;
+    // Advertised flat, as model APIs require; the limits survive flattening.
+    expect(metric?.inputSchema.anyOf).toBeUndefined();
+    expect(dataset?.inputSchema.anyOf).toBeUndefined();
+    const metricProperties = metric?.inputSchema.properties;
+    const datasetProperties = dataset?.inputSchema.properties;
 
     expect(metricProperties?.dataset.enum).toEqual(['orders']);
     expect(metricProperties?.dimensions.maxItems).toBe(1);

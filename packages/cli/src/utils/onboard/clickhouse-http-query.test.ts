@@ -31,6 +31,14 @@ describe('createClickHouseHttpQuery', () => {
     expect(url.toString()).not.toContain('s3cret');
   });
 
+  it('refuses a user name with a colon, which basic auth cannot carry, without sending anything', async () => {
+    const fetchImpl = vi.fn();
+    const query = createClickHouseHttpQuery(ClickHouseConnectionError, fetchImpl as unknown as typeof fetch);
+    await expect(query({ ...input, username: 'team:reader' }, 'SELECT 1', options))
+      .rejects.toMatchObject({ kind: 'access', message: expect.stringContaining('basic authentication') });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('reports ClickHouse errors by kind, with its message', async () => {
     const respond = (status: number, code: string, body: string) => vi.fn(async () => new Response(body, { status, headers: { 'x-clickhouse-exception-code': code } }));
     const denied = createClickHouseHttpQuery(ClickHouseConnectionError, respond(403, '497', 'Code: 497. DB::Exception: reader: Not enough privileges. (ACCESS_DENIED) (version 25.8.1.1 (official build))') as unknown as typeof fetch);

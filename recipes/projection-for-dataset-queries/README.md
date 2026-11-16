@@ -122,4 +122,4 @@ The results are identical either way; the smoke test asserts that, and checks bo
 
 - [materialized-view-rollups](../materialized-view-rollups): the materialized-view route, a rollup table with its own dataset.
 
-Tested on ClickHouse 25.8 with `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.
+Versions used: ClickHouse 25.8, `@hypequery/datasets` 0.29 and `@hypequery/clickhouse` 2.14.

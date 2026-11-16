@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { disableJsonOutput, enableJsonOutput } from '../machine-output.js';
 import { setUnattended } from '../input-mode.js';
-import { exportTarget, loadOnboardEngine, ONBOARD_ENGINE_RANGE } from './engine-loader.js';
+import { exportTarget, loadOnboardEngine, newerThanRange, ONBOARD_ENGINE_RANGE } from './engine-loader.js';
 import { ONBOARD_ENGINE_SUBPATHS } from './engine-types.js';
 
 vi.mock('../logger.js', () => ({ logger: { warn: vi.fn(), info: vi.fn(), success: vi.fn() } }));
@@ -88,11 +88,37 @@ describe('loadOnboardEngine', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('reports an out-of-range version as ONBOARD_ENGINE_INCOMPATIBLE', async () => {
+  it('reports an older out-of-range version as ONBOARD_ENGINE_INCOMPATIBLE, with the install command', async () => {
+    const cwd = await directory();
+    await installFakeEngine(cwd, '0.0.9');
+    const error = await loadOnboardEngine('onboard analyze', { cwd, cliDirectory: await directory(false), ...interactive, stdin: { isTTY: false } }).catch(caught => caught);
+    expect(error).toMatchObject({ code: 'ONBOARD_ENGINE_INCOMPATIBLE', message: expect.stringContaining('0.0.9 is installed') });
+    expect(error.hint).toContain(`@hypequery/onboard-engine@${ONBOARD_ENGINE_RANGE}`);
+  });
+
+  it('asks for a newer CLI, not a downgrade, when the engine is newer than the range', async () => {
     const cwd = await directory();
     await installFakeEngine(cwd, '0.2.0');
-    await expect(loadOnboardEngine('onboard analyze', { cwd, cliDirectory: await directory(false), stdin: { isTTY: false } }))
-      .rejects.toMatchObject({ code: 'ONBOARD_ENGINE_INCOMPATIBLE', message: expect.stringContaining('0.2.0 is installed') });
+    const confirm = vi.fn();
+    const error = await loadOnboardEngine('onboard analyze', { cwd, cliDirectory: await directory(false), ...interactive, confirm }).catch(caught => caught);
+    expect(error).toMatchObject({ code: 'ONBOARD_ENGINE_INCOMPATIBLE', message: expect.stringContaining('0.2.0 is installed') });
+    expect(error.message).toContain('Update @hypequery/cli');
+    expect(error.hint).toContain('@hypequery/cli@latest');
+    expect(error.hint).not.toContain(ONBOARD_ENGINE_RANGE);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('reports an engine whose package.json or modules cannot be read as ONBOARD_ENGINE_UNREADABLE', async () => {
+    const broken = await directory();
+    const installed = await installFakeEngine(broken, '0.1.0');
+    await writeFile(path.join(installed, 'package.json'), '{ not json');
+    await expect(loadOnboardEngine('onboard analyze', { cwd: broken, cliDirectory: await directory(false) }))
+      .rejects.toMatchObject({ code: 'ONBOARD_ENGINE_UNREADABLE', exitClass: 'correctable', hint: expect.stringContaining('Reinstall') });
+    const failing = await directory();
+    const engine = await installFakeEngine(failing, '0.1.0');
+    await writeFile(path.join(engine, 'dist', 'introspection.js'), 'export const = ;\n');
+    await expect(loadOnboardEngine('onboard analyze', { cwd: failing, cliDirectory: await directory(false) }))
+      .rejects.toMatchObject({ code: 'ONBOARD_ENGINE_UNREADABLE', message: expect.stringContaining('(introspection)') });
   });
 
   it('offers to install at a terminal, then loads what was installed', async () => {
@@ -137,5 +163,18 @@ describe('exportTarget', () => {
     expect(exportTarget(map, 'introspection')).toBe('./d/introspection.js');
     expect(exportTarget(undefined, 'a')).toBeUndefined();
     expect(exportTarget({ './*': { require: './c/*.cjs' } }, 'a')).toBeUndefined();
+  });
+});
+
+describe('newerThanRange', () => {
+  it('is true only past the caret range\'s fixed part', () => {
+    expect(newerThanRange('0.2.0', '^0.1.0')).toBe(true);
+    expect(newerThanRange('1.0.0', '^0.1.0')).toBe(true);
+    expect(newerThanRange('0.1.9', '^0.1.0')).toBe(false);
+    expect(newerThanRange('0.0.9', '^0.1.0')).toBe(false);
+    expect(newerThanRange('2.0.0', '^1.2.0')).toBe(true);
+    expect(newerThanRange('1.9.0', '^1.2.0')).toBe(false);
+    expect(newerThanRange('0.0.4', '^0.0.3')).toBe(true);
+    expect(newerThanRange('garbage', '^0.1.0')).toBe(false);
   });
 });

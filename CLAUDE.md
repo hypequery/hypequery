@@ -62,7 +62,7 @@ pnpm examples:validate  # validate every example.json / recipe.json
 ## Releases
 
 - **Canary**: every push to `main` auto-publishes snapshot builds to the npm
-  `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/cloud-client`, `@hypequery/datasets`,
+  `canary` dist-tag for `@hypequery/agent`, `@hypequery/clickhouse`, `@hypequery/cloud-client`, `@hypequery/datasets`,
   `@hypequery/deployment`, `@hypequery/serve`, `@hypequery/cli`,
   `@hypequery/mcp`, `@hypequery/protocol`,
   `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.

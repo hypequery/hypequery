@@ -1,7 +1,7 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: CLI reference
-description: Command cheatsheet for the hypequery CLI
+description: 'Every hypequery CLI command: init, dev, generate (schema types), generate:datasets, generate:manifest and telemetry, with which one to use when.'
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -378,8 +378,9 @@ can design datasets from evidence instead of guesses. They connect with the same
   present, query-history observations and possible tenant columns.
 - **`onboard check [source]`** – checks a model against the data: every measure is computed by an independent
   second route, and every declared relationship (plus `--join` pairs) is measured for key coverage, uniqueness
-  and fan-out. Exits 1 with `ONBOARD_CHECK_FAILED` and one `issues` entry per failure; checks that can't run
-  (budget, unsupported measures) are reported as skipped, never as passes.
+  and fan-out. Exits 1 with `ONBOARD_CHECK_FAILED` and one `issues` entry per failure, including a relationship
+  whose table or column doesn't exist or whose keys have different types; checks that can't run (budget,
+  unsupported measures or key types) are reported as skipped with a warning, never as passes.
 
 `source` is a module exporting datasets (`analytics/datasets.ts`), a Cloud publication (`export const cloud =
 publishToCloud(...)`), a deployment bundle directory (Python's `write_dataset_bundle`) or deployment JSON. Without
@@ -401,7 +402,10 @@ analysis still succeeds: `queryHistory.status` is `skipped` and a `QUERY_HISTORY
 grant that would add it. History is summarised (tables, joins, filters, counts); query text is never reported.
 
 **What the report leaves out.** Reports are meant to be read by coding agents, so measured proof (check SQL with
-its result rows) and example rows stay out of them, and sampled values follow `--samples`.
+its result rows) and example rows stay out of them, and sampled values follow `--samples`. That includes the
+values a join candidate's match rate is split by: when the split column's samples are withheld, each group keeps
+its counts, loses its value, and the split carries `valuesWithheld: true` (values an `Enum` or `Bool` type
+declares are always shown).
 
 ### The onboarding engine
 
@@ -729,7 +733,9 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `CLICKHOUSE_CONNECTION_FAILED` | `correctable_input` | 1 | `init --no-interactive` could not connect with the `CLICKHOUSE_*` settings |
 | `CLICKHOUSE_NOT_CONFIGURED` | `correctable_input` | 1 | `schema inspect` or `onboard` found no `CLICKHOUSE_URL` |
 | `CLICKHOUSE_ACCESS_DENIED`, `CLICKHOUSE_QUERY_FAILED` | `correctable_input` | 1 | ClickHouse refused the user or the discovery query; check credentials, database and grants |
-| `ONBOARD_ENGINE_MISSING`, `ONBOARD_ENGINE_INCOMPATIBLE` | `correctable_input` | 1 | `@hypequery/onboard-engine` is not installed, or not in the supported range; the hint names the install command |
+| `CLICKHOUSE_PROFILE_UNREADABLE` | `correctable_input` | 1 | ClickHouse returned an unexpected settings profile for the user, so no query can be bounded; check the user's settings profile |
+| `ONBOARD_ENGINE_MISSING`, `ONBOARD_ENGINE_INCOMPATIBLE` | `correctable_input` | 1 | `@hypequery/onboard-engine` is not installed, or not in the supported range; the hint names the install command, or asks for a newer CLI when the engine is newer than the range |
+| `ONBOARD_ENGINE_UNREADABLE` | `correctable_input` | 1 | `@hypequery/onboard-engine` is installed but its package.json or a module could not be loaded; reinstall it |
 | `ONBOARD_CHECK_FAILED` | `correctable_input` | 1 | `onboard check` found failing measures, joins or missing tables; `issues` lists each |
 | `INVALID_INPUT` | `correctable_input` | 1 | A file or value could not be read, such as a deployment JSON or a `--join` pair |
 | `JSON_NOT_SUPPORTED` | `correctable_input` | 1 | `mcp` serves over stdout; use `--self-test` with `--json` |

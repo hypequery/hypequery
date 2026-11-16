@@ -31,6 +31,11 @@ describe('onboardConnectionFromEnv', () => {
     });
   });
 
+  it('refuses a user name containing a colon (RFC 7617)', () => {
+    Object.assign(process.env, { CLICKHOUSE_URL: 'http://localhost:8123', CLICKHOUSE_DATABASE: 'shop', CLICKHOUSE_USERNAME: 'team:reader', CLICKHOUSE_PASSWORD: 'pw' });
+    expect(() => onboardConnectionFromEnv()).toThrow(expect.objectContaining({ code: 'INVALID_INPUT', message: expect.stringContaining('RFC 7617') }));
+  });
+
   it('fails with a fixed code when ClickHouse is not configured', () => {
     expect(() => onboardConnectionFromEnv()).toThrow(expect.objectContaining({ code: 'CLICKHOUSE_NOT_CONFIGURED' }));
   });

@@ -3,9 +3,9 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying',
+  title: 'ClickHouse Product Analytics in TypeScript',
   description:
-    'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+    'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-product-analytics'),
   },
@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-product-analytics'),
     title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
 };
 
@@ -237,6 +237,7 @@ export default function ClickHouseProductAnalyticsPage() {
         { href: '/clickhouse-saas-analytics', label: 'ClickHouse SaaS Analytics' },
         { href: '/clickhouse-dashboard', label: 'ClickHouse Dashboard' },
         { href: '/clickhouse-real-time-analytics', label: 'ClickHouse Real-Time Analytics' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

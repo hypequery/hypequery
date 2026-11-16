@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'python/**'
+      - 'specs/agent-token/**'
       - 'specs/security-protocol/**'
       - 'specs/datasets/**'
       - 'specs/mcp/**'
@@ -39,6 +40,7 @@ on:
   pull_request:
     paths:
       - 'python/**'
+      - 'specs/agent-token/**'
       - 'specs/security-protocol/**'
       - 'specs/datasets/**'
       - 'specs/mcp/**'
@@ -257,7 +259,7 @@ jobs:
           cache-dependency-glob: python/hypequery/uv.lock
       # The mcp extra has its own floor job: the MCP SDK's pydantic floor would
       # lift the one every other extra is tested on (scripts/floor_extras.py).
-      - run: uv sync --all-extras --no-extra mcp --dev
+      - run: uv sync --all-extras --no-extra mcp --dev --no-group agent-frameworks
       - name: Install the declared direct dependency floors
         run: |
           uv pip compile pyproject.toml $(uv run --no-sync python scripts/floor_extras.py) --resolution lowest-direct --output-file /tmp/python-floors.txt --quiet
@@ -403,7 +405,7 @@ jobs:
       - name: Install the declared direct dependency floors from wheels
         if: matrix.resolution == 'floor'
         run: |
-          uv sync --all-extras --no-extra mcp --dev --python "${{ matrix.python-version }}"
+          uv sync --all-extras --no-extra mcp --dev --no-group agent-frameworks --python "${{ matrix.python-version }}"
           uv pip install --only-binary :all: --require-hashes --requirement reports/requirements.txt
       - name: Run the suite on the floors
         if: matrix.resolution == 'floor'
