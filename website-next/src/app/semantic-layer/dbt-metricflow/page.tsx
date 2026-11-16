@@ -15,7 +15,7 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/dbt-metricflow';
-const TITLE = 'dbt Semantic Layer and MetricFlow vs a Code-Defined Semantic Layer';
+const TITLE = 'dbt Semantic Layer and MetricFlow: How It Works in 2026';
 const DESCRIPTION =
   'How the dbt Semantic Layer and MetricFlow work in 2026: the YAML spec, metric types, APIs, pricing and warehouses, compared with a semantic layer in code.';
 const VERIFIED_ON = 'November 10, 2026';
@@ -221,7 +221,7 @@ export default function DbtMetricFlowPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('dbt MetricFlow')}
-      title="dbt Semantic Layer and MetricFlow, compared with a semantic layer in code"
+      title="How the dbt Semantic Layer and MetricFlow work"
       lead={
         <p>
           How dbt defines metrics after the 2026 spec changes, how they are queried and priced, which warehouses they
