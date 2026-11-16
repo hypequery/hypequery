@@ -56,7 +56,7 @@ async function rawEventTypes(): Promise<number> {
 describe('Slack analytics bot', () => {
   it('answers an analyst in their channel, in the thread, with the table from ClickHouse', async () => {
     const { posts, tools } = await ask({ user: 'UANALYST', channel: 'CPRODUCT', text: 'events by type?', script: [eventsByType] });
-    expect([...tools].sort()).toEqual(['get_business_context', 'get_dataset_schema', 'list_datasets', 'query_dataset', 'query_metric']);
+    expect([...tools].sort()).toEqual(['get_business_context', 'get_dataset_schema', 'list_datasets', 'query_dataset']);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toMatchObject({ method: 'chat.postMessage', args: { channel: 'CPRODUCT', thread_ts: '20.0' } });
     const blocks = JSON.stringify(posts[0]!.args.blocks);
