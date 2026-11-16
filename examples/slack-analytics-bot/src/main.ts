@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createSlackClient, createSlackRequestHandler, createSocketModeClient } from '@hypequery/slack';
-import { send, toRequest } from '../lib/utils/node-http.js';
+import { serveFetch } from '../lib/utils/node-http.js';
 import { createBot } from './bot.js';
 
 const botToken = process.env.SLACK_BOT_TOKEN;
@@ -19,8 +19,6 @@ if (process.env.SLACK_APP_TOKEN) {
   if (!signingSecret) throw new Error('Set SLACK_APP_TOKEN for Socket Mode, or SLACK_SIGNING_SECRET for HTTP.');
   const handle = createSlackRequestHandler({ signingSecret, onEvent: bot.onEvent });
   const port = Number(process.env.PORT ?? 3000);
-  createServer(async (req, res) => {
-    if (req.url !== '/slack/events') return void res.writeHead(404).end();
-    await send(res, await handle(await toRequest(req, `http://localhost:${port}`)));
-  }).listen(port, () => console.log(`Listening on http://localhost:${port}/slack/events`));
+  createServer(serveFetch(handle, { path: '/slack/events', origin: `http://localhost:${port}` }))
+    .listen(port, () => console.log(`Listening on http://localhost:${port}/slack/events`));
 }
