@@ -12,6 +12,7 @@ from .backends import ApiContractBackend, BackendHeaders, HttpContractBackend
 from .budgets import CatalogBudget, ExecutionBudget, QueryLimits
 from .executor import ClientContractExecutor
 from .http_auth import ApiAuthenticator, McpAuthenticator, McpPrincipal
+from .utils.business_context import resolve_mcp_business_context
 from .utils.oauth import ProtectedResource
 
 
@@ -24,7 +25,14 @@ class ApiExecutorFactory:
     principal for every caller (a static MCP key).
     """
 
-    __slots__ = ("_api", "_catalog_budget", "_execution_budget", "_headers", "_query_limits")
+    __slots__ = (
+        "_api",
+        "_business_context",
+        "_catalog_budget",
+        "_execution_budget",
+        "_headers",
+        "_query_limits",
+    )
 
     def __init__(
         self,
@@ -34,10 +42,14 @@ class ApiExecutorFactory:
         execution_budget: ExecutionBudget | None = None,
         query_limits: QueryLimits | None = None,
         catalog_budget: CatalogBudget | None = None,
+        business_context: Mapping[str, object] | None = None,
     ) -> None:
         if not isinstance(api, Api):
             raise TypeError("ApiExecutorFactory serves a hypequery.serve Api")
+        # Refuse an invalid document now rather than on the first session.
+        resolve_mcp_business_context(business_context)
         self._api = api
+        self._business_context = business_context
         self._headers = headers
         self._execution_budget = execution_budget
         self._query_limits = query_limits
@@ -54,6 +66,7 @@ class ApiExecutorFactory:
             budget=self._execution_budget,
             query_limits=self._query_limits,
             catalog_budget=self._catalog_budget,
+            business_context=self._business_context,
         )
 
 
@@ -64,20 +77,29 @@ class HttpExecutorFactory:
     *headers*, so only a static MCP key may guard this server.
     """
 
-    __slots__ = ("_headers", "_url")
+    __slots__ = ("_business_context", "_headers", "_url")
 
-    def __init__(self, url: str, *, headers: Mapping[str, str] | None = None) -> None:
-        # Validates the URL now rather than on the first session.
+    def __init__(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        business_context: Mapping[str, object] | None = None,
+    ) -> None:
+        # Validates the URL and the context now rather than on the first session.
         HttpContractBackend(url, headers=headers)
+        resolve_mcp_business_context(business_context)
         self._url = url
         self._headers = dict(headers or {})
+        self._business_context = business_context
 
     async def __call__(
         self, principal: McpPrincipal, credentials: Callable[[], Mapping[str, str]]
     ) -> ClientContractExecutor:
         del principal, credentials
         return await ClientContractExecutor.create(
-            HttpContractBackend(self._url, headers=self._headers)
+            HttpContractBackend(self._url, headers=self._headers),
+            business_context=self._business_context,
         )
 
 

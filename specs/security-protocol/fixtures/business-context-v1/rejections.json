@@ -1,0 +1,1246 @@
+[
+  {
+    "id": "root-array",
+    "value": [],
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$"
+  },
+  {
+    "id": "root-null",
+    "value": null,
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$"
+  },
+  {
+    "id": "root-string",
+    "value": "summary",
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$"
+  },
+  {
+    "id": "unknown-root-field",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "revenue": "USD"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD",
+    "path": "$.revenue"
+  },
+  {
+    "id": "unknown-field-before-header",
+    "value": {
+      "notes": "x"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD",
+    "path": "$.notes"
+  },
+  {
+    "id": "missing-kind",
+    "value": {
+      "version": 1
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kind"
+  },
+  {
+    "id": "wrong-kind",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 1
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kind"
+  },
+  {
+    "id": "kind-before-version",
+    "value": {
+      "kind": 1,
+      "version": 2
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kind"
+  },
+  {
+    "id": "missing-version",
+    "value": {
+      "kind": "hypequery-business-context"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VERSION",
+    "path": "$.version"
+  },
+  {
+    "id": "unsupported-version",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 2
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VERSION",
+    "path": "$.version"
+  },
+  {
+    "id": "string-version",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": "1"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VERSION",
+    "path": "$.version"
+  },
+  {
+    "id": "boolean-version",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": true
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VERSION",
+    "path": "$.version"
+  },
+  {
+    "id": "number-text",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": 42
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.summary"
+  },
+  {
+    "id": "null-text",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "businessModel": null
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.businessModel"
+  },
+  {
+    "id": "blank-text",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "customers": " \t\n "
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.customers"
+  },
+  {
+    "id": "empty-text",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "audience": ""
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.audience"
+  },
+  {
+    "id": "byte-order-mark-only",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "\ufeff"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.summary"
+  },
+  {
+    "id": "control-character",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "Ring \u0007 the bell."
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.summary"
+  },
+  {
+    "id": "carriage-return",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "conventions": "USD\r\nUTC"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.conventions"
+  },
+  {
+    "id": "trailing-next-line",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "Not trimmed by JavaScript.\u0085"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.summary"
+  },
+  {
+    "id": "leading-file-separator",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "\u001cNot trimmed by JavaScript."
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.summary"
+  },
+  {
+    "id": "c1-control",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "industry": "Retail\u009b"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.industry"
+  },
+  {
+    "id": "lone-high-surrogate",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "Broken \ud83d text."
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.summary"
+  },
+  {
+    "id": "lone-low-surrogate",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": [
+        "\ude00"
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.goals[0]"
+  },
+  {
+    "id": "text-too-long",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_LARGE",
+    "path": "$.summary"
+  },
+  {
+    "id": "astral-text-too-long-in-utf16",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "industry": "📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈📈"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_LARGE",
+    "path": "$.industry"
+  },
+  {
+    "id": "string-list",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": "Grow revenue"
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.goals"
+  },
+  {
+    "id": "object-list",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "caveats": {
+        "first": "x"
+      }
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.caveats"
+  },
+  {
+    "id": "null-list",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": null
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis"
+  },
+  {
+    "id": "non-string-list-item",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": [
+        "Grow",
+        7
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.goals[1]"
+  },
+  {
+    "id": "blank-list-item",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "caveats": [
+        "   "
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.caveats[0]"
+  },
+  {
+    "id": "too-many-goals",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": [
+        "Goal 0",
+        "Goal 1",
+        "Goal 2",
+        "Goal 3",
+        "Goal 4",
+        "Goal 5",
+        "Goal 6",
+        "Goal 7",
+        "Goal 8",
+        "Goal 9",
+        "Goal 10",
+        "Goal 11",
+        "Goal 12",
+        "Goal 13",
+        "Goal 14",
+        "Goal 15",
+        "Goal 16",
+        "Goal 17",
+        "Goal 18",
+        "Goal 19",
+        "Goal 20",
+        "Goal 21",
+        "Goal 22",
+        "Goal 23",
+        "Goal 24",
+        "Goal 25",
+        "Goal 26",
+        "Goal 27",
+        "Goal 28",
+        "Goal 29",
+        "Goal 30",
+        "Goal 31",
+        "Goal 32",
+        "Goal 33",
+        "Goal 34",
+        "Goal 35",
+        "Goal 36",
+        "Goal 37",
+        "Goal 38",
+        "Goal 39",
+        "Goal 40",
+        "Goal 41",
+        "Goal 42",
+        "Goal 43",
+        "Goal 44",
+        "Goal 45",
+        "Goal 46",
+        "Goal 47",
+        "Goal 48",
+        "Goal 49",
+        "Goal 50",
+        "Goal 51",
+        "Goal 52",
+        "Goal 53",
+        "Goal 54",
+        "Goal 55",
+        "Goal 56",
+        "Goal 57",
+        "Goal 58",
+        "Goal 59",
+        "Goal 60",
+        "Goal 61",
+        "Goal 62",
+        "Goal 63",
+        "Goal 64",
+        "Goal 65",
+        "Goal 66",
+        "Goal 67",
+        "Goal 68",
+        "Goal 69",
+        "Goal 70",
+        "Goal 71",
+        "Goal 72",
+        "Goal 73",
+        "Goal 74",
+        "Goal 75",
+        "Goal 76",
+        "Goal 77",
+        "Goal 78",
+        "Goal 79",
+        "Goal 80",
+        "Goal 81",
+        "Goal 82",
+        "Goal 83",
+        "Goal 84",
+        "Goal 85",
+        "Goal 86",
+        "Goal 87",
+        "Goal 88",
+        "Goal 89",
+        "Goal 90",
+        "Goal 91",
+        "Goal 92",
+        "Goal 93",
+        "Goal 94",
+        "Goal 95",
+        "Goal 96",
+        "Goal 97",
+        "Goal 98",
+        "Goal 99",
+        "Goal 100"
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_MANY_ITEMS",
+    "path": "$.goals"
+  },
+  {
+    "id": "too-many-items-before-item-errors",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "caveats": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_MANY_ITEMS",
+    "path": "$.caveats"
+  },
+  {
+    "id": "too-many-glossary-terms",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "Term 0",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 1",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 2",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 3",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 4",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 5",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 6",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 7",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 8",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 9",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 10",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 11",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 12",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 13",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 14",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 15",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 16",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 17",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 18",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 19",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 20",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 21",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 22",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 23",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 24",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 25",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 26",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 27",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 28",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 29",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 30",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 31",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 32",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 33",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 34",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 35",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 36",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 37",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 38",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 39",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 40",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 41",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 42",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 43",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 44",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 45",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 46",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 47",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 48",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 49",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 50",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 51",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 52",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 53",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 54",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 55",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 56",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 57",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 58",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 59",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 60",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 61",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 62",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 63",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 64",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 65",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 66",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 67",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 68",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 69",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 70",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 71",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 72",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 73",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 74",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 75",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 76",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 77",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 78",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 79",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 80",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 81",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 82",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 83",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 84",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 85",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 86",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 87",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 88",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 89",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 90",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 91",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 92",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 93",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 94",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 95",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 96",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 97",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 98",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 99",
+          "meaning": "x"
+        },
+        {
+          "term": "Term 100",
+          "meaning": "x"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_MANY_ITEMS",
+    "path": "$.glossary"
+  },
+  {
+    "id": "kpi-not-object",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        "Net revenue"
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis[0]"
+  },
+  {
+    "id": "kpi-array",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        [
+          "Net revenue",
+          "x"
+        ]
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis[0]"
+  },
+  {
+    "id": "kpi-unknown-field",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "name": "ARR",
+          "definition": "x",
+          "owner": "Finance"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD",
+    "path": "$.kpis[0].owner"
+  },
+  {
+    "id": "kpi-missing-name",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "definition": "x"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis[0].name"
+  },
+  {
+    "id": "kpi-missing-definition",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "name": "ARR"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis[0].definition"
+  },
+  {
+    "id": "kpi-blank-definition",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "name": "ARR",
+          "definition": " "
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.kpis[0].definition"
+  },
+  {
+    "id": "glossary-uses-kpi-fields",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "name": "Seat",
+          "definition": "x"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD",
+    "path": "$.glossary[0].name"
+  },
+  {
+    "id": "duplicate-kpi-case",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "name": "Net Revenue",
+          "definition": "a"
+        },
+        {
+          "name": "net revenue",
+          "definition": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.kpis[1].name"
+  },
+  {
+    "id": "duplicate-before-value-check",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "kpis": [
+        {
+          "name": "ARR",
+          "definition": "a"
+        },
+        {
+          "name": "arr",
+          "definition": ""
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.kpis[1].name"
+  },
+  {
+    "id": "duplicate-term-whitespace",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "Active  user",
+          "meaning": "a"
+        },
+        {
+          "term": "active\tuser",
+          "meaning": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.glossary[1].term"
+  },
+  {
+    "id": "duplicate-term-no-break-space",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "Active user",
+          "meaning": "a"
+        },
+        {
+          "term": "Active\u00a0User",
+          "meaning": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.glossary[1].term"
+  },
+  {
+    "id": "duplicate-term-trimmed",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "ARR",
+          "meaning": "a"
+        },
+        {
+          "term": " ARR ",
+          "meaning": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.glossary[1].term"
+  },
+  {
+    "id": "duplicate-term-nfkc",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "ARR",
+          "meaning": "a"
+        },
+        {
+          "term": "ＡＲＲ",
+          "meaning": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.glossary[1].term"
+  },
+  {
+    "id": "duplicate-term-composed",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": [
+        {
+          "term": "Café",
+          "meaning": "a"
+        },
+        {
+          "term": "café",
+          "meaning": "b"
+        }
+      ]
+    },
+    "error": "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "path": "$.glossary[1].term"
+  },
+  {
+    "id": "text-fields-before-lists",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": 5,
+      "conventions": ""
+    },
+    "error": "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "path": "$.conventions"
+  },
+  {
+    "id": "goals-before-caveats",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "caveats": 5,
+      "goals": 5
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.goals"
+  },
+  {
+    "id": "kpis-before-glossary",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "glossary": 5,
+      "kpis": 5
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TYPE",
+    "path": "$.kpis"
+  },
+  {
+    "id": "canonical-too-large",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "summary": "This summary encodes to more than sixty-four bytes."
+    },
+    "limits": {
+      "maxBytes": 64
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_LARGE",
+    "path": "$"
+  },
+  {
+    "id": "text-over-stricter-limit",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "industry": "Retail"
+    },
+    "limits": {
+      "maxTextLength": 5
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_LARGE",
+    "path": "$.industry"
+  },
+  {
+    "id": "items-over-stricter-limit",
+    "value": {
+      "kind": "hypequery-business-context",
+      "version": 1,
+      "goals": [
+        "a",
+        "b"
+      ]
+    },
+    "limits": {
+      "maxItems": 1
+    },
+    "error": "HQ_BUSINESS_CONTEXT_TOO_MANY_ITEMS",
+    "path": "$.goals"
+  }
+]

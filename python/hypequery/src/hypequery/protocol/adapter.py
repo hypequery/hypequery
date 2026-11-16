@@ -11,6 +11,8 @@ from hypequery import __version__
 
 from .bundle_codec import prepare_protocol_deployment_bundle_manifest
 from .bundles import validate_protocol_deployment_bundle_manifest
+from .business_context import ProtocolBusinessContextLimits
+from .business_context_codec import prepare_protocol_business_context
 from .cache_keys import (
     ProtocolCacheKeyError,
     derive_protocol_cache_key,
@@ -28,6 +30,7 @@ from .deployments import (
     validate_protocol_deployment_contract_v3,
 )
 from .errors import (
+    ProtocolBusinessContextError,
     ProtocolDeploymentBundleError,
     ProtocolDeploymentError,
     ProtocolDeploymentReleaseError,
@@ -89,6 +92,7 @@ FAMILIES = (
     "deployments-v3",
     "deployment-bundles-v1",
     "deployment-releases-v1",
+    "business-context-v1",
 )
 HOSTILE_OBJECT_SUITE = {
     "count": 7,
@@ -331,6 +335,32 @@ def _handle_release(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": False, "code": error.code}
 
 
+_BUSINESS_CONTEXT_LIMITS = {
+    "maxTextLength": "max_text_length",
+    "maxItems": "max_items",
+    "maxBytes": "max_bytes",
+}
+
+
+def _handle_business_context(role: str, case: dict[str, object]) -> dict[str, object]:
+    # Every role encodes, so the canonical byte limit is checked as well as the document.
+    limits = case.get("limits")
+    configured = (
+        ProtocolBusinessContextLimits(
+            **{_BUSINESS_CONTEXT_LIMITS[key]: value for key, value in limits.items()}
+        )
+        if type(limits) is dict
+        else ProtocolBusinessContextLimits()
+    )
+    try:
+        prepared = prepare_protocol_business_context(case.get("value"), limits=configured)
+    except ProtocolBusinessContextError as error:
+        return {"ok": False, "code": error.code}
+    if role != "identity":
+        return {"ok": True}
+    return {"ok": True, "output": {"canonical": prepared.canonical, "sha256": prepared.identity}}
+
+
 def _handle_query_event(case: dict[str, object]) -> dict[str, object]:
     try:
         validate_protocol_query_event(_fixture_value(case, materialize_event_fixture))
@@ -402,6 +432,7 @@ def _handle(family: str, role: str, case: dict[str, object], section: object) ->
     role_handlers = {
         "client-contract-v1": handle_client_contract,
         "cache-keys-v1": _handle_cache_key,
+        "business-context-v1": _handle_business_context,
     }
     if family in role_handlers:
         return role_handlers[family](role, case)

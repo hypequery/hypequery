@@ -217,7 +217,7 @@ neither listed nor callable:
       ```python
       tools = await hypequery_tools(
           executor=executor,
-          tools=["list_datasets", "get_dataset_schema", "query_dataset"],
+          tools=["list_datasets", "get_dataset_schema", "query_dataset", "get_business_context"],
       )
       ```
     </CodeBlock>
@@ -243,8 +243,21 @@ neither listed nor callable:
   </Tab>
 
   <Tab value="Python">
-    Business context isn't in the Python SDK yet. Describe your terms in each dimension and measure's
-    `description`; the agent reads those through `get_dataset_schema`.
+    Pass `business_context=` to the executor and the agent reads your KPI definitions, glossary, conventions and
+    caveats from `list_datasets` and `get_business_context`:
+
+    <CodeBlock>
+      ```python
+      from business_context import business_context  # define_business_context(...)
+
+      executor = await ClientContractExecutor.create(
+          ApiContractBackend(api, headers={"Authorization": request.headers["authorization"]}),
+          business_context=business_context,
+      )
+      ```
+    </CodeBlock>
+
+    See [Business context](/docs/agents/business-context).
   </Tab>
 </Tabs>
 

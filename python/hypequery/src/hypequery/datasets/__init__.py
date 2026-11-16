@@ -6,6 +6,7 @@ from .aggregations import (
     Aggregation,
     AggregationType,
 )
+from .business_context import define_business_context
 from .cache import CachedRows, CacheStore, MemoryCacheStore, ResultCache, create_memory_cache_store
 from .catalog import (
     DatasetCatalog,
@@ -210,6 +211,7 @@ __all__ = [
     "create_dataset_registry",
     "create_memory_cache_store",
     "dataset",
+    "define_business_context",
     "dimension",
     "export_client_contract",
     "filter",

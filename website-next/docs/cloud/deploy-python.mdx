@@ -37,6 +37,10 @@ write_dataset_bundle(
 
 Each entry in `endpoints` publishes one dataset with its access policy, tenant requirement, and path.
 
+To publish [business context](/docs/agents/business-context) in the same release, pass
+`business_context=define_business_context(...)` (from `hypequery.datasets`). The bundle then carries
+`business-context.json`, with the bytes and identity `hypequery deploy` gives the same context.
+
 ## 2. Log in, release, and submit
 
 <CodeBlock>

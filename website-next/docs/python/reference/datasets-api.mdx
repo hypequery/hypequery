@@ -80,7 +80,11 @@ Results come back as `DatasetQueryResult`, with `DatasetQueryMeta` and `Paginati
 
 ## Deployment bundles
 
-`prepare_dataset_bundle(registry, *, endpoints=None)` assembles canonical bundle bytes without touching the filesystem. `write_dataset_bundle(output_directory, registry, *, endpoints=None)` writes a new bundle and refuses to replace an existing one.
+`prepare_dataset_bundle(registry, *, endpoints=None, business_context=None)` assembles canonical bundle bytes without touching the filesystem. `write_dataset_bundle(output_directory, registry, *, endpoints=None, business_context=None)` writes a new bundle and refuses to replace an existing one. With a non-empty `business_context` the bundle is version 2 and adds `business-context.json`; without one it stays version 1.
+
+## Business context
+
+`define_business_context(*, summary=None, industry=None, business_model=None, customers=None, audience=None, goals=None, kpis=None, glossary=None, conventions=None, caveats=None)` returns the validated `hypequery-business-context` v1 document: reviewed guidance agents read before they interpret numbers. It raises `hypequery.protocol.ProtocolBusinessContextError` naming the offending path. Serve it with `ClientContractExecutor.create(..., business_context=...)` and render it with `hypequery.mcp.format_business_context`. See [Business context](/docs/agents/business-context).
 
 ## Client contracts
 

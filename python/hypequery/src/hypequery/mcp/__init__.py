@@ -2,12 +2,12 @@
 
 Exposes the same tools as `@hypequery/mcp` (`list_datasets`,
 `get_dataset_schema`, `query_metric`, `query_dataset`, each query tool only when
-something is offered under it) and its `dataset_guide`
-prompt, over an authorized client contract served by a `hypequery.serve` API:
-in this process (`ApiContractBackend`) or over HTTPS (`HttpContractBackend`).
-The SDK-backed servers (`create_mcp_server` with `serve_stdio`, and the
-self-hosted Streamable HTTP `create_mcp_asgi_app`) need the `mcp` extra:
-`pip install "hypequery[mcp]"`.
+something is offered under it, and `get_business_context` when the executor has
+business context) and its `dataset_guide` prompt, over an authorized client
+contract served by a `hypequery.serve` API: in this process
+(`ApiContractBackend`) or over HTTPS (`HttpContractBackend`). The SDK-backed
+servers (`create_mcp_server` with `serve_stdio`, and the self-hosted Streamable
+HTTP `create_mcp_asgi_app`) need the `mcp` extra: `pip install "hypequery[mcp]"`.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ from .http_auth import (
     static_key_authenticator,
 )
 from .http_executors import ApiExecutorFactory, HttpExecutorFactory, check_resource_audience
+from .utils.business_context import format_business_context
 from .utils.oauth import ProtectedResource
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ __all__ = [
     "check_resource_audience",
     "create_mcp_asgi_app",
     "create_mcp_server",
+    "format_business_context",
     "serve_stdio",
     "static_key_authenticator",
 ]

@@ -3,8 +3,10 @@
 Snapshots that keep `@hypequery/mcp` and a Python MCP server advertising the
 same tools. They are generated from the
 [client-contract-v1](../security-protocol/fixtures/client-contract-v1/) success
-contracts and live here, outside that conformance family, because they are
-snapshots rather than case arrays.
+contracts (and the business context snapshot from
+[business-context-v1](../security-protocol/fixtures/business-context-v1/)'s)
+and live here, outside those conformance families, because they are snapshots
+rather than case arrays.
 
 - `tool-schemas-v1.json`: per success contract, the `query_dataset` and
   `query_metric` MCP input JSON Schemas and manifest hash (RFC 0018 MCP
@@ -15,6 +17,14 @@ snapshots rather than case arrays.
   are tool-schemas-v1.json's, from the profiled contract). TypeScript generates
   it (`vitest -u` in `packages/mcp-server`); Python's `hypequery mcp` asserts
   the same bytes.
+- `business-context-v1.json`: what an MCP server with business context adds:
+  the `get_business_context` tool, `list_datasets`' description and its
+  `businessContext` output schema, and, for each non-empty
+  [business-context-v1](../security-protocol/fixtures/business-context-v1/)
+  success document, the `list_datasets` projection and the
+  `formatBusinessContext` Markdown, plus the 32 KiB inline limit. TypeScript
+  generates it (`vitest -u` in `packages/mcp-server`); Python's
+  `hypequery.mcp` asserts the same bytes.
 
 `tool-schemas-v1.json` pins the compiler on the raw contract. A server does not compile
 that directly: like `@hypequery/mcp` (`mcpClientProfile`), it first applies the

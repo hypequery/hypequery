@@ -366,14 +366,35 @@ You need a ClickHouse server you can query and Node.js 20+ or Python 3.11+. The 
       </Tab>
 
       <Tab value="Python">
-        Business context isn't in the Python SDK yet. Describe your terms in each dimension and measure's
-        `description` for now; agents read those through the schema tool.
+        <CodeBlock>
+          ```python
+          # business_context.py
+          from hypequery.datasets import define_business_context
+
+          business_context = define_business_context(
+              summary="An online store selling to businesses in the UK, US and Germany.",
+              kpis=[
+                  {"name": "Revenue", "definition": "The revenue measure sums every order amount, in USD. Filter status to completed to leave out refunded and pending orders."},
+                  {"name": "Average order value", "definition": "Revenue divided by the order count, over the same orders. Filter status to completed for completed orders only."},
+              ],
+              glossary=[
+                  {"term": "Order", "meaning": "One checkout. An order with several items is still one order."},
+                  {"term": "Customer", "meaning": "The business that placed the order (the tenant), not the person."},
+              ],
+              conventions="Amounts in USD. Times in UTC. Weeks start on Monday.",
+              caveats=["Orders before March 2024 have no country."],
+          )
+          ```
+        </CodeBlock>
+
+        Every argument is optional. `define_business_context` raises `ProtocolBusinessContextError`, naming the field,
+        on a glossary term or KPI defined twice, or a value over the limits.
       </Tab>
     </Tabs>
 
-    Pass it to the executor in [Add AI chat to your app](/docs/agents/quickstart), or to an MCP server you build with
-    `createMCPServer`, and agents read it from `list_datasets` and `get_business_context`. The `hypequery mcp` command
-    doesn't read it yet. You'll also be able to edit it, glossary included, in hypequery Cloud (coming soon). See
+    Pass it to the executor in [Add AI chat to your app](/docs/agents/quickstart), or to an MCP server you build
+    (`createMCPServer` in TypeScript, `create_mcp_server` or `create_mcp_asgi_app` in Python), and agents read it from
+    `list_datasets` and `get_business_context`. The `hypequery mcp` command doesn't read it yet. You'll also be able to edit it, glossary included, in hypequery Cloud (coming soon). See
     [Business context](/docs/agents/business-context) for every field.
   </Step>
 </Steps>
