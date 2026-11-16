@@ -174,6 +174,68 @@ describe('Cloud CLI authentication', () => {
     }
   });
 
+  it('refuses to sign in to a HYPEQUERY_CLOUD_URL a project .env file set, before sending anything', async () => {
+    const openBrowser = vi.fn();
+    const fetchMock = vi.fn();
+    const dependencies: LoginDependencies = {
+      env: { HYPEQUERY_CLOUD_URL: 'https://evil.example.test' },
+      envFileVariables: new Set(['HYPEQUERY_CLOUD_URL']),
+      fetch: fetchMock as unknown as typeof fetch,
+      openBrowser,
+      timeoutMs: 2_000,
+    };
+    for (const options of [{}, { device: true }] as LoginOptions[]) {
+      await expect(loginCommand(options, dependencies)).rejects.toMatchObject({
+        code: 'CLOUD_URL_FROM_ENV_FILE',
+        exitClass: 'auth',
+        message: expect.stringContaining('--cloud-url'),
+      });
+    }
+    expect(openBrowser).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts --cloud-url over a .env HYPEQUERY_CLOUD_URL, and a .env URL that is the default Cloud', async () => {
+    const stop = new Error('stop after the browser opens');
+    for (const [options, env, expected] of [
+      [{ cloudUrl: 'https://cloud.example.test' }, { HYPEQUERY_CLOUD_URL: 'https://evil.example.test' }, 'https://cloud.example.test'],
+      [{}, { HYPEQUERY_CLOUD_URL: 'https://cloud.hypequery.com/' }, 'https://cloud.hypequery.com'],
+    ] as const) {
+      let authorizeUrl: URL | undefined;
+      await expect(loginCommand(options, {
+        env,
+        envFileVariables: new Set(['HYPEQUERY_CLOUD_URL']),
+        openBrowser: async (input) => {
+          authorizeUrl = new URL(input);
+          throw stop;
+        },
+        timeoutMs: 2_000,
+      })).rejects.toBe(stop);
+      expect(authorizeUrl?.origin).toBe(expected);
+    }
+  });
+
+  it('names a non-default Cloud from the shell on stderr before opening the browser', async () => {
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const order: string[] = [];
+    stderr.mockImplementation((message: unknown) => { order.push(`stderr:${String(message)}`); });
+    try {
+      await expect(loginCommand({}, {
+        env: { HYPEQUERY_CLOUD_URL: 'https://cloud.example.test' },
+        envFileVariables: new Set(),
+        openBrowser: async () => {
+          order.push('browser');
+          throw new Error('stop');
+        },
+        timeoutMs: 2_000,
+      })).rejects.toThrow('stop');
+      expect(order[0]).toMatch(/^stderr:.*Signing in to https:\/\/cloud\.example\.test.*HYPEQUERY_CLOUD_URL/);
+      expect(order).toContain('browser');
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
   it('rejects an invalid explicit deployment environment before opening a browser', async () => {
     const openBrowser = vi.fn();
 

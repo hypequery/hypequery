@@ -19,7 +19,8 @@ import { CliError, cloudHttpError } from '../utils/cli-error.js';
 import { parseCloudErrorBody } from '../utils/cloud-error-body.js';
 import { isUnattended } from '../utils/input-mode.js';
 import { parseCapabilityList } from '../utils/capability-list.js';
-import { cloudOriginFromEnv } from '../utils/cloud-origin.js';
+import { cloudOriginFromEnv, DEFAULT_CLOUD_URL } from '../utils/cloud-origin.js';
+import { envFileVariableNames } from '../utils/env-provenance.js';
 import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
 import { VaultUnavailableError } from '../utils/cloud-vault.js';
 import {
@@ -71,6 +72,13 @@ export interface LoginDependencies {
   /** Whether a person is at this terminal, so device sign-in may open a browser. */
   readonly isInteractive?: () => boolean;
   readonly timeoutMs?: number;
+  /** Defaults to `process.env`. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * Names a project `.env*` file set rather than the process environment.
+   * Defaults to what `bin/cli.ts` recorded before loading env files.
+   */
+  readonly envFileVariables?: ReadonlySet<string>;
 }
 
 export interface LogoutDependencies {
@@ -398,13 +406,47 @@ async function deviceLogin(
   });
 }
 
+/**
+ * The Cloud origin to sign in to: `--cloud-url`, else `HYPEQUERY_CLOUD_URL`
+ * from the shell, else the default Cloud.
+ *
+ * Sign-in sends the authorization code and PKCE verifier (or the device code)
+ * to this origin and stores the org-wide management token it returns, so a
+ * project `.env` file must not choose it: a cloned repository could name a
+ * server that relays the sign-in to the real Cloud and keeps the token. A
+ * non-default origin from the shell is printed before anything is sent, so a
+ * person can see where they are signing in.
+ *
+ * Every origin that gets past this check is one the user chose (flag or
+ * shell), so the store may make it the current sign-in as before.
+ */
+function loginOrigin(options: LoginOptions, dependencies: LoginDependencies): string {
+  if (options.cloudUrl) return normalizeCloudOrigin(options.cloudUrl);
+  const env = dependencies.env ?? process.env;
+  const origin = cloudOriginFromEnv(env);
+  if (origin === DEFAULT_CLOUD_URL) return origin;
+  const envFileVariables = dependencies.envFileVariables ?? envFileVariableNames(env);
+  if (envFileVariables.has('HYPEQUERY_CLOUD_URL')) {
+    throw new CliError(
+      'CLOUD_URL_FROM_ENV_FILE',
+      `HYPEQUERY_CLOUD_URL (${origin}) comes from a .env file in this directory. `
+        + '`hypequery login` does not sign in to a Cloud that a project file names, because that server '
+        + 'would receive your sign-in. Pass --cloud-url, or set HYPEQUERY_CLOUD_URL in your shell.',
+      {
+        hint: 'Run `hypequery login --cloud-url <url>`, or export HYPEQUERY_CLOUD_URL in your shell.',
+        exitClass: 'auth',
+      },
+    );
+  }
+  instruct(`Signing in to ${origin} (from HYPEQUERY_CLOUD_URL), not ${DEFAULT_CLOUD_URL}.`);
+  return origin;
+}
+
 export async function loginCommand(
   options: LoginOptions = {},
   dependencies: LoginDependencies = {},
 ) {
-  const origin = options.cloudUrl
-    ? normalizeCloudOrigin(options.cloudUrl)
-    : cloudOriginFromEnv(process.env);
+  const origin = loginOrigin(options, dependencies);
   if (options.device) {
     await deviceLogin(origin, options, dependencies);
     return;
