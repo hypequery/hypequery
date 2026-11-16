@@ -651,6 +651,27 @@ describe('runCloudOperation', () => {
     expect(cloudOperationValueFlags(program, ['releases', '--help'])).toEqual([]);
   });
 
+  it('gives up on a Cloud call after the timeout, as a retryable unavailable failure', async () => {
+    const hang = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init.signal!.addEventListener('abort', () => reject(init.signal!.reason));
+    }));
+    await expect(runCloudOperation(shapeOf('projects.list'), [], {}, {
+      ...io(), stdin: pipe(''), fetch: hang as unknown as typeof fetch, requestTimeoutMs: 20,
+    })).rejects.toMatchObject({
+      code: 'CLOUD_TIMEOUT', category: 'unavailable', exitClass: 'transient', retryable: true,
+    });
+    expect(hang).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs organization.update as `hypequery org update`, beside the other org commands', async () => {
+    const command = commandFor(shapeOf('organization.update'));
+    expect(`${command.parent?.name()} ${command.name()}`).toBe('org update');
+    expect(program.commands.some(candidate => candidate.name() === 'organization')).toBe(false);
+    await runCloudOperation(shapeOf('organization.update'), [], { name: 'Acme' }, { ...io(), stdin: pipe('') });
+    expect(requests[0]).toMatchObject({ method: 'PATCH', body: { name: 'Acme' } });
+    expect(requests[0]!.url.pathname).toBe('/v1/org');
+  });
+
   it('is recorded under one telemetry command', () => {
     const command = commandFor(shapeOf('releases.rollback'));
     expect(cloudOperationOf(command)?.operation.name).toBe('releases.rollback');

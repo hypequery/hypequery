@@ -35,6 +35,25 @@ export interface CloudOperationDependencies extends CloudDeploymentAccessDepende
   readonly writeStderr?: (text: string) => void;
   readonly confirm?: (message: string) => Promise<boolean>;
   readonly promptSecret?: (message: string) => Promise<string>;
+  /** How long one Cloud call may take before the command gives up. */
+  readonly requestTimeoutMs?: number;
+}
+
+/** Generous: some operations (draft replay, connection tests) query the warehouse. */
+const REQUEST_TIMEOUT_MS = 60_000;
+
+function timedOut(shape: CloudCommandShape, baseUrl: string, milliseconds: number): CliError {
+  return new CliError(
+    'CLOUD_TIMEOUT',
+    `hypequery Cloud at ${baseUrl} did not answer ${shape.operation.name} within ${Math.round(milliseconds / 1000)} seconds.`,
+    {
+      hint: 'Check the network and try again. If the operation changes something, check whether it already took effect before retrying.',
+      category: 'unavailable',
+      exitClass: 'transient',
+      retryable: true,
+      telemetryCode: 'cloud_network_error',
+    },
+  );
 }
 
 const SECRET_OUTPUT_WARNING = 'Cloud shows this secret only once. It is printed to stdout and nowhere else: '
@@ -121,8 +140,22 @@ export async function runCloudOperation(
     ...(dependencies.fetch ? { fetch: dependencies.fetch } : {}),
     headers: { 'user-agent': `hypequery-cli/${getCliVersion()}` },
   });
-  const call = client.call as unknown as (name: string, input: Record<string, unknown>) => Promise<unknown>;
-  const send = (body: Record<string, unknown>) => call(shape.operation.name, body);
+  const call = client.call as unknown as (
+    name: string,
+    input: Record<string, unknown>,
+    options: { readonly signal: AbortSignal },
+  ) => Promise<unknown>;
+  const timeoutMs = dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+  const send = async (body: Record<string, unknown>) => {
+    const signal = AbortSignal.timeout(timeoutMs);
+    try {
+      return await call(shape.operation.name, body, { signal });
+    } catch (error) {
+      // The client rethrows an abort unchanged; the deadline is this command's.
+      if (signal.aborted) throw timedOut(shape, access.baseUrl, timeoutMs);
+      throw error;
+    }
+  };
 
   let output: unknown;
   try {
