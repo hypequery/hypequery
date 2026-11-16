@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
-import { readdir, readFile } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
@@ -45,11 +47,32 @@ describe('the Claude Code plugin', () => {
   it('bundles every skill in skills/, unchanged', async () => {
     const bundled = (await readdir(new URL('skills/', plugin), { withFileTypes: true }))
       .map(entry => entry.name)
+      .filter(name => !name.startsWith('.'))
       .sort();
     expect(bundled).toEqual(AGENT_SKILLS.map(skill => skill.name));
     for (const skill of AGENT_SKILLS) {
       // Run `node packages/cli/scripts/generate-skills.mjs` after editing skills/.
       expect(await readFile(new URL(`skills/${skill.name}/SKILL.md`, plugin), 'utf8')).toBe(skill.content);
+    }
+  });
+
+  it('ignores dotfiles such as .DS_Store: not drift, and never deleted', async () => {
+    // A scratch copy of the generator's inputs and outputs, so the real tree is untouched.
+    const scratch = await mkdtemp(path.join(tmpdir(), 'hq-skills-'));
+    try {
+      const at = (relative: string) => path.join(scratch, relative);
+      await cp(fileURLToPath(new URL('skills/', repository)), at('skills'), { recursive: true });
+      await cp(fileURLToPath(new URL('skills/', plugin)), at('plugins/claude-code/hypequery/skills'), { recursive: true });
+      await cp(fileURLToPath(new URL('packages/cli/scripts/generate-skills.mjs', repository)), at('packages/cli/scripts/generate-skills.mjs'));
+      await cp(fileURLToPath(new URL('packages/cli/src/templates/skills.generated.ts', repository)), at('packages/cli/src/templates/skills.generated.ts'));
+      for (const stray of ['skills/.DS_Store', 'plugins/claude-code/hypequery/skills/.DS_Store']) await writeFile(at(stray), 'x');
+      const script = at('packages/cli/scripts/generate-skills.mjs');
+      const run = (args: string[]) => promisify(execFile)(process.execPath, [script, ...args]);
+      await expect(run(['--check'])).resolves.toBeDefined();
+      await run([]);
+      expect(await readFile(at('plugins/claude-code/hypequery/skills/.DS_Store'), 'utf8')).toBe('x');
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
     }
   });
 

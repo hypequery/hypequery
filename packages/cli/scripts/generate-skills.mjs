@@ -11,8 +11,11 @@ const output = new URL('../src/templates/skills.generated.ts', import.meta.url);
 const pluginSkills = new URL('../../../plugins/claude-code/hypequery/skills/', import.meta.url);
 const check = process.argv.includes('--check');
 
+// Dotfiles (.DS_Store, editor state) are not skills, here or in the plugin.
+const visible = entry => !entry.name.startsWith('.');
+
 const names = (await readdir(root, { withFileTypes: true }))
-  .filter(entry => entry.isDirectory())
+  .filter(entry => entry.isDirectory() && visible(entry))
   .map(entry => entry.name)
   .sort();
 const skills = await Promise.all(names.map(async name => ({
@@ -29,7 +32,7 @@ export const AGENT_SKILLS: readonly AgentSkill[] = ${JSON.stringify(skills, null
 `;
 
 const removed = (await readdir(pluginSkills, { withFileTypes: true }).catch(() => []))
-  .filter(entry => !names.includes(entry.name))
+  .filter(entry => visible(entry) && !names.includes(entry.name))
   .map(entry => entry.name);
 const stale = [];
 if ((await readFile(output, 'utf8').catch(() => '')) !== source) {
