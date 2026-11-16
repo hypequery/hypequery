@@ -132,6 +132,16 @@ describe('requests', () => {
     );
     expect(calls).toHaveLength(0);
   });
+
+  it('refuses a path param of "." or "..", which would resolve to another route', async () => {
+    const { fetch, calls } = mockFetch();
+    await expect(client(fetch).projects.get({ project: '..' })).rejects.toThrow(/"project" can't be "\.\."/);
+    await expect(client(fetch).projects.get({ project: '.' })).rejects.toThrow(/"project" can't be "\."/);
+    expect(calls).toHaveLength(0);
+    // Dots inside a value are an ordinary slug or version.
+    await client(fetch).projects.get({ project: '..shop' });
+    expect(calls[0]!.url.pathname).toBe('/v1/projects/..shop');
+  });
 });
 
 describe('errors', () => {
