@@ -165,7 +165,7 @@ export function errorEnvelope(
       code: isCliError(error) ? error.code : code,
       message,
       hint: isCliError(error) && error.hint ? error.hint : DEFAULT_HINT[exitClass],
-      docsUrl: CLI_ERRORS_DOCS_URL,
+      docsUrl: isCliError(error) && error.docsUrl ? error.docsUrl : CLI_ERRORS_DOCS_URL,
       category,
       retryable: isCliError(error) ? error.retryable : exitClass === 'transient',
       // As in Cloud: only correctable_input is something to fix and resubmit.

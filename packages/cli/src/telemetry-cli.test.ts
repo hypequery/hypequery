@@ -8,6 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { program } from './cli.js';
+import { isCloudOperationGroup } from './commands/cloud-operations.js';
 
 const execute = promisify(execFile);
 const bin = path.resolve('dist/bin/cli.js');
@@ -137,9 +138,11 @@ describe('compiled CLI telemetry regression', () => {
       expect({ code: on.code, stdout: on.stdout, stderr: on.stderr }, command.name()).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
       expect({ code: failing.code, stdout: failing.stdout, stderr: failing.stderr }, command.name()).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
       expect(on.events).toHaveLength(1);
-      if (on.events.length) expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: command.name() });
+      const topic = isCloudOperationGroup(command.name()) ? 'cloud-operation' : command.name();
+      if (on.events.length) expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: topic });
     }
-  }, 60_000);
+    // Three CLI runs per top-level command, including every Cloud operation group.
+  }, 180_000);
 
   it.each([
     ['--version'], ['PRIVATE_UNKNOWN_COMMAND'], ['init', '--PRIVATE_UNKNOWN_OPTION'],
