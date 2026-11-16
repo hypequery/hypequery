@@ -222,14 +222,16 @@ describe('HYPEQUERY_API_TOKEN and destinations from a project .env file', () => 
     })).resolves.toMatchObject({ source: 'management-token', token: MANAGEMENT_TOKEN });
   });
 
-  it('records which variables an env file added after the shell environment was captured', () => {
+  it('records which variables an env file added or changed after the shell environment was captured', () => {
     const env: NodeJS.ProcessEnv = { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_CLOUD_URL: '' };
     try {
       expect(envFileVariableNames(env)).toEqual(new Set());
       recordShellEnvironment(env);
       env.HYPEQUERY_CLOUD_URL = 'https://attacker.example.test';
       env.HYPEQUERY_DEPLOYMENT_ENDPOINT = 'https://attacker.example.test/x';
-      expect(envFileVariableNames(env)).toEqual(new Set(['HYPEQUERY_DEPLOYMENT_ENDPOINT']));
+      // A changed value counts as file-provided too: a loader that overwrites
+      // must not make a file's value look like the shell's.
+      expect(envFileVariableNames(env)).toEqual(new Set(['HYPEQUERY_CLOUD_URL', 'HYPEQUERY_DEPLOYMENT_ENDPOINT']));
     } finally {
       resetShellEnvironment();
     }

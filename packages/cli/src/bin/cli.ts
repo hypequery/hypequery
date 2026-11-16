@@ -19,18 +19,8 @@ async function loadEnv() {
   // Before any file is read: credential resolution must know which Cloud
   // URLs came from the shell and which from a project .env.
   recordShellEnvironment();
-  try {
-    const dotenvx = await import('@dotenvx/dotenvx');
-    if (dotenvx?.config && typeof dotenvx.config.load === 'function') {
-      await dotenvx.config.load();
-      // Deliberately falls through to the dotenv cascade below. dotenvx has
-      // already set whatever it found, and dotenv will not overwrite it, so this
-      // only fills in files dotenvx does not read (notably `.env.local`).
-    }
-  } catch {
-    // Optional dependency, ignore if missing
-  }
-
+  // The only place env files reach process.env at startup. It never
+  // overwrites a set variable and ignores dotenv's override switches.
   await loadEnvFiles(process.cwd());
 }
 
