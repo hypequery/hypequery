@@ -161,7 +161,8 @@ def test_identities_are_domain_separated_from_each_other() -> None:
     [
         (_manifest(kind="nope"), "HQ_BUNDLE_INVALID_VALUE"),
         (_manifest(kind=1), "HQ_BUNDLE_TYPE"),
-        (_manifest(version=2), "HQ_BUNDLE_INVALID_VERSION"),
+        # Version 2 is the business-context bundle; 3 is the first unknown version.
+        (_manifest(version=3), "HQ_BUNDLE_INVALID_VERSION"),
         ({**_manifest(), "extra": True}, "HQ_BUNDLE_UNKNOWN_FIELD"),
         (_manifest(deployment=_deployment(identity="bad")), "HQ_BUNDLE_INVALID_VALUE"),
         # Digests are lowercase hex; an uppercase one is a different string.
@@ -438,3 +439,75 @@ def test_boolean_versions_are_not_numeric_versions(version: bool) -> None:
     with pytest.raises(ProtocolDeploymentReleaseError) as release:
         validate_protocol_deployment_release_envelope(_release(version=version))
     assert release.value.code == "HQ_RELEASE_TYPE"
+
+
+# -- v2: business context ------------------------------------------------------
+# Each expectation mirrors `@hypequery/protocol`'s bundle v2 tests.
+
+
+def _context_entry(**overrides: object) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "path": "business-context.json",
+        "identity": "3" * 64,
+        "sha256": "4" * 64,
+        "byteLength": 10,
+    }
+    entry.update(overrides)
+    return entry
+
+
+def _v2(**overrides: object) -> dict[str, object]:
+    manifest = _manifest(version=2, artifacts=[], businessContext=_context_entry())
+    manifest.update(overrides)
+    return manifest
+
+
+def _bundle_failure(manifest: dict[str, object]) -> str:
+    with pytest.raises(ProtocolDeploymentBundleError) as raised:
+        validate_protocol_deployment_bundle_manifest(manifest)
+    return f"{raised.value.code} {raised.value.path}"
+
+
+def test_a_v2_manifest_keeps_its_business_context_entry() -> None:
+    manifest = validate_protocol_deployment_bundle_manifest(_v2())
+    assert manifest["version"] == 2
+    assert manifest["businessContext"] == _context_entry()
+    assert list(manifest) == ["kind", "version", "deployment", "businessContext", "artifacts"]
+
+
+def test_the_context_entry_is_part_of_the_bundle_identity() -> None:
+    before = prepare_protocol_deployment_bundle_manifest(_v2())
+    after = prepare_protocol_deployment_bundle_manifest(
+        _v2(businessContext=_context_entry(identity="5" * 64))
+    )
+    assert before.identity != after.identity
+    assert '"businessContext":{"byteLength":10,' in before.canonical
+
+
+def test_context_belongs_only_to_v2_and_v2_requires_it() -> None:
+    assert (
+        _bundle_failure(_manifest(businessContext=_context_entry()))
+        == "HQ_BUNDLE_UNKNOWN_FIELD $.businessContext"
+    )
+    assert _bundle_failure(_manifest(version=2)) == "HQ_BUNDLE_TYPE $.businessContext"
+    assert _bundle_failure(_manifest(version=3)) == "HQ_BUNDLE_INVALID_VERSION $.version"
+
+
+def test_a_context_entry_cannot_collide_with_another_bundle_path() -> None:
+    assert (
+        _bundle_failure(_v2(businessContext=_context_entry(path="deployment.json")))
+        == "HQ_BUNDLE_INVALID_REFERENCE $"
+    )
+
+
+def test_the_context_entry_has_exact_fields_and_its_own_byte_limit() -> None:
+    assert (
+        _bundle_failure(_v2(businessContext=_context_entry(byteLength=1_024 * 1_024 + 1)))
+        == "HQ_BUNDLE_TOO_LARGE $.businessContext.byteLength"
+    )
+    assert (
+        _bundle_failure(_v2(businessContext=_context_entry(memory=True)))
+        == "HQ_BUNDLE_UNKNOWN_FIELD $.businessContext.memory"
+    )
+    with pytest.raises(ValueError, match="max_business_context_bytes"):
+        ProtocolDeploymentBundleLimits(max_business_context_bytes=1_024 * 1_024 + 1)

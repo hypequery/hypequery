@@ -6,6 +6,10 @@ schemas, validates every call with the shared client-query validator, posts
 the plan, and checks the result against it. It pins the contract it started
 with: a changed contract or a `409` latches `MCP_STALE_CONTRACT` until the
 agent reconnects.
+
+Optional business context is served as `@hypequery/mcp`'s
+`createMCPExecutor({ businessContext })` serves it: in `list_datasets` and from
+`get_business_context`, listed only when there is some.
 """
 
 from __future__ import annotations
@@ -41,6 +45,12 @@ from .responses import (
     tool_response,
 )
 from .utils.arguments import tool_arguments
+from .utils.business_context import (
+    McpBusinessContext,
+    copy_business_context,
+    list_datasets_business_context,
+    resolve_mcp_business_context,
+)
 from .utils.discovery import client_dataset_list, client_dataset_names, client_dataset_profile
 from .utils.profile import mcp_client_profile
 from .utils.query_hints import client_query_field_hint, client_query_target_hint
@@ -132,8 +142,13 @@ class ClientContractExecutor:
         query_limits: QueryLimits,
         catalog_budget: CatalogBudget,
         max_contract_bytes: int,
+        business_context: Mapping[str, object] | None = None,
     ) -> None:
         self._backend = backend
+        # Validated before anything is advertised; an empty document is no context.
+        self._business_context: McpBusinessContext | None = resolve_mcp_business_context(
+            business_context
+        )
         self._authorized_hash = contract["contentHash"]
         self._budget = budget
         self._contract_bytes = max_contract_bytes
@@ -141,7 +156,12 @@ class ClientContractExecutor:
             mcp_client_profile(contract, query_limits)
         )
         self._manifest = assert_manifest_within_budget(
-            client_tool_manifest(self._schemas, self._authorized_hash), catalog_budget
+            client_tool_manifest(
+                self._schemas,
+                self._authorized_hash,
+                business_context=self._business_context is not None,
+            ),
+            catalog_budget,
         )
         self._invalidated = False
 
@@ -154,9 +174,19 @@ class ClientContractExecutor:
         query_limits: QueryLimits | None = None,
         catalog_budget: CatalogBudget | None = None,
         max_contract_bytes: int = DEFAULT_MAX_CONTRACT_BYTES,
+        business_context: Mapping[str, object] | None = None,
     ) -> ClientContractExecutor:
-        """Discover the authorized contract once and pin it for the session."""
+        """Discover the authorized contract once and pin it for the session.
 
+        *business_context* is reviewed guidance from `define_business_context`:
+        `list_datasets` carries it (only its summary when over 32 KiB) and
+        `get_business_context` returns it, so agents read the KPI definitions,
+        glossary, conventions and caveats before they answer. It never changes
+        what a query returns, nor the manifest hash.
+        """
+
+        # Refuse an invalid document before contacting the backend.
+        resolve_mcp_business_context(business_context)
         if type(max_contract_bytes) is not int or not 1 <= max_contract_bytes <= MAX_CONTRACT_BYTES:
             raise ValueError(
                 f"max_contract_bytes must be an integer between 1 and {MAX_CONTRACT_BYTES}"
@@ -180,6 +210,7 @@ class ClientContractExecutor:
             query_limits=query_limits or QueryLimits(),
             catalog_budget=catalog_budget or CatalogBudget(),
             max_contract_bytes=max_contract_bytes,
+            business_context=business_context,
         )
 
     @property
@@ -268,9 +299,18 @@ class ClientContractExecutor:
             raise McpToolError("MCP_NOT_FOUND", "Dataset group not found.")
         return dataset
 
-    async def _execute(self, plan: ClientQueryPlan | None, dataset: str | None) -> ToolResult:
+    async def _execute(
+        self, plan: ClientQueryPlan | None, dataset: str | None, *, context: bool = False
+    ) -> ToolResult:
         await self._current()
         value: dict[str, object]
+        if context and self._business_context is not None:
+            # The document was bounded when the executor was built (at most 1 MiB
+            # canonical, the business context v1 ceiling), and the response carries
+            # it twice (text and structured). Checking it against the per-query
+            # response budget would refuse a valid document that `list_datasets`
+            # points the agent at, so, as in `@hypequery/mcp`, it is returned whole.
+            return tool_response({"businessContext": copy_business_context(self._business_context)})
         if plan is not None:
             endpoint = plan["endpoint"]
             response = await self._backend.query(
@@ -283,6 +323,8 @@ class ClientContractExecutor:
             value = client_http_result(_json_text(response), plan)
         elif dataset is None:
             value = client_dataset_list(self.contract)
+            if self._business_context is not None:
+                value["businessContext"] = list_datasets_business_context(self._business_context)
         else:
             value = client_dataset_profile(self.contract, dataset)
         result = tool_response(value)
@@ -298,15 +340,21 @@ class ClientContractExecutor:
             self._assert_active()
             plan: ClientQueryPlan | None = None
             dataset: str | None = None
+            context = False
             if name in ("query_dataset", "query_metric"):
                 plan = self._plan(name, arguments)
             elif name == "list_datasets":
                 tool_arguments(arguments, ())
             elif name == "get_dataset_schema":
                 dataset = self._dataset_argument(arguments)
+            elif name == "get_business_context" and self._business_context is not None:
+                # Like `@hypequery/mcp`, the tool takes no input and reads none.
+                context = True
             else:
                 raise McpToolError("MCP_UNKNOWN_TOOL", "Unknown client tool.")
-            return await within_budget(lambda: self._execute(plan, dataset), self._budget)
+            return await within_budget(
+                lambda: self._execute(plan, dataset, context=context), self._budget
+            )
         except Exception as error:
             result = error_response(error)
             try:

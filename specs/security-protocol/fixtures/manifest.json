@@ -197,6 +197,26 @@
       ]
     },
     {
+      "name": "business-context-v1",
+      "codePrefixes": [
+        "HQ_BUSINESS_CONTEXT_"
+      ],
+      "files": [
+        {
+          "path": "business-context-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "business-context-v1/rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "business-context-v1/identity.json",
+          "role": "identity"
+        }
+      ]
+    },
+    {
       "name": "query-events-v1",
       "rfc": "0011",
       "codePrefixes": [

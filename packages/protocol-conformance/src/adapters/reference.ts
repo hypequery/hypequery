@@ -12,6 +12,7 @@ import {
   hashCanonicalValue,
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
+  prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentContractV3,
@@ -34,7 +35,7 @@ import {
   validateProtocolSemanticQuery,
   validateProtocolSqlExpression,
 } from '@hypequery/protocol';
-import type { ProtocolExpressionExtension } from '@hypequery/protocol';
+import type { ProtocolBusinessContextOptions, ProtocolExpressionExtension } from '@hypequery/protocol';
 import type { FixtureRole, HandlerResult } from '../types.js';
 import {
   materializeBundle,
@@ -112,6 +113,7 @@ export const REFERENCE_FAMILIES = [
   'deployments-v3',
   'deployment-bundles-v1',
   'deployment-releases-v1',
+  'business-context-v1',
   'semantic-invocations-v1',
   'semantic-invocations-v2',
 ] as const;
@@ -158,6 +160,8 @@ export function referenceHandle(
       return handleBundle(role, c);
     case 'deployment-releases-v1':
       return handleRelease(role, c);
+    case 'business-context-v1':
+      return handleBusinessContext(role, c);
     case 'semantic-invocations-v1':
       return handleSemanticInvocation(c, 1);
     case 'semantic-invocations-v2':
@@ -361,5 +365,16 @@ function handleRelease(role: FixtureRole, c: Case): HandlerResult {
   return attempt(() => {
     validateProtocolDeploymentReleaseEnvelope(validationInput(c, materializeRelease));
     return ACCEPT;
+  });
+}
+
+/** Every role encodes, so the canonical byte limit is checked as well as the document. */
+function handleBusinessContext(role: FixtureRole, c: Case): HandlerResult {
+  const limits = c.limits as ProtocolBusinessContextOptions['limits'];
+  return attempt(() => {
+    const prepared = prepareProtocolBusinessContext(c.value, limits ? { limits } : {});
+    return role === 'identity'
+      ? { ok: true, output: { canonical: prepared.canonical, sha256: prepared.identity } }
+      : ACCEPT;
   });
 }

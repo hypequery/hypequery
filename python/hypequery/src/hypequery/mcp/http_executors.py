@@ -7,12 +7,29 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
+from ..protocol import validate_protocol_business_context
 from ..serve import Api
 from .backends import ApiContractBackend, BackendHeaders, HttpContractBackend
 from .budgets import CatalogBudget, ExecutionBudget, QueryLimits
 from .executor import ClientContractExecutor
 from .http_auth import ApiAuthenticator, McpAuthenticator, McpPrincipal
+from .utils.business_context import resolve_mcp_business_context
 from .utils.oauth import ProtectedResource
+
+
+def _owned_business_context(
+    document: Mapping[str, object] | None,
+) -> Mapping[str, object] | None:
+    """Validate *document* now and return a fresh copy the factory owns.
+
+    Raises `ProtocolBusinessContextError` for an invalid document, so a factory
+    refuses it at construction rather than on the first session.
+    """
+
+    if document is None:
+        return None
+    resolve_mcp_business_context(document)
+    return validate_protocol_business_context(dict(document))
 
 
 class ApiExecutorFactory:
@@ -24,7 +41,14 @@ class ApiExecutorFactory:
     principal for every caller (a static MCP key).
     """
 
-    __slots__ = ("_api", "_catalog_budget", "_execution_budget", "_headers", "_query_limits")
+    __slots__ = (
+        "_api",
+        "_business_context",
+        "_catalog_budget",
+        "_execution_budget",
+        "_headers",
+        "_query_limits",
+    )
 
     def __init__(
         self,
@@ -34,9 +58,13 @@ class ApiExecutorFactory:
         execution_budget: ExecutionBudget | None = None,
         query_limits: QueryLimits | None = None,
         catalog_budget: CatalogBudget | None = None,
+        business_context: Mapping[str, object] | None = None,
     ) -> None:
         if not isinstance(api, Api):
             raise TypeError("ApiExecutorFactory serves a hypequery.serve Api")
+        # Refuse an invalid document now rather than on the first session, and keep
+        # the validated copy so later edits to the caller's dict change nothing.
+        self._business_context = _owned_business_context(business_context)
         self._api = api
         self._headers = headers
         self._execution_budget = execution_budget
@@ -54,6 +82,7 @@ class ApiExecutorFactory:
             budget=self._execution_budget,
             query_limits=self._query_limits,
             catalog_budget=self._catalog_budget,
+            business_context=self._business_context,
         )
 
 
@@ -64,11 +93,18 @@ class HttpExecutorFactory:
     *headers*, so only a static MCP key may guard this server.
     """
 
-    __slots__ = ("_headers", "_url")
+    __slots__ = ("_business_context", "_headers", "_url")
 
-    def __init__(self, url: str, *, headers: Mapping[str, str] | None = None) -> None:
-        # Validates the URL now rather than on the first session.
+    def __init__(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        business_context: Mapping[str, object] | None = None,
+    ) -> None:
+        # Validates the URL and the context now rather than on the first session.
         HttpContractBackend(url, headers=headers)
+        self._business_context = _owned_business_context(business_context)
         self._url = url
         self._headers = dict(headers or {})
 
@@ -77,7 +113,8 @@ class HttpExecutorFactory:
     ) -> ClientContractExecutor:
         del principal, credentials
         return await ClientContractExecutor.create(
-            HttpContractBackend(self._url, headers=self._headers)
+            HttpContractBackend(self._url, headers=self._headers),
+            business_context=self._business_context,
         )
 
 

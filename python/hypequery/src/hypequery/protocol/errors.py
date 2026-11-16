@@ -116,6 +116,17 @@ ProtocolDeploymentReleaseErrorCode: TypeAlias = Literal[
     "HQ_RELEASE_UNSAFE_OBJECT",
 ]
 
+ProtocolBusinessContextErrorCode: TypeAlias = Literal[
+    "HQ_BUSINESS_CONTEXT_TYPE",
+    "HQ_BUSINESS_CONTEXT_UNKNOWN_FIELD",
+    "HQ_BUSINESS_CONTEXT_INVALID_VERSION",
+    "HQ_BUSINESS_CONTEXT_INVALID_VALUE",
+    "HQ_BUSINESS_CONTEXT_DUPLICATE",
+    "HQ_BUSINESS_CONTEXT_TOO_MANY_ITEMS",
+    "HQ_BUSINESS_CONTEXT_TOO_LARGE",
+    "HQ_BUSINESS_CONTEXT_UNSAFE_OBJECT",
+]
+
 ProtocolQueryEventErrorCode: TypeAlias = Literal[
     "HQ_EVENT_TYPE",
     "HQ_EVENT_UNKNOWN_FIELD",
@@ -236,6 +247,16 @@ def release_error(code: ProtocolDeploymentReleaseErrorCode, path: str = "$") -> 
     """Raise a release error without attaching input data to its message."""
 
     raise ProtocolDeploymentReleaseError(code, path)
+
+
+class ProtocolBusinessContextError(_ProtocolPathError[ProtocolBusinessContextErrorCode]):
+    """A safe, stable business context v1 validation failure."""
+
+
+def business_context_error(code: ProtocolBusinessContextErrorCode, path: str = "$") -> NoReturn:
+    """Raise a business context error without attaching input data to its message."""
+
+    raise ProtocolBusinessContextError(code, path)
 
 
 class ProtocolQueryEventError(_ProtocolPathError[ProtocolQueryEventErrorCode]):

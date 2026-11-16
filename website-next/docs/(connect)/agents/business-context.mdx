@@ -5,6 +5,10 @@ description: Give your analytics agent your KPI definitions, glossary, reporting
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { LanguageFromHash } from '@/components/docs/language-from-hash';
+
+<LanguageFromHash />
 
 Datasets tell an agent what it can query. Business context tells it what the numbers mean here: which KPI a question
 is about and how it is defined, what your terms mean, which time zone and currency you report in, and which data
@@ -16,30 +20,62 @@ returns.
 
 ## Define it
 
-<CodeBlock>
-```ts
-// analytics/business-context.ts
-import { defineBusinessContext } from '@hypequery/datasets';
+<Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+  <Tab value="TypeScript">
+    <CodeBlock>
+      ```ts
+      // analytics/business-context.ts
+      import { defineBusinessContext } from '@hypequery/datasets';
 
-export const businessContext = defineBusinessContext({
-  summary: 'A B2B analytics product. Each customer is a company whose team uses the web app and the API.',
-  audience: 'Customer admins asking about their own team’s usage and reliability.',
-  kpis: [
-    { name: 'Active users', definition: 'Distinct users with at least one event in the period.' },
-    { name: 'Error rate', definition: 'HTTP 5xx events divided by all events. Report it as a percentage.' },
-  ],
-  glossary: [
-    { term: 'Customer', meaning: 'The company the signed-in user belongs to.' },
-  ],
-  conventions: 'Times are UTC. Weeks start on Monday.',
-  caveats: ['4xx responses are client errors and are not counted in the error rate.'],
-});
-```
-</CodeBlock>
+      export const businessContext = defineBusinessContext({
+        summary: 'A B2B analytics product. Each customer is a company whose team uses the web app and the API.',
+        audience: 'Customer admins asking about their own team’s usage and reliability.',
+        kpis: [
+          { name: 'Active users', definition: 'Distinct users with at least one event in the period.' },
+          { name: 'Error rate', definition: 'HTTP 5xx events divided by all events. Report it as a percentage.' },
+        ],
+        glossary: [
+          { term: 'Customer', meaning: 'The company the signed-in user belongs to.' },
+        ],
+        conventions: 'Times are UTC. Weeks start on Monday.',
+        caveats: ['4xx responses are client errors and are not counted in the error rate.'],
+      });
+      ```
+    </CodeBlock>
 
-Every field is optional. `defineBusinessContext` validates the document and throws, naming the field, for an unknown
-field, a glossary term or KPI defined twice, or a value over the limits (4,096 characters per value, 100 items per
-list).
+    Every field is optional. `defineBusinessContext` validates the document and throws, naming the field, for an
+    unknown field, a glossary term or KPI defined twice, or a value over the limits (4,096 characters per value, 100
+    items per list).
+  </Tab>
+
+  <Tab value="Python">
+    <CodeBlock>
+      ```python
+      # business_context.py
+      from hypequery.datasets import define_business_context
+
+      business_context = define_business_context(
+          summary="A B2B analytics product. Each customer is a company whose team uses the web app and the API.",
+          audience="Customer admins asking about their own team’s usage and reliability.",
+          kpis=[
+              {"name": "Active users", "definition": "Distinct users with at least one event in the period."},
+              {"name": "Error rate", "definition": "HTTP 5xx events divided by all events. Report it as a percentage."},
+          ],
+          glossary=[
+              {"term": "Customer", "meaning": "The company the signed-in user belongs to."},
+          ],
+          conventions="Times are UTC. Weeks start on Monday.",
+          caveats=["4xx responses are client errors and are not counted in the error rate."],
+      )
+      ```
+    </CodeBlock>
+
+    Every argument is optional, and each is the field below in snake case (`business_model` for `businessModel`).
+    `define_business_context` validates the document and raises `ProtocolBusinessContextError`, naming the field, for
+    a glossary term or KPI defined twice, or a value over the limits (4,096 characters per value, 100 items per
+    list). It returns the same document as TypeScript, with the same identity.
+  </Tab>
+</Tabs>
 
 | Field | What to put in it |
 |---|---|
@@ -57,18 +93,44 @@ list).
 
 Pass it to the executor:
 
-<CodeBlock>
-```ts
-import { createMCPExecutor } from '@hypequery/mcp';
-import { hypequeryTools } from '@hypequery/agent/ai-sdk';
+<Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+  <Tab value="TypeScript">
+    <CodeBlock>
+      ```ts
+      import { createMCPExecutor } from '@hypequery/mcp';
+      import { hypequeryTools } from '@hypequery/agent/ai-sdk';
 
-const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId, businessContext });
-const tools = await hypequeryTools({ executor });
-```
-</CodeBlock>
+      const executor = createMCPExecutor({ datasets, analytics, tenantId: session.tenantId, businessContext });
+      const tools = await hypequeryTools({ executor });
+      ```
+    </CodeBlock>
 
-An MCP server you build with `createMCPServer` takes the same option, so Claude, Cursor and other MCP clients read it
-too.
+    An MCP server you build with `createMCPServer` takes the same option, so Claude, Cursor and other MCP clients read
+    it too.
+  </Tab>
+
+  <Tab value="Python">
+    <CodeBlock>
+      ```python
+      from hypequery.agent.pydantic_ai import hypequery_tools
+      from hypequery.mcp import ApiContractBackend, ClientContractExecutor
+
+      from business_context import business_context
+
+      executor = await ClientContractExecutor.create(
+          ApiContractBackend(api, headers={"Authorization": request.headers["authorization"]}),
+          business_context=business_context,
+      )
+      tools = await hypequery_tools(executor=executor)
+      ```
+    </CodeBlock>
+
+    Every adapter in `hypequery.agent` picks it up from the executor. For an MCP server you build, serve that executor
+    with `create_mcp_server(executor)`, or pass `business_context=` to `ApiExecutorFactory` (or `HttpExecutorFactory`)
+    for `create_mcp_asgi_app`, so Claude, Cursor and other MCP clients read it too. The `hypequery mcp` command doesn't
+    read it.
+  </Tab>
+</Tabs>
 
 ### In hypequery Cloud (coming soon)
 
@@ -89,7 +151,9 @@ export const cloud = defineCloudPublication({
 </CodeBlock>
 
 `hypequery deploy analytics/cloud.ts` puts the context in the same release as the datasets, so activating or rolling
-back a release moves both together. A glossary-only edit is a new release.
+back a release moves both together. A glossary-only edit is a new release. Python projects pass
+`business_context=` to `write_dataset_bundle` and release the bundle with the TypeScript CLI: see
+[Deploy from Python](/docs/cloud/deploy-python).
 
 <Callout type="info">
 hypequery Cloud is not live yet. When it launches, it stores the context with each release. Serving it to agents through the tenant endpoint (in
@@ -126,13 +190,29 @@ Without a context, the tools and their output are unchanged.
 
 To put the context in your agent's instructions as well, render it as Markdown:
 
-<CodeBlock>
-```ts
-import { formatBusinessContext } from '@hypequery/mcp';
+<Tabs groupId="language" items={['TypeScript', 'Python']} persist>
+  <Tab value="TypeScript">
+    <CodeBlock>
+      ```ts
+      import { formatBusinessContext } from '@hypequery/mcp';
 
-const instructions = `You are the analytics assistant inside our product.\n\n${formatBusinessContext(businessContext)}`;
-```
-</CodeBlock>
+      const instructions = `You are the analytics assistant inside our product.\n\n${formatBusinessContext(businessContext)}`;
+      ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value="Python">
+    <CodeBlock>
+      ```python
+      from hypequery.mcp import format_business_context
+
+      instructions = "You are the analytics assistant inside our product.\n\n" + format_business_context(business_context)
+      ```
+    </CodeBlock>
+
+    `format_business_context` writes the same Markdown as `formatBusinessContext` for the same document.
+  </Tab>
+</Tabs>
 
 ## Related
 

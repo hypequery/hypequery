@@ -29,3 +29,47 @@ def is_js_blank(value: str) -> bool:
     """Report whether ``String.prototype.trim`` would empty this string."""
 
     return all(character in _JS_TRIMMED for character in value)
+
+
+def js_trim(value: str) -> str:
+    """Return *value* as ``String.prototype.trim`` would."""
+
+    start = 0
+    end = len(value)
+    while start < end and value[start] in _JS_TRIMMED:
+        start += 1
+    while end > start and value[end - 1] in _JS_TRIMMED:
+        end -= 1
+    return value[start:end]
+
+
+def js_trim_end(value: str) -> str:
+    """Return *value* as ``String.prototype.trimEnd`` would."""
+
+    end = len(value)
+    while end > 0 and value[end - 1] in _JS_TRIMMED:
+        end -= 1
+    return value[:end]
+
+
+def collapse_js_whitespace(value: str) -> str:
+    """Replace each run of JavaScript ``\\s`` characters with one space, as
+    ``value.replace(/\\s+/g, " ")`` does; ``\\s`` is the same set ``trim`` strips."""
+
+    parts: list[str] = []
+    in_run = False
+    for character in value:
+        if character in _JS_TRIMMED:
+            if not in_run:
+                parts.append(" ")
+            in_run = True
+        else:
+            parts.append(character)
+            in_run = False
+    return "".join(parts)
+
+
+def utf16_length(value: str) -> int:
+    """The JavaScript ``length`` of *value*: astral characters count as two units."""
+
+    return len(value) + sum(1 for character in value if ord(character) > 0xFFFF)

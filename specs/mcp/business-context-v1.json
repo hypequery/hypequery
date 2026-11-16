@@ -1,0 +1,561 @@
+{
+  "listDatasetsDescription": "List all available datasets in the semantic layer, with the business context (KPIs, glossary, conventions, caveats) to interpret them",
+  "listDatasetsBusinessContextSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "industry": {
+        "type": "string"
+      },
+      "businessModel": {
+        "type": "string"
+      },
+      "customers": {
+        "type": "string"
+      },
+      "audience": {
+        "type": "string"
+      },
+      "goals": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "kpis": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "definition": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "definition"
+          ]
+        }
+      },
+      "glossary": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "term": {
+              "type": "string"
+            },
+            "meaning": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "term",
+            "meaning"
+          ]
+        }
+      },
+      "conventions": {
+        "type": "string"
+      },
+      "caveats": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      },
+      "hint": {
+        "type": "string"
+      }
+    }
+  },
+  "getBusinessContextTool": {
+    "name": "get_business_context",
+    "title": "Get business context",
+    "description": "Get the business context for these datasets: what the business does, KPI definitions, the glossary of business terms, reporting conventions (currency, time zone, fiscal year) and known data caveats. Read it before interpreting or presenting numbers.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "outputSchema": {
+      "type": "object",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "businessContext": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "summary": {
+                  "type": "string"
+                },
+                "industry": {
+                  "type": "string"
+                },
+                "businessModel": {
+                  "type": "string"
+                },
+                "customers": {
+                  "type": "string"
+                },
+                "audience": {
+                  "type": "string"
+                },
+                "goals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kpis": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "definition": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "definition"
+                    ]
+                  }
+                },
+                "glossary": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "term": {
+                        "type": "string"
+                      },
+                      "meaning": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "term",
+                      "meaning"
+                    ]
+                  }
+                },
+                "conventions": {
+                  "type": "string"
+                },
+                "caveats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "businessContext"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "MCP_INVALID_ARGUMENTS",
+                    "MCP_NOT_FOUND",
+                    "MCP_UNKNOWN_TOOL",
+                    "MCP_UNAUTHORIZED",
+                    "MCP_STALE_CONTRACT",
+                    "MCP_REQUEST_CANCELLED",
+                    "MCP_QUERY_TIMEOUT",
+                    "MCP_RESULT_TOO_LARGE",
+                    "MCP_CATALOG_TOO_LARGE",
+                    "MCP_RATE_LIMITED",
+                    "MCP_EXECUTION_FAILED"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "correctable_input",
+                    "unauthorized",
+                    "stale_contract",
+                    "budget",
+                    "internal"
+                  ]
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "correctable": {
+                  "type": "boolean"
+                },
+                "retryAfterSeconds": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "relist": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "hint": {
+                  "type": "string"
+                },
+                "docsUrl": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "category",
+                "message",
+                "retryable",
+                "correctable"
+              ]
+            }
+          },
+          "required": [
+            "error"
+          ]
+        }
+      ]
+    },
+    "annotations": {
+      "title": "Get business context",
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "documents": [
+    {
+      "id": "summary-only",
+      "listed": {
+        "summary": "B2B analytics platform sold per seat."
+      },
+      "markdown": "# Business context\n\n## About the business\nB2B analytics platform sold per seat.\n"
+    },
+    {
+      "id": "every-field",
+      "listed": {
+        "summary": "Northwind sells analytics software to mid-market retailers.",
+        "industry": "SaaS",
+        "businessModel": "Annual per-seat subscriptions, billed monthly.",
+        "customers": "Mid-market retailers in Europe and North America.",
+        "audience": "Finance, customer success and product teams.",
+        "goals": [
+          "Grow net revenue retention",
+          "Reduce time to first dashboard"
+        ],
+        "kpis": [
+          {
+            "name": "Net revenue",
+            "definition": "Gross revenue minus refunds, in USD."
+          },
+          {
+            "name": "NRR",
+            "definition": "Revenue retained from last year, with expansion."
+          }
+        ],
+        "glossary": [
+          {
+            "term": "Workspace",
+            "meaning": "One paying customer account."
+          },
+          {
+            "term": "Seat",
+            "meaning": "A named user with a paid licence."
+          }
+        ],
+        "conventions": "USD, UTC, fiscal year starts in February, weeks start on Monday.",
+        "caveats": [
+          "Orders before 2024-03 have no region.",
+          "Test orders have negative ids."
+        ]
+      },
+      "markdown": "# Business context\n\n## About the business\nNorthwind sells analytics software to mid-market retailers.\nIndustry: SaaS\nBusiness model: Annual per-seat subscriptions, billed monthly.\nCustomers: Mid-market retailers in Europe and North America.\nAudience: Finance, customer success and product teams.\n\n## Goals\n- Grow net revenue retention\n- Reduce time to first dashboard\n\n## KPIs\n- **Net revenue**: Gross revenue minus refunds, in USD.\n- **NRR**: Revenue retained from last year, with expansion.\n\n## Glossary\n- **Workspace**: One paying customer account.\n- **Seat**: A named user with a paid licence.\n\n## Reporting conventions\nUSD, UTC, fiscal year starts in February, weeks start on Monday.\n\n## Data caveats\n- Orders before 2024-03 have no region.\n- Test orders have negative ids.\n"
+    },
+    {
+      "id": "author-order-is-not-canonical-order",
+      "listed": {
+        "summary": "Order is irrelevant.",
+        "glossary": [
+          {
+            "term": "Workspace",
+            "meaning": "A paying customer account."
+          }
+        ],
+        "conventions": "EUR.",
+        "caveats": [
+          "Refunds live in the payments dataset."
+        ]
+      },
+      "markdown": "# Business context\n\n## About the business\nOrder is irrelevant.\n\n## Glossary\n- **Workspace**: A paying customer account.\n\n## Reporting conventions\nEUR.\n\n## Data caveats\n- Refunds live in the payments dataset.\n"
+    },
+    {
+      "id": "text-is-trimmed",
+      "listed": {
+        "summary": "Padded summary.",
+        "industry": "Retail",
+        "goals": [
+          "Inner  spacing   is kept."
+        ],
+        "kpis": [
+          {
+            "name": "ARR",
+            "definition": "Annual recurring revenue."
+          }
+        ],
+        "glossary": [
+          {
+            "term": "Seat",
+            "meaning": "A named user."
+          }
+        ],
+        "caveats": [
+          "Leading byte-order mark."
+        ]
+      },
+      "markdown": "# Business context\n\n## About the business\nPadded summary.\nIndustry: Retail\n\n## Goals\n- Inner  spacing   is kept.\n\n## KPIs\n- **ARR**: Annual recurring revenue.\n\n## Glossary\n- **Seat**: A named user.\n\n## Data caveats\n- Leading byte-order mark.\n"
+    },
+    {
+      "id": "inner-newlines-and-tabs-are-kept",
+      "listed": {
+        "conventions": "Currency: USD\nTime zone:\tUTC"
+      },
+      "markdown": "# Business context\n\n## Reporting conventions\nCurrency: USD\nTime zone:\tUTC\n"
+    },
+    {
+      "id": "empty-lists-are-dropped",
+      "listed": {
+        "summary": "Only a summary survives."
+      },
+      "markdown": "# Business context\n\n## About the business\nOnly a summary survives.\n"
+    },
+    {
+      "id": "unicode-text",
+      "listed": {
+        "summary": "Ventes en été, 売上 📈, مبيعات, café.",
+        "kpis": [
+          {
+            "name": "Umsatz",
+            "definition": "Bruttoumsatz abzüglich Erstattungen, in €."
+          },
+          {
+            "name": "売上",
+            "definition": "Revenue in JPY 📈."
+          }
+        ],
+        "glossary": [
+          {
+            "term": "İstanbul store",
+            "meaning": "Store 7."
+          },
+          {
+            "term": "Straße",
+            "meaning": "Street-level sales."
+          }
+        ]
+      },
+      "markdown": "# Business context\n\n## About the business\nVentes en été, 売上 📈, مبيعات, café.\n\n## KPIs\n- **Umsatz**: Bruttoumsatz abzüglich Erstattungen, in €.\n- **売上**: Revenue in JPY 📈.\n\n## Glossary\n- **İstanbul store**: Store 7.\n- **Straße**: Street-level sales.\n"
+    },
+    {
+      "id": "near-duplicate-terms-are-distinct",
+      "listed": {
+        "glossary": [
+          {
+            "term": "Net revenue",
+            "meaning": "After refunds."
+          },
+          {
+            "term": "Net revenues",
+            "meaning": "Plural, but a distinct term."
+          },
+          {
+            "term": "Netrevenue",
+            "meaning": "Spacing matters when it is absent."
+          }
+        ]
+      },
+      "markdown": "# Business context\n\n## Glossary\n- **Net revenue**: After refunds.\n- **Net revenues**: Plural, but a distinct term.\n- **Netrevenue**: Spacing matters when it is absent.\n"
+    },
+    {
+      "id": "same-name-in-kpis-and-glossary",
+      "listed": {
+        "kpis": [
+          {
+            "name": "ARR",
+            "definition": "a"
+          }
+        ],
+        "glossary": [
+          {
+            "term": "ARR",
+            "meaning": "b"
+          }
+        ]
+      },
+      "markdown": "# Business context\n\n## KPIs\n- **ARR**: a\n\n## Glossary\n- **ARR**: b\n"
+    },
+    {
+      "id": "list-at-item-limit",
+      "listed": {
+        "goals": [
+          "Goal 0",
+          "Goal 1",
+          "Goal 2",
+          "Goal 3",
+          "Goal 4",
+          "Goal 5",
+          "Goal 6",
+          "Goal 7",
+          "Goal 8",
+          "Goal 9",
+          "Goal 10",
+          "Goal 11",
+          "Goal 12",
+          "Goal 13",
+          "Goal 14",
+          "Goal 15",
+          "Goal 16",
+          "Goal 17",
+          "Goal 18",
+          "Goal 19",
+          "Goal 20",
+          "Goal 21",
+          "Goal 22",
+          "Goal 23",
+          "Goal 24",
+          "Goal 25",
+          "Goal 26",
+          "Goal 27",
+          "Goal 28",
+          "Goal 29",
+          "Goal 30",
+          "Goal 31",
+          "Goal 32",
+          "Goal 33",
+          "Goal 34",
+          "Goal 35",
+          "Goal 36",
+          "Goal 37",
+          "Goal 38",
+          "Goal 39",
+          "Goal 40",
+          "Goal 41",
+          "Goal 42",
+          "Goal 43",
+          "Goal 44",
+          "Goal 45",
+          "Goal 46",
+          "Goal 47",
+          "Goal 48",
+          "Goal 49",
+          "Goal 50",
+          "Goal 51",
+          "Goal 52",
+          "Goal 53",
+          "Goal 54",
+          "Goal 55",
+          "Goal 56",
+          "Goal 57",
+          "Goal 58",
+          "Goal 59",
+          "Goal 60",
+          "Goal 61",
+          "Goal 62",
+          "Goal 63",
+          "Goal 64",
+          "Goal 65",
+          "Goal 66",
+          "Goal 67",
+          "Goal 68",
+          "Goal 69",
+          "Goal 70",
+          "Goal 71",
+          "Goal 72",
+          "Goal 73",
+          "Goal 74",
+          "Goal 75",
+          "Goal 76",
+          "Goal 77",
+          "Goal 78",
+          "Goal 79",
+          "Goal 80",
+          "Goal 81",
+          "Goal 82",
+          "Goal 83",
+          "Goal 84",
+          "Goal 85",
+          "Goal 86",
+          "Goal 87",
+          "Goal 88",
+          "Goal 89",
+          "Goal 90",
+          "Goal 91",
+          "Goal 92",
+          "Goal 93",
+          "Goal 94",
+          "Goal 95",
+          "Goal 96",
+          "Goal 97",
+          "Goal 98",
+          "Goal 99"
+        ]
+      },
+      "markdown": "# Business context\n\n## Goals\n- Goal 0\n- Goal 1\n- Goal 2\n- Goal 3\n- Goal 4\n- Goal 5\n- Goal 6\n- Goal 7\n- Goal 8\n- Goal 9\n- Goal 10\n- Goal 11\n- Goal 12\n- Goal 13\n- Goal 14\n- Goal 15\n- Goal 16\n- Goal 17\n- Goal 18\n- Goal 19\n- Goal 20\n- Goal 21\n- Goal 22\n- Goal 23\n- Goal 24\n- Goal 25\n- Goal 26\n- Goal 27\n- Goal 28\n- Goal 29\n- Goal 30\n- Goal 31\n- Goal 32\n- Goal 33\n- Goal 34\n- Goal 35\n- Goal 36\n- Goal 37\n- Goal 38\n- Goal 39\n- Goal 40\n- Goal 41\n- Goal 42\n- Goal 43\n- Goal 44\n- Goal 45\n- Goal 46\n- Goal 47\n- Goal 48\n- Goal 49\n- Goal 50\n- Goal 51\n- Goal 52\n- Goal 53\n- Goal 54\n- Goal 55\n- Goal 56\n- Goal 57\n- Goal 58\n- Goal 59\n- Goal 60\n- Goal 61\n- Goal 62\n- Goal 63\n- Goal 64\n- Goal 65\n- Goal 66\n- Goal 67\n- Goal 68\n- Goal 69\n- Goal 70\n- Goal 71\n- Goal 72\n- Goal 73\n- Goal 74\n- Goal 75\n- Goal 76\n- Goal 77\n- Goal 78\n- Goal 79\n- Goal 80\n- Goal 81\n- Goal 82\n- Goal 83\n- Goal 84\n- Goal 85\n- Goal 86\n- Goal 87\n- Goal 88\n- Goal 89\n- Goal 90\n- Goal 91\n- Goal 92\n- Goal 93\n- Goal 94\n- Goal 95\n- Goal 96\n- Goal 97\n- Goal 98\n- Goal 99\n"
+    }
+  ],
+  "headerlessMarkdown": "# Business context\n\n## Reporting conventions\nEUR.\n",
+  "inlineLimit": {
+    "bytes": 32768,
+    "summaryLength": 720,
+    "atLimit": [
+      "summary",
+      "goals"
+    ],
+    "overLimit": {
+      "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "truncated": true,
+      "hint": "This business context is too large to list here. Call get_business_context for the KPIs, glossary, conventions and caveats."
+    }
+  },
+  "truncated": {
+    "summary": "Big glossary.",
+    "truncated": true,
+    "hint": "This business context is too large to list here. Call get_business_context for the KPIs, glossary, conventions and caveats."
+  }
+}

@@ -38,6 +38,7 @@ def test_adapter_announces_pinned_families_and_hostile_suite() -> None:
         "deployments-v3",
         "deployment-bundles-v1",
         "deployment-releases-v1",
+        "business-context-v1",
     ]
     suite = cast(dict[str, object], hello["hostileObjectSuite"])
     assert suite["count"] == 7

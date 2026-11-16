@@ -183,6 +183,7 @@ name crosses the wire.
 | deployments-v2 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | deployment-bundles-v1 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | deployment-releases-v1 | validation; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
+| business-context-v1 | canonical encode with optional `limits`; `identity` role → canonical encode and identity hash | identity: `canonical`, `sha256` |
 | sql-portability-v1 | compile the `sql` source | `expression`, `dependencies` |
 
 An `identity` case supplies only the shared `id`; the adapter locates the

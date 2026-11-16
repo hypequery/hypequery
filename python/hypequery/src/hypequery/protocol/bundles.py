@@ -35,6 +35,7 @@ _BUNDLE_MAXIMUMS = {
     "max_source_files": 1_000,
     "max_path_bytes": 1_024,
     "max_deployment_bytes": 16 * _MEBIBYTE,
+    "max_business_context_bytes": _MEBIBYTE,
     "max_artifact_bytes": 128 * _MEBIBYTE,
     "max_source_file_bytes": 2 * _MEBIBYTE,
     "max_source_bytes": 32 * _MEBIBYTE,
@@ -54,6 +55,7 @@ class ProtocolDeploymentBundleLimits:
     max_source_files: int = _BUNDLE_MAXIMUMS["max_source_files"]
     max_path_bytes: int = _BUNDLE_MAXIMUMS["max_path_bytes"]
     max_deployment_bytes: int = _BUNDLE_MAXIMUMS["max_deployment_bytes"]
+    max_business_context_bytes: int = _BUNDLE_MAXIMUMS["max_business_context_bytes"]
     max_artifact_bytes: int = _BUNDLE_MAXIMUMS["max_artifact_bytes"]
     max_source_file_bytes: int = _BUNDLE_MAXIMUMS["max_source_file_bytes"]
     max_source_bytes: int = _BUNDLE_MAXIMUMS["max_source_bytes"]
@@ -180,6 +182,23 @@ def _deployment(
     }
 
 
+def _business_context(
+    value: object, path: str, limits: ProtocolDeploymentBundleLimits
+) -> dict[str, object]:
+    """The reviewed business context file of a v2 bundle; its identity is the document's."""
+
+    node = _record(value, path)
+    _exact_fields(node, ("path", "identity", "sha256", "byteLength"), path)
+    return {
+        "path": _relative_path(node["path"], f"{path}.path", limits.max_path_bytes),
+        "identity": _digest(node["identity"], f"{path}.identity"),
+        "sha256": _digest(node["sha256"], f"{path}.sha256"),
+        "byteLength": _byte_length(
+            node["byteLength"], f"{path}.byteLength", limits.max_business_context_bytes
+        ),
+    }
+
+
 def _artifact(
     value: object, path: str, limits: ProtocolDeploymentBundleLimits
 ) -> dict[str, object]:
@@ -293,26 +312,49 @@ def _has_tree_collision(paths: list[str]) -> bool:
     return False
 
 
+def _version(value: object) -> int:
+    """1 for a contract-only bundle, 2 for one that also carries business context."""
+
+    if type(value) is not bool and type(value) in (int, float) and value in (1, 2):
+        return int(cast(int | float, value))
+    if type(value) is bool or type(value) not in (int, float):
+        bundle_error("HQ_BUNDLE_TYPE", "$.version")
+    bundle_error("HQ_BUNDLE_INVALID_VERSION", "$.version")
+
+
 def validate_protocol_deployment_bundle_manifest(
     value: object,
     *,
     limits: ProtocolDeploymentBundleLimits = DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
 ) -> dict[str, object]:
-    """Validate a bundle manifest and return it as detached protocol data."""
+    """Validate a bundle manifest and return it as detached protocol data.
+
+    Version 1 carries only the executable contract. Version 2 additionally
+    requires `businessContext`; a bundle without business context is always
+    version 1, so each bundle has exactly one canonical identity.
+    """
 
     node = _record(value, "$")
-    _exact_fields(node, ("kind", "version", "deployment", "artifacts"), "$", ("source",))
+    _exact_fields(
+        node, ("kind", "version", "deployment", "artifacts"), "$", ("businessContext", "source")
+    )
     if node["kind"] != "hypequery-deployment-bundle":
         if type(node["kind"]) is not str:
             bundle_error("HQ_BUNDLE_TYPE", "$.kind")
         bundle_error("HQ_BUNDLE_INVALID_VALUE", "$.kind")
-    version = node["version"]
-    if type(version) is bool or version != 1:
-        if type(version) is bool or type(version) not in (int, float):
-            bundle_error("HQ_BUNDLE_TYPE", "$.version")
-        bundle_error("HQ_BUNDLE_INVALID_VERSION", "$.version")
+    version = _version(node["version"])
+    # v1 cannot carry business context; v2 exists only to carry it.
+    if version == 1 and "businessContext" in node:
+        bundle_error("HQ_BUNDLE_UNKNOWN_FIELD", "$.businessContext")
+    if version == 2 and "businessContext" not in node:
+        bundle_error("HQ_BUNDLE_TYPE", "$.businessContext")
 
     deployment = _deployment(node["deployment"], "$.deployment", limits)
+    business_context = (
+        _business_context(node["businessContext"], "$.businessContext", limits)
+        if "businessContext" in node
+        else None
+    )
     artifacts = [
         _artifact(item, f"$.artifacts[{index}]", limits)
         for index, item in enumerate(_array(node["artifacts"], "$.artifacts", limits.max_artifacts))
@@ -328,6 +370,7 @@ def validate_protocol_deployment_bundle_manifest(
         ]
     paths = [
         cast(str, deployment["path"]),
+        *([cast(str, business_context["path"])] if business_context is not None else []),
         *(cast(str, artifact["path"]) for artifact in artifacts),
         *source_paths,
     ]
@@ -347,6 +390,8 @@ def validate_protocol_deployment_bundle_manifest(
     total = cast(int, deployment["byteLength"]) + sum(
         cast(int, artifact["byteLength"]) for artifact in artifacts
     )
+    if business_context is not None:
+        total += cast(int, business_context["byteLength"])
     if source is not None:
         total += sum(
             cast(int, file["byteLength"]) for file in cast(list[dict[str, object]], source["files"])
@@ -356,10 +401,12 @@ def validate_protocol_deployment_bundle_manifest(
 
     manifest: dict[str, object] = {
         "kind": "hypequery-deployment-bundle",
-        "version": 1,
+        "version": version,
         "deployment": deployment,
-        "artifacts": artifacts,
     }
+    if business_context is not None:
+        manifest["businessContext"] = business_context
+    manifest["artifacts"] = artifacts
     if source is not None:
         manifest["source"] = source
     return manifest
