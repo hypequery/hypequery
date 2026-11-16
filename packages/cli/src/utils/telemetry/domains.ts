@@ -13,7 +13,8 @@ export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
-  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'cloud-operation', 'unknown',
+  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'schema', 'onboard',
+  'cloud-operation', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 /**
@@ -57,6 +58,8 @@ export const COMMAND_FLAGS = {
   skill: ['--agent', '--scope', '--force', '--check'],
   examples: ['--kind'],
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
+  schema: ['--databases', '--tables', '--samples'],
+  onboard: ['--databases', '--tables', '--samples', '--no-query-history', '--join'],
   'cloud-operation': ['--project', '--yes', '--input-json'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
@@ -85,6 +88,8 @@ export const VALUE_FLAGS = {
   skill: ['--agent', '--scope'],
   examples: ['--kind'],
   create: ['--dir', '--tag'],
+  schema: ['--databases', '--tables', '--samples'],
+  onboard: ['--databases', '--tables', '--samples', '--join'],
   'cloud-operation': ['--project', '--input-json'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };

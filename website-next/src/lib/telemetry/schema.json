@@ -241,6 +241,8 @@
             "skill",
             "examples",
             "create",
+            "schema",
+            "onboard",
             "cloud-operation",
             "unknown"
           ]
@@ -310,6 +312,10 @@
             "--no-install",
             "--no-seed",
             "--tag",
+            "--databases",
+            "--samples",
+            "--no-query-history",
+            "--join",
             "--input-json",
             "--no-telemetry",
             "--json",
@@ -1062,6 +1068,8 @@
         "version": {},
         "telemetry": {},
         "skill": {},
+        "schema": {},
+        "onboard": {},
         "cloud-operation": {},
         "unknown": {
           "suggested_command": {
@@ -1093,6 +1101,8 @@
               "skill",
               "examples",
               "create",
+              "schema",
+              "onboard",
               "cloud-operation"
             ],
             "optional": true
@@ -1129,6 +1139,8 @@
               "skill",
               "examples",
               "create",
+              "schema",
+              "onboard",
               "cloud-operation",
               "unknown"
             ],
@@ -1657,6 +1669,8 @@
             "skill",
             "examples",
             "create",
+            "schema",
+            "onboard",
             "cloud-operation",
             "unknown"
           ]
@@ -1858,6 +1872,18 @@
       "--no-install",
       "--no-seed",
       "--tag"
+    ],
+    "schema": [
+      "--databases",
+      "--tables",
+      "--samples"
+    ],
+    "onboard": [
+      "--databases",
+      "--tables",
+      "--samples",
+      "--no-query-history",
+      "--join"
     ],
     "cloud-operation": [
       "--project",

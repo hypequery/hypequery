@@ -189,9 +189,11 @@ describe('resolveDeploymentCredential', () => {
   });
 
   it('falls back to the browser sign-in credential', async () => {
+    // One fixture for both sides: login() stamps expiresAt from the clock.
+    const credential = login();
     await expect(resolveDeploymentCredential(undefined, {
       env: {},
-      loadCredential: async () => login(),
+      loadCredential: async () => credential,
       loadManagementCredential: async () => null,
     })).resolves.toMatchObject({
       endpoint: 'https://login.example.test/v1/deployments/submissions',
@@ -199,7 +201,7 @@ describe('resolveDeploymentCredential', () => {
       source: 'login',
       tokenKind: 'deploy-key',
       target: { project: 'acme:login', environment: 'production' },
-      storedCredential: login(),
+      storedCredential: credential,
     });
   });
 
