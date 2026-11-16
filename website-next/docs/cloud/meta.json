@@ -21,6 +21,7 @@
     "teams",
     "---Reference---",
     "cli",
+    "cli-operations",
     "clickhouse-users",
     "security",
     "portable-runtime"

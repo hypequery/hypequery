@@ -7,7 +7,7 @@ heroImage: ""
 seoDescription: "Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft and Contentsquare each built a near-identical abstraction layer on ClickHouse. Why that pattern keeps recurring."
 ---
 
-Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare share more than ClickHouse adoption. Each independently built the same abstraction stack—query translation engines, semantic layers, and self service interfaces that let thousands of people query without reading a line of raw ClickHouse SQL. Different industries, different workloads, identical pattern.
+Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare share more than ClickHouse adoption. Each independently built the same abstraction stack—query translation engines, [semantic layers](/semantic-layer), and self service interfaces that let thousands of people query without reading a line of raw ClickHouse SQL. Different industries, different workloads, identical pattern.
 
 If you want the practical product-engineering version of that pattern before reading the case studies, start with the [ClickHouse analytics](/clickhouse-analytics) pillar page.
 

@@ -241,6 +241,9 @@
             "skill",
             "examples",
             "create",
+            "schema",
+            "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -290,6 +293,8 @@
             "--endpoint",
             "--stdout",
             "--cloud-url",
+            "--device",
+            "--capabilities",
             "--bundle-output",
             "--release-output",
             "--no-source",
@@ -307,6 +312,11 @@
             "--no-install",
             "--no-seed",
             "--tag",
+            "--databases",
+            "--samples",
+            "--no-query-history",
+            "--join",
+            "--input-json",
             "--no-telemetry",
             "--json",
             "--no-input",
@@ -1058,6 +1068,9 @@
         "version": {},
         "telemetry": {},
         "skill": {},
+        "schema": {},
+        "onboard": {},
+        "cloud-operation": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -1087,7 +1100,10 @@
               "telemetry",
               "skill",
               "examples",
-              "create"
+              "create",
+              "schema",
+              "onboard",
+              "cloud-operation"
             ],
             "optional": true
           }
@@ -1123,6 +1139,9 @@
               "skill",
               "examples",
               "create",
+              "schema",
+              "onboard",
+              "cloud-operation",
               "unknown"
             ],
             "optional": true
@@ -1650,6 +1669,9 @@
             "skill",
             "examples",
             "create",
+            "schema",
+            "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -1782,7 +1804,10 @@
     ],
     "login": [
       "--cloud-url",
-      "--environment"
+      "--environment",
+      "--device",
+      "--project",
+      "--capabilities"
     ],
     "logout": [],
     "deploy": [
@@ -1847,6 +1872,23 @@
       "--no-install",
       "--no-seed",
       "--tag"
+    ],
+    "schema": [
+      "--databases",
+      "--tables",
+      "--samples"
+    ],
+    "onboard": [
+      "--databases",
+      "--tables",
+      "--samples",
+      "--no-query-history",
+      "--join"
+    ],
+    "cloud-operation": [
+      "--project",
+      "--yes",
+      "--input-json"
     ],
     "help": [],
     "version": [],

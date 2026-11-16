@@ -1,0 +1,4 @@
+{
+  "note": "Written by `pnpm --filter @hypequery/cloud-client spec:update`. Do not edit operations-v1.json by hand: change it in hypequery Cloud and update.",
+  "sha256": "4ca61995262bc64a90d88330ae1440b9072860cdbf6a39765aeb19f3995e5bda"
+}
