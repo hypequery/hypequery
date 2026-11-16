@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
 import { CloudApiError, createCloudClient, OPERATIONS, type CloudClientOptions } from './index.js';
 
@@ -217,6 +219,32 @@ describe('errors', () => {
     const error = (await client(fetch).projects.list().catch((e: unknown) => e)) as CloudApiError;
     expect(error).toMatchObject({ code: 'NETWORK_ERROR', retryable: true, status: undefined });
     expect(error.cause).toBe(cause);
+  });
+
+  it('never follows a redirect, so the token goes only to the configured URL', async () => {
+    const seen: { url?: string; authorization?: string }[] = [];
+    const server = createServer((request, response) => {
+      seen.push({ url: request.url, authorization: request.headers.authorization });
+      response.writeHead(302, { location: '/elsewhere' }).end();
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const error = (await createCloudClient({ token: 'hqmt_v1_test', baseUrl: `http://127.0.0.1:${port}` })
+        .projects.list().catch((e: unknown) => e)) as CloudApiError;
+      expect(error).toBeInstanceOf(CloudApiError);
+      expect(error).toMatchObject({ code: 'UNEXPECTED_RESPONSE', retryable: false });
+      expect(error.message).toContain('redirect');
+      expect(seen.map(request => request.url)).toEqual(['/v1/projects']);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  it('asks fetch not to follow redirects', async () => {
+    const { fetch, calls } = mockFetch(() => Response.json({ projects: [] }));
+    await client(fetch).projects.list();
+    expect(calls[0]!.init.redirect).toBe('error');
   });
 
   it('wraps a connection drop while reading the body as NETWORK_ERROR', async () => {
