@@ -53,4 +53,56 @@ describe('resolveCloudApiAccess', () => {
       env: { HYPEQUERY_API_TOKEN: TOKEN, HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://cloud.example.com/v1/deployments/submissions' },
     })).resolves.toMatchObject({ baseUrl: 'https://cloud.example.com', token: TOKEN, source: 'env' });
   });
+
+  it('refuses a deploy key in HYPEQUERY_API_TOKEN, which /v1 does not accept', async () => {
+    await expect(resolveCloudApiAccess({
+      env: { HYPEQUERY_API_TOKEN: `hqdp_v1_${'d'.repeat(43)}` },
+      loadCredential: async () => { throw new Error('the stored sign-in must not be read'); },
+      loadManagementCredential: async () => { throw new Error('the stored sign-in must not be read'); },
+    })).rejects.toMatchObject({
+      code: 'CLOUD_MANAGEMENT_TOKEN_REQUIRED',
+      exitClass: 'auth',
+      hint: expect.stringContaining('hqmt_'),
+    });
+  });
+
+  it('refuses the browser sign-in\'s deploy credential when no management token is stored', async () => {
+    await expect(resolveCloudApiAccess({
+      env: {},
+      loadManagementCredential: async () => null,
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.com',
+        deploymentEndpoint: 'https://cloud.example.com/v1/deployments/submissions',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: 'deploy:submit deploy:read-source',
+        target: { project: 'acme:shop', environment: 'production' },
+        token: `hqdp_v1_${'c'.repeat(43)}`,
+      }),
+    })).rejects.toMatchObject({
+      code: 'CLOUD_MANAGEMENT_TOKEN_REQUIRED',
+      exitClass: 'auth',
+      hint: expect.stringContaining('hypequery login --device'),
+    });
+  });
+
+  it('uses the stored management token ahead of the browser sign-in', async () => {
+    await expect(resolveCloudApiAccess({
+      env: {},
+      loadCredential: async () => { throw new Error('the deploy credential must not be read'); },
+      loadManagementCredential: async () => ({
+        cloudUrl: 'https://cloud.example.com',
+        token: TOKEN,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        deploymentEndpoint: 'https://cloud.example.com/v1/deployments/submissions',
+        project: 'shop',
+        projectLimited: false,
+        signedInWith: 'browser',
+      }),
+    })).resolves.toEqual({
+      baseUrl: 'https://cloud.example.com',
+      token: TOKEN,
+      source: 'management-token',
+      defaultProject: 'shop',
+    });
+  });
 });

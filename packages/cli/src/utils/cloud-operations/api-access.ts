@@ -51,16 +51,41 @@ export function cloudApiOrigin(endpoint: string): string {
   return url.origin;
 }
 
+function managementTokenRequired(source: CloudCredentialSource): CliError {
+  const found = source === 'env'
+    ? 'HYPEQUERY_API_TOKEN is not a management token (hqmt_…)'
+    : 'the stored sign-in has only a deploy credential, no management token';
+  return new CliError(
+    'CLOUD_MANAGEMENT_TOKEN_REQUIRED',
+    `Cloud operations need a management token, but ${found}. Deploy keys and deploy credentials work only for deploys.`,
+    {
+      hint: source === 'env'
+        ? 'Set HYPEQUERY_API_TOKEN to a management token (hqmt_…), or unset it and run `hypequery login --device`.'
+        : 'Run `hypequery login --device`, or set HYPEQUERY_API_TOKEN to a management token (hqmt_…).',
+      exitClass: 'auth',
+    },
+  );
+}
+
 /**
  * The credential and Cloud origin for `/v1` operations, from the one resolver
  * every Cloud command uses (AG-08): HYPEQUERY_API_TOKEN, then the stored
  * management token, then the browser sign-in. A credential is bound to the
  * origin of its deployment endpoint, so that origin is where operations go.
+ *
+ * `/v1` accepts only management tokens (`hqmt_`): Cloud reads any other
+ * bearer as a dashboard session and answers UNAUTHENTICATED. The resolver
+ * already puts a stored management token ahead of the browser sign-in's
+ * deploy credential, so a deploy credential here means there is no management
+ * token to use, and the command stops before sending anything.
+ * HYPEQUERY_API_TOKEN is the caller's explicit choice, so a deploy key there
+ * is refused rather than silently passed over for a stored sign-in.
  */
 export async function resolveCloudApiAccess(
   dependencies: CloudDeploymentAccessDependencies = {},
 ): Promise<CloudApiAccess> {
   const credential = await resolveDeploymentCredential(undefined, dependencies);
+  if (credential.tokenKind !== 'management') throw managementTokenRequired(credential.source);
   return {
     baseUrl: cloudApiOrigin(credential.endpoint),
     token: credential.token,
