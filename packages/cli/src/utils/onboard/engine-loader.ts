@@ -42,21 +42,55 @@ export interface EngineLoaderDependencies {
   readonly installCommand?: (specifier: string, directory: string) => Promise<string[]>;
 }
 
+/** An installed engine that can't be read or imported: reinstalling usually fixes it. */
+function unreadable(detail: string, cause: unknown): CliError {
+  const reason = cause instanceof Error ? cause.message : String(cause);
+  return new CliError('ONBOARD_ENGINE_UNREADABLE', `${detail}: ${reason.slice(0, 300)}`, {
+    hint: `Reinstall ${SPECIFIER} in the project (or delete node_modules and install again), then rerun.`,
+    telemetryCode: 'not_installed',
+  });
+}
+
 /** The engine's package.json as Node resolves it from `directory`, or undefined. */
 async function findEngine(directory: string, from: OnboardEngine['from']): Promise<EnginePackage | undefined> {
   let manifestPath: string;
   try {
     manifestPath = createRequire(path.join(directory, 'package.json')).resolve(`${ONBOARD_ENGINE_PACKAGE}/package.json`);
-  } catch {
+  } catch (error) {
+    // Installed but unreadable (Node parses package.json to resolve it); anything else is not installed.
+    if ((error as { code?: unknown }).code === 'ERR_INVALID_PACKAGE_CONFIG') {
+      throw unreadable(`Could not read ${ONBOARD_ENGINE_PACKAGE}'s package.json from ${directory}`, error);
+    }
     return undefined;
   }
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { version?: unknown; exports?: unknown };
+  let manifest: { version?: unknown; exports?: unknown };
+  try {
+    manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { version?: unknown; exports?: unknown };
+  } catch (error) {
+    throw unreadable(`Could not read ${ONBOARD_ENGINE_PACKAGE}'s package.json at ${manifestPath}`, error);
+  }
   return {
     directory: path.dirname(manifestPath),
-    version: typeof manifest.version === 'string' ? manifest.version : '0.0.0',
-    exports: manifest.exports,
+    version: typeof manifest?.version === 'string' ? manifest.version : '0.0.0',
+    exports: manifest?.exports,
     from,
   };
+}
+
+/**
+ * Whether `version` is newer than every release `range` (a caret range)
+ * accepts, so the CLI, not the engine, is out of date.
+ */
+export function newerThanRange(version: string, range: string): boolean {
+  const found = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
+  const base = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(range.trim());
+  if (!found || !base) return false;
+  const [major, minor, patch] = found.slice(1, 4).map(Number) as [number, number, number];
+  const [baseMajor, baseMinor, basePatch] = base.slice(1, 4).map(Number) as [number, number, number];
+  // The caret range's fixed part: the major, or the minor under 0.x, or the patch under 0.0.x.
+  if (baseMajor > 0) return major > baseMajor;
+  if (baseMinor > 0) return major > 0 || minor > baseMinor;
+  return major > 0 || minor > 0 || patch > basePatch;
 }
 
 /**
@@ -101,7 +135,11 @@ async function importEngine(found: EnginePackage): Promise<OnboardEngine> {
         });
     }
     const url = pathToFileURL(path.resolve(found.directory, target)).href;
-    return [subpath, await import(/* @vite-ignore */ url)] as const;
+    try {
+      return [subpath, await import(/* @vite-ignore */ url)] as const;
+    } catch (error) {
+      throw unreadable(`Could not load ${ONBOARD_ENGINE_PACKAGE} ${found.version} (${subpath}) from ${found.directory}`, error);
+    }
   }));
   return {
     version: found.version,
@@ -135,6 +173,15 @@ export async function loadOnboardEngine(command: string, dependencies: EngineLoa
   const install = (dependencies.installCommand ?? devDependencyInstallCommand)(SPECIFIER, cwd);
   const manual = (await install).join(' ');
   const npx = `npx -p @hypequery/cli -p ${SPECIFIER} hypequery ${command}`;
+  // An engine newer than this CLI supports means the CLI is out of date:
+  // installing the supported range would downgrade the project.
+  if (incompatible && newerThanRange(incompatible.version, ONBOARD_ENGINE_RANGE)) {
+    throw new CliError('ONBOARD_ENGINE_INCOMPATIBLE',
+      `\`hypequery ${command}\` supports ${SPECIFIER}, but ${incompatible.version} is installed (${incompatible.directory}), which is newer. Update @hypequery/cli.`, {
+        hint: 'Update @hypequery/cli to the latest version (for example `npm i -D @hypequery/cli@latest`), then rerun.',
+        telemetryCode: 'not_installed',
+      });
+  }
   const problem = incompatible
     ? `\`hypequery ${command}\` needs ${SPECIFIER}, but ${incompatible.version} is installed (${incompatible.directory}).`
     : `\`hypequery ${command}\` needs ${SPECIFIER}, which is not installed.`;

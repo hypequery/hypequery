@@ -10,7 +10,6 @@ import type {
   OnboardEngine,
 } from './engine-types.js';
 import { onboardConnectionFromEnv } from './onboard-connection.js';
-import type { OnboardWarning } from './onboard-report.js';
 
 /** What every onboarding command starts from: the engine, the connection and a transport. */
 export interface OnboardSession {
@@ -39,6 +38,21 @@ export async function openOnboardSession(
   return { engine, input, query };
 }
 
+/**
+ * The user's settings profile could not be read. Discovery and every check
+ * run under settings derived from it, so nothing can run; retrying won't
+ * help until the user's settings change.
+ */
+function profileUnreadable(step: string): CliError {
+  return new CliError('CLICKHOUSE_PROFILE_UNREADABLE',
+    `${step}: ClickHouse returned an unexpected settings profile for this user, so no query can be bounded. `
+      + 'Check that the ClickHouse user may call getSetting() and that its settings profile sets readonly to 0, 1 or 2.', {
+      hint: 'Check the ClickHouse user\'s settings profile (readonly, max_execution_time, max_result_rows and related limits), '
+        + 'or connect as a user whose profile ClickHouse reports normally.',
+      category: 'correctable_input',
+    });
+}
+
 /** The engine's `ClickHouseConnectionError` as the CLI's error, by kind. */
 export function clickHouseFailure(error: unknown, step: string): unknown {
   const failure = error as { name?: unknown; kind?: unknown; message?: unknown } | undefined;
@@ -56,6 +70,9 @@ export function clickHouseFailure(error: unknown, step: string): unknown {
       hint: 'Check CLICKHOUSE_DATABASE and the user\'s grants on system.tables and system.columns.',
     });
   }
+  // The engine reports an unparseable profile as a connection error without an
+  // exception code; it is a property of the user's settings, not a network fault.
+  if (/unexpected access profile/i.test(String(failure.message))) return profileUnreadable(step);
   return new CliError('CONNECTION_FAILED', message, {
     hint: 'Check CLICKHOUSE_URL and that ClickHouse is running, then retry.',
     category: 'unavailable',
@@ -65,11 +82,11 @@ export function clickHouseFailure(error: unknown, step: string): unknown {
 
 /**
  * One round trip that proves the credentials work and reads what the user's
- * settings profile enforces, which bounds every later check. An unreadable
- * profile is a warning: discovery still runs, data checks are skipped by the
- * engine.
+ * settings profile enforces, which bounds every later query. The engine's
+ * discovery needs the same profile and refuses to run without it, so an
+ * unreadable profile fails here with CLICKHOUSE_PROFILE_UNREADABLE.
  */
-export async function readAccessProfile(session: OnboardSession, warnings: OnboardWarning[]): Promise<ClickHouseAccessProfile | null> {
+export async function readAccessProfile(session: OnboardSession): Promise<ClickHouseAccessProfile> {
   const access = session.engine.modules['access-profile'];
   let body: string;
   try {
@@ -78,13 +95,7 @@ export async function readAccessProfile(session: OnboardSession, warnings: Onboa
     throw clickHouseFailure(error, `Could not connect to ClickHouse at ${redactConnectionUrl(session.input.host)}`);
   }
   const profile = access.parseAccessProfile(body);
-  if (!profile) {
-    warnings.push({
-      code: 'ACCESS_PROFILE_UNREADABLE',
-      message: 'Could not read this user\'s settings profile, so data checks (grain, joins, measures) are skipped.',
-      hint: 'Check that the ClickHouse user may call getSetting().',
-    });
-  }
+  if (!profile) throw profileUnreadable(`Could not read the settings profile at ${redactConnectionUrl(session.input.host)}`);
   return profile;
 }
 

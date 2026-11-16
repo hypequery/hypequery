@@ -120,6 +120,17 @@ export interface GrainCheckResult {
 
 export interface JoinKey { readonly table: string; readonly column: string }
 
+/** A join's match rate by a low-cardinality column. */
+export interface JoinSplit {
+  readonly table: string;
+  readonly column: string;
+  readonly via?: { readonly childColumn: string; readonly parentColumn: string };
+  /** `value` is the split column's value: customer data unless the column's type declares it. */
+  readonly groups: readonly { readonly value: string | null; readonly childRows: number; readonly matchedRows: number }[];
+  readonly truncated: boolean;
+  readonly conditional: boolean;
+}
+
 export interface JoinHint {
   readonly child: JoinKey;
   readonly parent: JoinKey;
@@ -132,6 +143,7 @@ export interface JoinCandidate {
   readonly parent: JoinKey;
   readonly outcome: 'proposed' | 'rejected' | 'skipped';
   readonly reason: string;
+  readonly split?: JoinSplit;
   readonly [key: string]: unknown;
 }
 
@@ -149,6 +161,7 @@ export interface JoinCheck {
   readonly parent: JoinKey;
   readonly status: 'measured' | 'skipped';
   readonly reason: string;
+  readonly split?: JoinSplit;
   readonly [key: string]: unknown;
 }
 
@@ -254,6 +267,16 @@ export interface OnboardEngineModules {
   };
   readonly 'sample-policy': {
     readonly schemaForAssistant: (schema: DiscoveredSchema, policy?: SamplePolicy) => DiscoveredSchema;
+    /** Whether the policy keeps a column's sampled values out of reports. */
+    readonly withheldBy: (schema: DiscoveredSchema, policy: SamplePolicy) => (table: string, column: string) => boolean;
+  };
+  readonly 'join-sql': {
+    /** A column a join can be measured on: supported, with an integer, text or date key type. */
+    readonly keyColumn: (table: DiscoveredTable, name: string) => DiscoveredColumn | undefined;
+    /** The key family two joined columns must share. */
+    readonly keyFamily: (column: DiscoveredColumn) => 'integer' | 'text' | 'date' | undefined;
+    /** Enum and Bool values are declared in the column's type: metadata, not samples. */
+    readonly declaredValues: (column: DiscoveredColumn) => boolean;
   };
   readonly 'measure-checks': {
     readonly verifyMeasures: (
@@ -278,6 +301,7 @@ export const ONBOARD_ENGINE_SUBPATHS = [
   'grain-check-runner',
   'join-candidate-runner',
   'join-check',
+  'join-sql',
   'query-history',
   'column-roles',
   'sample-policy',
