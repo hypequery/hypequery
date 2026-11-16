@@ -1,16 +1,6 @@
 import { CLI_ERROR_CATEGORIES, type CliErrorCategory, type CloudErrorDetails } from './cli-error.js';
+import { terminalSafeText } from './terminal-text.js';
 
-const MAX_FIELD_LENGTH = 512;
-
-/** Control characters are replaced and length is bounded: the text reaches a terminal. */
-function safeText(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const safe = [...value].map(character => {
-    const codePoint = character.codePointAt(0) ?? 0;
-    return codePoint <= 0x1f || codePoint === 0x7f ? ' ' : character;
-  }).join('').slice(0, MAX_FIELD_LENGTH).trim();
-  return safe || undefined;
-}
 
 /**
  * Read the hint, category and request ID from Cloud's error envelope
@@ -33,7 +23,7 @@ export function parseCloudErrorBody(body: string): CloudErrorDetails {
   const category = (CLI_ERROR_CATEGORIES as readonly unknown[]).includes(fields.category)
     ? fields.category as CliErrorCategory
     : undefined;
-  const hint = safeText(fields.hint);
+  const hint = terminalSafeText(fields.hint);
   const requestId = typeof fields.requestId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(fields.requestId)
     ? fields.requestId
     : undefined;

@@ -1,6 +1,7 @@
 import { CliError, cloudHttpError } from './cli-error.js';
 import { parseCloudErrorBody } from './cloud-error-body.js';
 import { readCapped } from './read-capped.js';
+import { terminalSafeText } from './terminal-text.js';
 
 /**
  * Device sign-in (RFC 8628) against hypequery Cloud (AG-05). The CLI asks for
@@ -85,8 +86,7 @@ function sameOriginUrl(value: unknown, origin: string): string | undefined {
 /** Cloud's description reaches a terminal: no control characters, bounded length. */
 function errorDescription(body: unknown): string | undefined {
   if (!isRecord(body) || typeof body.error_description !== 'string') return undefined;
-  const text = body.error_description.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 500).trim();
-  return text || undefined;
+  return terminalSafeText(body.error_description, 500);
 }
 
 function positiveSeconds(value: unknown): number | undefined {
