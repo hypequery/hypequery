@@ -17,7 +17,9 @@ const TYPES = '/blog/clickhouse-typescript-type-problem';
 export const retiredBlogPosts: RetiredBlogPost[] = [
   // Duplicates of the page Google ranks for the same searches (November 2026).
   { slug: 'does-clickhouse-have-an-orm', destination: '/clickhouse-orm' },
-  { slug: 'clickhouse-query-builder-typescript', destination: '/clickhouse-query-builder' },
+  // Search Console (Aug-Nov 2026): 60 impressions for 'typescript client for clickhouse cloud'
+  // against 5 for 'clickhouse query builder', so send it to the page titled for the first.
+  { slug: 'clickhouse-query-builder-typescript', destination: '/clickhouse-typescript' },
   { slug: 'clickhouse-react-hooks', destination: '/clickhouse-react' },
   { slug: 'clickhouse-materialized-views-typescript', destination: '/blog/a-guide-to-materialized-views-in-clickhouse' },
   // Under 50 impressions and no clicks (Search Console, August to November
@@ -44,7 +46,9 @@ export const retiredBlogPosts: RetiredBlogPost[] = [
   // /clickhouse-rest-api itself redirects to /clickhouse-api, so skip the hop.
   { slug: 'typed-rest-api-clickhouse', destination: '/clickhouse-api' },
   { slug: 'clickhouse-mcp-typescript', destination: '/clickhouse-mcp' },
-  { slug: 'what-is-a-semantic-layer', destination: '/clickhouse-semantic-layer' },
+  // The vendor-neutral /semantic-layer hub (added 2026-11-12) matches this post's
+  // 'semantic layer' and 'semantic layer meaning' rankings; the ClickHouse page does not.
+  { slug: 'what-is-a-semantic-layer', destination: '/semantic-layer' },
 ];
 
 export const retiredBlogSlugs: ReadonlySet<string> = new Set(retiredBlogPosts.map((post) => post.slug));

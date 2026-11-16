@@ -5,7 +5,7 @@
 #
 # Pinned to an LTS tag so checksums and screenshots stay stable. Bump it on
 # purpose, re-run `pnpm --filter @hypequery-examples/seed seed:write-checksums`,
-# and update the "Tested on ClickHouse" line in the guides.
+# and update the ClickHouse version in the guides.
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.8

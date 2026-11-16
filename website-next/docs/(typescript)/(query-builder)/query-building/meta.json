@@ -1,6 +1,7 @@
 {
   "title": "Query builder",
   "pages": [
+    "setup",
     "basics",
     "select",
     "where",

@@ -16,10 +16,16 @@ export type {
   FileSystemDeploymentActivationRegistryOptions,
 } from './activation.js';
 export {
+  DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
   DEPLOYMENT_BUNDLE_CONTRACT,
   DEPLOYMENT_BUNDLE_MANIFEST,
   verifyDeploymentBundle,
 } from './bundle.js';
+export { deploymentBundleFiles } from './utils/bundle-files.js';
+export type {
+  DeploymentBundleFileEntry,
+  DeploymentBundleFileRole,
+} from './utils/bundle-files.js';
 export type { VerifiedDeploymentBundle } from './bundle.js';
 export {
   DeploymentIntakeError,

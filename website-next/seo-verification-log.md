@@ -174,3 +174,104 @@ dataset sample on S2 was type-checked against `@hypequery/datasets@0.31.0` from 
 - **Cube Cloud free plan**: not re-checked for this page; S1 says only that the MCP server is on all plans.
 - **Databricks Genie and metric views** (docs now say "Genie Agents"): not used on S2; the Databricks spoke covers it.
 - **Accuracy statistics for text-to-SQL vs semantic layers**: no primary source; none are on either page.
+
+# SEO verification log: Cube gap pages (2026-11-14)
+
+Same rules as above. Gap analysis: `docs/aeo/cube-gap-analysis.md`.
+
+| # | Page | URL |
+|---|---|---|
+| G1 | Data access control | /semantic-layer/access-control |
+| G2 | Analytics MCP server | /semantic-layer/analytics-mcp-server |
+| G3 | dbt Semantic Layer alternatives | /semantic-layer/dbt-semantic-layer-alternatives |
+| G4 | Build vs buy embedded analytics | /compare/build-vs-buy-embedded-analytics |
+
+hypequery claims were checked against this repository on 2026-11-14. G1's code was type-checked against
+`@hypequery/datasets@0.31.0`, `@hypequery/serve@0.26.0` and `@hypequery/clickhouse@2.15.0` from npm, and its SQL
+comment is the actual `toSQL()` output. A dataset with a `tenantKey` and no runtime tenant was confirmed to throw
+"requires runtime tenant scoping". Specifics:
+
+- Trusted per-call `constraints` (RFC 0019 comparisons via `context.runtime.constraints`): `packages/datasets/CHANGELOG.md` (3492dc9), `src/utils/row-scope.ts`
+- Tenant and constraints in cache keys: `docs/(typescript)/(datasets)/datasets/caching.mdx`, datasets CHANGELOG
+- Field visibility only in the deployment data plane, not self-hosted Serve: commit e0f9c6e2 (K-07); no masking anywhere
+- `requiredRoles` (OR) / `requiredScopes` (AND), `createJwtStrategy` (secret or JWKS), `createAnalyticsTokenIssuer`: `docs/(typescript)/(serve)/authentication.mdx`
+- MCP tools, no SQL tool, 100-row default: as logged for S2 on 2026-11-13
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| G1, G3 | dbt SL platforms: Snowflake, BigQuery, Databricks, Redshift, Postgres, Trino; "other data platforms ... isn't available at this time" | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1, G3 | dbt SL on Starter, Enterprise, Enterprise+; caching (result + declarative, in the data platform, client opt-in) and multiple credentials on Enterprise and Enterprise+; local MetricFlow has no APIs or integrations | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1 | dbt SL auth: service tokens mapped to warehouse credentials, or personal tokens; "physical access policies ... will be respected"; no row-level security in the model | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-14 |
+| G1 | Cube access policies: `member_level`, `row_level`, `member_masking`, per group, can reference `userAttributes`; combined with `query_rewrite` | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/data-modeling/data-access-policies.mdx | 2026-11-14 |
+| G1 | Cube multitenancy: with `queryRewrite` only, query queue and pre-aggregations are shared; `pre_aggregations_schema` and `context_to_orchestrator_id` isolate them | https://github.com/cube-js/cube/blob/master/docs-mintlify/embedding/multitenancy.mdx | 2026-11-14 |
+| G1 | Snowflake row access policies and masking policies | https://docs.snowflake.com/en/user-guide/security-row-intro | 2026-11-14 |
+| G1 | ClickHouse row policy: a filter determining which rows a user can read | https://clickhouse.com/docs/sql-reference/statements/create/row-policy | 2026-11-14 |
+| G2 | mcp-clickhouse: tools `run_query`, `list_databases`, `list_tables`, `run_chdb_select_query` (chDB); read-only by default via `readonly=1`; `CLICKHOUSE_ALLOW_WRITE_ACCESS`, `CLICKHOUSE_ALLOW_DROP` ("best-effort guard", not a security boundary; restrict grants); stdio and Streamable HTTP (SSE deprecated); HTTP needs bearer token or OAuth by default; Apache 2.0 | https://github.com/ClickHouse/mcp-clickhouse | 2026-11-14 |
+| G2, S2 | Cube MCP: all plans, Viewer role or higher, 30 tools, HTTPS + OAuth, `tool:<name>` scopes; `runQuery` runs Cube SQL (PostgreSQL dialect) against the SQL API | https://github.com/cube-js/cube/blob/master/docs-mintlify/docs/integrations/mcp-server.mdx | 2026-11-14 |
+| G2, G3 | dbt MCP: Apache 2.0; `execute_sql`, `text_to_sql`, `query_metrics`; CLI `show` "Executes SQL against the database"; `DISABLE_SQL` setting present in `src/dbt_mcp/config/settings.py` | https://github.com/dbt-labs/dbt-mcp | 2026-11-14 |
+| G2, G3 | Snowflake MCP, AtScale MCP and integrations, Lightdash, Wren AI, Boring Semantic Layer, Malloy, AtScale SML, MetricFlow licence, Cube Core licence and APIs | As logged for S1/S2 | 2026-11-13 |
+
+G3's HubSources line reads "November 13 and 14, 2026" because its non-dbt, non-Cube-MCP rows reuse the S1/S2
+checks from 2026-11-13.
+
+## Corrections made on 2026-11-14
+
+- **S2 (ai-agents)**: Cube's raw SQL cell changed from "Not covered in sources checked" to `runQuery` taking Cube
+  SQL against the semantic SQL API. The MCP doc's tool table says so.
+- **Cube's own dbt-alternatives article** says the dbt Semantic Layer has no built-in caching. dbt's FAQ documents
+  result and declarative caches on Enterprise plans, so G3 says that instead.
+
+## Cut from G1–G4
+
+- **Cube Cloud UI for access policies**: from a Cube blog post in search results, not the docs; left out.
+- **Cube "sits on top of dbt models"**: only in Cube's marketing articles; G3 says only that dbt keeps building the
+  tables, which is true of every option.
+- **Any build-time or cost figures for building embedded analytics**: no primary source; G4 gives none.
+
+# SEO verification log: AI agent pages (2026-11-15)
+
+Pages:
+
+| # | Page | URL |
+|---|---|---|
+| A1 | hypequery vs ClickHouse Agents | /compare/hypequery-vs-clickhouse-agents |
+| A2 | What is agentic analytics? | /blog/agentic-analytics |
+| A3 | How to stop an AI agent leaking data between tenants | /blog/ai-agent-multi-tenant-data-isolation |
+| A4 | Text-to-SQL vs a semantic layer | /blog/text-to-sql-vs-semantic-layer |
+
+hypequery claims were checked against this repository and run against the published packages on 2026-11-15:
+`@hypequery/datasets` 0.31.0 (tenant errors quoted verbatim in A3), `@hypequery/mcp` 0.13.0 and `@hypequery/cli`
+1.30.0 (tool list and the `MCP_INVALID_ARGUMENTS` error in A2), and Python `hypequery` 0.1.0b5 (`tenant-required`,
+`input-invalid`, the compiled tenant SQL in A3, `between` and the client's default settings in A4). The A3 vitest
+tests were run and pass. The TypeScript snippets in A2–A4 type-check.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| A1, A2 | "a fully managed agentic analytics service in ClickHouse Cloud, powered by Claude"; announced June 2026 | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1 | Chat can "generate SQL and visualizations"; agent builder with instructions, skills, context files and MCP tool access, governed by Cloud RBAC; sandboxed code interpreter (Bash, Python, JavaScript); memories, artifacts, subagents | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1 | Claude Sonnet and Haiku pre-configured as the default; "Other models can be configured per agent through the Agent Builder" | https://clickhouse.com/blog/clickhouse-agents-beta ; https://clickhouse.com/cloud/agents | 2026-11-15 |
+| A1 | "An Agent API for programmatic access to the agents built in ClickHouse Agents" listed under what's next | https://clickhouse.com/blog/clickhouse-agents-beta | 2026-11-15 |
+| A1, A2 | Public beta for all ClickHouse Cloud customers "at no additional charge"; "Pricing will be available soon"; "built for your teams"; for AI in your own product, "use ClickHouse as the real-time data layer under your own agent stack"; SSO, sharing and access permissions, encrypted message storage; self-hosting for "maximum runtime control", linking the agentic-data-stack repo | https://clickhouse.com/cloud/agents | 2026-11-15 |
+| A1 | Docs label the feature beta; agents can attach tools and MCP servers in the Agent Builder | https://clickhouse.com/docs/products/cloud/features/ai-ml/agents | 2026-11-15 |
+| A3 | `CREATE ROW POLICY ... ON ... [FOR SELECT] USING ... TO ...` syntax; "A user to whom no condition applies therefore sees every row"; `access_control_improvements.throw_on_unmatched_row_policies`, disabled by default; "Row policies make sense only for users with readonly access" | https://clickhouse.com/docs/sql-reference/statements/create/row-policy | 2026-11-15 |
+| A3 | OWASP Top 10 for LLM applications ranks prompt injection first | https://genai.owasp.org/ | 2026-11-15 |
+
+## Not claimed on A1–A4
+
+- **Which database credentials ClickHouse Agents queries with, and how row policies apply to it**: not stated in
+  the announcement, product page or docs overview; A1 says only "governed by Cloud RBAC".
+- **Agentic Data Stack components** (LibreChat, Langfuse): only in AI answers and a repo link; A1 names the repo
+  and nothing inside it.
+- **Text-to-SQL benchmark accuracy figures**: no primary source checked; A4 gives none.
+
+# SEO verification log: /clickhouse-semantic-layer options table and FAQ (2026-11-15)
+
+| Claim | Source | Checked |
+|---|---|---|
+| dbt Semantic Layer supports Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino; "Support for other data platforms, such as Fabric, isn't available at this time" (ClickHouse is not listed) | https://docs.getdbt.com/docs/use-dbt-semantic-layer/sl-faqs | 2026-11-15 |
+| ClickHouse Cloud: AGENTS.md is "a special saved query that acts as a semantic layer over the agent's system prompt"; written as instructions "(not actual SQL)"; applied "to all Assistant chat conversations in that service" | https://clickhouse.com/docs/products/cloud/features/ai-ml/aichat/customizing-semantic-layer | 2026-11-15 |
+| Cube: supports ClickHouse among many SQL sources; REST, GraphQL and SQL APIs; MCP server in Cube Cloud; access policies and `queryRewrite` | As logged for P3, G1 and G2 above | 2026-11-12 / 2026-11-14 |
+| dbt MCP server; dbt SL relies on the data platform's physical access policies | As logged for G1 and G2 above | 2026-11-14 |
+
+Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
+reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.

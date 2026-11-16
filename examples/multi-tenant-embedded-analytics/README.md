@@ -91,4 +91,4 @@ POST /api/analytics/datasets/events/query
 
 - [nextjs-dashboard](../nextjs-dashboard): the same dataset pattern with typed React hooks.
 
-Tested on ClickHouse 25.8 with `@hypequery/serve` 0.x, `@hypequery/datasets` 0.29 and Hono 4.
+Versions used: ClickHouse 25.8, `@hypequery/serve` 0.x, `@hypequery/datasets` 0.29 and Hono 4.

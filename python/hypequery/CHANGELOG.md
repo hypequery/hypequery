@@ -4,6 +4,67 @@
 
 <!-- towncrier release notes start -->
 
+## 0.1.0b6 (2026-11-15)
+
+- `hypequery.agent` gives your own agent hypequery's tenant-safe analytics tools, as `@hypequery/agent` does in TypeScript: `hypequery_tools()` returns native tools for Anthropic (`hypequery.agent.anthropic`), the OpenAI Agents SDK (`hypequery.agent.openai_agents`) and Pydantic AI (`hypequery.agent.pydantic_ai`). Pass `executor=` to run them in your own process, over a `ClientContractExecutor` built from the signed-in user's credential so the API's own auth scopes every query, or `url=` and `token=` for a tenant MCP endpoint such as hypequery Cloud's (needs the `mcp` extra; the token may be a function, asked for before every call). The model gets the same tools, JSON Schemas and error envelope as in TypeScript; tool errors are results it can correct, and a refused token or unreachable endpoint raises `HypequeryToolsError`. `tools=` limits an executor to the tools you name.
+
+- `hypequery.agent.langchain` gives a LangChain or LangGraph agent hypequery's tenant-safe analytics tools: `hypequery_tools()` returns `langchain-core` tools for `create_agent(model, tools=...)`, `model.bind_tools(...)` and LangGraph's `ToolNode`, taking `executor=`, or `url=` and `token=`, as the other adapters do. Each tool's input schema is the server's JSON Schema, and a tool error is returned to the model as `{"error": {code, message, hint, ...}}` so it can correct itself. The tools are async, so run the agent with `ainvoke` or `astream`. Needs `langchain-core` 0.3.36 or later, which `langchain` and `langgraph` install.
+
+- `hypequery.mcp` now advertises `query_dataset` and `query_metric` with an input schema that model APIs accept: valid JSON Schema draft 2020-12, one object with no top-level `anyOf`, `oneOf` or `allOf`, with each field option labelled by the datasets it belongs to. Before, MCP clients such as Claude Code dropped `query_dataset` without any error. Calls are still validated against the exact per-dataset schema, and the manifest hash is unchanged.
+- A query tool with nothing under it (no metric endpoint, or no dataset endpoint) is no longer listed. `hypequery mcp --self-test` and `hypequery demo` report the tool count from the manifest.
+- A rejected `query_dataset` or `query_metric` argument now says what is offered: `Invalid client query at /dimensions/0. Offered by "orders": "country", "status".`, and an unknown target lists the datasets or metrics. Messages name only what the tool already offers, never a submitted value.
+
+## 0.1.0b5 (2026-11-14)
+
+- `hypequery.agent.mint_agent_token()` signs an end-user token for a hypequery Cloud project's tenant MCP endpoint locally, with one of the project's managed signing keys and no network call. `project` and `endpoint` are optional, defaulting to the key JSON's `hq_project` and `hq_endpoint`; an explicit argument wins. It returns `AgentToken(token, mcp_url, expires_at)`, caps the lifetime at 15 minutes and raises `AgentTokenError` (a `ValueError`) naming the option for any input Cloud would refuse. It needs the `jwt` extra, and mints the same token as `@hypequery/agent`'s `mintAgentToken()` for the same input.
+
+- Dimensions and measures accept `synonyms`, `examples`, `format`, `unit` and
+  `currency` (an ISO 4217 code), as in TypeScript:
+  `dimension.string(synonyms=("market",), examples=("DE", "FR"))`,
+  `measure.sum("amount", format="#,##0.00", currency="EUR")`. Client contracts
+  advertise them in field annotations (RFC 0018 amendment, 5 November 2026), and
+  `hypequery mcp` returns them from `get_dataset_schema`, so agents see the
+  names and values people actually use. Deployment contracts do not publish
+  them yet.
+- Field metadata is negotiated so released consumers keep working: live
+  discovery emits it only to requests whose `x-hypequery-client-features` header
+  names `field-metadata` (both MCP backends send it) and varies on that header.
+  Other requests, and `export_client_contract` unless given
+  `field_metadata=True`, get the label/description view that `@hypequery/mcp`
+  and `@hypequery/cli` releases before this one accept. Invalid vocabulary still
+  fails export. `hypequery.protocol` adds `accepts_client_field_metadata`,
+  `parse_client_contract_features`, `without_client_field_metadata` and the
+  header constants.
+
+- MCP tool errors can carry `hint` (the next action, in one sentence), `docsUrl` and `requestId`, set through `McpToolError(..., hint=, docs_url=, request_id=)`. The published error envelope schema lists the three optional fields, matching `@hypequery/mcp`.
+
+- `hypequery mcp --http` serves MCP over Streamable HTTP instead of stdio,
+  bound to loopback by default, with `--port`, `--host`, `--allowed-hosts`
+  and `--allowed-origins`. Every request checks `Host` and `Origin`
+  (DNS-rebinding protection) before its credential.
+- Callers send `HYPEQUERY_MCP_KEY` as a bearer token (one shared key), or,
+  without it, are authenticated by the Api's own auth: the same credential is
+  forwarded on every query, so the API's authentication, policy and tenant
+  apply to each call as over REST. Each request sends only its own credential,
+  never another client's, even for the same user. Each MCP session belongs to
+  the principal that opened it, keeps the executor it started with (dropped when
+  the session is deleted, idle or the app stops) and is never rebuilt silently.
+- With `--allowed-origins`, a browser's preflight is answered before any
+  credential and replies carry the CORS headers a page needs.
+- OAuth resource-server support: `--resource` and `--authorization-servers`
+  publish RFC 9728 protected-resource metadata, 401 and 403 answers carry
+  RFC 6750 challenges pointing at it, and `--required-scopes` is enforced.
+  The Api's `jwt_strategy` must accept the resource URL as its only audience,
+  or the server refuses to start: a strategy accepts a token naming any one of
+  its audiences, so another audience (or none) would let a token issued for
+  another API open an MCP session. There is no authorization server.
+- `hypequery.mcp` exposes `create_mcp_asgi_app` (an ASGI app that also runs
+  the lifespan protocol), `McpPrincipal`, `ApiAuthenticator`,
+  `static_key_authenticator`, `ApiExecutorFactory`, `HttpExecutorFactory`,
+  `ProtectedResource` and `check_resource_audience`.
+  `ClientContractExecutor.invalidated` and `JwtStrategy.audiences` are new
+  read-only properties.
+
 ## 0.1.0b4 (2026-11-10)
 
 - `measure.approx_count_distinct(field)` estimates a distinct count with

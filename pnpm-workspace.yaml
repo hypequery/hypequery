@@ -1,4 +1,5 @@
 packages:
+  - 'packages/agent'
   - 'packages/cli'
   - 'packages/clickhouse'
   - 'packages/cloud-client'

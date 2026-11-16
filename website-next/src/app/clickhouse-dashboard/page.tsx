@@ -245,6 +245,7 @@ export default function ClickHouseDashboardPage() {
         { href: '/clickhouse-api', label: 'ClickHouse REST API' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-saas-analytics', label: 'ClickHouse SaaS Analytics' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
       ]}
       nextStep={{
         eyebrow: 'Next step',

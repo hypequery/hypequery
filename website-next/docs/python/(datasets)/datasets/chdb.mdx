@@ -48,6 +48,9 @@ To point the same code at a ClickHouse server for production, swap the executor 
 - **Files.** chDB reads Parquet, CSV, S3 and more through ClickHouse table functions. Create a view over a file and
   point a dataset's `source` at it.
 
+New to chDB itself? The [chDB Python tutorial](/blog/chdb-python-tutorial) covers `pip install chdb`,
+`chdb.query()`, querying Parquet, CSV and pandas, and keeping MergeTree tables on disk, before any hypequery code.
+
 ## Opening a database
 
 `create_chdb_executor(path=":memory:", *, database="default")` opens the database at `path`:

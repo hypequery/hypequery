@@ -3,7 +3,7 @@ import { CliError } from '../utils/cli-error.js';
 import { logger } from '../utils/logger.js';
 import { emitResult } from '../utils/machine-output.js';
 import { unscopedTenantCandidates } from '../utils/tenant-key-candidates.js';
-import type { ColumnRoleHint, DiscoveredSchema, JoinCandidateReport, MeasureCheck } from '../utils/onboard/engine-types.js';
+import type { ClickHouseQuery, ColumnRoleHint, DiscoveredSchema, JoinCandidateReport, JoinCheck, MeasureCheck } from '../utils/onboard/engine-types.js';
 import { connectionFingerprint } from '../utils/onboard/onboard-connection.js';
 import { loadOnboardContract } from '../utils/onboard/onboard-contract.js';
 import { declaredJoins, parseJoinPairs, type JoinToCheck } from '../utils/onboard/onboard-joins.js';
@@ -15,6 +15,7 @@ import {
   selectTables,
   tenantKeyCandidates,
   withoutCustomerOnly,
+  withPolicySplit,
   type OnboardWarning,
   type SampleMode,
 } from '../utils/onboard/onboard-report.js';
@@ -75,7 +76,7 @@ export async function schemaCommand(action: string | undefined, options: Onboard
   const mode = sampleMode(options.samples);
   const session = await openOnboardSession('schema inspect', options, dependencies);
   const warnings: OnboardWarning[] = [];
-  await readAccessProfile(session, warnings);
+  await readAccessProfile(session);
   const schema = await discover(session);
   const { tables, unknown } = selectTables(schema, parseList(options.tables));
   if (unknown.length) warnings.push({ code: 'UNKNOWN_TABLES', message: `Not found or not supported: ${unknown.join(', ')}.` });
@@ -135,11 +136,9 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
   const session = await openOnboardSession('onboard analyze', options, dependencies);
   const { engine, input, query } = session;
   const warnings: OnboardWarning[] = [];
-  const profile = await readAccessProfile(session, warnings);
-  const access = profile ? engine.modules['access-profile'].readonlyAccessReport(profile, input.username) : null;
-  const capabilities = profile
-    ? await engine.modules['connection-capabilities'].checkConnectionCapabilities(input, query, profile, { includeQueryLog: history })
-    : [];
+  const profile = await readAccessProfile(session);
+  const access = engine.modules['access-profile'].readonlyAccessReport(profile, input.username);
+  const capabilities = await engine.modules['connection-capabilities'].checkConnectionCapabilities(input, query, profile, { includeQueryLog: history });
   for (const capability of capabilities) {
     if (capability.status === 'missing' && capability.id !== 'query-log') {
       warnings.push({ code: 'GRANT_MISSING', message: `No SELECT on ${capability.target}: ${capability.disabledChecks.join('; ')} won't run.`, hint: capability.fix });
@@ -193,7 +192,9 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
     engine: engineInfo(engine),
     connection: {
       ...connectionInfo(input),
-      ...(access ? { readonly: access.readonly, risks: access.risks, profileFix: access.profileFix } : {}),
+      readonly: access.readonly,
+      risks: access.risks,
+      profileFix: access.profileFix,
       capabilities,
     },
     tables,
@@ -207,7 +208,7 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
       askBeforeDraft: finding.askBeforeDraft === true,
     })),
     grainChecks: (grained.grainChecks ?? []).map(withoutCustomerOnly),
-    joinCandidates: joinReport(joins),
+    joinCandidates: joinReport(joins, splitValuesShown(session, discovered, mode)),
     columnRoles: columnRoles(session, discovered, tables),
     queryHistory,
     tenantKeyCandidates: {
@@ -222,9 +223,23 @@ async function onboardAnalyze(options: OnboardOptions, dependencies: OnboardDepe
   emitResult(report);
 }
 
-function joinReport(report: JoinCandidateReport) {
+/**
+ * Whether a report may carry a column's values in a join split: when the
+ * column's type declares them (Enum, Bool), or when the sample policy lets
+ * the column's samples out.
+ */
+function splitValuesShown(session: OnboardSession, schema: DiscoveredSchema, mode: SampleMode) {
+  const withheld = session.engine.modules['sample-policy'].withheldBy(schema, samplePolicy(mode));
+  const { declaredValues } = session.engine.modules['join-sql'];
+  return (table: string, column: string) => {
+    const found = schema.tables.find(item => item.name === table)?.columns.find(item => item.name === column);
+    return Boolean(found && declaredValues(found)) || !withheld(table, column);
+  };
+}
+
+function joinReport(report: JoinCandidateReport, valuesShown: (table: string, column: string) => boolean) {
   return {
-    candidates: report.candidates.map(withoutCustomerOnly),
+    candidates: report.candidates.map(candidate => withPolicySplit(withoutCustomerOnly(candidate), valuesShown)),
     omitted: report.omitted,
     ...(report.skippedTables?.length ? { skippedTables: report.skippedTables } : {}),
   };
@@ -260,6 +275,48 @@ function printAnalysis(report: {
   logger.info('Run with --json for the full report.');
 }
 
+/** The wall-clock budget for all of `onboard check`'s join checks together. */
+export const CHECK_JOINS_BUDGET_MS = 90_000;
+
+type CheckedJoin = JoinToCheck & Omit<Partial<JoinCheck>, 'status'> & {
+  readonly status: JoinCheck['status'] | 'invalid';
+  readonly summary: string;
+  readonly problem: string | null;
+};
+
+type JoinStructure =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'invalid' | 'skipped'; readonly problem: string };
+
+/**
+ * Whether a join can be measured at all, from the discovered schema. A table
+ * or column that doesn't exist, or keys of different types, can never join:
+ * the model is wrong (`invalid`). An unsupported table or a key type the
+ * engine can't measure is only unmeasured (`skipped`).
+ */
+function joinStructure(session: OnboardSession, schema: DiscoveredSchema, join: JoinToCheck): JoinStructure {
+  const { keyColumn, keyFamily } = session.engine.modules['join-sql'];
+  const keys = [];
+  for (const side of [join.child, join.parent]) {
+    const table = schema.tables.find(item => item.name === side.table);
+    if (!table) return { kind: 'invalid', problem: `Table ${side.table} was not found in ClickHouse.` };
+    const column = table.columns.find(item => item.name === side.column);
+    if (!column) return { kind: 'invalid', problem: `${side.table} has no column ${side.column}.` };
+    if (!table.supported) return { kind: 'skipped', problem: `${side.table} is not a table the checks can read, so the join wasn't measured.` };
+    const key = keyColumn(table, side.column);
+    if (!key) return { kind: 'skipped', problem: `${side.table}.${side.column} (${column.type}) is not a key type the checks can measure, so the join wasn't measured.` };
+    keys.push(key);
+  }
+  const [child, parent] = keys as [NonNullable<typeof keys[number]>, NonNullable<typeof keys[number]>];
+  if (keyFamily(child) !== keyFamily(parent)) {
+    return {
+      kind: 'invalid',
+      problem: `${join.child.table}.${join.child.column} (${child.type}) and ${join.parent.table}.${join.parent.column} (${parent.type}) have different key types, so they can never match.`,
+    };
+  }
+  return { kind: 'ok' };
+}
+
 /**
  * `hypequery onboard check`: verify a model's numbers and joins against the
  * data. Measure checks compare each measure with an independent route; join
@@ -272,7 +329,7 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
   const session = await openOnboardSession('onboard check', options, dependencies);
   const { engine, input, query } = session;
   const warnings: OnboardWarning[] = [];
-  await readAccessProfile(session, warnings);
+  await readAccessProfile(session);
   const schema = await discover(session);
   const { contract } = loaded;
 
@@ -283,19 +340,31 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
     ? []
     : await engine.modules['measure-checks'].verifyMeasures(input, query, schema, contract);
 
+  // One budget for every join together: each check also has the engine's own
+  // per-check deadline, but a model with many relationships must still finish.
+  const deadline = Date.now() + CHECK_JOINS_BUDGET_MS;
+  const budgeted: ClickHouseQuery = (target, sql, queryOptions) =>
+    query(target, sql, { ...queryOptions, deadlineMs: Math.min(queryOptions.deadlineMs ?? deadline, deadline) });
+  const valuesShown = splitValuesShown(session, schema, 'detected');
   const joinChecker = engine.modules['join-check'];
   const toCheck: JoinToCheck[] = [...declaredJoins(contract, engine.modules['field-column'].resolveFieldColumn), ...extraJoins];
-  const joinChecks = [];
+  const joinChecks: CheckedJoin[] = [];
   for (const join of toCheck) {
-    if (!known.has(join.child.table) || !known.has(join.parent.table)) {
-      joinChecks.push({ ...join, status: 'skipped' as const, summary: 'A table of this join was not found.', problem: 'A table of this join was not found.' });
+    const structure = joinStructure(session, schema, join);
+    if (structure.kind !== 'ok') {
+      joinChecks.push({ ...join, status: structure.kind, reason: structure.problem, summary: structure.problem, problem: structure.problem });
       continue;
     }
-    const joinQuery = await engine.modules['join-candidate-runner'].boundedJoinQuery(input, query);
+    if (Date.now() >= deadline) {
+      const reason = `onboard check spent its ${CHECK_JOINS_BUDGET_MS / 1000} s join budget before reaching this join.`;
+      joinChecks.push({ ...join, status: 'skipped', reason, summary: reason, problem: reason });
+      continue;
+    }
+    const joinQuery = await engine.modules['join-candidate-runner'].boundedJoinQuery(input, budgeted);
     const check = await joinChecker.checkJoin(schema, { child: join.child, parent: join.parent }, joinQuery);
     joinChecks.push({
       ...join,
-      ...withoutCustomerOnly(check),
+      ...withPolicySplit(withoutCustomerOnly(check), valuesShown),
       summary: joinChecker.joinCheckSummary(check),
       problem: joinChecker.joinProblem(check),
     });
@@ -311,8 +380,10 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
   }
 
   const failedMeasures = measureChecks.filter(check => check.outcome === 'failed');
-  const failedJoins = joinChecks.filter(check => check.status === 'measured' && check.problem);
-  const unmeasured = joinChecks.filter(check => check.status !== 'measured');
+  // A join whose table or column doesn't exist, or whose keys can never match,
+  // is a mistake in the model; one the checks can't measure is only a warning.
+  const failedJoins = joinChecks.filter(check => check.status === 'invalid' || (check.status === 'measured' && check.problem));
+  const unmeasured = joinChecks.filter(check => check.status === 'skipped');
   for (const check of unmeasured) {
     warnings.push({ code: 'JOIN_NOT_MEASURED', message: `${check.child.table}.${check.child.column} → ${check.parent.table}.${check.parent.column}: ${check.problem ?? check.summary}` });
   }

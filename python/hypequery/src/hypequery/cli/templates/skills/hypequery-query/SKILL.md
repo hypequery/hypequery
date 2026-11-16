@@ -41,7 +41,7 @@ pass a tenant — neither is accepted.
 - With a `grain`, rows carry a `period` field; order by `"period"` for a time series.
 - Measure values may arrive as strings to keep decimals exact; convert before arithmetic.
 - Pagination: if `meta.pagination.hasMore`, repeat with `offset` increased by
-  `limit`. A local server (`npx hypequery mcp`) always returns `meta`. A server
+  `limit`. A local server (`npx --no-install hypequery mcp`) always returns `meta`. A server
   over a client contract (Python's `hypequery mcp`, or `--client-contract-url`)
   returns it only when you pass `includeMeta: true`, and only for endpoints
   whose schema allows it; do not send `includeMeta` otherwise.

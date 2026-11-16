@@ -1,0 +1,153 @@
+import type { MetadataRoute } from 'next';
+import { getPosts } from '@/lib/blog';
+import { source } from '@/lib/meta';
+import { absoluteUrl } from '@/lib/site';
+import { clickhouseFunctions, functionPathSegment, indexedFunctionSlugs } from '@/data/clickhouse-functions';
+import { comparePages } from '@/data/compare-pages';
+import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
+import { marketingPages } from '@/data/marketing-pages';
+import { entryHref, registryEntries } from '@/lib/examples';
+import { retiredBlogSlugs } from '@/data/retired-blog-posts';
+import { CHANGELOG_PACKAGES } from '@/lib/changelog/packages';
+import { getChangelog } from '@/lib/changelog/load';
+import { getCompareArticle } from '@/lib/compare-article';
+import { maybeUpdatedFor } from '@/data/page-dates';
+import { blogLastModified } from './dates';
+import { gitLastModified } from './git-dates';
+
+/**
+ * One child sitemap per page type. `/sitemap.xml` is the index
+ * (src/app/sitemap.xml/route.ts); each id below is served at `/sitemap/<id>.xml` (src/app/sitemap/[file]/route.ts).(src/app/sitemap/[file]/route.ts).
+ */
+export const SITEMAP_SECTIONS = ['pages', 'docs', 'blog', 'compare', 'examples', 'functions', 'changelog'] as const;
+export type SitemapSection = (typeof SITEMAP_SECTIONS)[number];
+
+export function isSitemapSection(id: string): id is SitemapSection {
+  return (SITEMAP_SECTIONS as readonly string[]).includes(id);
+}
+
+const redirectedBlogSlugs = new Set<string>([...comparePages.map((page) => page.slug), ...retiredBlogSlugs]);
+
+/** A hand-built page, dated from src/data/page-dates.ts when it is tracked there. */
+function staticEntry(route: string): MetadataRoute.Sitemap[number] {
+  const updated = maybeUpdatedFor(route);
+  return { url: absoluteUrl(route).toString(), lastModified: updated ? new Date(updated) : undefined };
+}
+
+/** The date a compare page shows: its update when newer than the publish date, else the publish date. */
+async function compareLastModified(slug: string): Promise<Date | undefined> {
+  const article = await getCompareArticle(slug);
+  const updated = article?.updated?.slice(0, 10);
+  const published = article?.date?.slice(0, 10);
+  const date = updated && (!published || updated > published) ? updated : published;
+  return date ? new Date(date) : undefined;
+}
+
+async function blogEntries(): Promise<MetadataRoute.Sitemap> {
+  const posts = (await getPosts()).filter((post) => !redirectedBlogSlugs.has(post.slug));
+  const entries = posts.map((post) => ({
+    url: absoluteUrl(`/blog/${post.slug}`).toString(),
+    // The last update when a post has one (`updatedAt` frontmatter), so refreshed posts
+    // tell crawlers they changed; otherwise the publish date.
+    lastModified: blogLastModified(post.data.updated, post.data.date),
+  }));
+  // The hub changes whenever a post is published.
+  return [{ url: absoluteUrl('/blog').toString(), lastModified: latest(entries) }, ...entries];
+}
+
+async function compareEntries(): Promise<MetadataRoute.Sitemap> {
+  const articles = await Promise.all(
+    comparePages.map(async (page) => ({ url: absoluteUrl(page.href).toString(), lastModified: await compareLastModified(page.slug) })),
+  );
+  const entries = [...articles, ...embeddedAnalyticsComparePages.map((page) => staticEntry(page.href))];
+  return [{ url: absoluteUrl('/compare').toString(), lastModified: latest(entries) }, ...entries];
+}
+
+function docsEntries(): MetadataRoute.Sitemap {
+  return source.generateParams().map((params) => {
+    const slug = Array.isArray(params.slug) ? params.slug : [];
+    const lastModified = source.getPage(slug)?.data.lastModified;
+    return {
+      url: absoluteUrl(slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs').toString(),
+      lastModified: lastModified ? new Date(lastModified) : undefined,
+    };
+  });
+}
+
+function functionEntries(): MetadataRoute.Sitemap {
+  const entries = clickhouseFunctions
+    .filter((fn) => indexedFunctionSlugs.has(fn.slug))
+    .map((fn) => ({
+      url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
+      lastModified: fn.updated ? new Date(fn.updated) : undefined,
+    }));
+  return [{ url: absoluteUrl('/clickhouse/functions').toString(), lastModified: latest(entries) }, ...entries];
+}
+
+function exampleEntries(): MetadataRoute.Sitemap {
+  const hubs = [
+    { kind: 'example', href: '/examples' },
+    { kind: 'recipe', href: '/recipes' },
+    { kind: 'guide', href: '/guides' },
+  ] as const;
+  // Each entry is dated by its source directory's last commit, when the build has full Git history.
+  const entries = registryEntries.map((entry) => ({
+    kind: entry.manifest.kind,
+    url: absoluteUrl(entryHref(entry)).toString(),
+    lastModified: gitLastModified(entry.dir),
+  }));
+  return [
+    // A hub changes whenever one of its entries does.
+    ...hubs.map((hub) => ({
+      url: absoluteUrl(hub.href).toString(),
+      lastModified: latest(entries.filter((entry) => entry.kind === hub.kind)),
+    })),
+    ...entries.map(({ url, lastModified }) => ({ url, lastModified })),
+  ];
+}
+
+/** A package's newest release date: the registry publish time, or the changelog heading's date. */
+function newestRelease(releases: readonly { publishedAt?: string; date?: string }[] | undefined): Date | undefined {
+  const value = releases?.[0]?.publishedAt ?? releases?.[0]?.date;
+  const date = value ? new Date(value) : undefined;
+  return date && !Number.isNaN(date.getTime()) ? date : undefined;
+}
+
+async function changelogEntries(): Promise<MetadataRoute.Sitemap> {
+  // Releases are newest first. If the changelog cannot load, the URLs are listed without dates.
+  const data = await getChangelog().catch(() => undefined);
+  const entries = CHANGELOG_PACKAGES.map((pkg) => ({
+    url: absoluteUrl(`/changelog/${pkg.slug}`).toString(),
+    lastModified: newestRelease(data?.packages[pkg.slug]),
+  }));
+  return [{ url: absoluteUrl('/changelog').toString(), lastModified: latest(entries) }, ...entries];
+}
+
+export async function sitemapSection(section: SitemapSection): Promise<MetadataRoute.Sitemap> {
+  switch (section) {
+    case 'pages':
+      return marketingPages.map(staticEntry);
+    case 'docs':
+      return docsEntries();
+    case 'blog':
+      return blogEntries();
+    case 'compare':
+      return compareEntries();
+    case 'examples':
+      return exampleEntries();
+    case 'functions':
+      return functionEntries();
+    case 'changelog':
+      return await changelogEntries();
+  }
+}
+
+/** The newest `lastModified` in `entries`, or undefined when none is dated. */
+export function latest(entries: MetadataRoute.Sitemap): Date | undefined {
+  let max: Date | undefined;
+  for (const entry of entries) {
+    const date = entry.lastModified ? new Date(entry.lastModified) : undefined;
+    if (date && !Number.isNaN(date.getTime()) && (!max || date > max)) max = date;
+  }
+  return max;
+}

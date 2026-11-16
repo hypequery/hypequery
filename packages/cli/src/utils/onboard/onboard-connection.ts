@@ -32,6 +32,11 @@ export function onboardConnectionFromEnv(databases?: string): ClickHouseConnecti
   const password = url.password && !process.env.CLICKHOUSE_PASSWORD && !process.env.CLICKHOUSE_PASS
     ? decodeURIComponent(url.password)
     : config.password;
+  if (username.includes(':')) {
+    throw new CliError('INVALID_INPUT', 'CLICKHOUSE_USERNAME contains ":", which HTTP basic authentication cannot send (RFC 7617).', {
+      hint: 'Connect as a ClickHouse user whose name has no colon.',
+    });
+  }
   url.username = '';
   url.password = '';
   url.hash = '';

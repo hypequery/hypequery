@@ -1,5 +1,11 @@
 # @hypequery/clickhouse Changelog
 
+## 2.15.1
+
+### Patch Changes
+
+- 07de074: Fix `datePart('day', field)`: it now emits `toDayOfMonth(field)` instead of `toDay(field)`, which ClickHouse doesn't have (`UNKNOWN_FUNCTION`). The other units are unchanged.
+
 ## 2.15.0
 
 ### Minor Changes
