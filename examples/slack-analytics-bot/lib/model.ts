@@ -11,7 +11,10 @@ const registry = createProviderRegistry({ anthropic, openai });
 
 export const DEFAULT_MODEL = 'anthropic:claude-opus-5-5';
 
+let model: LanguageModel | undefined;
+
+/** Resolved on first use and reused. `main.ts` calls it at startup, so a bad `AI_MODEL` fails there. */
 export function chatModel(): LanguageModel {
-  const id = process.env.AI_MODEL?.trim() || DEFAULT_MODEL;
-  return registry.languageModel(id as `anthropic:${string}` | `openai:${string}`);
+  model ??= registry.languageModel((process.env.AI_MODEL?.trim() || DEFAULT_MODEL) as `anthropic:${string}` | `openai:${string}`);
+  return model;
 }

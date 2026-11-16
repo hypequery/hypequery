@@ -1,10 +1,13 @@
 import { createServer } from 'node:http';
 import { createSlackClient, createSlackRequestHandler, createSocketModeClient } from '@hypequery/slack';
 import { serveFetch } from '../lib/utils/node-http.js';
+import { chatModel } from '../lib/model.js';
 import { createBot } from './bot.js';
 
 const botToken = process.env.SLACK_BOT_TOKEN;
 if (!botToken) throw new Error('Set SLACK_BOT_TOKEN (OAuth & Permissions → Bot User OAuth Token).');
+
+chatModel(); // resolve AI_MODEL now, so a typo fails at startup rather than on the first question
 
 const bot = createBot(createSlackClient({ token: botToken }));
 
