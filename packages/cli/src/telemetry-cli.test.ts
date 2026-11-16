@@ -139,7 +139,9 @@ describe('compiled CLI telemetry regression', () => {
       expect(on.events).toHaveLength(1);
       if (on.events.length) expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: command.name() });
     }
-  }, 60_000);
+    // Three compiled-CLI runs per command, serially: about 1s per command alone,
+    // and well over that when turbo runs other packages' tests alongside.
+  }, 120_000);
 
   it.each([
     ['--version'], ['PRIVATE_UNKNOWN_COMMAND'], ['init', '--PRIVATE_UNKNOWN_OPTION'],
