@@ -31,7 +31,7 @@ npx @hypequery/cli create slack-analytics-bot -y
 cd slack-analytics-bot
 docker compose -f ../examples/_seed/docker-compose.yml up -d --wait && pnpm seed   # or set CLICKHOUSE_* for your own ClickHouse
 pnpm install
-pnpm manifest       # writes slack-app-manifest.json (Socket Mode)
+pnpm manifest       # writes slack-app-manifest.json (Socket Mode, channel thread history)
 ```
 
 Create the Slack app:
@@ -45,7 +45,7 @@ Create the Slack app:
 
 Then run `pnpm dev`.
 
-Socket Mode needs no public URL. For HTTP instead, run `npx hypequery slack init --url https://<host>/slack/events`, set `SLACK_SIGNING_SECRET`, and leave `SLACK_APP_TOKEN` empty.
+Socket Mode needs no public URL. For HTTP instead, run `npx hypequery slack init --url https://<host>/slack/events --thread-history`, set `SLACK_SIGNING_SECRET`, and leave `SLACK_APP_TOKEN` empty.
 
 ## What it shows
 
@@ -105,7 +105,7 @@ Slack ──(Socket Mode or /slack/events)──▶ @hypequery/slack
 - **Your directory.** Replace the env parsing in `lib/team.ts` with your SSO groups or a database. Keep the same shape: a role per person and a ceiling per channel.
 - **Your datasets.** Edit `analytics/datasets.ts`, and choose which roles publish which datasets in `lib/agent.ts`.
 - **Customer-scoped data.** For a dataset with `tenantKey`, pass `tenantId` to `createMCPExecutor`. It then scopes every query to that tenant.
-- **Thread follow-ups in channels.** Generate the manifest with `--thread-history`. That adds `channels:history`, which lets the bot read every message in channels it's in. Without it, channel follow-ups are answered without earlier context. DM threads always have context.
+- **Thread follow-ups in channels.** `pnpm manifest` passes `--thread-history`, which adds `channels:history` and `groups:history` so follow-ups in channel threads have the earlier messages as context. Those scopes let the bot read every message in channels it's in. Drop the flag if you'd rather not grant them: channel follow-ups are then answered without earlier context. DM threads always have context.
 - **Hosted instead.** hypequery Cloud runs the same bot as a Slack app you install, with no server to run.
 
 ## Related examples

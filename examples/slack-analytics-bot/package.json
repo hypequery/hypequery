@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "manifest": "hypequery slack init --socket",
+    "manifest": "hypequery slack init --socket --thread-history",
     "dev": "npm run build && node --env-file-if-exists=.env dist/src/main.js",
     "start": "node dist/src/main.js",
     "test": "npm run build && vitest run"
