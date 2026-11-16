@@ -8,7 +8,9 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Give hypequery a dedicated ClickHouse user that can only read. ClickHouse has two
 ways to make a user read-only, and hypequery accepts both. They differ in one
-thing: whether hypequery can still apply its own query settings.
+thing: whether hypequery can still apply its own query settings. For the full profile an API user should
+have (query limits, `cancel_http_readonly_queries_on_client_close`, 64-bit integer quoting), see
+[ClickHouse settings for application backends](/blog/clickhouse-settings-for-application-backends).
 
 ## The two levels
 

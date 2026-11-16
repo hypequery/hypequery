@@ -18,7 +18,7 @@ vi.mock('@/lib/model', () => ({ chatModel: () => state.model }));
 
 const { POST } = await import('@/app/api/chat/route');
 
-const [northwind, quartz] = DEMO_USERS;
+const [acme, quartz] = DEMO_USERS;
 const rawCounts = new Map<string, number>();
 const previousMode = process.env.HYPEQUERY_MODE;
 const previousKey = process.env.HYPEQUERY_AGENT_KEY;
@@ -61,13 +61,13 @@ async function chat(options: { userId?: string; prompt: string; script: Scripted
 
 describe('T7 self-hosted: in-process tools, tenant from the session', () => {
   it('lists Cloud’s tenant tool set plus get_business_context, and nothing else', async () => {
-    const result = await chat({ userId: northwind.id, prompt: 'What can I ask?', script: [{ toolName: 'list_datasets', input: {} }] });
+    const result = await chat({ userId: acme.id, prompt: 'What can I ask?', script: [{ toolName: 'list_datasets', input: {} }] });
     expect(result.status).toBe(200);
     expect(result.toolNames).toEqual(['list_datasets', 'get_dataset_schema', 'query_dataset', 'get_business_context']);
   });
 
   it('gives the model the business context with the dataset list', async () => {
-    const result = await chat({ userId: northwind.id, prompt: 'What is the error rate?', script: [{ toolName: 'list_datasets', input: {} }] });
+    const result = await chat({ userId: acme.id, prompt: 'What is the error rate?', script: [{ toolName: 'list_datasets', input: {} }] });
     const listed = result.outputs.find((o) => o.toolName === 'list_datasets')?.output as { businessContext?: { kpis?: Array<{ name: string }> } };
     expect(listed.businessContext?.kpis?.map((kpi) => kpi.name)).toContain('Error rate');
   });
@@ -81,7 +81,7 @@ describe('T7 self-hosted: in-process tools, tenant from the session', () => {
     expect(Number(rows(result.outputs)[0]!.events)).toBe(rawCounts.get(quartz.tenantId));
   });
 
-  for (const [user, other] of [[northwind, quartz], [quartz, northwind]] as const) {
+  for (const [user, other] of [[acme, quartz], [quartz, acme]] as const) {
     it(`signed in at ${user.tenantName}, an injected request for ${other.tenantName} returns nothing from it`, async () => {
       const result = await chat({
         userId: user.id,

@@ -29,11 +29,7 @@ export { getDatasetSchemaTool, getTrustedDatasetSchema } from './tools/introspec
 export { queryMetricTool } from './tools/query-metric.js';
 export { queryDatasetTool } from './tools/query-dataset.js';
 export { getBusinessContextTool } from './tools/get-business-context.js';
-export {
-  formatBusinessContext,
-  LIST_DATASETS_CONTEXT_INLINE_BYTES,
-  type MCPBusinessContext,
-} from './utils/business-context.js';
+export { formatBusinessContext, type MCPBusinessContext } from './utils/business-context.js';
 export { datasetGuidePrompt } from './prompts/dataset-guide.js';
 
 // Export types
@@ -107,6 +103,7 @@ export {
   type MCPPrincipal,
   type MCPServeAuthContext,
   type MCPServeAuthRequest,
+  type MCPServeHttpMethod,
   type MCPServeAuthStrategy,
   type MCPServeAuthenticatorOptions,
   type MCPStaticKeyAuthenticatorOptions,

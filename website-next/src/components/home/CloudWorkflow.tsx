@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { CloudHeader, CloudRail, ConnectButton, Slash, VersionSwitch, type CloudPage } from './CloudAppFrame';
+import { marketing } from '@/components/ui/marketing';
 
 // Screens from the cloud chat redesign: chat, drafts, review and publish, and deployments.
 
@@ -467,7 +468,7 @@ export function CloudWorkflow() {
   };
 
   return (
-    <section aria-labelledby="cloud-workflow-title" className="mx-auto max-w-[1280px] px-5 pb-4 pt-14 sm:px-8 sm:pt-20">
+    <section aria-labelledby="cloud-workflow-title" className={`mx-auto max-w-[1280px] px-5 sm:px-8 ${marketing.homeSectionSpacing}`}>
       <h2 id="cloud-workflow-title" className="home-section-title max-w-[960px] text-text">hypequery cloud: go live in minutes</h2>
       <p className="mt-4 max-w-[680px] text-sm leading-6 text-text-muted sm:text-base">
         Cloud turns your model into a hosted API and MCP server the moment you publish. Update the model in one click, and roll it back just as fast. It is in early access: join the waitlist and we will reach out when your project can go live.

@@ -42,6 +42,8 @@ export interface RecordShapedDataset extends SemanticMetadata {
   readonly timeKey?: string;
   readonly dimensions: Readonly<Record<string, SemanticMetadata & {
     readonly type: FieldType;
+    /** The column a dimension reads, when it differs from its name. */
+    readonly column?: string;
     readonly label?: string;
     readonly description?: string;
     readonly filterable: boolean;
@@ -130,6 +132,26 @@ function datasetMetadata(
   };
 }
 
+/**
+ * The published dimension a dataset's `timeKey` refers to. `timeKey` names a
+ * column, so it matches a dimension by name or by the column the dimension
+ * reads (`occurredAt` over `occurred_at`). Null when no published dimension
+ * reads it, so the agent is never pointed at a field it cannot select.
+ */
+export function timeDimensionName(
+  timeKey: string | undefined,
+  dimensions: RecordShapedDataset['dimensions'],
+  published: ReadonlySet<string>,
+): string | null {
+  if (timeKey === undefined) return null;
+  if (published.has(timeKey)) return timeKey;
+  const byColumn = Object.entries(dimensions)
+    .filter(([name, dimension]) => published.has(name) && dimension.column === timeKey)
+    .map(([name]) => name)
+    .sort(compareStrings);
+  return byColumn[0] ?? null;
+}
+
 function sortedByName<T extends { name: string }>(items: T[]): T[] {
   return items.sort((left, right) => compareStrings(left.name, right.name));
 }
@@ -161,9 +183,7 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
     name: dataset.name,
     description: datasetDescription(dataset.name, dataset.description),
     ...datasetMetadata(dataset),
-    timeDimension: dataset.timeKey !== undefined && dimensionNames.has(dataset.timeKey)
-      ? dataset.timeKey
-      : null,
+    timeDimension: timeDimensionName(dataset.timeKey, dataset.dimensions, dimensionNames),
     dimensions,
     measures: sortedByName(
       [...Object.entries(dataset.measures), ...Object.entries(dataset.derivedMeasures ?? {}),

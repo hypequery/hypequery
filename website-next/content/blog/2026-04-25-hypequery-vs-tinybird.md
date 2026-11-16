@@ -40,7 +40,7 @@ The managed platform model comes with tradeoffs that matter for some teams.
 
 **Types follow Tinybird's definitions, not your database.** If your data already lives in your own ClickHouse, nothing in Tinybird generates types from that schema. You would first move the data and redefine the tables as Tinybird data sources.
 
-**A second platform bill.** Tinybird plans are sized in vCPUs, with a free plan and overages for vCPU time, storage and data transfer. If you already pay for ClickHouse Cloud or run your own ClickHouse, Tinybird is a second ClickHouse-based platform to pay for and keep in sync.
+**A second platform bill.** Tinybird plans are sized in vCPUs, with a free plan and overages for vCPU time, storage and data transfer. If you already pay for ClickHouse Cloud or run your own ClickHouse, Tinybird is a second ClickHouse-based platform to pay for and keep in sync. For the prices side by side, see [ClickHouse Cloud vs Tinybird](/compare/clickhouse-cloud-vs-tinybird) and the [managed ClickHouse services comparison](/blog/managed-clickhouse-services-compared).
 
 **Queries live in a Tinybird project, not your application.** Even as files in Git, pipes are SQL deployed to Tinybird and called over HTTP, rather than query definitions your application imports and type-checks. Teams can build review and deployment workflows around that, but it is a different operating model.
 
@@ -54,7 +54,7 @@ The workflow is fully code-first:
 2. Build analytics queries in TypeScript using the composable query builder — filters, aggregations, joins, and time ranges are all typed
 3. Use `@hypequery/serve` to expose those queries as typed HTTP endpoints with OpenAPI documentation generated automatically
 4. Consume the endpoints in React components via typed hooks, or from any HTTP client with the generated types
-5. Add JWT auth, tenant scoping and the `rateLimit` middleware from `@hypequery/serve`, and an optional query result cache in the query builder, where you need them
+5. Add JWT auth, tenant scoping and the `rateLimit` middleware from `@hypequery/serve`, and an optional query result cache in [the query builder](/clickhouse-query-builder), where you need them
 
 The result is an analytics API layer that lives entirely in your existing TypeScript codebase, is versioned alongside your application code, and benefits from TypeScript's full compile-time safety.
 

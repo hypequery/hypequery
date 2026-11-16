@@ -94,4 +94,4 @@ components/*  ── useDataset ──▶ POST /api/analytics/datasets/events/qu
 
 - [materialized-view-rollups](../materialized-view-rollups): pre-aggregate the same events and swap the dataset source.
 
-Tested on ClickHouse 25.8, Next.js 16.4, React 19.3, `@hypequery/serve` 0.x, `@hypequery/react` 0.8.
+Versions used: ClickHouse 25.8, Next.js 16.4, React 19.3, `@hypequery/serve` 0.x, `@hypequery/react` 0.8.

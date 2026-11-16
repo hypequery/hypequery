@@ -12,6 +12,7 @@
  */
 import { tool, type FunctionTool } from '@openai/agents';
 import { resolveToolsClient, toModelOutput } from './client.js';
+import { toModelInputSchema } from './utils/model-input-schema.js';
 import type { HypequeryToolsSource } from './types.js';
 
 /** One hypequery tool as an Agents SDK function tool. */
@@ -34,7 +35,7 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
   return definitions.map(definition => tool({
     name: definition.name,
     description: definition.description,
-    parameters: definition.inputSchema as unknown as NonStrictParameters,
+    parameters: toModelInputSchema(definition.inputSchema) as unknown as NonStrictParameters,
     strict: false,
     execute: async (input, _context, details) => JSON.stringify(toModelOutput(
       await client.callTool(definition.name, input, { signal: details?.signal }),
@@ -42,7 +43,7 @@ export async function hypequeryTools(source: HypequeryToolsSource): Promise<Hype
   }) as HypequeryOpenAITool);
 }
 
-export { createHypequeryToolsClient, toModelOutput } from './client.js';
+export { createHypequeryToolsClient, createRemoteToolsClient, toModelOutput } from './client.js';
 export { createInProcessToolsClient } from './in-process.js';
 export { HypequeryToolsError } from './errors.js';
 export type * from './types.js';

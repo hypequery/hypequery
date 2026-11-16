@@ -1,5 +1,5 @@
 import { generateText, streamText, type LanguageModel, type ModelMessage, type ToolSet } from 'ai';
-import { createHypequeryToolsClient, hypequeryTools, type HypequeryAIToolSet } from '../src/tools/ai-sdk.js';
+import { createRemoteToolsClient, hypequeryTools, type HypequeryAIToolSet } from '../src/tools/ai-sdk.js';
 
 declare const model: LanguageModel;
 declare const messages: ModelMessage[];
@@ -18,7 +18,7 @@ void hypequeryTools({ url: new URL(mcpUrl), token: () => token });
 void hypequeryTools({ url: mcpUrl, token: async () => token, headers: { 'x-hypequery-tenant-id': 't' } });
 
 // Or a client you manage and close yourself.
-const client = createHypequeryToolsClient({ url: mcpUrl, token });
+const client = createRemoteToolsClient({ url: mcpUrl, token });
 const managed: Promise<HypequeryAIToolSet> = hypequeryTools(client);
 void managed;
 void client.close();

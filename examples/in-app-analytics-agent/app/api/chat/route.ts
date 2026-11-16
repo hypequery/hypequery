@@ -1,5 +1,7 @@
-import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
+import { convertToModelMessages, isStepCount, streamText } from 'ai';
+import type { ChatMessage } from '@/lib/chat-message';
 import { chatModel } from '@/lib/model';
+import { CHAT_PROVIDER_OPTIONS } from '@/lib/provider-options';
 import { agentTools } from '@/lib/agent-tools';
 import { getSession } from '@/lib/session';
 
@@ -23,13 +25,17 @@ export async function POST(request: Request) {
   // the same tools in this process, bound to this session's tenant.
   const tools = await agentTools(session);
 
-  const { messages } = (await request.json()) as { messages: UIMessage[] };
+  const { messages } = (await request.json()) as { messages: ChatMessage[] };
   const result = streamText({
     model: chatModel(),
     instructions: INSTRUCTIONS,
     messages: await convertToModelMessages(messages),
     tools,
     stopWhen: isStepCount(8),
+    providerOptions: CHAT_PROVIDER_OPTIONS,
   });
-  return result.toUIMessageStreamResponse();
+  // The finish reason goes to the client, which says so when a turn was declined.
+  return result.toUIMessageStreamResponse<ChatMessage>({
+    messageMetadata: ({ part }) => (part.type === 'finish' ? { finishReason: part.finishReason } : undefined),
+  });
 }

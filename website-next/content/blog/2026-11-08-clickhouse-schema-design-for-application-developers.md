@@ -516,7 +516,7 @@ WHERE table_schema = 'default' AND table_name = 'events';
 
 ## How do ClickHouse types map to TypeScript in hypequery?
 
-hypequery generates TypeScript types from `DESCRIBE TABLE` output, so your column type choices show up directly in application code. `npx @hypequery/cli generate --output ./src/schema.ts` writes an `IntrospectedSchema` for the query builder and a record type per table. For the `events` table:
+hypequery generates TypeScript types from `DESCRIBE TABLE` output, so your column type choices show up directly in application code. `npx @hypequery/cli generate --output ./src/schema.ts` writes an `IntrospectedSchema` for [the query builder](/clickhouse-query-builder) and a record type per table. For the `events` table:
 
 ```ts
 export interface EventsRecord {

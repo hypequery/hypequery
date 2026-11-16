@@ -34,7 +34,7 @@ export default function ExamplesGallery({ entries, emptyCopy }: { entries: Pick<
   const facetGroup = (title: string, key: keyof typeof selection, values: string[]) =>
     values.length > 1 || selection[key] ? (
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 font-mono text-[11px] uppercase tracking-[0.15em] text-text-dim">{title}</span>
+        <span className="mr-1 font-mono text-xs text-text-dim">{title}</span>
         {values.map((value) => (
           <button
             key={value}
@@ -65,7 +65,7 @@ export default function ExamplesGallery({ entries, emptyCopy }: { entries: Pick<
         {facetGroup('Language', 'language', facets.languages)}
         {active && (
           <div>
-            <Link href={pathname} replace scroll={false} className="font-mono text-xs text-accent hover:opacity-70">
+            <Link href={pathname} replace scroll={false} className="font-mono text-xs text-accent underline-offset-4 hover:underline">
               Clear filters
             </Link>
           </div>
@@ -74,7 +74,7 @@ export default function ExamplesGallery({ entries, emptyCopy }: { entries: Pick<
       <p className="mt-6 font-mono text-xs text-text-dim" aria-live="polite">
         {visible.length} of {entries.length}
       </p>
-      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+      <div className="mt-4 grid gap-5 lg:grid-cols-2">
         {visible.map((entry) => (
           <ExampleCard key={entry.manifest.slug} entry={entry} />
         ))}

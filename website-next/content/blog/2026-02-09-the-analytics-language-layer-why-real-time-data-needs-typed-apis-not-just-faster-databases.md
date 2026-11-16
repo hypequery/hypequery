@@ -2,7 +2,7 @@
 title: "The Analytics Language Layer: Why Real-Time Data Needs Typed APIs, Not Just Faster Databases"
 description: "ClickHouse solved fast analytics reads. It did not solve how the rest of your product should call those queries safely. This post argues for a typed analytics layer between raw SQL and every consumer."
 seoTitle: "Typed ClickHouse APIs: Why Real-Time Analytics Needs More Than SQL"
-seoDescription: "Fast ClickHouse queries are not the hard part anymore. Learn why reusable typed APIs and query definitions matter more once analytics reaches apps, dashboards, and AI agents."
+seoDescription: "Fast ClickHouse queries are no longer the hard part. Why typed APIs and shared query definitions matter once analytics reaches apps, dashboards and AI agents."
 pubDate: 2026-02-09
 heroImage: ""
 ---
@@ -29,7 +29,7 @@ The shift from phase two to phase three is not incremental. It's a category chan
 
 ## When Your User Is a Model, SQL Becomes a Liability
 
-The push toward AI-driven analytics has exposed a fundamental fragility in text-to-SQL approaches.
+The push toward AI-driven analytics has exposed a fundamental fragility in [text-to-SQL](/blog/text-to-sql-vs-semantic-layer) approaches.
 
 Spider 2.0, released in late 2024 with enterprise-level complexity (3,000+ columns, multiple SQL dialects), showed even the best models solving only 17% of queries. The BIRD-Interact benchmark, which simulates real interactive analytics sessions, reports a best-case success rate of 16%. Uber built an internal text-to-SQL system and found only 50% overlap with ground truth on their own evaluation set.
 
@@ -69,7 +69,7 @@ Several tools have taken a run at this problem, each with different tradeoffs.
 
 **dbt's Semantic Layer (MetricFlow)** is the most widely discussed approach. After acquiring Transform in 2023, dbt Labs shipped MetricFlow as GA in late 2024 and open-sourced it under Apache 2.0 at Coalesce 2025. It lets you define metrics in YAML and exposes them via a semantic graph that generates SQL. The ecosystem integration is strong — Tableau, Hex, and Mode all connect natively. But dbt was built with batch in mind. The metric definition experience is YAML-heavy; dbt Labs themselves acknowledged that defining metrics was "just plain hard" and simplified the spec in 2025. There's no compile-time type safety — errors are caught at parse time, not by a type system that your IDE understands.
 
-**Cube** is the most API-forward option and was named a Leader in the 2025 GigaOm Radar for semantic layers. It offers REST, GraphQL, SQL, and a dedicated AI API, with a pre-aggregation engine that delivers sub-second response times. Cube requires its own infrastructure (Cube Store), metric definitions live in YAML or JavaScript (not typed TypeScript), and the setup can be heavy for teams that just want a typed layer rather than a full semantic platform.
+**[Cube](/compare/hypequery-vs-cube)** is the most API-forward option and was named a Leader in the 2025 GigaOm Radar for semantic layers. It offers REST, GraphQL, SQL, and a dedicated AI API, with a pre-aggregation engine that delivers sub-second response times. Cube requires its own infrastructure (Cube Store), metric definitions live in YAML or JavaScript (not typed TypeScript), and the setup can be heavy for teams that just want a typed layer rather than a full semantic platform.
 
 **Malloy**, created by Lloyd Tabb (co-founder of Looker, inventor of LookML), takes the most principled approach. It's a new programming language with compiler-level aggregate safety, it structurally prevents miscalculating sums, averages, and counts. Tabb's criticism of YAML-based approaches is pointed: YAML configurations that promise "no code required" implicitly signal that data practitioners aren't real developers. The problem is practical: Malloy remains experimental (rewritten three times), has minimal production adoption, no built-in serving layer, and no TypeScript integration.
 
@@ -81,7 +81,7 @@ Each of these approaches validates a piece of the thesis. dbt proves that metric
 
 ClickHouse's workload profile makes the analytics language layer not just useful but necessary.
 
-The MergeTree engine family is optimized for append-only workloads: parts are immutable, inserts are fully isolated, and one production deployment can sustain over a billion rows per second in ingestion throughput. Incremental materialized views fire on INSERT, enabling a natural architecture: raw events flow in, materialized views pre-aggregate into rollup tables, and fast API reads serve the results. This is inherently an API-shaped workload, not a "human writes exploratory SQL" workload.
+The MergeTree engine family is optimized for append-only workloads: parts are immutable, inserts are fully isolated, and one production deployment can sustain over a billion rows per second in ingestion throughput. [Incremental materialized views](/blog/a-guide-to-materialized-views-in-clickhouse) fire on INSERT, enabling a natural architecture: raw events flow in, materialized views pre-aggregate into rollup tables, and fast API reads serve the results. This is inherently an API-shaped workload, not a "human writes exploratory SQL" workload.
 
 ClickHouse itself is explicitly positioning for this future. Their acquisition of Langfuse (open-source LLM observability, 20K+ GitHub stars) signals a bet on AI-native analytics infrastructure. Their MCP server has been downloaded 220K+ times and integrates with Claude Desktop, ChatGPT, Cursor, and custom agents. CEO Aaron Katz has stated directly that the future of analytics is intelligent agents that interpret data, trigger workflows, and power real-time decisions.
 

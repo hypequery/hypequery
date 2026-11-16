@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/databricks-metric-views';
 const TITLE = 'Databricks Metric Views vs a Code-Defined Semantic Layer';
 const DESCRIPTION =
-  'How Unity Catalog metric views work: the YAML definition, querying with MEASURE(), Genie and BI tools, governance and the Apache Spark 4.2 release, compared with a semantic layer defined in code.';
+  'How Databricks Unity Catalog metric views work: the YAML definition, MEASURE(), Genie, BI tools and governance, compared with a semantic layer defined in code.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });
