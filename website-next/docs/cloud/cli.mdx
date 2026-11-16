@@ -73,7 +73,10 @@ Every command that talks to Cloud picks its credential in this order:
    key (`hqdp_…`). The CLI reads the prefix and sends either to
    `HYPEQUERY_CLOUD_URL` (default `https://cloud.hypequery.com`), unless
    `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names another endpoint. Any
-   other token needs that explicit endpoint.
+   other token needs that explicit endpoint. When `HYPEQUERY_API_TOKEN` is set
+   in your shell, the CLI refuses a `HYPEQUERY_CLOUD_URL` or
+   `HYPEQUERY_DEPLOYMENT_ENDPOINT` that came from a project `.env` file, so a
+   cloned repository can't redirect your token. Set them in your shell instead.
 2. The management token stored by `hypequery login` or `hypequery login --device`,
    for `HYPEQUERY_CLOUD_URL` when it is set, otherwise for your latest sign-in.
 3. The deploy credential stored by browser sign-in. With `HYPEQUERY_CLOUD_URL`
