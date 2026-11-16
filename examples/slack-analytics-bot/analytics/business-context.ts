@@ -14,5 +14,8 @@ export const businessContext = defineBusinessContext({
     { term: 'Event', meaning: 'One tracked action: page_view, api_call, query_run, login, export or error.' },
   ],
   conventions: 'Times are UTC. Weeks start on Monday. The data covers 2025-11-01 to 2026-10-31.',
-  caveats: ['Status codes 4xx are client errors and are not counted in the error rate.'],
+  caveats: [
+    'Status codes 4xx are client errors and are not counted in the error rate.',
+    'Billed amounts are in the currency the customer pays in (USD or EUR). Report each currency separately; never add them together or convert between them.',
+  ],
 });

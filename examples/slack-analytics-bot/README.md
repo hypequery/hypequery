@@ -56,6 +56,7 @@ Socket Mode needs no public URL. For HTTP instead, run `npx hypequery slack init
   - When an admin asks in an analyst channel, the answer goes only to them.
   - DMs use the person's own role.
 - **Answers you can check.** The table comes from the query result, not from the model's prose. The footer names the dataset and filters.
+- **No mixed-currency revenue.** Customers pay in USD or EUR, so `subscriptions` has `billedAmountUsd` and `billedAmountEur` and no measure that adds them up.
 - **Safe defaults.**
   - People and channels that aren't listed get no answer, and the model is never called for them.
   - Errors go only to the asker.

@@ -38,7 +38,7 @@ export const Events = dataset('events', {
 /** Revenue: only admins get this dataset (lib/team.ts). */
 export const Subscriptions = dataset('subscriptions', {
   source: 'subscriptions',
-  description: 'Subscriptions across all customers per plan and billing interval, with status and billed amount.',
+  description: 'Subscriptions across all customers per plan and billing interval, with status and billed amount in each currency.',
   timeKey: 'started_at',
   timeGrains: ['month', 'quarter', 'year'],
   dimensions: {
@@ -47,11 +47,26 @@ export const Subscriptions = dataset('subscriptions', {
     plan: dimension.string({ label: 'Plan', description: 'starter, growth or enterprise' }),
     status: dimension.string({ label: 'Status', description: 'active, trialing, past_due or canceled' }),
     billingInterval: dimension.string({ column: 'billing_interval', label: 'Billing interval', description: 'monthly or annual' }),
+    currency: dimension.string({ label: 'Currency', description: 'Billing currency: USD or EUR' }),
     startedAt: dimension.timestamp({ column: 'started_at', label: 'Started at' }),
   },
   measures: {
     subscriptions: measure.count('subscriptionId', { label: 'Subscription periods' }),
     activeSubscriptions: measure.count('subscriptionId', { filters: [eq('status', 'active')], label: 'Active subscriptions' }),
-    billedAmount: measure.sum('amount', { label: 'Amount per billing interval', description: 'Sum of amount charged per interval; annual rows bill once a year' }),
+    // Customers are billed in USD or EUR, and a sum across currencies means
+    // nothing, so each currency has its own measure and there is no mixed
+    // total to ask for. Add a measure when you start billing in another one.
+    billedAmountUsd: measure.sum('amount', {
+      filters: [eq('currency', 'USD')],
+      label: 'Billed amount (USD)',
+      description: 'Sum of amount charged per billing interval, USD subscriptions only; annual rows bill once a year',
+      currency: 'USD',
+    }),
+    billedAmountEur: measure.sum('amount', {
+      filters: [eq('currency', 'EUR')],
+      label: 'Billed amount (EUR)',
+      description: 'Sum of amount charged per billing interval, EUR subscriptions only; annual rows bill once a year',
+      currency: 'EUR',
+    }),
   },
 });
