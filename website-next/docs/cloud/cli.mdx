@@ -65,6 +65,17 @@ origin. `hypequery logout` revokes and removes all of them.
 Device sign-in doesn't save a deployment target yet, so pass `--project` and
 `--environment` to deploy, status, pull and diff after it.
 
+`hypequery login` signs in to `--cloud-url`, else `HYPEQUERY_CLOUD_URL`, else
+`https://cloud.hypequery.com`. It refuses a `HYPEQUERY_CLOUD_URL` that came
+from a project `.env` file, because that server would receive your sign-in and
+the 30-day token; pass `--cloud-url` or set the variable in your shell. When the
+shell names a Cloud other than the default, the CLI prints it on stderr before
+it opens the browser or shows the code.
+
+The config directory (`HYPEQUERY_CONFIG_DIR`, `XDG_CONFIG_HOME`, `APPDATA`) is
+also read only from the shell, never from a `.env` file, and must be an
+absolute path.
+
 ### Credentials in CI and scripts
 
 Every command that talks to Cloud picks its credential in this order:
@@ -77,6 +88,9 @@ Every command that talks to Cloud picks its credential in this order:
    in your shell, the CLI refuses a `HYPEQUERY_CLOUD_URL` or
    `HYPEQUERY_DEPLOYMENT_ENDPOINT` that came from a project `.env` file, so a
    cloned repository can't redirect your token. Set them in your shell instead.
+   A management token acts on your whole organisation, so it goes only to its
+   own Cloud origin: an `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` on
+   another host is refused. Only a deploy key may go to a custom endpoint.
 2. The management token stored by `hypequery login` or `hypequery login --device`,
    for `HYPEQUERY_CLOUD_URL` when it is set, otherwise for your latest sign-in.
 3. The deploy credential stored by browser sign-in. With `HYPEQUERY_CLOUD_URL`

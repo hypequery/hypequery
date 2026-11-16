@@ -114,7 +114,9 @@ corrupt settings; a failed save reports an error and the temporary opt-out optio
 
 Settings live in `telemetry.json` beside the CLI's Cloud profile: macOS Application
 Support, Windows APPDATA (or LOCALAPPDATA), or Linux XDG_CONFIG_HOME (otherwise
-`~/.config/hypequery`). `HYPEQUERY_CONFIG_DIR` overrides the directory.
+`~/.config/hypequery`). `HYPEQUERY_CONFIG_DIR` overrides the directory. These
+variables are read only from the real environment, never from a `.env` file, and
+must be absolute paths; a relative `HYPEQUERY_CONFIG_DIR` is an error.
 
 ## `hypequery init`
 
@@ -464,6 +466,13 @@ may hold a management token (`hqmt_…`) or a deploy key (`hqdp_…`); either go
 another endpoint. Any other token needs that explicit endpoint. A
 `HYPEQUERY_CLOUD_URL` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` from a project `.env` file
 is refused when `HYPEQUERY_API_TOKEN` comes from your shell; set it in your shell.
+A management token goes only to its own Cloud origin; an explicit endpoint on
+another host is refused (`MANAGEMENT_TOKEN_ENDPOINT_MISMATCH`). Deploy keys may go
+to any endpoint.
+
+`hypequery login` refuses a `HYPEQUERY_CLOUD_URL` from a project `.env` file
+(`CLOUD_URL_FROM_ENV_FILE`); pass `--cloud-url` or set it in your shell. A
+non-default Cloud from the shell is printed on stderr before the sign-in starts.
 
 ## `hypequery deploy <cloud>`
 
@@ -702,6 +711,8 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `CLOUD_DEVICE_SIGN_IN_UNSUPPORTED` | `correctable_input` | 1 | This Cloud has no device sign-in; use `hypequery login` where a browser can open |
 | `CLOUD_DEVICE_SIGN_IN_REFUSED` | `correctable_input` | 1 | Cloud refused `--project` or `--capabilities` |
 | `CLOUD_NOT_SIGNED_IN`, `CLOUD_CREDENTIAL_EXPIRED`, `CLOUD_UNAUTHORIZED`, `LOGIN_NEEDS_A_PERSON`, `CLOUD_AUTHORIZATION_DECLINED`, `CLOUD_AUTHORIZATION_TIMED_OUT` | `unauthenticated` / `forbidden` | 2 | No usable Cloud credential, or the sign-in was denied or expired |
+| `CLOUD_URL_FROM_ENV_FILE` | `unauthenticated` | 2 | A project `.env` file set the Cloud URL or endpoint that a shell token, or `hypequery login`, would use; set it in the shell or pass a flag |
+| `MANAGEMENT_TOKEN_ENDPOINT_MISMATCH` | `forbidden` | 2 | `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` is on another host than the management token's Cloud |
 | `CLOUD_PLAN_LIMIT` | `budget_exceeded` | 3 | The organisation's plan does not allow this |
 | `CONNECTION_FAILED`, `CLOUD_UNAVAILABLE`, `CLOUD_NETWORK_ERROR`, `CLOUD_UNREACHABLE` | `unavailable` | 4 | ClickHouse or Cloud could not be reached (retryable) |
 | `COMMAND_FAILED` | `correctable_input` | 1 | Any other failure the message explains |
@@ -755,7 +766,8 @@ The CLI reads the same cascade Next.js and Vite use, most specific first:
 4. `.env`
 
 Earlier files win, and a variable already present in the real environment beats
-every file. So a Next.js project that keeps its ClickHouse credentials in
+every file. Files cannot change this: `DOTENV_CONFIG_OVERRIDE` and
+`DOTENV_OVERRIDE` are ignored. So a Next.js project that keeps its ClickHouse credentials in
 `.env.local` works with the CLI without duplicating them into `.env`.
 
 ## Troubleshooting
