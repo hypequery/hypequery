@@ -1,12 +1,15 @@
 ---
 title: Subqueries & CTEs
-description: Learn how to use subqueries and Common Table Expressions (CTEs) in hypequery
+seoTitle: 'ClickHouse subqueries and CTEs in TypeScript'
+description: 'Build ClickHouse WITH clauses, recursive CTEs, scalar WITH aliases and subqueries in FROM and WHERE with the hypequery TypeScript query builder.'
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Use subqueries and Common Table Expressions (CTEs) to build a query from other queries.
+This page shows how to build one ClickHouse query from others with the hypequery TypeScript query builder: a builder as the source of another query (`db.from()`), named `WITH` clauses (`withCTE()`), recursive CTEs (`withRecursiveCTE()`), scalar `WITH` aliases (`withScalar()`) and `IN` subqueries in `WHERE`. When the inner query is a builder, the outer query's selections, filters and result rows are typed against the columns the inner query returns.
+
+For when a CTE is the right tool in ClickHouse and when a materialized view or conditional aggregation is better, see [ClickHouse CTEs in TypeScript](/blog/clickhouse-cte-typescript).
 
 <Callout type="info" title="Query builder syntax">
   These examples use a typed `db` query builder.

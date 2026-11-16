@@ -7,8 +7,9 @@
  * Cloud's copy is the source of truth: `specs/cloud-api/operations-v1.json` in
  * the hypequery Cloud repository.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { GENERATED_PATH, SPEC_PATH } from './paths.ts';
+import { GENERATED_PATH, SPEC_PATH, SPEC_SOURCE_PATH } from './paths.ts';
 import { assertSpec, renderClientModule } from './render.ts';
 import { diffSpecs, formatDiff, isEmptyDiff } from './spec-diff.ts';
 
@@ -44,7 +45,12 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  writeFileSync(SPEC_PATH, text.endsWith('\n') ? text : `${text}\n`);
+  const specText = text.endsWith('\n') ? text : `${text}\n`;
+  writeFileSync(SPEC_PATH, specText);
+  writeFileSync(SPEC_SOURCE_PATH, `${JSON.stringify({
+    note: 'Written by `pnpm --filter @hypequery/cloud-client spec:update`. Do not edit operations-v1.json by hand: change it in hypequery Cloud and update.',
+    sha256: createHash('sha256').update(specText).digest('hex'),
+  }, null, 2)}\n`);
   writeFileSync(GENERATED_PATH, renderClientModule(next));
   console.log(isEmptyDiff(diff) ? 'No operation changes; files rewritten.' : formatDiff(diff));
   console.log('Updated the spec and src/generated/operations.ts. Add a changeset for @hypequery/cloud-client.');

@@ -322,7 +322,7 @@ curl -s http://localhost:4000/metrics/<camelCase(E)>Query
 ### T5.5 — `.env` auto-loading
 **Pre:** a `.env` (no shell exports) with valid creds.
 **Run:** `hq generate`
-**Expect:** the bin loads `.env` automatically (via `@dotenvx/dotenvx` if present, else `dotenv`), so generate connects without exported vars.
+**Expect:** the bin loads `.env` automatically (parsed with `dotenv`; a variable already set in the shell is never overwritten, even with `DOTENV_CONFIG_OVERRIDE` in a file), so generate connects without exported vars.
 
 ---
 

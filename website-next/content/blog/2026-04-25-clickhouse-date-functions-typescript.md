@@ -99,7 +99,7 @@ FROM events GROUP BY bucket ORDER BY bucket;
 
 ## Using Date Functions in hypequery
 
-Use the built-in date helpers, and `rawAs()` for aggregate expressions, inside `.select([...])`:
+Use the built-in date helpers, and `rawAs()` for aggregate expressions, inside `.select([...])`. The [time functions reference](/docs/query-building/time-functions) lists every helper the builder exports:
 
 ```typescript
 import { createQueryBuilder, rawAs, toStartOfMonth, toStartOfQuarter } from '@hypequery/clickhouse';

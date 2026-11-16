@@ -18,7 +18,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Examples', href: '/examples' },
       { label: 'Python SDK', href: '/docs/python' },
       { label: 'Query builder', href: '/clickhouse-query-builder' },
-      { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
+      { label: 'ClickHouse semantic layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
       { label: 'Compare', href: '/compare' },
       { label: 'Use Cases', href: '/use-cases' },
@@ -47,7 +47,6 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
     // so every page passes crawlers a path to them.
     title: 'Learn',
     links: [
-      // The semantic layer hub is already linked from the Product column.
       { label: 'ClickHouse for developers', href: '/clickhouse' },
       { label: 'Embedded analytics', href: '/embedded-analytics' },
       { label: 'Embedded analytics platforms', href: '/compare/embedded-analytics-platforms' },

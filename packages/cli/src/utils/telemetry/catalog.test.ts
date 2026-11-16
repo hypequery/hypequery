@@ -148,8 +148,15 @@ describe('telemetry event contract', () => {
 
   it('covers all registered commands and their actual canonical flags', async () => {
     const { program } = await import('../../cli.js');
-    expect(Object.keys(COMMAND_PROPERTIES)).toEqual(expect.arrayContaining(program.commands.map(command => command.name())));
-    for (const command of program.commands) {
+    const { isCloudOperationGroup } = await import('../../commands/cloud-operations.js');
+    // Cloud operation commands (`hypequery releases rollback`) are recorded as
+    // one command, `cloud-operation`, with only the flags they share.
+    const commands = program.commands.filter(command => !isCloudOperationGroup(command.name()));
+    expect(Object.keys(COMMAND_PROPERTIES)).toEqual(expect.arrayContaining(commands.map(command => command.name())));
+    const operationFlags = new Set(program.commands.filter(command => isCloudOperationGroup(command.name()))
+      .flatMap(group => group.commands.flatMap(command => command.options.map(option => option.long))));
+    for (const flag of COMMAND_FLAGS['cloud-operation']) expect(operationFlags.has(flag), flag).toBe(true);
+    for (const command of commands) {
       const known = knownCommand(command.name());
       expect([...COMMAND_FLAGS[known]].sort()).toEqual(command.options.map(option => option.long).sort());
       expect([...VALUE_FLAGS[known]].sort(), command.name()).toEqual(command.options.filter(option => option.required || option.optional).map(option => option.long).sort());

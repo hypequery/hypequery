@@ -4,10 +4,20 @@ export function knownCommand(input: string): TelemetryCommand {
   return (COMMANDS as readonly string[]).includes(input) ? input as TelemetryCommand : 'unknown';
 }
 
-/** Call with Commander's raw args for the selected command, never its option values. */
-export function flagNames(command: TelemetryCommand, args: readonly string[]): TelemetryFlag[] {
+/**
+ * Call with Commander's raw args for the selected command, never its option values.
+ *
+ * `unlistedValueFlags` are options the command accepts that take a value but
+ * are not in its catalog (each Cloud operation's own fields). They are never
+ * reported; naming them only keeps their values from being read as flags.
+ */
+export function flagNames(
+  command: TelemetryCommand,
+  args: readonly string[],
+  unlistedValueFlags: readonly string[] = [],
+): TelemetryFlag[] {
   const allowed: readonly string[] = [...COMMAND_FLAGS[command], ...GLOBAL_FLAGS];
-  const takesValue: readonly string[] = VALUE_FLAGS[command];
+  const takesValue: readonly string[] = [...VALUE_FLAGS[command], ...unlistedValueFlags];
   const flags = new Set<TelemetryFlag>();
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];

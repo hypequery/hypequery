@@ -14,11 +14,21 @@ export interface RequestContext {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
+/**
+ * One path segment. `encodeURIComponent` leaves `.` alone, and URL parsing
+ * resolves `.` and `..` segments, so `releases.get({ version: '..' })` would
+ * otherwise reach a different route with the same token. Those values are
+ * refused rather than sent.
+ */
 function pathValue(operation: OperationMeta, name: string, value: unknown): string {
-  if ((typeof value === 'string' && value.length > 0) || typeof value === 'number') {
-    return encodeURIComponent(String(value));
+  if (typeof value === 'number') return encodeURIComponent(String(value));
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${operation.name}: "${name}" is required (it's part of the path).`);
   }
-  throw new TypeError(`${operation.name}: "${name}" is required (it's part of the path).`);
+  if (value === '.' || value === '..') {
+    throw new TypeError(`${operation.name}: "${name}" can't be "${value}" (it's part of the path).`);
+  }
+  return encodeURIComponent(value);
 }
 
 function queryValue(operation: OperationMeta, name: string, value: unknown): string {

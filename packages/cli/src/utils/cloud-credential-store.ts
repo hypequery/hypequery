@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { configDirectory } from './config-directory.js';
+import { openVaultEntry, type CreateKeyringEntry, type VaultEntry } from './cloud-vault.js';
 import {
   validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
 
-const KEYCHAIN_SERVICE = 'dev.hypequery.cli';
 const PROFILE_FILE = 'cloud-profile.json';
 export const CLOUD_DEPLOYMENT_SCOPE = 'deploy:submit';
 export const CLOUD_SOURCE_SCOPE = 'deploy:submit deploy:read-source';
@@ -32,43 +32,11 @@ interface StoredCloudProfile {
   readonly keychainAccount: string;
 }
 
-interface KeyringEntry {
-  setPassword(password: string): void | Promise<void>;
-  getPassword(): string | null | Promise<string | null>;
-  deletePassword(): unknown;
-}
-
-interface VaultEntry {
-  setPassword(password: string): Promise<void>;
-  getPassword(): Promise<string | null>;
-  deletePassword(): Promise<unknown>;
-}
-
 export interface CloudCredentialStoreDependencies {
   readonly configDirectory?: string;
-  readonly createKeyringEntry?: (
-    service: string,
-    account: string,
-  ) => Promise<KeyringEntry> | KeyringEntry;
+  readonly createKeyringEntry?: CreateKeyringEntry;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly platform?: NodeJS.Platform;
-}
-
-function vaultUnavailable(error: unknown): Error {
-  return new Error(
-    'The operating-system credential vault is unavailable. '
-    + 'Install its keyring service or use HYPEQUERY_API_TOKEN for manual authentication.',
-    { cause: error },
-  );
-}
-
-async function defaultKeyringEntry(service: string, account: string) {
-  try {
-    const { Entry } = await import('@napi-rs/keyring');
-    return new Entry(service, account);
-  } catch (error) {
-    throw vaultUnavailable(error);
-  }
 }
 
 function paths(dependencies: CloudCredentialStoreDependencies) {
@@ -166,38 +134,11 @@ function parseProfile(input: string): StoredCloudProfile {
   };
 }
 
-async function entry(
+function entry(
   account: string,
   dependencies: CloudCredentialStoreDependencies,
 ): Promise<VaultEntry> {
-  const create = dependencies.createKeyringEntry ?? defaultKeyringEntry;
-  const created = await create(KEYCHAIN_SERVICE, account);
-  // Constructing an entry is lazy — the vault is only contacted on get/set/
-  // delete — so a locked keyring or a missing Secret Service surfaces here, not
-  // at construction. Translate those failures into the same actionable error.
-  return {
-    async setPassword(password: string) {
-      try {
-        await created.setPassword(password);
-      } catch (error) {
-        throw vaultUnavailable(error);
-      }
-    },
-    async getPassword() {
-      try {
-        return await created.getPassword();
-      } catch (error) {
-        throw vaultUnavailable(error);
-      }
-    },
-    async deletePassword() {
-      try {
-        return await created.deletePassword();
-      } catch (error) {
-        throw vaultUnavailable(error);
-      }
-    },
-  };
+  return openVaultEntry(account, dependencies.createKeyringEntry);
 }
 
 export async function saveCloudCredential(

@@ -153,7 +153,9 @@ const shapes = [
 
 const optionRows = [
   [
-    'dbt Semantic Layer (MetricFlow)',
+    <Link key="dbt" href="/semantic-layer/dbt-metricflow" className={inlineLink}>
+      dbt Semantic Layer (MetricFlow)
+    </Link>,
     'YAML in the dbt project, next to the models',
     'GraphQL, JDBC (Arrow Flight SQL) and Python APIs; BI integrations; dbt MCP server',
     'Hosted: Snowflake, BigQuery, Databricks, Redshift, Postgres, Trino. MetricFlow has experimental, unreleased ClickHouse support',
@@ -161,7 +163,9 @@ const optionRows = [
     'The warehouse credentials configured for the Semantic Layer',
   ],
   [
-    'Snowflake semantic views',
+    <Link key="snowflake" href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>
+      Snowflake semantic views
+    </Link>,
     'A schema object: SQL DDL, or YAML loaded with a system function',
     'SEMANTIC_VIEW() clause or plain SQL with AGG(); Cortex Analyst, Cortex Agents, managed MCP server',
     'Snowflake only',
@@ -169,7 +173,9 @@ const optionRows = [
     'SELECT on the view; row access and masking policies on base tables propagate',
   ],
   [
-    'Databricks metric views',
+    <Link key="databricks" href="/semantic-layer/databricks-metric-views" className={inlineLink}>
+      Databricks metric views
+    </Link>,
     'A Unity Catalog view defined in YAML',
     'SQL with MEASURE(); dashboards, Genie, BI tools through SQL',
     'Databricks; the core is in Apache Spark 4.2',
@@ -343,6 +349,21 @@ export default function SemanticLayerPage() {
               grouped by order status, in four tools, each with the query that reads it back. The vocabulary barely
               changes. What changes is where the definition lives, what can query it, and who controls access.
             </p>
+            <p>
+              The first three each have a full guide:{' '}
+              <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
+                the dbt Semantic Layer and MetricFlow
+              </Link>
+              ,{' '}
+              <Link href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>
+                Snowflake semantic views
+              </Link>{' '}
+              and{' '}
+              <Link href="/semantic-layer/databricks-metric-views" className={inlineLink}>
+                Databricks metric views
+              </Link>
+              .
+            </p>
           </>
         }
       >
@@ -431,11 +452,11 @@ export default function SemanticLayerPage() {
               <strong className="text-text">All your data is in Snowflake or Databricks</strong> and the consumers are BI
               tools and the warehouse&rsquo;s own AI features: start with{' '}
               <Link href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>
-                semantic views
+                Snowflake semantic views
               </Link>{' '}
               or{' '}
               <Link href="/semantic-layer/databricks-metric-views" className={inlineLink}>
-                metric views
+                Databricks metric views
               </Link>
               . There is nothing extra to run.
             </li>

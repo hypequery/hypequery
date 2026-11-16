@@ -56,6 +56,8 @@ import {
 } from './utils/machine-output.js';
 import { telemetryErrorCode } from './utils/telemetry/error-code.js';
 import { terminalText } from './utils/terminal-text.js';
+import { registerCloudOperationCommands } from './commands/cloud-operations.js';
+import { cloudErrorDetailLines } from './utils/cloud-operations/cloud-error.js';
 
 const program = new Command();
 
@@ -114,14 +116,17 @@ program
   .command('login')
   .description('Authorize this machine with Hypequery Cloud')
   .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
-  .option('--environment <environment>', 'Stable deployment target')
+  .option('--environment <environment>', 'Stable deployment target (browser sign-in)')
+  .option('--device', 'Sign in by approving a code in any browser (headless machines, SSH, coding agents)')
+  .option('--project <slug>', 'With --device: limit the token to this Cloud project')
+  .option('--capabilities <list>', 'With --device: cap the token to these capabilities (comma-separated)')
   .action(runCommand(async (options: LoginOptions) => {
     await loginCommand(options);
   }));
 
 program
   .command('logout')
-  .description('Revoke and remove the local Hypequery Cloud credential')
+  .description('Revoke and remove the local Hypequery Cloud credentials')
   .action(runCommand(async () => {
     await logoutCommand();
   }));
@@ -168,6 +173,11 @@ function runCommand<TArgs extends unknown[]>(
       // Error messages can quote ClickHouse or Cloud text: no control characters reach the terminal.
       const message = error instanceof Error ? error.message : error;
       console.error(typeof message === 'string' ? terminalText(message, { multiline: true }) : message);
+      // A failure Cloud described (it names a docs page) also gets its hint,
+      // docs page, request ID and fields to fix.
+      if (isCliError(error) && error.docsUrl) {
+        for (const line of cloudErrorDetailLines(error)) console.error(line);
+      }
       throw new CommandExit(EXIT_CODES[exitClass], 'failure', telemetryCode);
     }
     if (!isJsonOutput()) return;
@@ -495,6 +505,9 @@ program
     await deployCommand(source, options);
   }));
 
+// One command per hypequery Cloud operation: `hypequery <group> <action>`.
+registerCloudOperationCommands(program, runCommand);
+
 // Help command
 program
   .command('help [command]')
@@ -521,6 +534,7 @@ program.on('--help', () => {
   console.log('  hypequery telemetry disable');
   console.log('  hypequery --no-telemetry init');
   console.log('  hypequery login');
+  console.log('  hypequery login --device');
   console.log('  hypequery logout');
   console.log('  hypequery init');
   console.log('  hypequery dev');
@@ -541,6 +555,13 @@ program.on('--help', () => {
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
   console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
+  console.log('  hypequery projects list');
+  console.log('  hypequery releases list --project shop');
+  console.log('  hypequery releases rollback v12 --project shop --expected-revision <revision> --yes');
+  console.log('  hypequery members invite --email ada@example.com --role member');
+  console.log('');
+  console.log('Cloud operations: hypequery <group> <action> for every hypequery Cloud operation; run hypequery <group> --help.');
+  console.log('Destructive ones need --yes (or a confirmation at a terminal).');
   console.log('');
   console.log('Machine output (--json): one JSON result or {"error": {...}} on stdout, logs on stderr.');
   console.log('Exit codes: 0 ok, 1 correctable, 2 auth, 3 plan, 4 transient, 5 internal, 130 interrupted.');

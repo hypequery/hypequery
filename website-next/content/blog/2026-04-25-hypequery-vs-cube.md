@@ -10,7 +10,7 @@ slug: hypequery-vs-cube
 status: published
 ---
 
-**Short answer:** choose Cube when a data team needs one semantic layer across several databases, BI tools, embedded dashboards, and agents, with managed pre-aggregations and caching. Choose hypequery when a TypeScript or Python product team wants ClickHouse metrics, tenant rules, APIs, React hooks, and agent tools to live with the application code it already deploys.
+**Short answer:** choose Cube when a data team needs one [semantic layer](/semantic-layer) across several databases, BI tools, embedded dashboards, and agents, with managed pre-aggregations and caching. Choose hypequery when a TypeScript or Python product team wants ClickHouse metrics, tenant rules, APIs, React hooks, and agent tools to live with the application code it already deploys.
 
 Cube (formerly Cube.js) is a semantic layer platform: central metric definitions, multiple consumption surfaces, and access control around them. It supports ClickHouse and has a much broader analytics-platform scope than hypequery.
 

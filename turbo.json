@@ -42,7 +42,9 @@
       "dependsOn": ["build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/website-next/docs/telemetry.mdx",
+        "$TURBO_ROOT$/website-next/docs/**/telemetry.mdx",
+        "$TURBO_ROOT$/website-next/docs/cloud/cli-operations.mdx",
+        "$TURBO_ROOT$/specs/cloud-api/operations-v1.json",
         "$TURBO_ROOT$/skills/**",
         "$TURBO_ROOT$/plugins/claude-code/**",
         "$TURBO_ROOT$/.claude-plugin/**"
