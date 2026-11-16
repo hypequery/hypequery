@@ -35,7 +35,7 @@ Spider 2.0, released in late 2024 with enterprise-level complexity (3,000+ colum
 
 The failure modes are what make this genuinely dangerous. An analysis of 50,000+ production LLM-generated queries found that most broken queries execute successfully and return data, they're semantically wrong but syntactically valid. The model hallucinates columns that don't exist, picks wrong join paths, applies incorrect aggregation logic, or silently drops required filters. You get a clean DataFrame back. The numbers just happen to be wrong.
 
-The evidence for a different approach is already in. Snowflake's internal tests show query accuracy jumping from 40% to 85% when LLMs are routed through a semantic layer instead of raw SQL. DataBrain reports accuracy going from roughly 55% to over 90% with semantic context. dbt Labs reported at Coalesce 2025 that their semantic layer achieved 83% accuracy on natural language analytics questions, with several categories at 100%. The pattern is clear: constrain what the model can express, and accuracy improves dramatically.
+The evidence for a different approach is already in. Snowflake's internal tests show query accuracy jumping from 40% to 85% when LLMs are routed through [a semantic layer](/semantic-layer/ai-agents) instead of raw SQL. DataBrain reports accuracy going from roughly 55% to over 90% with semantic context. dbt Labs reported at Coalesce 2025 that their [semantic layer](/semantic-layer/dbt-metricflow) achieved 83% accuracy on natural language analytics questions, with several categories at 100%. The pattern is clear: constrain what the model can express, and accuracy improves dramatically.
 
 ## Constraints Beat Cleverness
 
@@ -61,7 +61,7 @@ It's not an ORM — those map objects to rows and optimize for CRUD. It's not a 
 
 **Constrained by design.** The system limits what consumers can express to what's safe and performant against the underlying schema. You can't accidentally query an unpartitioned dimension or join across incompatible grain.
 
-This is the layer that platform teams at scale end up building internally, whether they call it a semantic layer, a metrics catalog, a query translation engine, or something else entirely. The pattern is universal because the problem is universal.
+This is the layer that platform teams at scale end up building internally, whether they call it a [semantic layer](/semantic-layer), a metrics catalog, a query translation engine, or something else entirely. The pattern is universal because the problem is universal.
 
 ## The Existing Landscape: Close, but Not Quite
 

@@ -296,6 +296,7 @@ Many teams run both: a raw SQL server for engineers working on their own data, a
 ## Related
 
 - [AI semantic layer](/semantic-layer/ai-agents): what to check before you connect an agent, and how semantic layers expose metrics over MCP
+- [Analytics MCP servers compared](/semantic-layer/analytics-mcp-server): database SQL servers vs semantic layer servers, and what to check before production
 - [ClickHouse MCP server for governed AI analytics](/clickhouse-mcp)
 - [hypequery MCP docs](/docs/mcp/overview)
 - [Read-only ClickHouse users](/docs/reference/readonly-users)
