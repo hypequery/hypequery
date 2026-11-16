@@ -1,12 +1,15 @@
 ---
 title: Join Relationships
-description: Define reusable join paths with JoinRelationships and apply them with withRelation()
+seoTitle: 'Reusable ClickHouse join paths in TypeScript (withRelation)'
+description: 'Declare a ClickHouse join path once with JoinRelationships, including multi-step chains, and apply it by name with withRelation() in any hypequery query.'
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
-Inline joins are often enough for one-off queries. When the same join path appears across multiple queries, `JoinRelationships` gives you a reusable, named relationship that you can apply with `withRelation()`.
+A join relationship declares a ClickHouse join once (the two tables, the join columns and the join type) and gives it a name. Any hypequery query can then apply it with `withRelation()`, so the join logic lives in one place instead of being repeated across queries. Relationships can chain several joins and can change the join type per query.
+
+For a join you only write once, an inline join is simpler: see [Joins](/docs/query-building/joins).
 
 There are two `withRelation()` modes:
 

@@ -185,7 +185,7 @@ const novemberEvents = await db
 
 ## OR Conditions and Expressions
 
-When a filter cannot be expressed as a straight AND chain, use `.orWhere()` or an expression builder:
+When a filter cannot be expressed as a straight AND chain, use `.orWhere()` or an expression builder. For nested AND/OR groups built from user input, hypequery's [`CrossFilter`](/docs/query-building/advanced-filtering) builds the whole predicate tree:
 
 ```typescript
 const result = await db

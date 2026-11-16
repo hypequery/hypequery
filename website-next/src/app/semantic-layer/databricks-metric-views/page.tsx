@@ -15,7 +15,7 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/databricks-metric-views';
-const TITLE = 'Databricks Metric Views vs a Code-Defined Semantic Layer';
+const TITLE = 'Databricks Metric Views: YAML, MEASURE() and Genie Explained';
 const DESCRIPTION =
   'How Databricks Unity Catalog metric views work: the YAML definition, MEASURE(), Genie, BI tools and governance, compared with a semantic layer defined in code.';
 const VERIFIED_ON = 'November 10, 2026';
@@ -205,7 +205,7 @@ export default function DatabricksMetricViewsPage() {
     <HubShell
       path={PATH}
       breadcrumbs={spokeBreadcrumbs('Databricks metric views')}
-      title="Databricks metric views, compared with a semantic layer in code"
+      title="Databricks metric views, explained"
       lead={
         <p>
           How Unity Catalog metric views are defined and queried, what reads them, how governance applies, and how the

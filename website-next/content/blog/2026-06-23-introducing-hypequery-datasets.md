@@ -32,7 +32,7 @@ As an analytics feature grows, its logic tends to spread across API handlers, da
 
 The database may be fast and every query may be valid, but the product no longer has one answer to a basic question.
 
-A [semantic layer](/clickhouse-semantic-layer) fixes that by putting a stable contract between physical tables and their consumers. Existing semantic-layer products often introduce a separate server, configuration language, or deployment surface. That can be the right choice for a central data platform. It is often a poor fit for a TypeScript team building ClickHouse-backed product features.
+A [semantic layer](/clickhouse-semantic-layer) fixes that by putting a stable contract between physical tables and their consumers. [Existing semantic-layer products](/semantic-layer) often introduce a separate server, configuration language, or deployment surface. That can be the right choice for a central data platform. It is often a poor fit for a TypeScript team building ClickHouse-backed product features.
 
 Datasets keep that contract in the codebase where the product is built.
 

@@ -12,7 +12,7 @@ tags:
   - TypeScript
 ---
 
-ClickHouse supports standard `WITH ... AS (...)` common table expressions, plus a second form most databases don't have: scalar `WITH` expressions that bind a single value to a name. Both work fine from TypeScript, and hypequery supports CTEs natively with `.withCTE(alias, subquery)` — where the subquery can be another typed QueryBuilder instance, not just a SQL string.
+ClickHouse supports standard `WITH ... AS (...)` common table expressions, plus a second form most databases don't have: scalar `WITH` expressions that bind a single value to a name. Both work fine from TypeScript, and hypequery supports CTEs natively with `.withCTE(alias, subquery)` — where the subquery can be another typed QueryBuilder instance, not just a SQL string. The [subqueries and CTEs docs](/docs/query-building/subqueries-ctes) cover every form, including recursive CTEs and subqueries in `WHERE`.
 
 **Short answer:** ClickHouse CTEs are **inlined at each reference, not materialized**. When the query runs, the CTE body is substituted everywhere its name appears — so a CTE referenced twice is computed twice. Treat CTEs as a naming and composition tool, not a caching tool. In hypequery, that composition happens at the TypeScript level: build a typed subquery once, attach it with `.withCTE()`, and join against it like a table. The alias, the join columns, and the result types all stay checked.
 

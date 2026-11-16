@@ -15,7 +15,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   return new Response(compareMarkdown(page, article), {
     headers: {
       'Content-Type': 'text/markdown',
-      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }

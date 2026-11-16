@@ -243,6 +243,7 @@
             "create",
             "schema",
             "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -292,6 +293,8 @@
             "--endpoint",
             "--stdout",
             "--cloud-url",
+            "--device",
+            "--capabilities",
             "--bundle-output",
             "--release-output",
             "--no-source",
@@ -313,6 +316,7 @@
             "--samples",
             "--no-query-history",
             "--join",
+            "--input-json",
             "--no-telemetry",
             "--json",
             "--no-input",
@@ -1066,6 +1070,7 @@
         "skill": {},
         "schema": {},
         "onboard": {},
+        "cloud-operation": {},
         "unknown": {
           "suggested_command": {
             "kind": "enum",
@@ -1097,7 +1102,8 @@
               "examples",
               "create",
               "schema",
-              "onboard"
+              "onboard",
+              "cloud-operation"
             ],
             "optional": true
           }
@@ -1135,6 +1141,7 @@
               "create",
               "schema",
               "onboard",
+              "cloud-operation",
               "unknown"
             ],
             "optional": true
@@ -1664,6 +1671,7 @@
             "create",
             "schema",
             "onboard",
+            "cloud-operation",
             "unknown"
           ]
         },
@@ -1796,7 +1804,10 @@
     ],
     "login": [
       "--cloud-url",
-      "--environment"
+      "--environment",
+      "--device",
+      "--project",
+      "--capabilities"
     ],
     "logout": [],
     "deploy": [
@@ -1873,6 +1884,11 @@
       "--samples",
       "--no-query-history",
       "--join"
+    ],
+    "cloud-operation": [
+      "--project",
+      "--yes",
+      "--input-json"
     ],
     "help": [],
     "version": [],

@@ -14,7 +14,7 @@ cd "$HQ_ROOT"
 pnpm --filter @hypequery/protocol build
 pnpm --filter @hypequery/datasets build
 pnpm --filter '@hypequery/cli...' --filter '@hypequery/react...' -r build
-for package in protocol datasets mcp-server clickhouse serve deployment cli react; do
+for package in protocol datasets mcp-server clickhouse serve deployment cloud-client cli react; do
   (cd "$HQ_ROOT/packages/$package" && pnpm pack --pack-destination "$HQ_TUTORIAL/artifacts")
 done
 node scripts/audit-client-packages.mjs "$HQ_TUTORIAL/artifacts"

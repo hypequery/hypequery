@@ -17,6 +17,7 @@ export class CommandLifecycle {
   private metrics: Record<string, unknown> = {};
   private errorCode?: typeof ERROR_CODES[number];
   private session?: { command: SessionCommand; started: number; end: () => object };
+  private unlistedValueFlags: readonly string[] = [];
   command: TelemetryCommand = 'unknown';
 
   constructor(private readonly args: readonly string[], private readonly options: Omit<InvocationOptions, 'command'> = {}) {}
@@ -35,6 +36,9 @@ export class CommandLifecycle {
   }
 
   markInterrupted(): void { this.interrupted = true; }
+
+  /** Options outside the catalog whose values must not be read as flags; see `flagNames`. */
+  skipValuesOf(flags: readonly string[]): void { this.unlistedValueFlags = [...flags]; }
 
   update<C extends TelemetryCommand>(command: C, metrics: CommandMetrics<C>): void {
     if (command !== this.command || this.completed) return;
@@ -75,7 +79,7 @@ export class CommandLifecycle {
     }
     const properties = {
       ...this.invocation.common, ...this.metrics, command: this.command,
-      flags_used: flagNames(this.command, this.args),
+      flags_used: flagNames(this.command, this.args, this.unlistedValueFlags),
       outcome,
       duration_bucket: durationBucket(performance.now() - this.started)!,
       ...(errorCode && exit.outcome === 'failure' ? { error_code: errorCode } : exit.errorCode ? { error_code: exit.errorCode } : {}),

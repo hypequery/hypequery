@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { emitType } from './json-schema-to-ts.ts';
-import { GENERATED_PATH, SPEC_PATH } from './paths.ts';
+import { GENERATED_PATH, SPEC_PATH, SPEC_SOURCE_PATH } from './paths.ts';
 import { assertSpec, clientInputSchema, renderClientModule, typeBaseName, type OperationsSpec } from './render.ts';
 import { diffSpecs, formatDiff, isEmptyDiff } from './spec-diff.ts';
 
@@ -158,5 +159,17 @@ describe('diffSpecs', () => {
     const a = minimalSpec({ operations: [operation!, { ...operation!, name: 'widgets.archive' }] });
     const b = minimalSpec({ operations: [{ ...operation!, name: 'widgets.archive' }, operation!] });
     expect(diffSpecs(a, b).changed).toEqual(['(operation order)']);
+  });
+});
+
+describe('the spec copy', () => {
+  it('is byte for byte what spec:update last took from Cloud', () => {
+    const source = JSON.parse(readFileSync(SPEC_SOURCE_PATH, 'utf8')) as { sha256: string };
+    const actual = createHash('sha256').update(readFileSync(SPEC_PATH)).digest('hex');
+    expect(
+      actual,
+      'specs/cloud-api/operations-v1.json was edited outside `spec:update`. Change it in hypequery Cloud, then run '
+        + '`pnpm --filter @hypequery/cloud-client spec:update <path-or-url>`.',
+    ).toBe(source.sha256);
   });
 });

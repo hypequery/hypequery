@@ -7,7 +7,9 @@ description: 'hypequery''s ClickHouse date helpers. toDateTime, formatDateTime w
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-hypequery provides powerful time-based functions for working with dates, timestamps, and time intervals. These are essential for analytics, reporting, and time-series data.
+This is the reference for the date and time helpers in `@hypequery/clickhouse`, the type-safe TypeScript query builder for ClickHouse: converting and formatting timestamps (`toDateTime`, `formatDateTime`), extracting date parts (`datePart`), bucketing rows by time (`toStartOfInterval`, `groupByTimeInterval`), date-range filters and time zones.
+
+For how ClickHouse's `DateTime` and `DateTime64` types store time zones, and why that moves day boundaries, see [DateTime vs DateTime64 and time zones](/blog/clickhouse-datetime-vs-datetime64-time-zones).
 
 All helpers shown on this page are public exports from `@hypequery/clickhouse`.
 
