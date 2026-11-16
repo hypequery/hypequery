@@ -4,7 +4,7 @@ import {
   loadCloudCredential,
   type StoredCloudCredential,
 } from './cloud-credential-store.js';
-import { cloudOriginFromEnv, defaultDeploymentEndpoint } from './cloud-origin.js';
+import { cloudOriginFromEnv, DEFAULT_CLOUD_URL, defaultDeploymentEndpoint } from './cloud-origin.js';
 import { cloudTokenKind, type CloudTokenKind } from './cloud-token-kind.js';
 import { envFileVariableNames } from './env-provenance.js';
 import {
@@ -82,6 +82,45 @@ function refuseEnvFileDestination(
   );
 }
 
+/**
+ * A management token (`hqmt_`) acts on the whole organisation, so it only goes
+ * to its own Cloud origin: `HYPEQUERY_CLOUD_URL` (default
+ * https://cloud.hypequery.com). `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT`
+ * may name another path on that origin, but not another host; a prompt-injected
+ * agent could otherwise send the token anywhere with
+ * `deployment status --endpoint https://…`. Deploy keys (`hqdp_`) are limited
+ * to deployments and may still go to any endpoint.
+ */
+function refuseManagementTokenElsewhere(
+  endpoint: string,
+  env: Readonly<Record<string, string | undefined>>,
+  envFileVariables: ReadonlySet<string>,
+): void {
+  // A Cloud URL from a .env file names the token's Cloud only when the token
+  // came from an env file too; otherwise the default Cloud is the token's.
+  const fileChoseOrigin = envFileVariables.has('HYPEQUERY_CLOUD_URL') && !envFileVariables.has('HYPEQUERY_API_TOKEN');
+  const origin = fileChoseOrigin ? DEFAULT_CLOUD_URL : cloudOriginFromEnv(env);
+  let endpointOrigin: string | undefined;
+  try {
+    endpointOrigin = new URL(endpoint).origin;
+  } catch {
+    endpointOrigin = undefined;
+  }
+  if (endpointOrigin === origin) return;
+  throw new CliError(
+    'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH',
+    `HYPEQUERY_API_TOKEN is a management token for ${origin}, and the CLI only sends it to that Cloud, `
+      + `not to the endpoint ${endpointOrigin ?? endpoint}. `
+      + 'Drop --endpoint (and HYPEQUERY_DEPLOYMENT_ENDPOINT), set HYPEQUERY_CLOUD_URL in your shell to the '
+      + 'Cloud that issued the token, or use a deploy key (hqdp_…) for a custom endpoint.',
+    {
+      hint: 'Drop --endpoint, set HYPEQUERY_CLOUD_URL to the Cloud that issued the token, or use a deploy key.',
+      exitClass: 'auth',
+      category: 'forbidden',
+    },
+  );
+}
+
 /** The Cloud origin `HYPEQUERY_CLOUD_URL` names, when it is set. */
 function requestedOrigin(env: Readonly<Record<string, string | undefined>>): string | undefined {
   return env.HYPEQUERY_CLOUD_URL ? cloudOriginFromEnv(env) : undefined;
@@ -125,8 +164,10 @@ async function storedDeployCredential(
  * 1. `HYPEQUERY_API_TOKEN`. A management token (`hqmt_`) or deploy key
  *    (`hqdp_`) goes to the Cloud origin's deployment endpoint
  *    (`HYPEQUERY_CLOUD_URL`, default https://cloud.hypequery.com) unless
- *    `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names another. Any other
- *    token needs an explicit endpoint, as before.
+ *    `--endpoint` or `HYPEQUERY_DEPLOYMENT_ENDPOINT` names another. A
+ *    management token's explicit endpoint must be on that Cloud origin; a
+ *    deploy key's may be anywhere. Any other token needs an explicit
+ *    endpoint, as before.
  * 2. The stored management token from `hypequery login` or
  *    `hypequery login --device`, for `HYPEQUERY_CLOUD_URL` or the latest
  *    sign-in's origin.
@@ -150,6 +191,7 @@ export async function resolveDeploymentCredential(
       refuseEnvFileDestination('HYPEQUERY_DEPLOYMENT_ENDPOINT', envFileVariables);
     }
     if (explicitEndpoint) {
+      if (tokenKind === 'management') refuseManagementTokenElsewhere(explicitEndpoint, env, envFileVariables);
       return { endpoint: explicitEndpoint, token: envToken, source: 'env', tokenKind };
     }
     if (tokenKind === 'unknown') {

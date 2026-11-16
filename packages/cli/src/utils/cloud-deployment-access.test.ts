@@ -87,6 +87,38 @@ describe('resolveDeploymentCredential', () => {
     });
   });
 
+  it('sends a management token only to its own Cloud origin, even with --endpoint', async () => {
+    const failure = resolveDeploymentCredential('https://evil.example.test/v1/deployments/submissions', {
+      env: { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN },
+      ...untouchedStores(),
+    });
+    await expect(failure).rejects.toMatchObject({ code: 'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH', exitClass: 'auth' });
+    await expect(failure).rejects.toThrow(/https:\/\/evil\.example\.test/);
+    await expect(resolveDeploymentCredential(undefined, {
+      env: { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://evil.example.test/x' },
+      ...untouchedStores(),
+    })).rejects.toMatchObject({ code: 'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH' });
+  });
+
+  it('accepts a management token\'s --endpoint on its Cloud origin, and a deploy key\'s anywhere', async () => {
+    await expect(resolveDeploymentCredential('https://cloud.example.test/v1/custom', {
+      env: { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_CLOUD_URL: 'https://cloud.example.test' },
+      ...untouchedStores(),
+    })).resolves.toMatchObject({ endpoint: 'https://cloud.example.test/v1/custom', tokenKind: 'management' });
+    await expect(resolveDeploymentCredential('https://deploy.example.test/v1/releases', {
+      env: { HYPEQUERY_API_TOKEN: DEPLOY_KEY },
+      ...untouchedStores(),
+    })).resolves.toMatchObject({ endpoint: 'https://deploy.example.test/v1/releases', tokenKind: 'deploy-key' });
+  });
+
+  it('does not let a .env HYPEQUERY_CLOUD_URL make a shell management token\'s --endpoint match', async () => {
+    await expect(resolveDeploymentCredential('https://evil.example.test/v1/deployments/submissions', {
+      env: { HYPEQUERY_API_TOKEN: MANAGEMENT_TOKEN, HYPEQUERY_CLOUD_URL: 'https://evil.example.test' },
+      envFileVariables: new Set(['HYPEQUERY_CLOUD_URL']),
+      ...untouchedStores(),
+    })).rejects.toMatchObject({ code: 'MANAGEMENT_TOKEN_ENDPOINT_MISMATCH' });
+  });
+
   it('refuses a token with an unknown prefix and no endpoint, naming the accepted prefixes', async () => {
     const failure = resolveDeploymentCredential(undefined, {
       env: { HYPEQUERY_API_TOKEN: 'sk_live_abc' },
