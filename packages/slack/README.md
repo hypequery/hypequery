@@ -128,8 +128,8 @@ export const POST = createSlackRequestHandler({ signingSecret, onEvent: bot.onEv
 
 - Sends denials and errors only to the asker. Errors use `describeError`, never the raw exception.
 - Refuses Slack Connect channels unless you set `allowSharedChannels: true`.
-- Passes `history` from the thread, with other people's messages tagged with their `userId`. Treat those as untrusted input.
-- Aborts `signal` after `timeoutMs` (default 2 minutes).
+- Passes `history` from the thread (the newest `historyLimit` turns before the question), with other people's messages tagged with their `userId`. Treat those as untrusted input.
+- Aborts `signal` after `timeoutMs` (default 2 minutes), and answers the asker with an error if `answer` has not returned by then.
 
 **Answers from agent runs.** `answerFromToolResults(run)` reads any AI SDK `generateText` result:
 
@@ -175,7 +175,8 @@ Pass a message written for the user, never raw exception text.
 `createSlackClient({ token })` has `postMessage`, `postEphemeral`, `updateMessage`,
 `setAssistantStatus`, `setSuggestedPrompts`, `setThreadTitle`, `threadReplies`
 (paginated) and `call(method, args)` for anything else. It waits out `429`
-responses using `Retry-After`. Failures throw `SlackApiError` with Slack's `code`.
+responses using `Retry-After` (up to `maxRetries`, default 2), and fails at once when
+Slack asks for more than 30 seconds. Failures throw `SlackApiError` with Slack's `code`.
 
 ## Security notes
 
