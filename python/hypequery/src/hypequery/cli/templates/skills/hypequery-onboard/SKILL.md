@@ -19,25 +19,34 @@ Rules:
 - Prefer few datasets with good descriptions over one per table.
 - Ask before deploying, and leave sign-in to the user.
 
-Every command below is the TypeScript CLI, `npx hypequery …`. Python projects
-use it too, through npx with the analysis engine alongside it (Node.js 20+):
+Every command below is the TypeScript CLI, run as `npx --no-install hypequery …`
+after step 1 installs `@hypequery/cli` in the project. `--no-install` matters:
+the unscoped npm name `hypequery` is not this CLI, and without a terminal npx
+would download whatever has that name instead of failing. Python projects run
+the CLI through npx with the analysis engine alongside it (Node.js 20+), naming
+both packages so npx can't fall back to the unscoped name:
 
 ```bash
-npx -y -p @hypequery/cli -p @hypequery/onboard-engine hypequery onboard analyze --json
+npx -y -p @hypequery/cli -p '@hypequery/onboard-engine@^0.1' hypequery onboard analyze --json
 ```
 
-Read that form wherever a step says `npx hypequery` in a Python project. Add
-`--json` to read results as data: one JSON document on stdout, logs on
-stderr. Exit code 1 means something to correct (the `hint` says what), 4 means
-retry. The commands never prompt under `--json`.
+Read that form wherever a step says `npx --no-install hypequery` in a Python
+project. Add `--json` to read results as data: one JSON document on stdout,
+logs on stderr. Exit code 1 means something to correct (the `hint` says what),
+4 means retry. The commands never prompt under `--json`.
 
 ## 1. Check setup
 
 - ClickHouse settings: `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`,
   `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` in the environment or `.env`.
-  Ask the user for missing values; never print the password.
-- TypeScript: `npm i -D @hypequery/onboard-engine` (the analysis engine, loaded
-  at runtime) and `npm i @hypequery/clickhouse @hypequery/datasets`.
+  Ask the user for the URL, database and user name if they are missing. Never
+  ask for the password in the chat: ask the user to add `CLICKHOUSE_PASSWORD`
+  to `.env` (or export it in their shell) themselves, and tell you when it is
+  done. Never print, echo or read back the password or `.env`; check that
+  `.env` is in `.gitignore`.
+- TypeScript: `npm i -D @hypequery/cli '@hypequery/onboard-engine@^0.1'` (the
+  CLI, and the analysis engine it loads at runtime) and
+  `npm i @hypequery/clickhouse @hypequery/datasets`.
   Python: `pip install hypequery`.
 - `ONBOARD_ENGINE_MISSING` or `ONBOARD_ENGINE_INCOMPATIBLE`: the engine isn't
   installed in a supported version; run the command in the hint.
@@ -47,8 +56,8 @@ retry. The commands never prompt under `--json`.
 ## 2. Analyse
 
 ```bash
-npx hypequery schema inspect --json     # tables, columns, engine metadata
-npx hypequery onboard analyze --json    # the evidence for the model
+npx --no-install hypequery schema inspect --json    # tables, columns, engine metadata
+npx --no-install hypequery onboard analyze --json   # the evidence for the model
 ```
 
 From `onboard analyze`, read:
@@ -99,7 +108,7 @@ to `questions`, and joins the user confirmed. Show it and get a yes.
 
 Generate a starting point, then edit it to the plan:
 
-- TypeScript: `npx hypequery generate:datasets --tables orders,customers`
+- TypeScript: `npx --no-install hypequery generate:datasets --tables orders,customers`
   writes `analytics/datasets.ts`. Add `--tenant-column <column>` only with the
   column the user named.
 - Python: `hypequery generate datasets` writes `datasets.py` (or write it by hand).
@@ -150,9 +159,10 @@ Run `python hypequery_bundle.py` after each edit, deleting
 ## 9. Check until clean
 
 ```bash
-npx tsc --noEmit                                         # TypeScript: datasets typecheck
-npx hypequery onboard check analytics/datasets.ts --json # TypeScript
-npx hypequery onboard check analytics/hypequery-deployment --json   # Python bundle
+npx tsc --noEmit    # TypeScript: datasets typecheck
+npx --no-install hypequery onboard check analytics/datasets.ts --json   # TypeScript
+# Python bundle:
+npx -y -p @hypequery/cli -p '@hypequery/onboard-engine@^0.1' hypequery onboard check analytics/hypequery-deployment --json
 ```
 
 `onboard check` runs every measure through an independent second route and
@@ -163,8 +173,8 @@ that fans out) or ask the user where the data is ambiguous, then rerun.
 `skipped` checks are not failures, but say which numbers were not verified.
 Then answer each business question once through the datasets, not SQL (a short
 script calling `analytics.execute(...)` or `client.execute(...)`, or
-`npx hypequery mcp` with the `hypequery-query` skill when the project serves an
-API), and show the user the numbers.
+`npx --no-install hypequery mcp` with the `hypequery-query` skill when the
+project serves an API), and show the user the numbers.
 
 When a hint doesn't fix a failure, tell the user what you tried; don't loop.
 
@@ -172,9 +182,9 @@ When a hint doesn't fix a failure, tell the user what you tried; don't loop.
 
 Only when the user wants hypequery Cloud:
 
-1. `npx hypequery login`: the user approves sign-in in their browser. It needs
-   a person; run it in their terminal, or use `HYPEQUERY_API_TOKEN` with
-   `--endpoint` in CI.
+1. `npx --no-install hypequery login`: the user approves sign-in in their
+   browser. It needs a person; run it in their terminal, or use
+   `HYPEQUERY_API_TOKEN` with `--endpoint` in CI.
 2. TypeScript: export a publication and deploy it. Ask which roles and scopes
    may query it.
 
@@ -186,15 +196,15 @@ Only when the user wants hypequery Cloud:
    ```
 
    ```bash
-   npx hypequery deploy analytics/cloud.ts --mcp-config
+   npx --no-install hypequery deploy analytics/cloud.ts --mcp-config
    ```
 
    Python: write the bundle with `endpoints=` (see
    https://hypequery.com/docs/cloud/deploy-python), then
-   `npx hypequery deployment:release analytics/hypequery-deployment` and
-   `npx hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json`.
-3. `npx hypequery deployment:status --mcp-config` prints the hosted MCP URL and
-   the client configuration to give the user.
+   `npx -y -p @hypequery/cli hypequery deployment:release analytics/hypequery-deployment`
+   and `npx -y -p @hypequery/cli hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json`.
+3. `npx --no-install hypequery deployment:status --mcp-config` prints the
+   hosted MCP URL and the client configuration to give the user.
 
 Docs: https://hypequery.com/docs/reference/api/cli (all commands, exit codes and
 error codes) and https://hypequery.com/llms.txt.

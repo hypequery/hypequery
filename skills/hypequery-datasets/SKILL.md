@@ -15,7 +15,10 @@ Full docs: https://hypequery.com/llms.txt (index of every page as Markdown).
 
 ## Start from the live schema, then curate
 
-- TypeScript: `npx hypequery generate:datasets` writes `analytics/datasets.ts`.
+- TypeScript: `npx --no-install hypequery generate:datasets` writes
+  `analytics/datasets.ts`. Install the CLI first (`npm i -D @hypequery/cli`);
+  `--no-install` stops npx from fetching the unrelated unscoped `hypequery`
+  package when the CLI is missing.
 - Python: `hypequery init` (guided) or `hypequery generate datasets` writes `datasets.py`.
 
 Both read `CLICKHOUSE_URL` (or `CLICKHOUSE_HOST`, `_PORT`, `_DATABASE`,
@@ -126,6 +129,6 @@ result = client.execute(
 - HTTP: `@hypequery/serve` (TypeScript) or `hypequery.serve` `create_api` +
   `add_dataset_endpoint` (Python). Pass `client_profile=ClientQueryProfile()` and
   call `add_client_contract_endpoint(api)` to publish a client contract.
-- AI agents over MCP: `npx hypequery mcp` (TypeScript project) or
+- AI agents over MCP: `npx --no-install hypequery mcp` (TypeScript project) or
   `hypequery mcp app:api` (Python, `pip install "hypequery[mcp]"`); add
   `--print-config` for the Claude or Cursor entry.
