@@ -65,11 +65,20 @@ function camelCase(kebab: string): string {
   return kebab.replace(/-([a-z0-9])/g, (_, letter: string) => letter.toUpperCase());
 }
 
+/**
+ * Resources the spec names twice for one thing. Their operations share the
+ * other name's command group, so `organization.update` is `hypequery org
+ * update` beside `org access-policy` rather than a second, near-identical group.
+ */
+export const COMMAND_GROUP_ALIASES: Readonly<Record<string, string>> = {
+  organization: 'org',
+};
+
 /** `releases.rollback` → `['releases', 'rollback']`; `deployKeys.create` → `['deploy-keys', 'create']`. */
 export function commandPath(operationName: string): readonly [group: string, action: string] {
   const [resource, verb] = operationName.split('.');
   if (!resource || !verb) throw new Error(`Operation name "${operationName}" is not resource.verb.`);
-  return [kebabCase(resource), kebabCase(verb)];
+  return [kebabCase(COMMAND_GROUP_ALIASES[resource] ?? resource), kebabCase(verb)];
 }
 
 export function pathParameters(path: string): readonly string[] {

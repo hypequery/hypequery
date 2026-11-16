@@ -1849,8 +1849,7 @@
                   "type": "string",
                   "enum": [
                     "active",
-                    "stale",
-                    "superseded"
+                    "stale"
                   ]
                 },
                 "recordedAt": {
@@ -1937,10 +1936,11 @@
                     "type": "string",
                     "enum": [
                       "proof",
-                      "sample-values"
+                      "sample-values",
+                      "error-text"
                     ]
                   },
-                  "description": "What was left out of this entry under the sample policy."
+                  "description": "What was left out of this entry: its proof, values the sample policy withholds, or a failed check's raw error message."
                 }
               },
               "required": [
@@ -1965,7 +1965,7 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
-            "description": "Entries of a kind not yet cleared for the model, left out entirely."
+            "description": "Entries left out entirely: superseded and stale ones, and any of a kind not yet cleared for the model."
           }
         },
         "required": [
@@ -1994,7 +1994,7 @@
       "destructive": false,
       "connector": true,
       "http": {
-        "method": "GET",
+        "method": "POST",
         "path": "/projects/{project}/drafts/{draft}/replay"
       },
       "input": {
@@ -6305,7 +6305,7 @@
           },
           "privateKey": {
             "type": "string",
-            "description": "A private JWK (JSON). Store it in your server's secrets."
+            "description": "A private JWK (JSON) with hq_project (the project's protocol name; the audience is hypequery-agent:<hq_project>) and hq_endpoint (the customer origin whose /mcp serves tenant MCP). Store it in your server's secrets."
           },
           "audience": {
             "type": "string"
@@ -6807,7 +6807,7 @@
     },
     {
       "name": "members.remove",
-      "summary": "Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.",
+      "summary": "Remove a member from the organisation. Their dashboard access ends and their own management tokens, CLI sign-ins and connector approvals are revoked; keys they created keep working until revoked.",
       "scope": "organization",
       "capability": "organization:manage",
       "destructive": true,
@@ -6983,6 +6983,80 @@
         "INTERNAL",
         "INVALID_INPUT",
         "INVALID_REQUEST_ORIGIN",
+        "UNAUTHENTICATED"
+      ]
+    },
+    {
+      "name": "organization.update",
+      "summary": "Change the organisation's name or slug, as its settings in the dashboard do. Changing the slug needs confirm: true.",
+      "scope": "organization",
+      "capability": "organization:manage",
+      "destructive": false,
+      "connector": true,
+      "http": {
+        "method": "PATCH",
+        "path": "/org"
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "The organisation's display name.",
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "slug": {
+            "description": "The organisation's slug, unique across hypequery Cloud.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "confirm": {
+            "description": "Required to change the slug, after the user agrees: the CLI, links and new projects' API addresses use the new one.",
+            "type": "boolean"
+          }
+        }
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "organization"
+        ],
+        "additionalProperties": false
+      },
+      "errors": [
+        "CONFIRMATION_REQUIRED",
+        "FORBIDDEN",
+        "INTERNAL",
+        "INVALID_INPUT",
+        "INVALID_REQUEST_ORIGIN",
+        "ORGANIZATION_SLUG_TAKEN",
         "UNAUTHENTICATED"
       ]
     },
@@ -7545,7 +7619,7 @@
     },
     {
       "name": "feedback.create",
-      "summary": "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.",
+      "summary": "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data: secret-shaped strings are stripped, but nothing else is promised to be. A report never changes data, and the team reads every one.",
       "scope": "organization",
       "capability": "feedback:create",
       "destructive": false,
@@ -7593,7 +7667,8 @@
           "tool": {
             "description": "The tool or operation the report is about, e.g. query_dataset.",
             "type": "string",
-            "maxLength": 100
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_.:/ -]+$"
           },
           "errorCode": {
             "description": "The error code you got, if any, e.g. MCP_INVALID_ARGUMENTS.",
@@ -7894,6 +7969,13 @@
       "retryable": false,
       "hint": "List your tokens with `managementTokens.list` and use an active token's id.",
       "docsUrl": "https://hypequery.com/docs/errors/management-token-not-found"
+    },
+    "ORGANIZATION_SLUG_TAKEN": {
+      "status": 409,
+      "category": "correctable_input",
+      "retryable": false,
+      "hint": "Choose another slug: organisation slugs are unique across hypequery Cloud.",
+      "docsUrl": "https://hypequery.com/docs/errors/organization-slug-taken"
     },
     "MEMBER_NOT_FOUND": {
       "status": 404,

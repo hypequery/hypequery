@@ -30,7 +30,7 @@ the same operations spec as the REST API, so they cover everything an agent or t
 | [`signing-keys`](#signing-keys) | list, create, revoke |
 | [`customer-app`](#customer-app) | get, set |
 | [`members`](#members) | list, invite, cancel-invitation, change-role, remove |
-| [`org`](#org) | access-policy, set-access-policy |
+| [`org`](#org) | access-policy, set-access-policy, update |
 | [`deploy-keys`](#deploy-keys) | list, create, revoke |
 | [`api-keys`](#api-keys) | list, create, revoke |
 | [`management-tokens`](#management-tokens) | list, revoke |
@@ -1129,7 +1129,7 @@ Operation `members.changeRole`; your role needs `organization:manage`. Destructi
 
 ### `hypequery members remove <member>`
 
-Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.
+Remove a member from the organisation. Their dashboard access ends and their own management tokens, CLI sign-ins and connector approvals are revoked; keys they created keep working until revoked.
 
 | Argument or flag | Value | Description |
 | --- | --- | --- |
@@ -1162,6 +1162,19 @@ Choose who may be invited: any email, or only approved email domains.
 | `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
 
 Operation `org.setAccessPolicy`; your role needs `organization:manage`.
+
+### `hypequery org update`
+
+Change the organisation's name or slug, as its settings in the dashboard do. Changing the slug needs confirm: true.
+
+| Argument or flag | Value | Description |
+| --- | --- | --- |
+| `--name` | text | The organisation's display name. |
+| `--slug` | text | The organisation's slug, unique across hypequery Cloud. |
+| `--yes` | flag | Confirms a change Cloud asks about. |
+| `--input-json` | JSON, `@file` or `-` | The whole input as one object; flags override its fields. |
+
+Operation `organization.update`; your role needs `organization:manage`. Cloud asks for confirmation in some cases; pass `--yes` or confirm at a terminal.
 
 ## deploy-keys
 
@@ -1271,7 +1284,7 @@ Operation `managementTokens.revoke`; your role needs `workspace:view`. Destructi
 
 ### `hypequery feedback create`
 
-Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.
+Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data: secret-shaped strings are stripped, but nothing else is promised to be. A report never changes data, and the team reads every one.
 
 | Argument or flag | Value | Description |
 | --- | --- | --- |

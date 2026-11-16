@@ -653,7 +653,7 @@ export const CLOUD_OPERATION_SPECS: readonly CloudOperationSpec[] = [
     "capability": "deployment:publish",
     "destructive": false,
     "connector": true,
-    "method": "GET",
+    "method": "POST",
     "path": "/projects/{project}/drafts/{draft}/replay",
     "input": {
       "type": "object",
@@ -2943,7 +2943,7 @@ export const CLOUD_OPERATION_SPECS: readonly CloudOperationSpec[] = [
   },
   {
     "name": "members.remove",
-    "summary": "Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.",
+    "summary": "Remove a member from the organisation. Their dashboard access ends and their own management tokens, CLI sign-ins and connector approvals are revoked; keys they created keep working until revoked.",
     "scope": "organization",
     "capability": "organization:manage",
     "destructive": true,
@@ -3008,6 +3008,38 @@ export const CLOUD_OPERATION_SPECS: readonly CloudOperationSpec[] = [
         "inviteMode",
         "approvedDomains"
       ]
+    }
+  },
+  {
+    "name": "organization.update",
+    "summary": "Change the organisation's name or slug, as its settings in the dashboard do. Changing the slug needs confirm: true.",
+    "scope": "organization",
+    "capability": "organization:manage",
+    "destructive": false,
+    "connector": true,
+    "method": "PATCH",
+    "path": "/org",
+    "input": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The organisation's display name.",
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "slug": {
+          "description": "The organisation's slug, unique across hypequery Cloud.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "confirm": {
+          "description": "Required to change the slug, after the user agrees: the CLI, links and new projects' API addresses use the new one.",
+          "type": "boolean"
+        }
+      }
     }
   },
   {
@@ -3266,7 +3298,7 @@ export const CLOUD_OPERATION_SPECS: readonly CloudOperationSpec[] = [
   },
   {
     "name": "feedback.create",
-    "summary": "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.",
+    "summary": "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data: secret-shaped strings are stripped, but nothing else is promised to be. A report never changes data, and the team reads every one.",
     "scope": "organization",
     "capability": "feedback:create",
     "destructive": false,
@@ -3311,7 +3343,8 @@ export const CLOUD_OPERATION_SPECS: readonly CloudOperationSpec[] = [
         "tool": {
           "description": "The tool or operation the report is about, e.g. query_dataset.",
           "type": "string",
-          "maxLength": 100
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:/ -]+$"
         },
         "errorCode": {
           "description": "The error code you got, if any, e.g. MCP_INVALID_ARGUMENTS.",

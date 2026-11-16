@@ -22,6 +22,8 @@ describe('command names', () => {
     expect(commandPath('deployKeys.create')).toEqual(['deploy-keys', 'create']);
     expect(commandPath('drafts.runStatus')).toEqual(['drafts', 'run-status']);
     expect(commandPath('org.setAccessPolicy')).toEqual(['org', 'set-access-policy']);
+    // One group for the organisation, whichever name the spec uses.
+    expect(commandPath('organization.update')).toEqual(['org', 'update']);
   });
 });
 

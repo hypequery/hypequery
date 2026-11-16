@@ -245,6 +245,13 @@ export const CLOUD_ERRORS = {
     hint: "List your tokens with `managementTokens.list` and use an active token's id.",
     docsUrl: "https://hypequery.com/docs/errors/management-token-not-found",
   },
+  ORGANIZATION_SLUG_TAKEN: {
+    status: 409,
+    category: "correctable_input",
+    retryable: false,
+    hint: "Choose another slug: organisation slugs are unique across hypequery Cloud.",
+    docsUrl: "https://hypequery.com/docs/errors/organization-slug-taken",
+  },
   MEMBER_NOT_FOUND: {
     status: 404,
     category: "correctable_input",
@@ -739,7 +746,7 @@ export interface DraftsEvidenceOutput {
       tables: Array<string>;
       measures: Array<string>;
     };
-    status: "active" | "stale" | "superseded";
+    status: "active" | "stale";
     recordedAt: string;
     requiredChecks?: Array<string>;
     check?: {
@@ -759,10 +766,10 @@ export interface DraftsEvidenceOutput {
     };
     /** Measured proof exists; it stays with the customer. */
     hasProof: boolean;
-    /** What was left out of this entry under the sample policy. */
-    withheld: Array<"proof" | "sample-values">;
+    /** What was left out of this entry: its proof, values the sample policy withholds, or a failed check's raw error message. */
+    withheld: Array<"proof" | "sample-values" | "error-text">;
   }>;
-  /** Entries of a kind not yet cleared for the model, left out entirely. */
+  /** Entries left out entirely: superseded and stale ones, and any of a kind not yet cleared for the model. */
   omitted: number;
 }
 
@@ -1653,7 +1660,7 @@ export interface SigningKeysCreateOutput {
     revokedAt: string | null;
     active: boolean;
   };
-  /** A private JWK (JSON). Store it in your server's secrets. */
+  /** A private JWK (JSON) with hq_project (the project's protocol name; the audience is hypequery-agent:<hq_project>) and hq_endpoint (the customer origin whose /mcp serves tenant MCP). Store it in your server's secrets. */
   privateKey: string;
   audience: string;
   claims: Record<string, unknown>;
@@ -1799,6 +1806,25 @@ export interface OrgSetAccessPolicyOutput {
   policy: {
     inviteMode: "any-email" | "approved-domains";
     approvedDomains: Array<string>;
+  };
+}
+
+/** Input for `organization.update`. */
+export interface OrganizationUpdateInput {
+  /** The organisation's display name. */
+  name?: string;
+  /** The organisation's slug, unique across hypequery Cloud. */
+  slug?: string;
+  /** Required to change the slug, after the user agrees: the CLI, links and new projects' API addresses use the new one. */
+  confirm?: boolean;
+}
+
+/** Output of `organization.update`. */
+export interface OrganizationUpdateOutput {
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
   };
 }
 
@@ -2358,6 +2384,11 @@ export interface CloudOperationTypes {
     output: OrgSetAccessPolicyOutput;
     inputRequired: true;
   };
+  "organization.update": {
+    input: OrganizationUpdateInput;
+    output: OrganizationUpdateOutput;
+    inputRequired: false;
+  };
   "deployKeys.list": {
     input: DeployKeysListInput;
     output: DeployKeysListOutput;
@@ -2655,7 +2686,7 @@ export const OPERATIONS = {
     scope: "project",
     capability: "deployment:publish",
     destructive: false,
-    method: "GET",
+    method: "POST",
     path: "/projects/{project}/drafts/{draft}/replay",
     pathParams: ["project","draft"],
     errors: ["DRAFT_NOT_FOUND","DRAFT_NOT_READY","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","PROJECT_NOT_FOUND","RELEASE_MOVED","UNAUTHENTICATED"],
@@ -3278,7 +3309,7 @@ export const OPERATIONS = {
   },
   "members.remove": {
     name: "members.remove",
-    summary: "Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.",
+    summary: "Remove a member from the organisation. Their dashboard access ends and their own management tokens, CLI sign-ins and connector approvals are revoked; keys they created keep working until revoked.",
     scope: "organization",
     capability: "organization:manage",
     destructive: true,
@@ -3308,6 +3339,17 @@ export const OPERATIONS = {
     path: "/org/access-policy",
     pathParams: [],
     errors: ["FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","UNAUTHENTICATED"],
+  },
+  "organization.update": {
+    name: "organization.update",
+    summary: "Change the organisation's name or slug, as its settings in the dashboard do. Changing the slug needs confirm: true.",
+    scope: "organization",
+    capability: "organization:manage",
+    destructive: false,
+    method: "PATCH",
+    path: "/org",
+    pathParams: [],
+    errors: ["CONFIRMATION_REQUIRED","FORBIDDEN","INTERNAL","INVALID_INPUT","INVALID_REQUEST_ORIGIN","ORGANIZATION_SLUG_TAKEN","UNAUTHENTICATED"],
   },
   "deployKeys.list": {
     name: "deployKeys.list",
@@ -3399,7 +3441,7 @@ export const OPERATIONS = {
   },
   "feedback.create": {
     name: "feedback.create",
-    summary: "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.",
+    summary: "Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data: secret-shaped strings are stripped, but nothing else is promised to be. A report never changes data, and the team reads every one.",
     scope: "organization",
     capability: "feedback:create",
     destructive: false,
@@ -3578,7 +3620,7 @@ export interface CloudClientOperations {
     /**
      * Replay a few of the last week's queries on the datasets a saved draft changes, against Production and the draft, and say whether each answer is the same. Only statuses, row counts and outcomes are returned, never rows.
      *
-     * `GET /projects/{project}/drafts/{draft}/replay` · project scope · needs `deployment:publish`
+     * `POST /projects/{project}/drafts/{draft}/replay` · project scope · needs `deployment:publish`
      * Errors: DRAFT_NOT_FOUND, DRAFT_NOT_READY, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RELEASE_MOVED, UNAUTHENTICATED
      */
     replay(input: DraftsReplayInput, options?: CallOptions): Promise<DraftsReplayOutput>;
@@ -4022,7 +4064,7 @@ export interface CloudClientOperations {
      */
     changeRole(input: MembersChangeRoleInput, options?: CallOptions): Promise<MembersChangeRoleOutput>;
     /**
-     * Remove a member from the organisation. Their dashboard, connector and management-token access ends; keys they created keep working until revoked.
+     * Remove a member from the organisation. Their dashboard access ends and their own management tokens, CLI sign-ins and connector approvals are revoked; keys they created keep working until revoked.
      *
      * `DELETE /org/members/{member}` · organization scope · needs `organization:manage`
      * Destructive: requires `confirm: true`.
@@ -4045,6 +4087,15 @@ export interface CloudClientOperations {
      * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, UNAUTHENTICATED
      */
     setAccessPolicy(input: OrgSetAccessPolicyInput, options?: CallOptions): Promise<OrgSetAccessPolicyOutput>;
+  };
+  organization: {
+    /**
+     * Change the organisation's name or slug, as its settings in the dashboard do. Changing the slug needs confirm: true.
+     *
+     * `PATCH /org` · organization scope · needs `organization:manage`
+     * Errors: CONFIRMATION_REQUIRED, FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, ORGANIZATION_SLUG_TAKEN, UNAUTHENTICATED
+     */
+    update(input?: OrganizationUpdateInput, options?: CallOptions): Promise<OrganizationUpdateOutput>;
   };
   deployKeys: {
     /**
@@ -4113,7 +4164,7 @@ export interface CloudClientOperations {
   };
   feedback: {
     /**
-     * Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data; they are stripped anyway. A report never changes data, and the team reads every one.
+     * Report a problem with hypequery to its team: a tool that failed in a way its hint didn't fix, a confusing description or error, something missing, or a wrong result. Never include secrets, credentials or customer data: secret-shaped strings are stripped, but nothing else is promised to be. A report never changes data, and the team reads every one.
      *
      * `POST /feedback` · organization scope · needs `feedback:create`
      * Errors: FORBIDDEN, INTERNAL, INVALID_INPUT, INVALID_REQUEST_ORIGIN, PROJECT_NOT_FOUND, RATE_LIMITED, UNAUTHENTICATED
