@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { wantsMarkdown } from '@/lib/markdown-negotiation';
-import { twinFor } from '@/lib/markdown-twin';
+import { htmlPathFor, twinFor } from '@/lib/markdown-twin';
+import { siteUrl } from '@/lib/site';
 
 /**
  * Markdown twins for agents.
@@ -33,7 +34,14 @@ export function proxy(request: NextRequest) {
     url.pathname = twin;
     const response = NextResponse.rewrite(url);
     response.headers.set('Vary', 'Accept, User-Agent');
-    response.headers.set('Link', '</llms.txt>; rel="llms-txt"');
+    // The HTML page is the canonical version of every twin.
+    const canonical = new URL(htmlPathFor(pathname), siteUrl).toString();
+    response.headers.set('Link', `<${canonical}>; rel="canonical", </llms.txt>; rel="llms-txt"`);
+    // Only the suffixed URLs (/docs/x.md, /docs/x.mdx) are separate documents to keep
+    // out of search. A twin negotiated at the page's own URL (AI search crawlers such
+    // as OAI-SearchBot and Claude-SearchBot get one by user agent) must not say
+    // noindex: that would ask those engines to drop the real page.
+    if (pathname !== htmlPathFor(pathname)) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     return response;
   }
 

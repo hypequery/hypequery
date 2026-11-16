@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test-setup.ts'],
     exclude: ['src/**/*.integration.test.ts'],
     coverage: {
       provider: 'v8',
@@ -15,6 +16,7 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.test.ts',
         '**/test-utils.ts',
+        '**/test-setup.ts',
       ],
     },
   },

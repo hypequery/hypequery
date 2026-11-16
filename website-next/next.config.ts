@@ -5,10 +5,31 @@ import { retiredBlogPosts } from "./src/data/retired-blog-posts";
 
 const withMDX = createMDX();
 
+/**
+ * Responses that are not pages: social-card images, feeds and the Markdown twins
+ * served directly from /llms.mdx. They are kept out of Google's index with a header
+ * rather than robots.txt, because Twitterbot obeys robots.txt and blocked card images
+ * would stop rendering in shared links. /og sets the same header in its route.
+ * Suffixed twins (/docs/x.md) get theirs, and a canonical Link, in src/proxy.ts.
+ */
+const noindexRoutes = [
+  '/opengraph-image',
+  '/blog/:slug/opengraph-image',
+  '/blog/rss.xml',
+  '/changelog/rss.xml',
+  '/llms.mdx/:path*',
+];
+
 const nextConfig: NextConfig = {
   trailingSlash: false,
   turbopack: {
     root: __dirname,
+  },
+  async headers() {
+    return noindexRoutes.map((source) => ({
+      source,
+      headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+    }));
   },
   async redirects() {
     return [
@@ -148,6 +169,10 @@ const nextConfig: NextConfig = {
       { source: '/typeorm-clickhouse', destination: '/clickhouse-orm', permanent: true },
       { source: '/drizzle-clickhouse', destination: '/compare/hypequery-vs-drizzle', permanent: true },
       { source: '/moosestack-alternative', destination: '/compare/hypequery-vs-moose', permanent: true },
+      // Never pages. Google resolved `import { Users } from './datasets/users'` in the
+      // core-concepts code sample against /docs/core-concepts (404, November 2026).
+      { source: '/docs/datasets/users', destination: '/docs/datasets/defining-datasets', permanent: true },
+      { source: '/docs/datasets', destination: '/docs/datasets/overview', permanent: true },
       // Removed blog posts, merged into another page (src/data/retired-blog-posts.ts).
       ...retiredBlogPosts.map((post) => ({
         source: `/blog/${post.slug}`,
@@ -171,7 +196,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/roadmap',
-        destination: '/docs/changelog',
+        destination: '/changelog',
         permanent: true,
       },
       {

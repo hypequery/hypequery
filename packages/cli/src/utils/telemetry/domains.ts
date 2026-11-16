@@ -13,7 +13,8 @@ export const COMMANDS = [
   'init', 'dev', 'mcp', 'generate', 'generate:types', 'generate:datasets',
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
-  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'schema', 'onboard', 'unknown',
+  'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'schema', 'onboard',
+  'cloud-operation', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 /**
@@ -44,7 +45,7 @@ export const COMMAND_FLAGS = {
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--check', '--force', '--cloud', '--project', '--environment', '--endpoint'],
   'export:client-contract': ['--output', '--stdout', '--check', '--force'],
-  login: ['--cloud-url', '--environment'],
+  login: ['--cloud-url', '--environment', '--device', '--project', '--capabilities'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--no-source', '--endpoint', '--replace-restored', '--take-ownership', '--mcp-config', '--draft', '--client'],
   'deployment:build': ['--bundle-output', '--no-source'],
@@ -59,6 +60,7 @@ export const COMMAND_FLAGS = {
   create: ['--yes', '--dir', '--no-install', '--no-seed', '--tag'],
   schema: ['--databases', '--tables', '--samples'],
   onboard: ['--databases', '--tables', '--samples', '--no-query-history', '--join'],
+  'cloud-operation': ['--project', '--yes', '--input-json'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies Record<TelemetryCommand, readonly string[]>;
 export const GLOBAL_FLAGS = ['--no-telemetry', '--json', '--no-input', '--help', '--version'] as const;
@@ -73,7 +75,7 @@ export const VALUE_FLAGS = {
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--project', '--environment', '--endpoint'],
   'export:client-contract': ['--output'],
-  login: ['--cloud-url', '--environment'],
+  login: ['--cloud-url', '--environment', '--project', '--capabilities'],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint', '--draft', '--client'],
   'deployment:build': ['--bundle-output'],
@@ -88,6 +90,7 @@ export const VALUE_FLAGS = {
   create: ['--dir', '--tag'],
   schema: ['--databases', '--tables', '--samples'],
   onboard: ['--databases', '--tables', '--samples', '--join'],
+  'cloud-operation': ['--project', '--input-json'],
   help: [], version: [], telemetry: [], unknown: [],
 } as const satisfies { [C in TelemetryCommand]: readonly typeof COMMAND_FLAGS[C][number][] };
 export type TelemetryFlag = typeof COMMAND_FLAGS[TelemetryCommand][number] | typeof GLOBAL_FLAGS[number];

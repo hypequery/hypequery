@@ -184,4 +184,6 @@ The mistake to avoid is dragging the ORM abstraction across the boundary — for
 - [ClickHouse ORM: what exists and what to use instead](/clickhouse-orm) — the full landscape of ORM-ish options for ClickHouse
 - [Does ClickHouse have an ORM?](/clickhouse-orm) — the direct answer to the adjacent question
 - [hypequery vs Kysely](/compare/hypequery-vs-kysely) — if you're weighing general-purpose query builders
+- [Set up the query builder](/docs/query-building/setup) — install `@hypequery/clickhouse`, generate types and run a first typed query without datasets
+- [Selecting columns](/docs/query-building/select) — how `select()` sets the TypeScript type of the result rows
 - [Quick start](/docs/quick-start) — generate types from your schema and run a typed query in minutes

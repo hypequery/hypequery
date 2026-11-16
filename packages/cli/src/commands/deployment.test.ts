@@ -338,6 +338,7 @@ describe('deployment commands', () => {
       'dist/bundle',
       {},
       {
+        loadManagementCredential: async () => null,
         loadCredential: async () => ({
           cloudUrl: 'https://cloud.example.test',
           deploymentEndpoint:

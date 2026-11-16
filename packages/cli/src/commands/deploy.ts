@@ -19,7 +19,10 @@ import { logger } from '../utils/logger.js';
 import {
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
-import { resolveDeploymentCredential } from '../utils/cloud-deployment-access.js';
+import {
+  resolveDeploymentCredential,
+  type CloudDeploymentAccessDependencies,
+} from '../utils/cloud-deployment-access.js';
 import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import {
   fetchHostedEndpoints,
@@ -69,6 +72,7 @@ export interface SubmitDeploymentDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
+  readonly loadManagementCredential?: CloudDeploymentAccessDependencies['loadManagementCredential'];
   readonly fetchLive?: typeof fetchLiveDeployment;
   readonly fetchEndpoints?: typeof fetchHostedEndpoints;
   /** Asks the user before replacing a Cloud-built model; null when there's no terminal to ask in. Defaults to a prompt when stdin and stdout are TTYs. */
@@ -335,7 +339,9 @@ export async function deployCommand(
     environment: options.environment,
     output: releasePath,
   }, {
+    env: dependencies.env,
     loadCredential: dependencies.loadCredential,
+    loadManagementCredential: dependencies.loadManagementCredential,
     outputFlagLabel: '--release-output',
   }));
   const result = await submit(bundlePath, {
