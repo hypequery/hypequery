@@ -323,10 +323,13 @@ export default async function BlogPostPage({
         <div className="prose prose-gray dark:prose-invert max-w-none">
           <MarkdownContent content={content} />
         </div>
+      </article>
+      {/* Outside the article, so readers and agents that extract the main content get the post alone. */}
+      <aside aria-label="More from hypequery">
         <ArticleCta language={language} />
         <Newsletter className="mt-14" />
         <RelatedContent links={relatedLinks} />
-      </article >
-    </div >
+      </aside>
+    </div>
   );
 }

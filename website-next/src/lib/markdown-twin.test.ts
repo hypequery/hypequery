@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
-import { htmlPathFor, twinFor } from './markdown-twin';
+import { htmlPathFor, markdownPathFor, twinFor } from './markdown-twin';
 
 test('pages with a content-source twin rewrite to /llms.mdx', () => {
   assert.equal(twinFor('/compare/hypequery-vs-cube'), '/llms.mdx/compare/hypequery-vs-cube');
@@ -16,6 +16,9 @@ test('hand-built pages and hubs rewrite to the HTML-converted twin', () => {
   assert.equal(twinFor('/embedded-analytics'), '/llms.mdx/pages/embedded-analytics');
   assert.equal(twinFor('/embedded-analytics.md'), '/llms.mdx/pages/embedded-analytics');
   assert.equal(twinFor('/compare'), '/llms.mdx/pages/compare');
+  // The docs index is hand-built; the fumadocs source has no page for it.
+  assert.equal(twinFor('/docs'), '/llms.mdx/pages/docs');
+  assert.equal(twinFor('/docs.md'), '/llms.mdx/pages/docs');
 });
 
 test('llms.txt sub-indexes and unknown pages have no twin', () => {
@@ -40,4 +43,11 @@ test('htmlPathFor names the canonical HTML page of a twin request', () => {
   assert.equal(htmlPathFor('/'), '/');
   // A twin negotiated at the page's own URL is its own canonical (no noindex in src/proxy.ts).
   assert.equal(htmlPathFor('/blog/clickhouse-cte-typescript'), '/blog/clickhouse-cte-typescript');
+});
+
+test('markdownPathFor names the public .md URL of a twin', () => {
+  assert.equal(markdownPathFor('/'), '/index.md');
+  assert.equal(markdownPathFor('/docs'), '/docs.md');
+  assert.equal(markdownPathFor('/blog/agentic-analytics/'), '/blog/agentic-analytics.md');
+  assert.equal(markdownPathFor('/semantic-layer.md'), '/semantic-layer.md');
 });
