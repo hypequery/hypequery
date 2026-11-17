@@ -456,7 +456,11 @@ export default function EmbeddedAnalyticsPage() {
               <Link href="/blog/a-guide-to-materialized-views-in-clickhouse" className={inlineLink}>
                 materialized views guide
               </Link>{' '}
-              covers the tradeoffs.
+              covers the tradeoffs, and{' '}
+              <Link href="/blog/clickhouse-projections-vs-materialized-views" className={inlineLink}>
+                ClickHouse projections
+              </Link>{' '}
+              explains when a projection is the simpler choice.
             </p>
           </div>
           <div className={marketing.card}>

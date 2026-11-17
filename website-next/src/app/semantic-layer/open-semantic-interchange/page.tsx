@@ -14,9 +14,9 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/open-semantic-interchange';
-const TITLE = 'Open Semantic Interchange (OSI), Now Apache Ossie, Explained';
+const TITLE = 'Apache Ossie: Open Semantic Interchange (OSI) Explained';
 const DESCRIPTION =
-  'Open Semantic Interchange (OSI), now Apache Ossie: who is behind it, what the spec covers and leaves out, and which tools convert to it.';
+  'Apache Ossie, formerly Open Semantic Interchange (OSI): who is behind it, what the spec covers and leaves out, and which tools convert to it.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });
@@ -213,8 +213,8 @@ export default function OpenSemanticInterchangePage() {
   return (
     <HubShell
       path={PATH}
-      breadcrumbs={spokeBreadcrumbs('Open Semantic Interchange')}
-      title="Open Semantic Interchange, now Apache Ossie, explained"
+      breadcrumbs={spokeBreadcrumbs('Apache Ossie (OSI)')}
+      title="Apache Ossie (Open Semantic Interchange) explained"
       lead={
         <p>
           What the spec is for, who is behind it, what a model file looks like, which tools convert to and from it, what
@@ -224,7 +224,7 @@ export default function OpenSemanticInterchangePage() {
       primaryCta={{ href: '#spec', label: 'Read the spec summary', target: 'osi_spec' }}
       secondaryCta={{ href: '#code', label: 'OSI and code', target: 'osi_code' }}
       definition={{
-        term: 'What is Open Semantic Interchange?',
+        term: 'What is Apache Ossie (Open Semantic Interchange)?',
         body: (
           <>
             <p>

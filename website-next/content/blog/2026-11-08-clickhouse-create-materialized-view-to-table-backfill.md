@@ -15,7 +15,7 @@ tags:
 
 To create a materialized view in ClickHouse, create the target table first, then run `CREATE MATERIALIZED VIEW view_name TO target_table AS SELECT ... FROM source_table`. From then on, every insert into the source table runs the `SELECT` on the inserted rows and writes the result to the target. Rows that were in the source before the view existed are not processed, so you backfill them yourself with `INSERT INTO target_table SELECT ...` bounded by a cutoff time, because `POPULATE` can miss rows inserted while it runs on ClickHouse 26.6.
 
-For the mental model and the wider list of pitfalls, read the main [guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse); for scheduled views, see [refreshable materialized views](/blog/clickhouse-refreshable-materialized-views). Every statement below was run on ClickHouse 26.6.
+For the mental model and the wider list of pitfalls, read the main [guide to ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse); for scheduled views, see [refreshable materialized views](/blog/clickhouse-refreshable-materialized-views). Every statement below was run on ClickHouse 26.6.
 
 ## How do you create a materialized view in ClickHouse?
 

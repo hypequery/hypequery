@@ -290,7 +290,11 @@ export default function LuzmoAlternativesPage() {
               <p>
                 You pay for compute, not viewers. In East US, Fabric F2 works out at roughly $262.80 for a month of
                 continuous running and an A1 node at roughly $735.91. When your app owns the data, viewers need no licence. Capacity must be sized for
-                your load.
+                your load. The{' '}
+                <Link href="/blog/power-bi-embedded-pricing" className={inlineLink}>
+                  Power BI Embedded pricing
+                </Link>{' '}
+                breakdown has every SKU and a worked estimate.
               </p>
             </Option>
             <Option name="Open source you host">

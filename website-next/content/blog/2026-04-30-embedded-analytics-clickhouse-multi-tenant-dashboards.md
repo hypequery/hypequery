@@ -428,7 +428,7 @@ export function EventCountsWidget() {
 
 ### Aggregate Projections
 
-A projection stores a precomputed aggregation inside the same parts as the base table. When a query matches it, ClickHouse reads the projection automatically, with no application changes.
+A projection stores a precomputed aggregation inside the same parts as the base table. When a query matches it, ClickHouse reads the projection automatically, with no application changes. See [ClickHouse projections vs materialized views](/blog/clickhouse-projections-vs-materialized-views) for which queries can use one.
 
 ```sql
 ALTER TABLE events ADD PROJECTION hourly_event_counts

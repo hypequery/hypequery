@@ -94,7 +94,7 @@ export default function ClickHouseMcpPage() {
     <ClickhousePillarPage
       leadPage="/clickhouse-mcp"
       eyebrow="ClickHouse MCP"
-      title="Give AI agents trusted ClickHouse analytics — not a database console"
+      title="A ClickHouse MCP server that gives agents trusted analytics, not a database console"
       description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."
       primaryCta={{ href: '/docs/mcp/quickstart', label: 'Start with MCP' }}
       secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}

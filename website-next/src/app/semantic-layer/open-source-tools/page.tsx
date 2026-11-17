@@ -317,7 +317,7 @@ export default function OpenSourceSemanticLayerToolsPage() {
             released spec is 0.1.1, from December 2025. It describes models but does not query them, so it sits beside
             the tools above rather than replacing one. The{' '}
             <Link href="/semantic-layer/open-semantic-interchange" className={inlineLink}>
-              Ossie guide
+              Apache Ossie guide
             </Link>{' '}
             covers what the spec includes.
           </p>

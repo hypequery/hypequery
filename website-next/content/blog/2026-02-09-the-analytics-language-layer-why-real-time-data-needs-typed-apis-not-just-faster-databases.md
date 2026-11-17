@@ -128,7 +128,7 @@ The analytics language layer isn't a speculative concept. The convergence is alr
 
 **2. AI agents will talk to semantic layers, not databases.** The MCP server approach of exposing raw SQL to agents will mature into structured tool interfaces where agents invoke named, typed queries rather than generating SQL strings. The accuracy data demands it.
 
-**3. BI tools will consume typed endpoints.** Rather than authoring raw SQL or maintaining their own query logic, BI tools will connect to analytics language layers the same way frontend applications consume REST or GraphQL APIs. The Open Semantic Interchange initiative (dbt, Snowflake, Salesforce, ThoughtSpot) is an early signal of this convergence.
+**3. BI tools will consume typed endpoints.** Rather than authoring raw SQL or maintaining their own query logic, BI tools will connect to analytics language layers the same way frontend applications consume REST or GraphQL APIs. The [Open Semantic Interchange](/semantic-layer/open-semantic-interchange) initiative (dbt, Snowflake, Salesforce, ThoughtSpot), now Apache Ossie, is an early signal of this convergence.
 
 **4. Metric definitions will be code, not configuration.** YAML-based metric definitions will give way to programmatic definitions in the same language as the application (TypeScript, Python), enabling IDE support, testing, and the same CI/CD workflows used for application code.
 

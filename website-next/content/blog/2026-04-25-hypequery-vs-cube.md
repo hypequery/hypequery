@@ -59,7 +59,7 @@ The entire stack lives in your existing TypeScript codebase. There is no separat
 | Change workflow | Model changes deploy to Cube separately from the product application | Model changes follow the application's pull request, test, and deploy workflow |
 | BI tool support | Yes — including Tableau, Power BI, Metabase, and Superset | No BI-tool SQL interface |
 | Embedded UI | Hosted dashboards and React Embed SDK on Cube Cloud Premium and Enterprise | No chart components or dashboard builder; use your own UI |
-| Caching / pre-aggregations | Cube Store caching and managed pre-aggregations | Optional result cache; ClickHouse materialized views or projections for rollups |
+| Caching / pre-aggregations | Cube Store caching and managed pre-aggregations | Optional result cache; [ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse) or [projections](/blog/clickhouse-projections-vs-materialized-views) for rollups |
 | Operations | Run Cube Core and Cube Store, or use Cube Cloud | Run the libraries in your existing backend and operate ClickHouse |
 | Databases | ClickHouse and many other SQL sources | ClickHouse only |
 | MCP and agents | Hosted MCP server and agents in Cube Cloud | `@hypequery/mcp` or the Python MCP server over datasets |

@@ -71,7 +71,7 @@ hypequery is open source and free. There is no platform dependency and no platfo
 | TypeScript types | Inferred from your Tinybird definitions by `@tinybirdco/sdk` (experimental) | Generated from your live schema |
 | Code ownership | Datafiles or TypeScript in a Tinybird project, deployed with the CLI | Queries live in your TypeScript codebase |
 | Auth and rate limiting | Tokens, plus JWTs with per-token rate limits | JWT auth, tenant scoping and `rateLimit` middleware in `@hypequery/serve` |
-| Rollups and caching | Materialized views and copy pipes | ClickHouse materialized views, plus an optional query result cache |
+| Rollups and caching | Materialized views and copy pipes | [ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse), plus an optional query result cache |
 | Agents and MCP | Tinybird MCP server | `@hypequery/mcp` over your datasets |
 | Open source | No | Yes |
 | Pricing model | Free plan, then plans sized in vCPUs plus overages | Free |

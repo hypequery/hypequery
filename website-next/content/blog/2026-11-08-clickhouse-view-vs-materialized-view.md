@@ -277,7 +277,7 @@ SELECT day, sum(revenue) FROM daily_revenue GROUP BY day;
 2027-02-01	150
 ```
 
-Queries read `daily_revenue`, the target table, and use `sum()` because `SummingMergeTree` only combines rows when parts merge. Backfilling history, choosing the target engine and the `POPULATE` trap are covered in the [guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse).
+Queries read `daily_revenue`, the target table, and use `sum()` because `SummingMergeTree` only combines rows when parts merge. Backfilling history, choosing the target engine and the `POPULATE` trap are covered in the [guide to ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse).
 
 ## ClickHouse view vs materialized view: what is the difference?
 

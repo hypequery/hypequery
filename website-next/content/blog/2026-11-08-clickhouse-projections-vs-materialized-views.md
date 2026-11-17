@@ -1,8 +1,8 @@
 ---
-title: "ClickHouse Projections vs Materialized Views: When to Use Each"
+title: "ClickHouse Projections: How They Work, and When a Materialized View Is Better"
 description: "How projections and materialized views store data in ClickHouse, which queries can use a projection, what each costs on insert, and a decision table. Every query checked on ClickHouse 26.6."
-seoTitle: "ClickHouse Projections vs Materialized Views"
-seoDescription: "A projection is a hidden copy inside the same table that queries use automatically. A materialized view writes to a separate table you query by name."
+seoTitle: "ClickHouse Projections: How They Work vs Materialized Views"
+seoDescription: "A ClickHouse projection is a hidden copy inside the same table that queries use automatically. How to add one, prove it is used, and when to use a materialized view."
 pubDate: 2026-11-08
 updatedAt: 2026-11-08
 heroImage: ""
@@ -15,7 +15,7 @@ tags:
 
 A ClickHouse projection is a hidden, re-sorted or pre-aggregated copy of a table's data stored inside each data part of that same table, and the query optimizer reads from it automatically when it can answer a query with less data. A materialized view is an insert trigger that runs a `SELECT` over each new block and writes the result into a separate table, which you query by name. Use a projection when you want a second sort order or a simple rollup of one table without changing queries; use a materialized view when you need joins, filters, a different schema, a different TTL, or a chain of transformations.
 
-This guide shows how each one stores data, how to prove with `EXPLAIN` that a projection was used, and where projections stop working. Everything below was run on ClickHouse 26.6. For the full treatment of materialized views (engines, `TO` tables, `POPULATE`, monitoring), see the [guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse).
+This guide shows how each one stores data, how to prove with `EXPLAIN` that a projection was used, and where projections stop working. Everything below was run on ClickHouse 26.6. For the full treatment of materialized views (engines, `TO` tables, `POPULATE`, monitoring), see the [guide to ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse).
 
 ## What is the difference between a projection and a materialized view in ClickHouse?
 
