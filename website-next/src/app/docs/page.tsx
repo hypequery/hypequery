@@ -11,7 +11,8 @@ const description =
   'Embedded analytics on ClickHouse, in your codebase. Define metrics once in TypeScript or Python and serve them to dashboards, APIs, and AI agents.';
 
 export const metadata: Metadata = {
-  title,
+  // Absolute: the root "%s | hypequery" template would repeat the product name.
+  title: { absolute: title },
   description,
   alternates: { canonical: absoluteUrl('/docs') },
   openGraph: { type: 'website', url: absoluteUrl('/docs'), title, description, images: ogImage(title) },
@@ -20,8 +21,9 @@ export const metadata: Metadata = {
 
 /** The language-neutral docs entry point: what hypequery is, then a choice of TypeScript, Python, or Cloud. */
 export default function DocsHome() {
+  // No breadcrumb: fumadocs would label the docs root with its first sidebar folder ("Getting started").
   return (
-    <DocsPage>
+    <DocsPage breadcrumb={{ enabled: false }}>
       <DocsTitle>{title}</DocsTitle>
       <DocsDescription>{description}</DocsDescription>
       <DocsBody>
