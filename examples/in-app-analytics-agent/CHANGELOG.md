@@ -1,5 +1,13 @@
 # @hypequery-examples/in-app-analytics-agent
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [cd398d2]
+  - @hypequery/mcp@0.15.0
+  - @hypequery/agent@0.1.0
+
 ## 0.1.1
 
 ### Patch Changes
