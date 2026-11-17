@@ -141,7 +141,7 @@ Altinity is the main one that does both. Alongside Altinity.Cloud, its [ClickHou
 ClickPipes is ClickHouse Cloud's managed ingestion, so it only feeds ClickHouse Cloud. On other services, or when you'd rather own the pipeline, there are three routes:
 
 - **Another platform's managed connectors.** Tinybird has the Events API plus Kafka, S3, GCS and DynamoDB connectors, and Aiven has a managed Kafka-to-ClickHouse connector.
-- **ClickHouse's own table engines.** These work on any server or service that allows them: `Kafka`, `RabbitMQ` and `NATS` consume from queues, `S3Queue` and `AzureQueue` pick up new files from object storage, and the `s3`, `url`, `postgresql` and `mysql` table functions read sources directly. Pair a queue engine with a materialized view that writes into a MergeTree table. All of these exist on ClickHouse 25.8 (checked in `system.table_engines` and `system.table_functions`).
+- **ClickHouse's own table engines.** These work on any server or service that allows them: `Kafka`, `RabbitMQ` and `NATS` consume from queues, `S3Queue` and `AzureQueue` pick up new files from object storage, and the `s3`, `url`, `postgresql` and `mysql` table functions read sources directly. Pair a queue engine with a [materialized view](/blog/a-guide-to-materialized-views-in-clickhouse) that writes into a MergeTree table. All of these exist on ClickHouse 25.8 (checked in `system.table_engines` and `system.table_functions`).
 - **Kafka Connect.** ClickHouse maintains a Kafka Connect sink ([ClickHouse/clickhouse-kafka-connect](https://github.com/ClickHouse/clickhouse-kafka-connect)) that runs wherever your Kafka Connect cluster does.
 
 ## Altinity.Cloud, Instaclustr and ClickHouse Cloud alternatives
