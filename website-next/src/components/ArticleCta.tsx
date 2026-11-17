@@ -12,7 +12,10 @@ export function ArticleIntroCta({ language }: { language: Language }) {
   const quickStart = QUICK_START[language];
 
   return (
-    <p className="not-prose mt-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-sm leading-6 text-text-muted">
+    <aside
+      aria-label="About hypequery"
+      className="not-prose mt-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-sm leading-6 text-text-muted"
+    >
       <span className="font-semibold text-text">hypequery</span> is an embedded analytics toolkit for ClickHouse: typed
       queries and shared metrics, defined once in your codebase.{' '}
       <Link
@@ -24,7 +27,7 @@ export function ArticleIntroCta({ language }: { language: Language }) {
       >
         Open the quick start <span aria-hidden="true">→</span>
       </Link>
-    </p>
+    </aside>
   );
 }
 

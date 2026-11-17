@@ -7,6 +7,8 @@ import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
 import { WaitlistDialog } from "@/components/home/DeployWaitlist";
 import { CodeCopyTracker } from "@/components/CodeCopyTracker";
+import { MarkdownAlternate } from "@/components/MarkdownAlternate";
+import { HTML_TWIN_PAGES, LAYOUT_ALTERNATE_ROOTS } from "@/lib/markdown-twin";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -154,6 +156,7 @@ export default function RootLayout({
             SearchDialog: DefaultSearchDialog,
           }}
         >
+          <MarkdownAlternate pages={[...HTML_TWIN_PAGES]} roots={LAYOUT_ALTERNATE_ROOTS} origin={siteUrl.origin} />
           {children}
           <WaitlistDialog />
           <CodeCopyTracker />

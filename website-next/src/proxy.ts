@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { wantsMarkdown } from '@/lib/markdown-negotiation';
-import { htmlPathFor, twinFor } from '@/lib/markdown-twin';
+import { htmlPathFor, markdownPathFor, twinFor } from '@/lib/markdown-twin';
 import { siteUrl } from '@/lib/site';
 
 /**
@@ -46,8 +46,15 @@ export function proxy(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  response.headers.set('Link', '</llms.txt>; rel="llms-txt"');
-  if (twin) response.headers.set('Vary', 'Accept, User-Agent');
+  if (twin) {
+    // Advertise the twin on the HTML response too, for agents that read headers
+    // (a HEAD request) before deciding what to fetch.
+    const markdownUrl = new URL(markdownPathFor(pathname), siteUrl).toString();
+    response.headers.set('Link', `</llms.txt>; rel="llms-txt", <${markdownUrl}>; rel="alternate"; type="text/markdown"`);
+    response.headers.set('Vary', 'Accept, User-Agent');
+  } else {
+    response.headers.set('Link', '</llms.txt>; rel="llms-txt"');
+  }
   return response;
 }
 
