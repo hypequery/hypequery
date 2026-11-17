@@ -10,6 +10,16 @@ import { PatternCallout } from '@/components/home/PatternCallout';
 import { CloudWorkflow } from '@/components/home/CloudWorkflow';
 import { RunsWhereYourAppRuns } from '@/components/home/RunsWhereYourAppRuns';
 import { StaticCode } from '@/components/home/StaticCode';
+import { absoluteUrl } from '@/lib/site';
+import type { Metadata } from 'next';
+
+// The canonical must be a string here. Next.js treats a URL object as a base and
+// resolves the route's own pathname against it, which is how pages inherit a
+// self-canonical from the root layout. On Vercel the homepage's pathname is
+// `/index`, so the inherited value rendered as https://hypequery.com/index.
+export const metadata: Metadata = {
+  alternates: { canonical: absoluteUrl('/').toString() },
+};
 
 // The definition behind the explainer diagram: orders, scoped by tenant, joined to customers.
 const MODEL_CODE = `
