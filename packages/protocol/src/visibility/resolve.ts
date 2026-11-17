@@ -1,4 +1,5 @@
-import type { ProtocolDeploymentDataset } from '../deployments/index.js';
+import type { ProtocolDeploymentDataset, ProtocolDeploymentDatasetAnyVersion, ProtocolDeploymentDatasetV3 } from '../deployments/index.js';
+import { expressionReferences } from '../deployments/segments.js';
 import type {
   ProtocolFieldVisibility,
   ProtocolVisibleDatasetFields,
@@ -30,7 +31,7 @@ function measureInputs(measure: object): readonly string[] {
  */
 function joinKeysVisible(
   relationship: ProtocolDeploymentDataset['relationships'][number],
-  dataset: ProtocolDeploymentDataset,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
   visible: ReadonlySet<string>,
   allDimensions: boolean,
 ): boolean {
@@ -71,12 +72,12 @@ function isTimeMeasure(measure: object): boolean {
  *   `min`, `max`, `argMax` or `countDistinct` over a hidden dimension reveals
  *   its values, so list measures explicitly rather than use `*` when a dataset
  *   has any that must stay hidden; `*` also exposes measures added later.
- * - Segments are not narrowed. Deployment contract 2, which this resolves, has
- *   none.
+ * - A contract 3 segment is visible only when every dimension its predicate
+ *   reads is a visible local dimension.
  */
 export function resolveProtocolVisibleDatasetFields(
-  dataset: ProtocolDeploymentDataset,
-  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>,
   visibility: ProtocolFieldVisibility,
 ): ProtocolVisibleDatasetFields | null {
   const entry = Object.hasOwn(visibility.datasets, String(dataset.name))
@@ -100,8 +101,12 @@ export function resolveProtocolVisibleDatasetFields(
     for (const name of visible) dimensions.add(`${String(relationship.name)}.${name}`);
   }
 
+  // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
+  const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
+    ? dataset.allowedFilters
+    : (dataset as ProtocolDeploymentDataset).filters;
   const filters = new Set(
-    dataset.filters
+    allowList
       .filter(filter => dimensions.has(String(filter.field)))
       .map(filter => String(filter.name)),
   );
@@ -124,5 +129,9 @@ export function resolveProtocolVisibleDatasetFields(
   };
   const measures = new Set([...byName.keys()].filter(name => isVisible(name, new Set())));
 
-  return Object.freeze({ dimensions, measures, filters, relationships, timeField });
+  const segments = new Set(((dataset as ProtocolDeploymentDatasetV3).segments ?? [])
+    .filter(segment => expressionReferences(segment.predicate).every(name => local.has(String(name))))
+    .map(segment => String(segment.name)));
+
+  return Object.freeze({ dimensions, measures, filters, relationships, timeField, segments });
 }

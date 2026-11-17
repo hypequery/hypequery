@@ -1,5 +1,7 @@
 import type {
   ProtocolDeploymentDataset,
+  ProtocolDeploymentDatasetAnyVersion,
+  ProtocolDeploymentDatasetV3,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 
@@ -32,10 +34,10 @@ export function concealDimension(dimension: Dimension): Dimension {
  * hidden goes with every field it would contribute; a hidden time field and
  * the defaults that depend on it go. The result is still a valid dataset.
  */
-export function narrowDatasetToVisible(
-  dataset: ProtocolDeploymentDataset,
+export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatasetAnyVersion>(
+  dataset: TDataset,
   visible: ProtocolVisibleDatasetFields,
-): ProtocolDeploymentDataset {
+): TDataset {
   const { defaults, timeField, ...rest } = dataset;
   const defaultDimensions = defaults?.dimensions?.filter(name => visible.dimensions.has(String(name)));
   const narrowedDefaults = {
@@ -52,10 +54,19 @@ export function narrowDatasetToVisible(
     dimensions: dataset.dimensions.map(dimension => (
       visible.dimensions.has(String(dimension.name)) ? dimension : concealDimension(dimension)
     )),
-    measures: dataset.measures.filter(measure => visible.measures.has(String(measure.name))),
-    filters: dataset.filters.filter(filter => visible.filters.has(String(filter.name))),
+    measures: (dataset.measures as readonly { readonly name: unknown }[])
+      .filter(measure => visible.measures.has(String(measure.name))),
+    // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
+    ...('allowedFilters' in dataset && dataset.allowedFilters !== undefined
+      ? { allowedFilters: dataset.allowedFilters.filter(filter => visible.filters.has(String(filter.name))) }
+      : { filters: (dataset as ProtocolDeploymentDataset).filters
+        .filter(filter => visible.filters.has(String(filter.name))) }),
+    ...((dataset as ProtocolDeploymentDatasetV3).segments === undefined ? {} : {
+      segments: (dataset as ProtocolDeploymentDatasetV3).segments!
+        .filter(segment => visible.segments?.has(String(segment.name)) ?? true),
+    }),
     relationships: dataset.relationships.filter(relationship => (
       visible.relationships.has(String(relationship.name))
     )),
-  } as ProtocolDeploymentDataset;
+  } as unknown as TDataset;
 }

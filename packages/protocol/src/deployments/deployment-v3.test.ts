@@ -4,10 +4,15 @@ import { describe, expect, it } from 'vitest';
 import {
   PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
+  prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractAnyVersion,
   prepareProtocolDeploymentContractV3,
   validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractAnyVersion,
+  validateProtocolDeploymentContractAtLowestVersion,
   validateProtocolDeploymentContractV3,
 } from './index.js';
+import { resolveProtocolVisibleDatasetFields, validateProtocolFieldVisibility } from '../visibility/index.js';
 
 interface Case { id: string; value: Record<string, unknown>; error?: string }
 interface IdentityCase { id: string; canonical: string; sha256: string }
@@ -96,5 +101,60 @@ describe('deployment contract 3', () => {
     const [dataset] = validateProtocolDeploymentContractV3(withoutSegments.value).datasets;
     expect('segments' in dataset!).toBe(false);
     expect(dataset!.measures[0]).toMatchObject({ aggregation: 'approxCountDistinct', approximate: true });
+  });
+});
+
+describe('reading contract 2 and 3 together', () => {
+  it('dispatches on version and keeps each version\'s identity domain', () => {
+    const [v2] = v2Success;
+    const [v3] = success;
+    expect(validateProtocolDeploymentContractAnyVersion(v2!.value).version).toBe(2);
+    expect(validateProtocolDeploymentContractAnyVersion(v3!.value).version).toBe(3);
+    expect(prepareProtocolDeploymentContractAnyVersion(v2!.value).identity)
+      .toBe(prepareProtocolDeploymentContract(v2!.value).identity);
+    expect(prepareProtocolDeploymentContractAnyVersion(v3!.value).identity)
+      .toBe(prepareProtocolDeploymentContractV3(v3!.value).identity);
+    // Anything that is not `version: 3` is read, and rejected, as contract 2.
+    expect(code(() => validateProtocolDeploymentContractAnyVersion({ ...v2!.value, version: 4 })))
+      .toBe('HQ_DEPLOYMENT_INVALID_VERSION');
+  });
+
+  it('lowers a contract 3 that no longer uses a contract 3 feature to contract 2', () => {
+    const approximate = success.find(entry => entry.id === 'approx-count-distinct-without-segments')!;
+    const kept = validateProtocolDeploymentContractAtLowestVersion(approximate.value);
+    expect(kept.version).toBe(3);
+
+    const datasets = (approximate.value.datasets as Record<string, unknown>[]).map(dataset => ({
+      ...dataset,
+      measures: (dataset.measures as Record<string, unknown>[])
+        .map(measure => ({ ...measure, aggregation: 'countDistinct', approximate: undefined }))
+        .map(({ approximate: _approximate, ...measure }) => measure),
+      segments: [],
+    }));
+    const lowered = validateProtocolDeploymentContractAtLowestVersion({ ...approximate.value, datasets });
+    expect(lowered.version).toBe(2);
+    const dataset = lowered.datasets[0] as unknown as Record<string, unknown>;
+    expect('allowedFilters' in dataset).toBe(false);
+    expect('segments' in dataset).toBe(false);
+    expect(dataset.filters).toEqual(datasets[0]!.allowedFilters);
+    // Contract 2 input passes through unchanged.
+    expect(validateProtocolDeploymentContractAtLowestVersion(v2Success[0]!.value))
+      .toEqual(validateProtocolDeploymentContract(v2Success[0]!.value));
+  });
+
+  it('hides a segment whose predicate reads a hidden dimension', () => {
+    const segments = success.find(entry => entry.id === 'segments')!;
+    const contract = validateProtocolDeploymentContractV3(segments.value);
+    const dataset = contract.datasets[0]!;
+    const byName = new Map(contract.datasets.map(item => [String(item.name), item]));
+    const policy = (dimensions: string[] | '*') => validateProtocolFieldVisibility({
+      kind: 'hypequery-field-visibility', version: 1,
+      datasets: { [String(dataset.name)]: { dimensions, measures: '*' } },
+    });
+    expect([...resolveProtocolVisibleDatasetFields(dataset, byName, policy('*'))!.segments!]).toEqual(['enterprise']);
+    const withoutTier = dataset.dimensions.map(item => String(item.name)).filter(name => name !== 'tier');
+    expect([...resolveProtocolVisibleDatasetFields(dataset, byName, policy(withoutTier))!.segments!]).toEqual([]);
+    // The renamed allow-list is read like contract 2's.
+    expect([...resolveProtocolVisibleDatasetFields(dataset, byName, policy('*'))!.filters]).toEqual(['status']);
   });
 });

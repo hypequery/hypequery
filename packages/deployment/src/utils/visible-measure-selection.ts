@@ -1,5 +1,5 @@
 import type {
-  ProtocolDeploymentDataset,
+  ProtocolDeploymentDatasetAnyVersion,
   ProtocolSemanticQuery,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
@@ -19,11 +19,11 @@ function isBaseMeasure(measure: object): boolean {
  */
 export function withVisibleDefaultMeasures(
   operation: ProtocolSemanticQuery,
-  dataset: ProtocolDeploymentDataset,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
   visible: ProtocolVisibleDatasetFields | undefined,
 ): ProtocolSemanticQuery {
   if (visible === undefined || operation.kind !== 'dataset' || operation.measures !== undefined) return operation;
-  const base = dataset.measures.filter(isBaseMeasure);
+  const base = (dataset.measures as readonly { readonly name: string }[]).filter(isBaseMeasure);
   const shown = base.filter(measure => visible.measures.has(String(measure.name)));
   if (shown.length === base.length) return operation;
   return Object.freeze({ ...operation, measures: shown.map(measure => joinProtocolQualifiedIdentifier([measure.name])) });

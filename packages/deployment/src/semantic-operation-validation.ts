@@ -9,9 +9,11 @@
 
 import type {
   ProtocolDeploymentDataset,
+  ProtocolDeploymentDatasetAnyVersion,
+  ProtocolDeploymentDatasetV3,
   ProtocolExpression,
+  ProtocolQueryTimeGrain,
   ProtocolSemanticQuery,
-  ProtocolTimeGrain,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 
@@ -29,7 +31,8 @@ export interface SemanticOperationLimits {
   readonly maxFilters: number;
 }
 
-const ALL_GRAINS: readonly ProtocolTimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
+/** Invocation 1 refuses `minute` and `hour` before they reach this check (RFC 0015). */
+const ALL_GRAINS: readonly ProtocolQueryTimeGrain[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'];
 
 interface Resolved {
   /** Dimensions the caller may group by, including one-hop qualified names. */
@@ -38,6 +41,8 @@ interface Resolved {
   readonly filters: ReadonlyMap<string, ReadonlySet<string>>;
   readonly measures: ReadonlySet<string>;
   readonly grains: ReadonlySet<string>;
+  /** Contract 3 segment names a caller may select. */
+  readonly segments: ReadonlySet<string>;
 }
 
 /**
@@ -49,8 +54,8 @@ interface Resolved {
  * contract has no separate filter declaration for a joined field.
  */
 function resolveDataset(
-  dataset: ProtocolDeploymentDataset,
-  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>,
 ): Resolved {
   const groupable = new Set<string>();
   const filters = new Map<string, ReadonlySet<string>>();
@@ -58,7 +63,11 @@ function resolveDataset(
   for (const dimension of dataset.dimensions) {
     if (dimension.groupable) groupable.add(String(dimension.name));
   }
-  for (const filter of dataset.filters) {
+  // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
+  const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
+    ? dataset.allowedFilters
+    : (dataset as ProtocolDeploymentDataset).filters;
+  for (const filter of allowList) {
     filters.set(String(filter.name), new Set(filter.operators));
   }
   for (const relationship of dataset.relationships) {
@@ -83,8 +92,9 @@ function resolveDataset(
   return {
     groupable,
     filters,
-    measures: new Set(dataset.measures.map(measure => String(measure.name))),
+    measures: new Set((dataset.measures as readonly { readonly name: string }[]).map(measure => String(measure.name))),
     grains: new Set(dataset.timeField === undefined ? [] : ALL_GRAINS),
+    segments: new Set(((dataset as ProtocolDeploymentDatasetV3).segments ?? []).map(segment => String(segment.name))),
   };
 }
 
@@ -102,6 +112,9 @@ function narrowResolvedToVisible(allowed: Resolved, visible: ProtocolVisibleData
     ))),
     measures: new Set([...allowed.measures].filter(name => visible.measures.has(name))),
     grains: visible.timeField ? allowed.grains : new Set(),
+    segments: visible.segments === undefined
+      ? allowed.segments
+      : new Set([...allowed.segments].filter(name => visible.segments!.has(name))),
   };
 }
 
@@ -131,8 +144,8 @@ function comparisonField(expression: ProtocolExpression): { field: string; opera
  */
 export function validateSemanticOperation(
   operation: ProtocolSemanticQuery,
-  dataset: ProtocolDeploymentDataset,
-  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>,
   limits: SemanticOperationLimits,
   /** What the principal may see; omitted means everything the contract publishes. */
   visible?: ProtocolVisibleDatasetFields,
@@ -214,6 +227,14 @@ export function validateSemanticOperation(
     }
   });
 
+  // RFC 0015: an unknown segment is refused like an unknown dimension, and a
+  // hidden one reads exactly like an unknown one.
+  (operation.segments ?? []).forEach((name, index) => {
+    if (!allowed.segments.has(String(name))) {
+      fail(`Unknown segment "${String(name)}".`, `$.operation.segments[${index}]`);
+    }
+  });
+
   const orderBy = operation.orderBy ?? [];
   const orderable = new Set<string>([
     ...allowed.groupable,
@@ -253,8 +274,8 @@ export function validateSemanticOperation(
  */
 export function validateSemanticConstraints(
   constraints: readonly ProtocolExpression[],
-  dataset: ProtocolDeploymentDataset,
-  datasets: ReadonlyMap<string, ProtocolDeploymentDataset>,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>,
 ): readonly SemanticOperationViolation[] {
   const violations: SemanticOperationViolation[] = [];
   const allowed = resolveDataset(dataset, datasets);

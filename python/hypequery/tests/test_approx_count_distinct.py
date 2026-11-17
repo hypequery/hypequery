@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Never
+from typing import Any, Never, cast
 
 import pytest
 
@@ -19,7 +19,10 @@ from hypequery.datasets import (
 )
 from hypequery.datasets.catalog import get_dataset_catalog
 from hypequery.datasets.contract import serialize_semantic_contract
-from hypequery.datasets.deployment import build_protocol_deployment_contract
+from hypequery.datasets.deployment import (
+    build_protocol_dataset_contract,
+    build_protocol_deployment_contract,
+)
 from hypequery.datasets.formulas import divide
 
 
@@ -92,6 +95,21 @@ def test_result_columns_are_integers() -> None:
     assert output_column_types(EVENTS, query, REGISTRY) == ("integer", "integer")
 
 
-def test_publishing_is_refused_until_deployment_contract_3() -> None:
-    with pytest.raises(ValueError, match=r"events\.visitors uses approxCountDistinct"):
-        build_protocol_deployment_contract(REGISTRY)
+def test_publishes_as_deployment_contract_3_marked_approximate() -> None:
+    contract = build_protocol_deployment_contract(REGISTRY)
+    assert contract["version"] == 3
+    datasets = cast(list[dict[str, Any]], contract["datasets"])
+    events = {item["name"]: item for item in datasets[0]["measures"]}
+    assert events["visitors"]["aggregation"] == "approxCountDistinct"
+    assert events["visitors"]["approximate"] is True
+    assert events["buyers"]["approximate"] is True
+    assert events["eventsPerVisitor"]["approximate"] is True
+    # Exact measures, and formulas over only exact inputs, carry no marker.
+    assert "approximate" not in events["events"]
+    assert "approximate" not in events["eventsPerEvent"]
+    assert datasets[1]["measures"][0]["approximate"] is True
+
+
+def test_the_standalone_contract_2_snapshot_refuses_it() -> None:
+    with pytest.raises(ValueError, match=r'"events\.visitors" uses approxCountDistinct'):
+        build_protocol_dataset_contract(EVENTS)

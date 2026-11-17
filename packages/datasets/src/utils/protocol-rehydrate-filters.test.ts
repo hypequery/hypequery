@@ -8,6 +8,7 @@ describe('measure filter contract rehydration', () => {
   it.each([
     ['eq', null, null], ['eq', 'US', 'US'],
     ['in', { $hypequery: { type: 'array', version: 1, values: [1, 2] } }, [1, 2]],
+    ['between', { $hypequery: { type: 'tuple', version: 1, values: ['2026-01-01', '2026-01-31'] } }, ['2026-01-01', '2026-01-31']],
     ['eq', { $hypequery: { type: 'timestamp', version: 1, value: '2026-01-01T00:00:00Z' } }, '2026-01-01T00:00:00Z'],
   ])('restores %s authored values', (operator, value, expected) => {
     const expression = { kind: 'comparison', operator, left: { kind: 'reference', name: 'amount' }, right: { kind: 'literal', value } } as ProtocolExpression;

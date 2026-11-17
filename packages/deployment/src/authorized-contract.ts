@@ -15,14 +15,14 @@
 
 import type {
   ProtocolAccessPolicy,
-  ProtocolDeploymentContract,
-  ProtocolDeploymentDataset,
+  ProtocolDeploymentContractAnyVersion,
+  ProtocolDeploymentDatasetAnyVersion,
   ProtocolEndpointPolicy,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import {
   resolveProtocolVisibleDatasetFields,
-  validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractAtLowestVersion,
   validateProtocolFieldVisibility,
 } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
@@ -72,16 +72,18 @@ export function isDeploymentEndpointAuthorized(
  * it.
  */
 function narrowToJoin(
-  dataset: ProtocolDeploymentDataset,
+  dataset: ProtocolDeploymentDatasetAnyVersion,
   reachable: boolean,
   joinable?: ReadonlySet<string>,
-): ProtocolDeploymentDataset {
+): ProtocolDeploymentDatasetAnyVersion {
   // `defaults` describes how to query the dataset directly, which is exactly
-  // what this principal may not do.
+  // what this principal may not do. Segments select rows of a direct query too.
   const { defaults: _defaults, endpoint: _endpoint, ...rest } = dataset;
+  const contract3 = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined;
+  const { segments: _segments, ...withoutSegments } = rest as typeof rest & { segments?: unknown };
   const timeField = dataset.timeField === undefined ? undefined : String(dataset.timeField);
   return {
-    ...rest,
+    ...withoutSegments,
     dimensions: reachable
       ? dataset.dimensions.map(dimension => (
           joinable === undefined || joinable.has(String(dimension.name))
@@ -90,16 +92,17 @@ function narrowToJoin(
         ))
       : dataset.dimensions.filter(dimension => String(dimension.name) === timeField),
     measures: [],
-    filters: [],
-  } as ProtocolDeploymentDataset;
+    ...(contract3 ? { allowedFilters: [] } : { filters: [] }),
+  } as unknown as ProtocolDeploymentDatasetAnyVersion;
 }
 
 export interface AuthorizedDeploymentProjection {
   /**
    * A valid contract narrowed to what the principal may see, including any
-   * dataset retained only to support a join.
+   * dataset retained only to support a join. A contract 3 whose narrowing
+   * leaves no contract 3 feature is returned as contract 2 (RFC 0015).
    */
-  readonly contract: ProtocolDeploymentContract;
+  readonly contract: ProtocolDeploymentContractAnyVersion;
   /**
    * Datasets addressable as a `query_dataset` target, in contract order.
    *
@@ -149,15 +152,17 @@ export interface AuthorizedDeploymentProjectionOptions {
  * read it next.
  */
 export function projectAuthorizedDeploymentContract(
-  contract: ProtocolDeploymentContract,
+  contract: ProtocolDeploymentContractAnyVersion,
   principal: DeploymentDataPlanePrincipal | null,
   options: AuthorizedDeploymentProjectionOptions = {},
 ): AuthorizedDeploymentProjection {
-  const byName = new Map(contract.datasets.map(dataset => [String(dataset.name), dataset]));
+  const byName = new Map<string, ProtocolDeploymentDatasetAnyVersion>(
+    contract.datasets.map(dataset => [String(dataset.name), dataset]),
+  );
   const visibility = options.visibility === undefined
     ? undefined
     : validateProtocolFieldVisibility(options.visibility);
-  const visibleIn = (dataset: ProtocolDeploymentDataset): ProtocolVisibleDatasetFields | null | undefined => (
+  const visibleIn = (dataset: ProtocolDeploymentDatasetAnyVersion): ProtocolVisibleDatasetFields | null | undefined => (
     visibility === undefined
       ? undefined
       : resolveProtocolVisibleDatasetFields(dataset, byName, visibility)
@@ -165,7 +170,7 @@ export function projectAuthorizedDeploymentContract(
 
   // Each published dataset as the principal sees it. Narrowing comes first,
   // because a relationship it drops must not keep its target in the contract.
-  const projected = new Map<string, ProtocolDeploymentDataset>();
+  const projected = new Map<string, ProtocolDeploymentDatasetAnyVersion>();
   for (const dataset of contract.datasets) {
     if (!isDeploymentEndpointAuthorized(dataset.endpoint, principal)) continue;
     const visible = visibleIn(dataset);
@@ -202,7 +207,7 @@ export function projectAuthorizedDeploymentContract(
 
   // What a join may reach on a target: the dimensions its own policy entry
   // shows. A relationship to a target without one was already dropped above.
-  const joinable = (dataset: ProtocolDeploymentDataset) => {
+  const joinable = (dataset: ProtocolDeploymentDatasetAnyVersion) => {
     if (visibility === undefined) return undefined;
     const entry = Object.hasOwn(visibility.datasets, String(dataset.name))
       ? visibility.datasets[String(dataset.name)]
@@ -213,7 +218,7 @@ export function projectAuthorizedDeploymentContract(
       : new Set(entry.dimensions);
   };
 
-  const datasets = contract.datasets
+  const datasets = (contract.datasets as readonly ProtocolDeploymentDatasetAnyVersion[])
     .filter(dataset => required.has(String(dataset.name)))
     .map(dataset => (
       projected.get(String(dataset.name))
@@ -221,7 +226,7 @@ export function projectAuthorizedDeploymentContract(
     ));
 
   return Object.freeze({
-    contract: validateProtocolDeploymentContract({ ...contract, datasets }),
+    contract: validateProtocolDeploymentContractAtLowestVersion({ ...contract, datasets }),
     queryable: Object.freeze(datasets
       .filter(dataset => published.has(String(dataset.name)))
       .map(dataset => String(dataset.name))),

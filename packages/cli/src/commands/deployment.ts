@@ -2,8 +2,8 @@ import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promi
 import path from 'node:path';
 import {
   prepareProtocolDeploymentReleaseEnvelope,
-  prepareProtocolDeploymentContract,
-  type ProtocolDeploymentContract,
+  prepareProtocolDeploymentContractAnyVersion,
+  type ProtocolDeploymentContractAnyVersion,
   type ProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 import {
@@ -47,7 +47,7 @@ export interface PrepareDeploymentReleaseDependencies {
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
 
 /** Name datasets that would show every customer's rows; Cloud asks the same in Customer access. */
-function warnUnscopedTenantCandidates(contract: ProtocolDeploymentContract): void {
+function warnUnscopedTenantCandidates(contract: ProtocolDeploymentContractAnyVersion): void {
   for (const { dataset, columns } of unscopedTenantCandidates(contract)) {
     logger.warn(
       `Dataset "${dataset}" has a customer column (${columns.join(', ')}) but no tenantKey, `
@@ -61,7 +61,7 @@ function warnUnscopedTenantCandidates(contract: ProtocolDeploymentContract): voi
 export async function buildDeploymentCommand(
   sourcePath: string | undefined,
   options: BuildDeploymentOptions = {},
-): Promise<ProtocolDeploymentContract> {
+): Promise<ProtocolDeploymentContractAnyVersion> {
   if (!sourcePath) {
     throw new CliError('USAGE',
       'Missing Cloud publication module path.\n\n'
@@ -76,7 +76,7 @@ export async function buildDeploymentCommand(
     || (Array.isArray(candidate.artifacts) && candidate.artifacts.length > 0)) {
     throw new Error('Cloud publication modules may publish datasets only.');
   }
-  const prepared = prepareProtocolDeploymentContract(contract);
+  const prepared = prepareProtocolDeploymentContractAnyVersion(contract);
   const sourceSnapshot = options.source === false
     ? undefined
     : await captureDeploymentSourceSnapshot(sourcePath);
@@ -131,7 +131,7 @@ export async function buildDeploymentCommand(
 }
 
 function describeContract(
-  contract: ProtocolDeploymentContract,
+  contract: ProtocolDeploymentContractAnyVersion,
 ): string {
   const datasets = `${contract.datasets.length} `
     + `${contract.datasets.length === 1 ? 'dataset' : 'datasets'}`;
@@ -140,7 +140,7 @@ function describeContract(
 
 export async function validateDeploymentCommand(
   artifactPath: string | undefined,
-): Promise<ProtocolDeploymentContract> {
+): Promise<ProtocolDeploymentContractAnyVersion> {
   if (!artifactPath) {
     throw new CliError('USAGE',
       'Missing deployment artifact path.\n\n'
@@ -201,9 +201,9 @@ export async function validateDeploymentCommand(
     );
   }
 
-  let prepared: { readonly contract: ProtocolDeploymentContract; readonly identity: string };
+  let prepared: { readonly contract: ProtocolDeploymentContractAnyVersion; readonly identity: string };
   try {
-    prepared = prepareProtocolDeploymentContract(input);
+    prepared = prepareProtocolDeploymentContractAnyVersion(input);
   } catch (error) {
     throw new CliError('INVALID_INPUT',
       `Invalid deployment contract: ${artifactPath}\n\n`

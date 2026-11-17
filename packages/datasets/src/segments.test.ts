@@ -10,6 +10,7 @@ import { getDatasetCatalog } from './catalog.js';
 import { serializeSemanticContract } from './contract.js';
 import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+import { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
 import { buildDatasetQuerySignature } from './cache/query-signature.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
@@ -218,8 +219,12 @@ describe('segment catalogs and publishing', () => {
     expect(JSON.stringify(agent)).not.toContain('"value"');
   });
 
-  it('refuses to publish a dataset that declares segments', () => {
-    expect(() => buildProtocolDeploymentContract([Accounts, Customers]))
-      .toThrow(/Dataset "accounts" declares segments \(enterprise, large\), which cannot be published yet/);
+  it('publishes segments as contract 3 predicates and rebuilds them', () => {
+    const contract = buildProtocolDeploymentContract([Accounts, Customers]);
+    expect(contract.version).toBe(3);
+    const accounts = contract.datasets.find(item => item.name === 'accounts') as { segments?: readonly { name: string }[] };
+    expect(accounts.segments?.map(segment => segment.name)).toEqual(['enterprise', 'large']);
+    const rebuilt = rehydrateProtocolDeploymentContract(contract).accounts!;
+    expect(rebuilt.segments).toEqual(Accounts.segments);
   });
 });

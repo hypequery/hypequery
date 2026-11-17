@@ -30,7 +30,10 @@ from hypequery.datasets import (
 )
 from hypequery.datasets.catalog import get_dataset_catalog
 from hypequery.datasets.client_contract.fields import public_fields
-from hypequery.datasets.deployment import build_protocol_deployment_contract
+from hypequery.datasets.deployment import (
+    build_protocol_dataset_contract,
+    build_protocol_deployment_contract,
+)
 from hypequery.datasets.formulas import add, divide, null_if_zero
 from hypequery.datasets.planner import CompiledQueryError, plan_dataset_query
 from hypequery.datasets.query_helpers import HavingCondition
@@ -193,11 +196,43 @@ def test_the_catalog_describes_windows_and_shifts() -> None:
     assert "rolling7" in catalog["orderableFields"]
 
 
-def test_client_endpoints_and_deployment_leave_time_measures_out() -> None:
+def test_client_endpoints_leave_time_measures_out() -> None:
     _, measures, _ = public_fields(SALES, None, frozenset())
     assert set(measures) == {"revenue", "buyers"}
-    with pytest.raises(ValueError, match="rolling7"):
-        build_protocol_deployment_contract(create_dataset_registry(SALES))
+
+
+def test_deployment_publishes_time_measures_as_contract_3() -> None:
+    contract = build_protocol_deployment_contract(create_dataset_registry(SALES))
+    assert contract["version"] == 3
+    published = cast(list[dict[str, Any]], contract["datasets"])[0]["measures"]
+    # Base measures by name, then windows and shifts, then derived, as declared.
+    assert [item["name"] for item in published] == [
+        "buyers",
+        "revenue",
+        "rolling7",
+        "monthToDate",
+        "running",
+        "lastWeek",
+        "lastMonth",
+        "weekOverWeek",
+    ]
+    assert published[2] == {
+        "kind": "window",
+        "name": "rolling7",
+        "measure": "revenue",
+        "requiresTimeRange": True,
+        "trailing": {"amount": 7, "unit": "day"},
+    }
+    assert published[4]["cumulative"] is True
+    assert published[6] == {
+        "kind": "shift",
+        "name": "lastMonth",
+        "measure": "revenue",
+        "requiresTimeRange": True,
+        "interval": {"amount": 1, "unit": "month"},
+    }
+    with pytest.raises(ValueError, match=r"shift measures \(lastWeek, lastMonth\)"):
+        build_protocol_dataset_contract(SALES)
 
 
 def _restricted(**options: object) -> Dataset:

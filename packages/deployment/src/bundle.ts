@@ -10,10 +10,10 @@ import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
-  prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractAnyVersion,
   type ProtocolBusinessContext,
   type ProtocolDeploymentBundleManifest,
-  type ProtocolDeploymentContract,
+  type ProtocolDeploymentContractAnyVersion,
 } from '@hypequery/protocol';
 import { deploymentBundleFiles } from './utils/bundle-files.js';
 import { readBoundedFile } from './utils/read-bounded-file.js';
@@ -26,7 +26,7 @@ export interface VerifiedDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
-  readonly contract: ProtocolDeploymentContract;
+  readonly contract: ProtocolDeploymentContractAnyVersion;
   /** Reviewed business context; present only for version 2 bundles. */
   readonly businessContext?: ProtocolBusinessContext;
 }
@@ -201,7 +201,7 @@ export async function verifyDeploymentBundle(
       + (error instanceof Error ? error.message : String(error)),
     );
   }
-  const preparedContract = prepareProtocolDeploymentContract(contractInput);
+  const preparedContract = prepareProtocolDeploymentContractAnyVersion(contractInput);
   if (!Buffer.from(deploymentBytes).equals(Buffer.from(`${preparedContract.canonical}\n`))) {
     throw new Error('Deployment JSON must contain canonical JSON followed by one newline.');
   }

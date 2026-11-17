@@ -62,11 +62,13 @@ describe('shift measures', () => {
   it('does not apply the rolling fanout limit to large shifts', () => {
     expect(client.validate(withInterval({ amount: 1001, unit: 'day' }), { by: 'day', measures: ['prior'], filters }).valid).toBe(true);
   });
-  it('rejects relationship traversal, the frozen backend, and contract 2 publishing', () => {
+  it('rejects relationship traversal and the frozen backend, and publishes as contract 3', () => {
     expect(client.validate(Events, { by: 'month', measures: ['customer.prior'], filters }).valid).toBe(false);
     const backend = createDatasetClient({ backend: createInMemoryBackend({ events: [] }) });
     expect(() => backend.execute(Events, { by: 'month', measures: ['prior'], filters })).toThrow(/queryBuilder execution path/);
-    expect(() => buildProtocolDeploymentContract([Events])).toThrow(/shift measures.*need deployment contract 3/);
+    const contract = buildProtocolDeploymentContract([Events]);
+    expect(contract.version).toBe(3);
+    expect(contract.datasets[0]!.measures.filter(item => 'kind' in item && item.kind === 'shift').length).toBeGreaterThan(0);
   });
   it('exposes kind, interval, approximation and range requirements in catalogs and agents', () => {
     const ds = dataset('estimated', { source: 'events', timeKey: 'time', dimensions: Events.dimensions,

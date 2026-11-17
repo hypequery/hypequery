@@ -59,7 +59,9 @@ def test_shared_deployment_authoring_fixture() -> None:
     expected = json.loads((ROOT / "specs/datasets/common-authoring-v1.json").read_text())
     actual = build_protocol_deployment_contract(create_dataset_registry(orders()))
     assert actual == expected
-    assert actual["version"] == MATRIX["cloudDeploymentVersion"]
+    # The lowest-version rule keeps this contract 2; Cloud executes up to its version.
+    assert actual["version"] == 2
+    assert actual["version"] <= MATRIX["cloudDeploymentVersion"]
 
 
 @pytest.mark.parametrize("entry", MATRIX["features"], ids=lambda entry: entry["feature"])
@@ -73,19 +75,18 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             orders(), query, context=ExecutionContext(tenant=tenant("acme"))
         )
         assert "SUM" in compiled.sql.upper()
-        assert support["local"] is True
+        assert support == {"local": True, "publish": True}
+        contract = build_protocol_deployment_contract(create_dataset_registry(orders()))
+        # A time-enabled dataset with no grain restriction publishes as
+        # contract 2 and accepts every grain once published.
+        assert contract["version"] == 2
         if feature == "subDayGrains":
             assert "toStartOfHour" in compiled.sql
-            # A time-enabled definition can be published, but invocation v1
-            # cannot request its local sub-day grain.
+            # Invocation 1 cannot request a sub-day grain; extension 2 can.
             operation = {"kind": "dataset", "dataset": "orders", "by": "hour"}
             with pytest.raises(ProtocolExpressionError):
                 validate_protocol_semantic_query(operation)
             validate_protocol_semantic_query(operation, extension=2)
-            assert support["publish"] is False
-        else:
-            build_protocol_deployment_contract(create_dataset_registry(orders()))
-            assert support["publish"] is True
         return
 
     if feature == "derivedMeasures":
@@ -103,7 +104,8 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             context=ExecutionContext(tenant=tenant("acme")),
         )
         assert "sum(`__hq_base`.`amount`) + sum(`__hq_base`.`amount`)" in compiled.sql
-        build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
+        contract = build_protocol_deployment_contract(create_dataset_registry(derived_dataset))
+        assert contract["version"] == 2
         assert support == {"local": True, "publish": True}
         return
     if feature == "approxCountDistinct":
@@ -121,10 +123,10 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             context=ExecutionContext(tenant=tenant("acme")),
         )
         assert "uniq(`__hq_base`.`status`)" in compiled.sql
-        # Approximate aggregations need deployment contract 3 (RFC 0015).
-        with pytest.raises(ValueError, match="approxCountDistinct"):
-            build_protocol_deployment_contract(create_dataset_registry(approximate))
-        assert support == {"local": True, "publish": False}
+        # Approximate aggregations publish as deployment contract 3 (RFC 0015).
+        contract = build_protocol_deployment_contract(create_dataset_registry(approximate))
+        assert contract["version"] == 3
+        assert support == {"local": True, "publish": True}
         return
     if feature == "segments":
         ds = orders()
@@ -142,10 +144,10 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
             context=ExecutionContext(tenant=tenant("acme")),
         )
         assert "`__hq_base`.`status` = " in compiled.sql
-        # Segments need deployment contract 3 (RFC 0015).
-        with pytest.raises(ValueError, match="segments"):
-            build_protocol_deployment_contract(create_dataset_registry(segmented))
-        assert support == {"local": True, "publish": False}
+        # Segments publish as deployment contract 3 (RFC 0015).
+        contract = build_protocol_deployment_contract(create_dataset_registry(segmented))
+        assert contract["version"] == 3
+        assert support == {"local": True, "publish": True}
         return
     probes: dict[str, tuple[str, WindowMeasure | ShiftMeasure]] = {
         "windowMeasures": ("rolling", measure.trailing("revenue", 7, "day")),
@@ -172,10 +174,10 @@ def test_python_feature_support(entry: dict[str, object]) -> None:
         context=ExecutionContext(tenant=tenant("acme")),
     )
     assert compiled.sql.startswith("WITH ")
-    # Window and shift measures need deployment contract 3 (RFC 0015).
-    with pytest.raises(ValueError, match=name):
-        build_protocol_deployment_contract(create_dataset_registry(timed))
-    assert support == {"local": True, "publish": False}
+    # Window and shift measures publish as deployment contract 3 (RFC 0015).
+    contract = build_protocol_deployment_contract(create_dataset_registry(timed))
+    assert contract["version"] == 3
+    assert support == {"local": True, "publish": True}
 
 
 def test_protocol_v3_acceptance_does_not_imply_python_authoring_support() -> None:

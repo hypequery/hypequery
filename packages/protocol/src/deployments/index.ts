@@ -6,10 +6,12 @@ export {
   encodeProtocolDeploymentContractToString,
   hashProtocolDeploymentContract,
   prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractAnyVersion,
   prepareProtocolDeploymentContractV3,
 } from './codec.js';
 export type {
   PreparedProtocolDeploymentContract,
+  PreparedProtocolDeploymentContractAnyVersion,
   PreparedProtocolDeploymentContractV3,
 } from './codec.js';
 export { DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS } from './limits.js';
@@ -19,6 +21,8 @@ export {
   checkProtocolDeploymentContractV3,
   validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractAnyVersion,
+  validateProtocolDeploymentContractAtLowestVersion,
   validateProtocolDeploymentContractV3,
 } from './validate.js';
 
@@ -44,6 +48,8 @@ export type {
   ProtocolSemanticSensitivity,
   ProtocolDeploymentContract,
   ProtocolDeploymentContractV3,
+  ProtocolDeploymentContractAnyVersion,
+  ProtocolDeploymentDatasetAnyVersion,
   ProtocolDeploymentDatasetV3,
   ProtocolDeploymentMeasureV3,
   ProtocolDatasetDerivedMeasureV3,

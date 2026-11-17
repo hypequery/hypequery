@@ -1,14 +1,15 @@
 /**
  * Aggregations that the published deployment contract can carry.
  *
- * `approxCountDistinct` runs locally, but it is an expression extension 2 and
- * deployment contract 3 feature (RFC 0015). Publishing emits contract 2 until
- * it can emit contract 3, so it refuses the measure with an error naming it.
+ * `approxCountDistinct` is an expression extension 2 and deployment contract 3
+ * feature (RFC 0015). A deployment carries it as a contract 3 measure; the
+ * standalone dataset contract and published metrics stay on contract 2 and
+ * refuse it with an error naming it.
  * `merge` is a deployment measure with its state function (RFC 0022), but the
  * expression grammar has no merge aggregate, so a metric over one is refused.
  */
 
-import type { ProtocolAggregation, ProtocolDatasetMeasure } from '@hypequery/protocol';
+import type { ProtocolAggregation, ProtocolDatasetMeasureV3 } from '@hypequery/protocol';
 import type { AggregationType } from '../types.js';
 
 type PortableAggregation = Exclude<ProtocolAggregation, 'approxCountDistinct'>;
@@ -19,19 +20,23 @@ function refuseApproximate(
 ): asserts aggregation is Exclude<AggregationType, 'approxCountDistinct'> {
   if (aggregation === 'approxCountDistinct') {
     throw new Error(
-      `${owner} uses approxCountDistinct, which cannot be published yet: approximate aggregations ` +
-      'need deployment contract 3 (RFC 0015). Use it for local queries, or publish countDistinct instead.',
+      `${owner} uses approxCountDistinct, which cannot be published here: approximate aggregations ` +
+      'need deployment contract 3 (RFC 0015). Publish it as a dataset measure, or use countDistinct here.',
     );
   }
 }
 
-/** A dataset measure's aggregation as the contract carries it; otherwise throws naming `owner`. */
+/**
+ * A dataset measure's aggregation as the contract carries it; otherwise throws
+ * naming `owner`. Contract 3 carries `approxCountDistinct`; contract 2 does not.
+ */
 export function requirePublishableMeasureAggregation(
   aggregation: AggregationType,
   owner: string,
-): ProtocolDatasetMeasure['aggregation'] {
-  refuseApproximate(aggregation, owner);
-  return aggregation as ProtocolDatasetMeasure['aggregation'];
+  contractVersion: 2 | 3 = 2,
+): ProtocolDatasetMeasureV3['aggregation'] {
+  if (contractVersion === 2) refuseApproximate(aggregation, owner);
+  return aggregation as ProtocolDatasetMeasureV3['aggregation'];
 }
 
 /** Returns `aggregation` when an expression can carry it; otherwise throws naming `owner`. */

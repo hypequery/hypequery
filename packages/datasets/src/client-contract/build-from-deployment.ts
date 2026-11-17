@@ -1,7 +1,7 @@
 import {
   prepareProtocolClientContract,
   type PreparedProtocolClientContract,
-  type ProtocolDeploymentContract,
+  type ProtocolDeploymentContractAnyVersion,
   type ProtocolDeploymentDataset,
 } from '@hypequery/protocol';
 import { PORTABLE_TIME_GRAINS } from '../utils/portable-grains.js';
@@ -115,9 +115,18 @@ function endpointDescriptor(
  * relationship fields yet.
  */
 export function buildClientContract(
-  contract: ProtocolDeploymentContract,
+  contract: ProtocolDeploymentContractAnyVersion,
   options: BuildClientContractOptions = {},
 ): PreparedProtocolClientContract {
+  if (contract.version === 3) {
+    // Client contract 1 has no field for segments, window and shift measures'
+    // time-range requirement, or sub-day grains, so it would advertise a
+    // schema that rejects valid requests. Refuse rather than mislead.
+    throw new Error(
+      'Client export: this deployment is contract 3 (segments, window or shift measures, '
+      + 'approxCountDistinct, or sub-day grains), which client contracts do not describe yet.',
+    );
+  }
   const { mountPath } = options;
   if (mountPath && (!mountPath.startsWith('/') || mountPath.endsWith('/'))) {
     throw new Error('Client export: mountPath must be empty or an absolute path without a trailing slash.');

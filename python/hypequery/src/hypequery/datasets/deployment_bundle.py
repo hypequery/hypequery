@@ -1,9 +1,10 @@
 """Prepare and write deterministic dataset deployment bundles.
 
-A bundle carries the deployment contract and, optionally, reviewed business
-context. With context it is a version 2 bundle with `business-context.json`;
-without it (or with an empty document) it stays version 1, so adding no context
-never changes a bundle's identity. The files, manifest and identities follow the
+A bundle carries the deployment contract (version 2, or 3 when a dataset uses a
+contract 3 feature) and, optionally, reviewed business context. With context it
+is a version 2 bundle with `business-context.json`; without it (or with an empty
+document) it stays version 1, so adding no context never changes a bundle's
+identity. The files, manifest and identities follow the
 same rules as the TypeScript CLI's deployment bundles.
 """
 
@@ -23,7 +24,7 @@ from hypequery.protocol import (
     is_empty_protocol_business_context,
     prepare_protocol_business_context,
     prepare_protocol_deployment_bundle_manifest,
-    prepare_protocol_deployment_contract,
+    prepare_protocol_deployment_contract_any_version,
 )
 
 from .deployment import build_protocol_deployment_contract
@@ -72,7 +73,9 @@ def prepare_dataset_bundle(
     """
 
     contract = build_protocol_deployment_contract(registry, endpoints=endpoints)
-    prepared = prepare_protocol_deployment_contract(contract)
+    # A contract 3 deployment is identified in its own domain; a contract 2 one
+    # keeps the identity it had before contract 3 existed.
+    prepared = prepare_protocol_deployment_contract_any_version(contract)
     deployment_bytes = prepared.contract_bytes + b"\n"
     context = _business_context(business_context)
     context_bytes = None if context is None else context.context_bytes + b"\n"

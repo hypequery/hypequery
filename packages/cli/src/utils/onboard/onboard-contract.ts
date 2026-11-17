@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { prepareProtocolDeploymentContract, type ProtocolDeploymentContract } from '@hypequery/protocol';
+import { prepareProtocolDeploymentContract, type ProtocolDeploymentContract, type ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { CliError } from '../cli-error.js';
 import { verifyDeploymentBundle } from '../deployment-bundle.js';
 import { loadModule } from '../load-api.js';
@@ -22,6 +22,15 @@ const isDataset = (value: unknown): value is { __type: 'dataset'; name: string }
 
 const isContract = (value: unknown): value is ProtocolDeploymentContract =>
   typeof value === 'object' && value !== null && (value as { kind?: unknown }).kind === 'hypequery-deployment';
+
+/** Onboarding checks read contract 2 fields; a contract 3 is refused by name rather than misread. */
+function contract2(contract: ProtocolDeploymentContractAnyVersion): ProtocolDeploymentContract {
+  if (contract.version === 3) {
+    throw new Error('onboard check reads deployment contract 2; this deployment uses contract 3 features '
+      + '(segments, window or shift measures, approxCountDistinct, or a sub-day default grain).');
+  }
+  return contract;
+}
 
 function invalid(source: string, detail: string): CliError {
   return new CliError('INVALID_INPUT', `Can't read datasets from ${source}: ${detail}`, {
@@ -43,9 +52,9 @@ async function contractFromDatasets(file: string, datasets: Record<string, unkno
     throw invalid(path.relative(process.cwd(), file), '@hypequery/datasets is not installed in this project.');
   }
   const { publishToCloud } = await import(/* @vite-ignore */ pathToFileURL(entry).href) as {
-    publishToCloud: (options: { datasets: Record<string, unknown>; access: { roles: string[]; scopes: string[] } }) => ProtocolDeploymentContract;
+    publishToCloud: (options: { datasets: Record<string, unknown>; access: { roles: string[]; scopes: string[] } }) => ProtocolDeploymentContractAnyVersion;
   };
-  return publishToCloud({ datasets, access: { roles: [], scopes: [] } });
+  return contract2(publishToCloud({ datasets, access: { roles: [], scopes: [] } }));
 }
 
 /**
@@ -67,7 +76,7 @@ export async function loadOnboardContract(source: string | undefined, cwd = proc
 
   if (info.isDirectory()) {
     try {
-      return { source: file, kind: 'bundle', contract: (await verifyDeploymentBundle(file)).contract };
+      return { source: file, kind: 'bundle', contract: contract2((await verifyDeploymentBundle(file)).contract) };
     } catch (error) {
       throw invalid(chosen, error instanceof Error ? error.message : String(error));
     }
@@ -82,7 +91,13 @@ export async function loadOnboardContract(source: string | undefined, cwd = proc
 
   const module = await loadModule(file) as Record<string, unknown>;
   const publication = [module.cloud, module.default].find(isContract);
-  if (publication) return { source: file, kind: 'publication', contract: publication };
+  if (publication) {
+    try {
+      return { source: file, kind: 'publication', contract: contract2(publication as ProtocolDeploymentContractAnyVersion) };
+    } catch (error) {
+      throw invalid(chosen, error instanceof Error ? error.message : String(error));
+    }
+  }
   const datasets = Object.fromEntries(Object.entries(module).filter(([, value]) => isDataset(value)));
   if (Object.keys(datasets).length === 0) {
     throw invalid(chosen, 'it exports no datasets and no `cloud` publication.');

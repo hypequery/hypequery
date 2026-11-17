@@ -13,9 +13,9 @@ import {
   isEmptyProtocolBusinessContext,
   prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
-  type PreparedProtocolDeploymentContract,
+  type PreparedProtocolDeploymentContractAnyVersion,
   type ProtocolBusinessContext,
-  type ProtocolDeploymentContract,
+  type ProtocolDeploymentContractAnyVersion,
   type ProtocolDeploymentBundleManifest,
 } from '@hypequery/protocol';
 import {
@@ -55,7 +55,7 @@ export interface WrittenDeploymentBundle {
   readonly directory: string;
   readonly manifest: ProtocolDeploymentBundleManifest;
   readonly identity: string;
-  readonly contract: ProtocolDeploymentContract;
+  readonly contract: ProtocolDeploymentContractAnyVersion;
   /** Business context written into the bundle; absent for a v1 bundle. */
   readonly businessContext?: ProtocolBusinessContext;
 }
@@ -136,7 +136,7 @@ function validateSourceSnapshot(
 
 export async function writeDeploymentBundle(
   outputDirectory: string,
-  prepared: PreparedProtocolDeploymentContract,
+  prepared: PreparedProtocolDeploymentContractAnyVersion,
   sourceSnapshot?: DeploymentBundleSourceSnapshot,
   businessContextInput?: ProtocolBusinessContext,
 ): Promise<WrittenDeploymentBundle> {

@@ -199,5 +199,5 @@ must divide the interval evenly: 7 days works at `day` or `week`, but not `month
 the result limit and 1,000 buckets per row, and it cannot use `having`. Results match TypeScript row for row; both
 SDKs run the shared corpus in `specs/datasets/time-measures-corpus-v1.json`.
 
-Window and shift measures are not advertised to [client endpoints](/docs/python/client-endpoints), and publishing a
-dataset that defines them needs deployment contract 3.
+Window and shift measures are not advertised to [client endpoints](/docs/python/client-endpoints). A deployment
+bundle that includes them is written as deployment contract 3, which hypequery Cloud executes.

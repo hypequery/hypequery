@@ -10,6 +10,7 @@ import { getDatasetCatalog } from './catalog.js';
 import { serializeSemanticContract } from './contract.js';
 import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
+import { buildProtocolDatasetContract } from './protocol-adapter.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 function sqlFactory(options: { approx?: boolean } = {}): QueryBuilderFactoryLike {
@@ -134,8 +135,16 @@ describe('approximate marker', () => {
 });
 
 describe('publishing approxCountDistinct', () => {
-  it('refuses the measure with an actionable error until contract 3 is emitted', () => {
-    expect(() => buildProtocolDeploymentContract([Events]))
-      .toThrow(/Measure "events\.visitors" uses approxCountDistinct, which cannot be published yet/);
+  it('publishes the measure as contract 3 with its approximate marker', () => {
+    const contract = buildProtocolDeploymentContract([Events]);
+    expect(contract.version).toBe(3);
+    const measures = contract.datasets[0]!.measures as readonly { name: string; aggregation?: string; approximate?: true }[];
+    expect(measures.find(item => item.name === 'visitors')).toMatchObject({ aggregation: 'approxCountDistinct', approximate: true });
+    expect(measures.find(item => item.name === 'events')).not.toHaveProperty('approximate');
+  });
+
+  it('keeps refusing it in the contract 2 dataset snapshot', () => {
+    expect(() => buildProtocolDatasetContract(Events))
+      .toThrow(/Measure "events\.visitors" uses approxCountDistinct, which cannot be published here/);
   });
 });

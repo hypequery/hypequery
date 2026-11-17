@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseProtocolIdentifier, validateProtocolDeploymentContractV3 } from '@hypequery/protocol';
+import { parseProtocolIdentifier, parseProtocolQualifiedIdentifier, validateProtocolDeploymentContractV3 } from '@hypequery/protocol';
 import capabilitySource from './execution-capabilities.json' with { type: 'json' };
-import { add, between, buildProtocolDeploymentContract, createDatasetClient, createPortableSemanticRuntime, DATASET_EXECUTION_CAPABILITIES, dataset, dimension, eq, measure, publishToCloud, rehydrateProtocolDeploymentContract } from './index.js';
+import { add, between, buildProtocolDeploymentContract, createDatasetClient, createPortableSemanticRuntime, DATASET_EXECUTION_CAPABILITIES, dataset, dimension, eq, measure, publishToCloud, rehydrateProtocolDeploymentContract, UnsupportedContractFeatureError } from './index.js';
 import type { DatasetQuery, DatasetMeasureDefinition } from './types.js';
 import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
 
@@ -18,9 +18,14 @@ function featureDataset(feature: string) {
     dimensions: { amount: dimension.number(), status: dimension.string(), createdAt: dimension.timestamp() },
     measures,
     ...(feature === 'segments' ? { segments: { paid: { filters: [eq('status', 'paid')] } } } : {}),
-    ...(feature === 'subDayGrains' ? { timeGrains: ['minute', 'hour'] as const } : {}),
   });
 }
+
+/** What each feature leaves in the compiled SQL, so a probe cannot pass by ignoring it. */
+const SQL_MARKERS: Record<string, string> = {
+  baseMeasures: 'SUM(', derivedMeasures: 'SUM(', segments: "'paid'", windowMeasures: 'WITH',
+  shiftMeasures: 'WITH', approxCountDistinct: 'uniq(', subDayGrains: 'toStartOfHour',
+};
 
 describe('dataset execution capability matrix', () => {
   const features = DATASET_EXECUTION_CAPABILITIES.features;
@@ -50,32 +55,51 @@ describe('dataset execution capability matrix', () => {
     expect(() => client.compileDataset(ds, query)).not.toThrow();
     expect(entry.typescript.local).toBe(true);
     const publish = () => publishToCloud({ datasets: { orders: ds }, access: { roles: [], scopes: [] } });
-    if (!entry.typescript.publish) {
-      expect(publish).toThrow();
-      expect(entry.cloud).toBe(false);
-    } else {
-      const deployment = publish();
-      expect(deployment.version).toBe(DATASET_EXECUTION_CAPABILITIES.cloudDeploymentVersion);
-      const runtime = createPortableSemanticRuntime({ queryBuilder: factory });
-      const input = {
-        deployment, dataset: deployment.datasets[0]!, tenant: undefined,
-        operation: { kind: 'dataset' as const, dataset: deployment.datasets[0]!.name, measures: query.measures?.map(parseProtocolIdentifier) },
-        activationRevision: 'a'.repeat(64), budget: { maxRows: 100 },
-      };
-      const compiled = runtime.compile(input);
-      expect(compiled.describe().measures).toEqual(query.measures);
-      expect((await runtime.execute(input)).activationRevision).toBe(input.activationRevision);
-      expect(entry.cloud).toBe(true);
-    }
+    expect(entry.typescript.publish).toBe(true);
+    expect(entry.cloud).toBe(true);
+    const deployment = publish();
+    // Lowest-version rule: contract 3 only when the dataset needs it.
+    expect(deployment.version).toBe(entry.protocolVersions.includes(2) || entry.feature === 'subDayGrains' ? 2 : 3);
+    expect(deployment.version).toBeLessThanOrEqual(DATASET_EXECUTION_CAPABILITIES.cloudDeploymentVersion);
+    expect(Object.keys(rehydrateProtocolDeploymentContract(deployment))).toEqual(['orders']);
+    const runtime = createPortableSemanticRuntime({ queryBuilder: factory });
+    const operation = {
+      kind: 'dataset' as const,
+      dataset: deployment.datasets[0]!.name,
+      measures: query.measures?.map(parseProtocolIdentifier),
+      ...(query.segments ? { segments: query.segments.map(parseProtocolIdentifier) } : {}),
+      ...(query.by ? { by: query.by } : {}),
+      ...(entry.feature === 'windowMeasures' || entry.feature === 'shiftMeasures' ? {
+        filters: [{
+          kind: 'comparison' as const, operator: 'between' as const,
+          left: { kind: 'reference' as const, name: parseProtocolQualifiedIdentifier('createdAt') },
+          right: { kind: 'literal' as const, value: { $hypequery: { type: 'tuple', version: 1, values: ['2026-01-01', '2026-01-03'] } } },
+        }],
+      } : {}),
+    };
+    const input = {
+      deployment, dataset: deployment.datasets[0]!, tenant: undefined,
+      operation: operation as never,
+      activationRevision: 'a'.repeat(64), budget: { maxRows: 100 },
+    };
+    const compiled = runtime.compile(input);
+    expect(compiled.describe().measures).toEqual(query.measures);
+    if (entry.feature === 'segments') expect(compiled.describe().segments).toEqual(['paid']);
+    expect(compiled.sql).toContain(SQL_MARKERS[entry.feature]);
+    expect((await runtime.execute(input)).activationRevision).toBe(input.activationRevision);
   });
 
-  it('does not advertise v3 protocol acceptance as executable Cloud support', () => {
-    const fixtures = JSON.parse(readFileSync(new URL('../../../specs/security-protocol/fixtures/deployments-v3/success.json', import.meta.url), 'utf8')) as { value: unknown }[];
+  it('keeps v3 conformance fixtures that a local segment can express rehydratable', () => {
+    const fixtures = JSON.parse(readFileSync(new URL('../../../specs/security-protocol/fixtures/deployments-v3/success.json', import.meta.url), 'utf8')) as { id: string; value: unknown }[];
     for (const fixture of fixtures) {
       expect(() => validateProtocolDeploymentContractV3(fixture.value)).not.toThrow();
-      expect(() => rehydrateProtocolDeploymentContract(fixture.value)).toThrow();
+      // `not` and `or` segment predicates have no local segment form (decision 0005).
+      if (fixture.id === 'segment-logical-predicate') {
+        expect(() => rehydrateProtocolDeploymentContract(fixture.value)).toThrow(UnsupportedContractFeatureError);
+      } else {
+        expect(() => rehydrateProtocolDeploymentContract(fixture.value)).not.toThrow();
+      }
     }
-    for (const entry of features.filter(entry => entry.protocolVersions.includes(3) && !entry.protocolVersions.includes(2))) expect(entry.cloud).toBe(false);
   });
 
   it('exports the same common deployment as Python authoring', () => {

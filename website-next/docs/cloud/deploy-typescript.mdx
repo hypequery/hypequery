@@ -33,6 +33,8 @@ export const cloud = publishToCloud({
 
 `publishToCloud` makes no network request. It only builds the contract that the CLI uploads.
 
+Segments, window and shift measures, `approxCountDistinct`, and a `minute` or `hour` default grain are published as deployment contract 3. A deployment that uses none of them stays on contract 2, so its identity does not change. Every published dataset with a `timeKey` can be grouped by any grain, `minute` through `year`. A deployment contract cannot carry a `timeGrains` restriction, so a dataset that sets one must list all seven grains or stay local.
+
 ## 2. Log in
 
 <CodeBlock>

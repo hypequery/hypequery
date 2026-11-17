@@ -22,6 +22,7 @@ import type {
 import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
 import { assertPublishableTimeGrains, isPortableTimeGrain, requirePortableTimeGrain } from './utils/portable-grains.js';
 import { requirePublishableMeasureAggregation } from './utils/portable-aggregations.js';
+import { isApproximateBaseMeasure } from './utils/approximate-measures.js';
 import { assertNoPublishedSegments } from './utils/segments.js';
 
 export interface BuildProtocolDatasetContractOptions {
@@ -114,12 +115,15 @@ function requiredSqlDependencies(
 /**
  * Converts one Dataset instance into a validated local dataset snapshot.
  * Deployment assembly selects the fields supported by the deployment contract.
+ *
+ * The snapshot is contract 2 shaped, so it refuses every contract 3 feature by
+ * name. `buildProtocolDeploymentContract` emits those as contract 3.
  */
 export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
-  const { base: baseMeasures, windows, shifts } = splitDatasetMeasures(dataset.measures);
+  const { windows, shifts } = splitDatasetMeasures(dataset.measures);
   const shiftMeasureNames = Object.keys(shifts);
   if (shiftMeasureNames.length) throw new Error(`Dataset "${dataset.name}" shift measures (${shiftMeasureNames.join(', ')}) need deployment contract 3 (RFC 0015).`);
   const windowMeasureNames = Object.keys(windows);
@@ -129,6 +133,26 @@ export function buildProtocolDatasetContract(
     );
   }
   assertNoPublishedSegments(dataset);
+  // Reuse the protocol validator for strict identifiers, expression limits,
+  // and a deeply immutable return value. Cross-dataset references are checked
+  // by the containing deployment validator.
+  return validateProtocolDatasetContract(protocolDatasetRecord(dataset, options, 2));
+}
+
+/**
+ * The unvalidated dataset body both contract versions share: dimensions, base
+ * measures, the filter allow-list (as `filters`), relationships and limits.
+ * At contract 3, base measures may be `approxCountDistinct` and carry the
+ * `approximate` marker, and `defaults.timeGrain` may be sub-day. Window,
+ * shift and derived measures and segments are added by the deployment
+ * adapter, which also renames `filters` for contract 3.
+ */
+export function protocolDatasetRecord(
+  dataset: AnyDatasetInstance,
+  options: BuildProtocolDatasetContractOptions,
+  contractVersion: 2 | 3,
+): ProtocolDatasetContract {
+  const { base: baseMeasures } = splitDatasetMeasures(dataset.measures);
   assertPublishableTimeGrains(dataset);
   if (dataset.limits?.maxStreamRows !== undefined) {
     // The contract's limits cannot carry it, so a deployment would quietly
@@ -167,10 +191,12 @@ export function buildProtocolDatasetContract(
               : {}),
             ...(dataset.defaults.timeGrain !== undefined
               ? {
-                  timeGrain: requirePortableTimeGrain(
-                    dataset.defaults.timeGrain,
-                    `Dataset "${dataset.name}" defaults.timeGrain`,
-                  ),
+                  timeGrain: contractVersion === 3
+                    ? dataset.defaults.timeGrain
+                    : requirePortableTimeGrain(
+                      dataset.defaults.timeGrain,
+                      `Dataset "${dataset.name}" defaults.timeGrain`,
+                    ),
                 }
               : {}),
           },
@@ -198,7 +224,11 @@ export function buildProtocolDatasetContract(
     })).sort(byName),
     measures: Object.entries(baseMeasures).map(([name, measure]) => ({
       name,
-      aggregation: requirePublishableMeasureAggregation(measure.aggregation, `Measure "${dataset.name}.${name}"`),
+      aggregation: requirePublishableMeasureAggregation(
+        measure.aggregation,
+        `Measure "${dataset.name}.${name}"`,
+        contractVersion,
+      ),
       field: measure.field,
       ...(measure.stateFunction !== undefined ? { stateFunction: measure.stateFunction } : {}),
       ...(measure.argField !== undefined ? { argField: measure.argField } : {}),
@@ -213,6 +243,7 @@ export function buildProtocolDatasetContract(
           }
         : {}),
       filters: (measure.filters ?? []).map(filterExpression),
+      ...(contractVersion === 3 && isApproximateBaseMeasure(measure) ? { approximate: true as const } : {}),
       ...(measure.label !== undefined ? { label: measure.label } : {}),
       ...(measure.description !== undefined ? { description: measure.description } : {}),
       ...toProtocolSemanticMetadata(measure),
@@ -256,8 +287,5 @@ export function buildProtocolDatasetContract(
     ...(options.endpoint !== undefined ? { endpoint: options.endpoint } : {}),
   };
 
-  // Reuse the protocol validator for strict identifiers, expression limits,
-  // and a deeply immutable return value. Cross-dataset references are checked
-  // by the containing deployment validator.
-  return validateProtocolDatasetContract(contract);
+  return contract as unknown as ProtocolDatasetContract;
 }
