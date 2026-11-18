@@ -363,7 +363,11 @@ export default function EmbeddableAlternativesPage() {
                 <Link href="/tinybird-alternative" className={inlineLink}>
                   Tinybird alternatives
                 </Link>
-                .
+                , or{' '}
+                <Link href="/compare/clickhouse-cloud-vs-tinybird" className={inlineLink}>
+                  ClickHouse Cloud vs Tinybird
+                </Link>{' '}
+                for the pricing side by side.
               </p>
             </Option>
             <Option name="Apache Superset">
