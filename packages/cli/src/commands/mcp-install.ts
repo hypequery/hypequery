@@ -10,6 +10,7 @@ import {
 } from '../utils/agent-config/clients.js';
 import { AgentConfigError, editJsonServer, type JsonEditOutcome } from '../utils/agent-config/json-config.js';
 import { codexEntry } from '../utils/agent-config/codex.js';
+import { codeWithoutComments } from '../utils/agent-config/code-without-comments.js';
 import { runExecutable, type CommandRun } from '../utils/agent-config/run-command.js';
 import {
   CONFIGURED_BY_VALUE,
@@ -82,7 +83,9 @@ async function datasetsHaveTenantKey(): Promise<boolean> {
   const file = await findDatasetsFile();
   if (!file) return false;
   const source = await readFile(file, 'utf8').catch(() => '');
-  return /\btenant(Key|_key)\s*[:=]/.test(source);
+  // Only a real setting counts: a commented-out example (the onboarding
+  // skill shows `// tenantKey: 'account_id'`) or text in a string does not.
+  return /\btenant(Key|_key)\s*[:=]/.test(codeWithoutComments(source));
 }
 
 function parseScope(value: string | undefined, hosted: boolean): AgentScope {

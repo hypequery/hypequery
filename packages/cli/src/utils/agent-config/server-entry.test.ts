@@ -58,3 +58,15 @@ describe('Windows shims', () => {
     expect(codexEntry('hypequery\n  command: node')).toBeUndefined();
   });
 });
+
+describe('code without comments', () => {
+  it('drops comments and string contents, so only a real tenantKey setting matches', async () => {
+    const { codeWithoutComments } = await import('./code-without-comments.js');
+    const tenant = (source: string) => /\btenant(Key|_key)\s*[:=]/.test(codeWithoutComments(source));
+    expect(tenant("dataset('orders', {\n  // tenantKey: 'account_id',   // only if the user named this column\n  source: 'orders',\n})")).toBe(false);
+    expect(tenant("/* tenantKey: 'x' */ const a = 1;")).toBe(false);
+    expect(tenant("const url = 'https://x//tenantKey: y'; const b = `tenantKey: ${1}`;")).toBe(false);
+    expect(tenant("dataset('orders', { tenantKey: 'account_id' })")).toBe(true);
+    expect(tenant("const s = '//'; export const d = { tenantKey: 't' };")).toBe(true);
+  });
+});
