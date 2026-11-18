@@ -15,7 +15,8 @@ export interface DatasetFeatureSupport {
 
 export interface DatasetExecutionCapabilities {
   readonly version: 1;
-  readonly cloudDeploymentVersion: 2;
+  /** The highest deployment contract version Cloud executes; producers still emit 2 when they can. */
+  readonly cloudDeploymentVersion: 3;
   readonly features: readonly DatasetFeatureSupport[];
 }
 
@@ -26,7 +27,7 @@ export interface DatasetExecutionCapabilities {
  */
 export const DATASET_EXECUTION_CAPABILITIES: DatasetExecutionCapabilities = Object.freeze({
   version: 1,
-  cloudDeploymentVersion: 2,
+  cloudDeploymentVersion: 3,
   features: Object.freeze(matrix.features.map(entry => Object.freeze({
     feature: entry.feature as DatasetFeature,
     protocolVersions: Object.freeze([...entry.protocolVersions]),

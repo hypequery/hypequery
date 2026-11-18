@@ -308,6 +308,12 @@ export interface ProtocolDeploymentContractV3 {
   readonly datasets: readonly ProtocolDeploymentDatasetV3[];
 }
 
+/** A deployment contract of any version a contract 3 consumer reads. */
+export type ProtocolDeploymentContractAnyVersion = ProtocolDeploymentContract | ProtocolDeploymentContractV3;
+
+/** A dataset of a contract 2 or contract 3 deployment. */
+export type ProtocolDeploymentDatasetAnyVersion = ProtocolDeploymentDataset | ProtocolDeploymentDatasetV3;
+
 export interface ProtocolDeploymentLimits {
   readonly maxDatasets: number;
   readonly maxDatasetItems: number;

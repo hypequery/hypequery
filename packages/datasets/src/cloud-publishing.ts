@@ -1,4 +1,4 @@
-import { type ProtocolDeploymentContract, type ProtocolEndpointPolicy } from '@hypequery/protocol';
+import { type ProtocolDeploymentContractAnyVersion, type ProtocolEndpointPolicy } from '@hypequery/protocol';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import type { AnyDatasetInstance } from './types.js';
 import { collectCloudDatasets } from './utils/collect-cloud-datasets.js';
@@ -36,7 +36,7 @@ export interface CloudPublishingOptions {
  * This function performs no network request and requires no Serve API.
  * Export its result as `cloud` from the deployment entrypoint.
  */
-export function publishToCloud(options: CloudPublishingOptions): ProtocolDeploymentContract {
+export function publishToCloud(options: CloudPublishingOptions): ProtocolDeploymentContractAnyVersion {
   const entries = Object.entries(options.datasets);
   if (entries.length === 0) throw new Error('Cloud publishing requires at least one dataset.');
   if (!options.access || !Array.isArray(options.access.roles)

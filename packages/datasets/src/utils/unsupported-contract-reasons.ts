@@ -25,6 +25,8 @@ export const UNSUPPORTED_CONTRACT_REASONS = {
   relationshipTargetMissing: 'HQ_PORTABLE_RELATIONSHIP_TARGET_MISSING',
   /** An invocation filter is not a field/operator/literal comparison. */
   queryFilterNotComparison: 'HQ_PORTABLE_QUERY_FILTER_NOT_COMPARISON',
+  /** A segment predicate is not an `and` of field/operator/literal comparisons. */
+  segmentPredicateNotConjunction: 'HQ_PORTABLE_SEGMENT_PREDICATE_NOT_CONJUNCTION',
   /** The invoked dataset is not part of the activated contract. */
   datasetNotActivated: 'HQ_PORTABLE_DATASET_NOT_ACTIVATED',
 } as const;

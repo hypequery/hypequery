@@ -101,6 +101,7 @@ from .deployment_codec import (
     encode_protocol_deployment_contract_to_string,
     hash_protocol_deployment_contract,
     prepare_protocol_deployment_contract,
+    prepare_protocol_deployment_contract_any_version,
     prepare_protocol_deployment_contract_v3,
 )
 from .deployment_primitives import (
@@ -110,6 +111,7 @@ from .deployment_primitives import (
 from .deployments import (
     validate_protocol_dataset_contract,
     validate_protocol_deployment_contract,
+    validate_protocol_deployment_contract_any_version,
     validate_protocol_deployment_contract_v3,
 )
 from .errors import (
@@ -432,6 +434,7 @@ __all__ = [
     "prepare_protocol_client_contract",
     "prepare_protocol_deployment_bundle_manifest",
     "prepare_protocol_deployment_contract",
+    "prepare_protocol_deployment_contract_any_version",
     "prepare_protocol_deployment_contract_v3",
     "prepare_protocol_deployment_release_envelope",
     "query_implementation_to_data",
@@ -450,6 +453,7 @@ __all__ = [
     "validate_protocol_dataset_contract",
     "validate_protocol_deployment_bundle_manifest",
     "validate_protocol_deployment_contract",
+    "validate_protocol_deployment_contract_any_version",
     "validate_protocol_deployment_contract_v3",
     "validate_protocol_deployment_release_envelope",
     "validate_protocol_deployment_release_target",

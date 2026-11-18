@@ -12,11 +12,12 @@
  */
 
 import type {
-  ProtocolDeploymentContract,
-  ProtocolDeploymentDataset,
+  ProtocolDeploymentContractAnyVersion,
+  ProtocolDeploymentDatasetAnyVersion,
   ProtocolEndpointPolicy,
   ProtocolExpression,
   ProtocolSemanticInvocation,
+  ProtocolSemanticInvocationV2,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
   ProtocolVisibleDatasetFields,
@@ -24,10 +25,11 @@ import type {
 import {
   ProtocolSemanticInvocationError,
   resolveProtocolVisibleDatasetFields,
-  validateProtocolDeploymentContract,
+  validateProtocolDeploymentContractAnyVersion,
   validateProtocolExpression,
   validateProtocolFieldVisibility,
   validateProtocolSemanticInvocation,
+  validateProtocolSemanticInvocationV2,
   validateProtocolSemanticInvocationResult,
 } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
@@ -53,23 +55,23 @@ export interface DeploymentSemanticBudget {
 
 export interface DeploymentSemanticAuthenticationInput {
   readonly credentials: unknown;
-  readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDeploymentDataset;
+  readonly invocation: ProtocolSemanticInvocation | ProtocolSemanticInvocationV2;
+  readonly dataset: ProtocolDeploymentDatasetAnyVersion;
 }
 
 /** What a provider callback knows about the call it resolves context for. */
 export interface DeploymentSemanticContextInput {
   readonly principal: DeploymentDataPlanePrincipal | null;
-  readonly invocation: ProtocolSemanticInvocation;
-  readonly dataset: ProtocolDeploymentDataset;
+  readonly invocation: ProtocolSemanticInvocation | ProtocolSemanticInvocationV2;
+  readonly dataset: ProtocolDeploymentDatasetAnyVersion;
 }
 
 /** The input `resolveTenant` receives; the same as every context resolver's. */
 export type DeploymentSemanticTenantInput = DeploymentSemanticContextInput;
 
 export interface DeploymentSemanticExecutionInput {
-  readonly deployment: ProtocolDeploymentContract;
-  readonly dataset: ProtocolDeploymentDataset;
+  readonly deployment: ProtocolDeploymentContractAnyVersion;
+  readonly dataset: ProtocolDeploymentDatasetAnyVersion;
   readonly operation: ProtocolSemanticQuery;
   readonly principal: DeploymentDataPlanePrincipal | null;
   /**
@@ -90,7 +92,7 @@ export interface DeploymentSemanticInvocationRequest {
 }
 
 export interface DeploymentSemanticDataPlaneOptions {
-  readonly deployment: ProtocolDeploymentContract;
+  readonly deployment: ProtocolDeploymentContractAnyVersion;
   /** The immutable generation this data plane serves. */
   readonly activationRevision: string;
   readonly authenticate?: (
@@ -138,12 +140,17 @@ const REVISION_PATTERN = /^[0-9a-f]{64}$/;
 /** Provider constraints are policy, not queries; a handful per call is plenty. */
 const MAX_CONSTRAINTS = 32;
 
+function isInvocation2(input: unknown): boolean {
+  return typeof input === 'object' && input !== null && (input as { version?: unknown }).version === 2;
+}
+
 export function createDeploymentSemanticDataPlane(
   options: DeploymentSemanticDataPlaneOptions,
 ): DeploymentSemanticDataPlane {
-  let deployment: ProtocolDeploymentContract;
+  let deployment: ProtocolDeploymentContractAnyVersion;
   try {
-    deployment = validateProtocolDeploymentContract(options.deployment);
+    // A contract 3 consumer keeps accepting contract 2 (RFC 0015).
+    deployment = validateProtocolDeploymentContractAnyVersion(options.deployment);
   } catch (error) {
     throw new DeploymentSemanticInvocationError(
       'configuration-invalid',
@@ -156,14 +163,16 @@ export function createDeploymentSemanticDataPlane(
     throw new RangeError('activationRevision must be a lowercase SHA-256 identity');
   }
 
-  const datasets = new Map(deployment.datasets.map(entry => [String(entry.name), entry]));
+  const datasets = new Map<string, ProtocolDeploymentDatasetAnyVersion>(
+    deployment.datasets.map(entry => [String(entry.name), entry]),
+  );
   // Spreading `options.limits` directly would let an explicitly `undefined`
   // property erase a default ceiling, and an undefined bound compares false
   // against everything. A caller that omits a limit gets the default.
   const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...definedLimits(options.limits) };
 
   function resolveTarget(operation: ProtocolSemanticQuery): {
-    dataset: ProtocolDeploymentDataset;
+    dataset: ProtocolDeploymentDatasetAnyVersion;
     endpoint: ProtocolEndpointPolicy;
   } {
     // A metric target cannot be served: the contract has no field that could
@@ -198,9 +207,13 @@ export function createDeploymentSemanticDataPlane(
   ): Promise<ProtocolSemanticInvocationResult> {
     throwIfAborted(request.signal);
 
-    let invocation: ProtocolSemanticInvocation;
+    let invocation: ProtocolSemanticInvocation | ProtocolSemanticInvocationV2;
     try {
-      invocation = validateProtocolSemanticInvocation(request.invocation);
+      // Invocation 2 (RFC 0015) carries segments and sub-day grains; a request
+      // that uses neither is invocation 1, and each validator enforces that.
+      invocation = isInvocation2(request.invocation)
+        ? validateProtocolSemanticInvocationV2(request.invocation)
+        : validateProtocolSemanticInvocation(request.invocation);
     } catch (error) {
       fail('input-invalid', 'HQ_SEMANTIC_INVOCATION_INVALID', 'The invocation record is invalid.', {
         path: error instanceof ProtocolSemanticInvocationError ? error.path : undefined,

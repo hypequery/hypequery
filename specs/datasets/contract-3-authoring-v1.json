@@ -1,0 +1,335 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 3,
+  "datasets": [
+    {
+      "name": "events",
+      "source": "analytics.events",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "dimensions": [
+        {
+          "name": "amount",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "amount"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "occurredAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "occurredAt"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "plan",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "plan"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "status"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "userId"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "revenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": []
+        },
+        {
+          "name": "visitors",
+          "aggregation": "approxCountDistinct",
+          "field": "userId",
+          "filters": [],
+          "approximate": true,
+          "label": "Visitors"
+        },
+        {
+          "kind": "window",
+          "name": "revenue7d",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "trailing": {
+            "amount": 7,
+            "unit": "day"
+          }
+        },
+        {
+          "kind": "window",
+          "name": "revenueMtd",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "toDate": "month"
+        },
+        {
+          "kind": "window",
+          "name": "revenueRunning",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "cumulative": true
+        },
+        {
+          "kind": "window",
+          "name": "visitors7d",
+          "measure": "visitors",
+          "requiresTimeRange": true,
+          "trailing": {
+            "amount": 7,
+            "unit": "day"
+          },
+          "approximate": true
+        },
+        {
+          "kind": "shift",
+          "name": "revenuePriorWeek",
+          "measure": "revenue",
+          "requiresTimeRange": true,
+          "interval": {
+            "amount": 1,
+            "unit": "week"
+          }
+        },
+        {
+          "kind": "derived",
+          "name": "revenueGrowth",
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            },
+            {
+              "alias": "revenuePriorWeek",
+              "measure": "revenuePriorWeek"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "binary",
+              "operator": "subtract",
+              "left": {
+                "kind": "reference",
+                "name": "revenue"
+              },
+              "right": {
+                "kind": "reference",
+                "name": "revenuePriorWeek"
+              }
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "revenuePriorWeek"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "kind": "derived",
+          "name": "revenuePerVisitor",
+          "uses": [
+            {
+              "alias": "revenue",
+              "measure": "revenue"
+            },
+            {
+              "alias": "visitors",
+              "measure": "visitors"
+            }
+          ],
+          "expression": {
+            "kind": "binary",
+            "operator": "divide",
+            "left": {
+              "kind": "reference",
+              "name": "revenue"
+            },
+            "right": {
+              "kind": "call",
+              "function": "nullIfZero",
+              "args": [
+                {
+                  "kind": "reference",
+                  "name": "visitors"
+                }
+              ]
+            }
+          },
+          "approximate": true
+        }
+      ],
+      "allowedFilters": [
+        {
+          "name": "amount",
+          "field": "amount",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "occurredAt",
+          "field": "occurredAt",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "plan",
+          "field": "plan",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "status",
+          "field": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        },
+        {
+          "name": "userId",
+          "field": "userId",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "notIn",
+            "between",
+            "like"
+          ]
+        }
+      ],
+      "relationships": [],
+      "segments": [
+        {
+          "name": "bigPaid",
+          "predicate": {
+            "kind": "logical",
+            "operator": "and",
+            "operands": [
+              {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "status"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": "paid"
+                }
+              },
+              {
+                "kind": "comparison",
+                "operator": "gte",
+                "left": {
+                  "kind": "reference",
+                  "name": "amount"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "enterprise",
+          "predicate": {
+            "kind": "comparison",
+            "operator": "eq",
+            "left": {
+              "kind": "reference",
+              "name": "plan"
+            },
+            "right": {
+              "kind": "literal",
+              "value": "enterprise"
+            }
+          },
+          "description": "Enterprise plan"
+        }
+      ],
+      "timeField": "occurredAt"
+    }
+  ]
+}

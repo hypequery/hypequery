@@ -5,8 +5,10 @@ import path from 'node:path';
 import {
   prepareProtocolBusinessContext,
   prepareProtocolDeploymentBundleManifest,
-  prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentContractAnyVersion,
+  prepareProtocolDeploymentContractV3,
 } from '@hypequery/protocol';
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   DEPLOYMENT_BUNDLE_BUSINESS_CONTEXT,
@@ -63,7 +65,7 @@ async function writeBundle(
   temporaryDirectories.push(parent);
   const directory = path.join(parent, 'bundle');
   await mkdir(directory);
-  const prepared = prepareProtocolDeploymentContract(contract);
+  const prepared = prepareProtocolDeploymentContractAnyVersion(contract);
   const deploymentBytes = new TextEncoder().encode(options.nonCanonicalDeployment
     ? `${JSON.stringify(prepared.contract, null, 2)}\n`
     : `${prepared.canonical}\n`);
@@ -119,6 +121,18 @@ describe('deployment bundle verification', () => {
 
     expect(verified.contract.version).toBe(2);
     expect(verified.contract.datasets.map(entry => entry.name)).toEqual(['orders']);
+  });
+
+  it('reads a contract 3 bundle under the contract 3 identity (RFC 0015)', async () => {
+    const contract3 = JSON.parse(readFileSync(
+      new URL('../../../specs/datasets/contract-3-authoring-v1.json', import.meta.url), 'utf8',
+    ));
+    const directory = await writeBundle(contract3);
+
+    const verified = await verifyDeploymentBundle(directory);
+
+    expect(verified.contract.version).toBe(3);
+    expect(verified.manifest.deployment.identity).toBe(prepareProtocolDeploymentContractV3(contract3).identity);
   });
 
   it('refuses runtime artifacts in a deployment bundle', async () => {

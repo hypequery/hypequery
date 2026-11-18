@@ -1315,6 +1315,58 @@ export function checkProtocolDeploymentContract(
   return collectErrors(issues => deploymentContract(validateContract(input, limits, 2, issues)));
 }
 
+/**
+ * True when `input` is an object that declares `version: 3`. Anything else is
+ * read as contract 2, so its validator reports the version error.
+ */
+export function isContract3Envelope(input: unknown): boolean {
+  return typeof input === 'object' && input !== null && !Array.isArray(input)
+    && (input as { readonly version?: unknown }).version === 3;
+}
+
+/**
+ * Validate a deployment contract 2 or 3, selected by its `version`. Consumers
+ * that support contract 3 must keep accepting contract 2 (RFC 0015); this is
+ * the reader for them.
+ */
+export function validateProtocolDeploymentContractAnyVersion(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentContract | ProtocolDeploymentContractV3 {
+  return isContract3Envelope(input)
+    ? validateProtocolDeploymentContractV3(input, options)
+    : validateProtocolDeploymentContract(input, options);
+}
+
+/**
+ * Validate a contract 2 or 3 and return it at the lowest version that can
+ * express it (RFC 0015). A contract 3 that no longer uses any contract 3
+ * feature, such as one narrowed for a principal or edited down, comes back as
+ * contract 2: `allowedFilters` becomes `filters`, and the `approximate` marker
+ * and an empty `segments` go. Anything else is returned as validated.
+ */
+export function validateProtocolDeploymentContractAtLowestVersion(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): ProtocolDeploymentContract | ProtocolDeploymentContractV3 {
+  if (!isContract3Envelope(input)) return validateProtocolDeploymentContract(input, options);
+  const limits = resolveDeploymentLimits(options);
+  const datasets = validateContract(input, limits, 3) as unknown as readonly ProtocolDeploymentDatasetV3[];
+  if (datasets.some(usesContract3Feature)) return deploymentContractV3(datasets as never);
+  return validateProtocolDeploymentContract({
+    kind: 'hypequery-deployment',
+    version: 2,
+    datasets: datasets.map(({ allowedFilters, segments: _segments, measures, ...rest }) => ({
+      ...rest,
+      filters: allowedFilters,
+      measures: measures.map(measure => {
+        const { approximate: _approximate, ...plain } = measure as typeof measure & { approximate?: true };
+        return plain;
+      }),
+    })),
+  }, options);
+}
+
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
 function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
   return (dataset.segments?.length ?? 0) > 0

@@ -35,7 +35,8 @@ function fromCanonicalValue(value: unknown, unsupported: () => Error): unknown {
   const tagged = (value as { $hypequery?: { type?: string; values?: unknown[]; value?: unknown } })
     .$hypequery;
   if (tagged === undefined) throw unsupported();
-  if (tagged.type === 'array') {
+  // `in`/`notIn` carry an array; `between` carries a two-item tuple.
+  if (tagged.type === 'array' || tagged.type === 'tuple') {
     return (tagged.values ?? []).map(item => fromCanonicalValue(item, unsupported));
   }
   if (tagged.value === undefined) throw unsupported();

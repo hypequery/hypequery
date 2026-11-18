@@ -1,12 +1,12 @@
 import {
   validateProtocolBusinessContext,
   type ProtocolBusinessContext,
-  type ProtocolDeploymentContract,
+  type ProtocolDeploymentContractAnyVersion,
 } from '@hypequery/protocol';
 import { loadModule } from './load-api.js';
 
 export interface LoadedCloudPublication {
-  readonly contract: ProtocolDeploymentContract;
+  readonly contract: ProtocolDeploymentContractAnyVersion;
   /** Present only when the module exports `defineCloudPublication({ businessContext })`. */
   readonly businessContext?: ProtocolBusinessContext;
 }
@@ -27,7 +27,7 @@ export async function loadCloudPublication(sourcePath: string): Promise<LoadedCl
   const cloud: unknown = module.cloud ?? module.default;
 
   if (hasKind(cloud, 'hypequery-deployment')) {
-    return { contract: cloud as unknown as ProtocolDeploymentContract };
+    return { contract: cloud as unknown as ProtocolDeploymentContractAnyVersion };
   }
 
   if (hasKind(cloud, 'hypequery-cloud-publication')) {
@@ -48,7 +48,7 @@ export async function loadCloudPublication(sourcePath: string): Promise<LoadedCl
         + '`deployment` must be the result of `publishToCloud({ datasets, access })`.',
       );
     }
-    const contract = publication.deployment as unknown as ProtocolDeploymentContract;
+    const contract = publication.deployment as unknown as ProtocolDeploymentContractAnyVersion;
     if (publication.businessContext === undefined) return { contract };
     let businessContext: ProtocolBusinessContext;
     try {

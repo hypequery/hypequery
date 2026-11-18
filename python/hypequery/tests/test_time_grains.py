@@ -77,23 +77,16 @@ def test_allowed_grains_reach_catalog_contract_and_planner() -> None:
     # The current wire contract cannot carry this restriction; never silently drop it.
     with pytest.raises(
         ValueError,
-        match=r'Dataset "events" time_grains excludes week, quarter, year.*cannot preserve',
+        match=r'Dataset "events" time_grains excludes minute, hour, week, quarter, year.*cannot '
+        r"preserve",
     ):
         build_protocol_dataset_contract(ds)
 
 
-@pytest.mark.parametrize(
-    "grains",
-    [
-        ("day", "week", "month", "quarter", "year"),
-        ("minute", "hour", "day", "week", "month", "quarter", "year"),
-    ],
-)
-def test_a_policy_covering_every_portable_grain_publishes_unchanged(
-    grains: tuple[str, ...],
-) -> None:
-    # Mirrors TypeScript's "publishes an explicit grain list when it includes every
-    # portable grain": contract 2 then loses nothing a deployment could serve.
+def test_a_policy_covering_every_grain_publishes_unchanged() -> None:
+    # A published dataset accepts every grain, so only a list of all of them
+    # publishes; it then loses nothing a deployment could serve.
+    grains = ("minute", "hour", "day", "week", "month", "quarter", "year")
     restricted = Dataset.model_validate({**events().model_dump(), "time_grains": grains})
     unrestricted = Dataset.model_validate({**events().model_dump(), "time_grains": None})
     assert build_protocol_dataset_contract(restricted) == build_protocol_dataset_contract(
@@ -166,3 +159,11 @@ def test_shared_grain_fixture() -> None:
         else:
             with pytest.raises(ValueError, match="cannot preserve dataset-level grain"):
                 build_protocol_dataset_contract(ds)
+
+
+def test_a_day_through_year_policy_is_refused() -> None:
+    # Contract 3 deployments accept sub-day grains, so omitting them would be widened.
+    grains = ("day", "week", "month", "quarter", "year")
+    ds = Dataset.model_validate({**events().model_dump(), "time_grains": grains})
+    with pytest.raises(ValueError, match=r"excludes minute, hour, but deployment contracts"):
+        build_protocol_dataset_contract(ds)

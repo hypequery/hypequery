@@ -30,6 +30,12 @@ export interface ProtocolVisibleDatasetFields {
   readonly relationships: ReadonlySet<string>;
   /** Whether the dataset's time field may be grouped by (`by`). */
   readonly timeField: boolean;
+  /**
+   * Contract 3 segments whose predicate reads only visible local dimensions.
+   * Selecting a segment filters by its dimensions, so one over a hidden
+   * dimension would let a caller probe it. Absent before contract 3.
+   */
+  readonly segments?: ReadonlySet<string>;
 }
 
 export type ProtocolFieldVisibilityErrorCode = 'HQ_VISIBILITY_INVALID' | 'HQ_VISIBILITY_TOO_LARGE';

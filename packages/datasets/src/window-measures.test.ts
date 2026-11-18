@@ -156,12 +156,12 @@ describe('RFC 0015 window measure authoring', () => {
     })).not.toThrow();
   });
 
-  it('requires bounded time ranges and refuses contract 2 publishing', () => {
+  it('requires bounded time ranges and publishes as contract 3', () => {
     const ds = orders({ revenue: measure.sum('amount'), runningRevenue: measure.cumulative('revenue') });
     const client = createDatasetClient({ queryBuilder: createRenderingBuilderFactory() });
     expect(client.validate(ds, { measures: ['runningRevenue'], by: 'day' }).errors)
       .toContain('Window measures require exactly one bounded time range: between, or gt/gte with lt/lte, using ISO timestamps.');
-    expect(() => buildProtocolDeploymentContract([ds])).toThrow(/need deployment contract 3/);
+    expect(buildProtocolDeploymentContract([ds]).version).toBe(3);
 
     const withGrowth = dataset('orders', {
       source: 'orders', timeKey: 'createdAt',

@@ -138,12 +138,12 @@ describe('dataset timeGrains', () => {
 });
 
 describe('publishing sub-day grains', () => {
-  it('refuses restrictions contract 2 cannot preserve across publication', () => {
+  it('refuses restrictions no contract can preserve across publication', () => {
     expect(() => buildProtocolDeploymentContract([DailyOnly]))
-      .toThrow(/Dataset "daily" timeGrains excludes week, quarter, year.*cannot preserve dataset-level grain restrictions/);
+      .toThrow(/Dataset "daily" timeGrains excludes minute, hour, week, quarter, year.*cannot preserve dataset-level grain restrictions/);
   });
 
-  it('publishes an explicit grain list when it includes every portable grain', () => {
+  it('publishes an explicit grain list only when it includes every grain', () => {
     const PortableEvents = dataset('portableEvents', {
       source: 'events',
       timeKey: 'created_at',
@@ -155,10 +155,10 @@ describe('publishing sub-day grains', () => {
       buildProtocolDeploymentContract([PortableEvents]),
     ));
     expect(getDatasetCatalog(published!).supportedGrains)
-      .toEqual(['day', 'week', 'month', 'quarter', 'year']);
+      .toEqual(['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']);
   });
 
-  it('refuses a sub-day default grain with an actionable error', () => {
+  it('publishes a sub-day default grain as contract 3', () => {
     const HourlyDefault = dataset('hourly', {
       source: 'events',
       timeKey: 'created_at',
@@ -166,8 +166,13 @@ describe('publishing sub-day grains', () => {
       dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }) },
       measures: { events: measure.count('id') },
     });
-    expect(() => buildProtocolDeploymentContract([HourlyDefault]))
-      .toThrow(/Dataset "hourly" defaults\.timeGrain uses the "hour" time grain, which cannot be published yet/);
+    const contract = buildProtocolDeploymentContract([HourlyDefault]);
+    expect(contract.version).toBe(3);
+    expect(contract.datasets[0]!.defaults).toEqual({ timeGrain: 'hour' });
+    expect(Object.values(rehydrateProtocolDeploymentContract(contract))[0]!.defaults).toEqual({ timeGrain: 'hour' });
+    // The contract 2 dataset snapshot still cannot carry it.
+    expect(() => buildProtocolDatasetContract(HourlyDefault))
+      .toThrow(/Dataset "hourly" defaults\.timeGrain uses the "hour" time grain, which cannot be published here/);
   });
 
   it('refuses a metric pinned to a sub-day grain and advertises only portable grains', () => {
@@ -184,12 +189,16 @@ describe('publishing sub-day grains', () => {
     expect(contract.metrics[0]!.grains).toEqual(['day', 'month', 'quarter', 'week', 'year']);
   });
 
-  it('keeps rehydrated datasets to the grains the published contract carries', () => {
-    const [published] = Object.values(rehydrateProtocolDeploymentContract(
-      buildProtocolDeploymentContract([Events]),
-    ));
-    expect(getDatasetCatalog(published!).supportedGrains).toEqual(['day', 'week', 'month', 'quarter', 'year']);
+  it('lets rehydrated datasets bucket by every grain, sub-day included', () => {
+    const contract = buildProtocolDeploymentContract([Events]);
+    // Grains are a query concern: a dataset with no other contract 3 feature stays contract 2.
+    expect(contract.version).toBe(2);
+    const [published] = Object.values(rehydrateProtocolDeploymentContract(contract));
+    expect(getDatasetCatalog(published!).supportedGrains)
+      .toEqual(['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']);
     const client = createDatasetClient({ queryBuilder: sqlFactory() });
-    expect(client.validate(published!, { measures: ['events'], by: 'hour' }).valid).toBe(false);
+    expect(client.validate(published!, { measures: ['events'], by: 'hour' }).valid).toBe(true);
+    expect(client.compileDataset(published!, { measures: ['events'], by: 'hour' }).sql)
+      .toBe(client.compileDataset(Events, { measures: ['events'], by: 'hour' }).sql);
   });
 });

@@ -65,15 +65,16 @@ export function normalizeSegments(
 }
 
 /**
- * Publishing emits deployment contract 2, which cannot carry segments
- * (RFC 0015), so a dataset that declares them is refused by name.
+ * The standalone dataset contract is contract 2 shaped and cannot carry
+ * segments (RFC 0015), so a dataset that declares them is refused by name.
+ * Deployments carry them as contract 3.
  */
 export function assertNoPublishedSegments(ds: Pick<AnyDatasetInstance, 'name' | 'segments'>): void {
   const names = Object.keys(ds.segments ?? {});
   if (names.length > 0) {
     throw new Error(
-      `Dataset "${ds.name}" declares segments (${names.join(', ')}), which cannot be published yet: ` +
-      'segments need deployment contract 3 (RFC 0015). Use them for local queries until publishing emits contract 3.',
+      `Dataset "${ds.name}" declares segments (${names.join(', ')}), which a dataset contract cannot carry: ` +
+      'segments need deployment contract 3 (RFC 0015). Publish the dataset in a deployment instead.',
     );
   }
 }

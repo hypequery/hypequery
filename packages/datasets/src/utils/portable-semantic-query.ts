@@ -41,6 +41,10 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
       ? { measures: operation.measures.map(String) }
       : {}),
     ...(filters.length > 0 ? { filters } : {}),
+    // RFC 0015: the rebuilt dataset resolves each name and rejects unknown ones.
+    ...(operation.segments === undefined || operation.segments.length === 0
+      ? {}
+      : { segments: operation.segments.map(String) }),
     ...(orderBy.length > 0 ? { orderBy } : {}),
     // An omitted limit becomes the budget, so a caller cannot ask for an
     // unbounded scan by leaving it out.

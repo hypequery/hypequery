@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from ._jcs import serialize_jcs
 from .deployment_primitives import DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS, ProtocolDeploymentLimits
 from .deployments import (
+    is_contract_3_envelope,
     validate_protocol_deployment_contract,
     validate_protocol_deployment_contract_v3,
 )
@@ -54,6 +55,23 @@ def prepare_protocol_deployment_contract_v3(
 
     contract = validate_protocol_deployment_contract_v3(value, limits=limits)
     return _identify(contract, PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN)
+
+
+def prepare_protocol_deployment_contract_any_version(
+    value: object,
+    *,
+    limits: ProtocolDeploymentLimits = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+) -> PreparedProtocolDeploymentContract:
+    """Validate, encode and identify a deployment contract 2 or 3, selected by ``version``.
+
+    Each version keeps its own identity domain, so a contract 2 artifact keeps
+    the identity it had before contract 3 existed. Mirrors TypeScript's
+    ``prepareProtocolDeploymentContractAnyVersion``.
+    """
+
+    if is_contract_3_envelope(value):
+        return prepare_protocol_deployment_contract_v3(value, limits=limits)
+    return prepare_protocol_deployment_contract(value, limits=limits)
 
 
 def _identify(contract: dict[str, object], domain: str) -> PreparedProtocolDeploymentContract:

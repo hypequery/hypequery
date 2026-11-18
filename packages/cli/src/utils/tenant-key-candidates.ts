@@ -1,4 +1,4 @@
-import type { ProtocolDeploymentContract } from '@hypequery/protocol';
+import type { ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 
 // Kept in step with Cloud's customer-scope review, so the CLI and onboarding flag the same columns.
 const CANDIDATE_NAMES = new Set([
@@ -27,7 +27,7 @@ export interface UnscopedTenantCandidate {
   readonly columns: readonly string[];
 }
 
-type Dataset = ProtocolDeploymentContract['datasets'][number];
+type Dataset = ProtocolDeploymentContractAnyVersion['datasets'][number];
 
 const lastSegment = (name: string) => name.slice(name.lastIndexOf('.') + 1);
 
@@ -57,7 +57,7 @@ function ownColumns(dataset: Dataset): string[] {
   return [
     ...dataset.dimensions.flatMap(sourceColumns),
     ...dataset.measures.flatMap((measure) => 'field' in measure ? resolve(String(measure.field)) : []),
-    ...dataset.filters.flatMap((filter) => resolve(String(filter.field))),
+    ...(dataset.filters ?? ('allowedFilters' in dataset ? dataset.allowedFilters : [])).flatMap((filter) => resolve(String(filter.field))),
   ];
 }
 
@@ -66,7 +66,7 @@ function ownColumns(dataset: Dataset): string[] {
  * neither the dataset nor its endpoint scopes by tenant. Datasets without an
  * endpoint are not callable, so they are skipped.
  */
-export function unscopedTenantCandidates(contract: ProtocolDeploymentContract): UnscopedTenantCandidate[] {
+export function unscopedTenantCandidates(contract: ProtocolDeploymentContractAnyVersion): UnscopedTenantCandidate[] {
   return contract.datasets.flatMap((dataset) => {
     if (!dataset.endpoint || dataset.tenant.kind === 'required' || dataset.endpoint.tenant.kind === 'required') return [];
     const columns = [...new Set(ownColumns(dataset).filter(isTenantKeyCandidateName))];

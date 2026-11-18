@@ -6,7 +6,7 @@ import type {
   ProtocolDeploymentContractV3,
   ProtocolDeploymentOptions,
 } from './types.js';
-import { validateProtocolDeploymentContract, validateProtocolDeploymentContractV3 } from './validate.js';
+import { isContract3Envelope, validateProtocolDeploymentContract, validateProtocolDeploymentContractV3 } from './validate.js';
 
 const textEncoder = new TextEncoder();
 
@@ -49,6 +49,25 @@ export function prepareProtocolDeploymentContractV3(
   options: ProtocolDeploymentOptions = {},
 ): PreparedProtocolDeploymentContractV3 {
   return identify(validateProtocolDeploymentContractV3(input, options), PROTOCOL_DEPLOYMENT_V3_IDENTITY_DOMAIN);
+}
+
+/** A prepared deployment contract of any version this package reads. */
+export type PreparedProtocolDeploymentContractAnyVersion =
+  | PreparedProtocolDeploymentContract
+  | PreparedProtocolDeploymentContractV3;
+
+/**
+ * Validates, canonically encodes, and identifies a deployment contract 2 or 3,
+ * selected by its `version`. Each version keeps its own identity domain, so a
+ * contract 2 artifact keeps the identity it had before contract 3 existed.
+ */
+export function prepareProtocolDeploymentContractAnyVersion(
+  input: unknown,
+  options: ProtocolDeploymentOptions = {},
+): PreparedProtocolDeploymentContractAnyVersion {
+  return isContract3Envelope(input)
+    ? prepareProtocolDeploymentContractV3(input, options)
+    : prepareProtocolDeploymentContract(input, options);
 }
 
 export function encodeProtocolDeploymentContract(

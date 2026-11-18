@@ -161,7 +161,7 @@ type _UnselectedDerivedMeasureIsNotInDefaultResult = Assert<
 >;
 assertDeployable(Orders);
 const deploymentContract = buildProtocolDeploymentContract([Orders]);
-type _DeploymentContractVersion = Assert<Equal<typeof deploymentContract.version, 2>>;
+type _DeploymentContractVersion = Assert<Equal<typeof deploymentContract.version, 2 | 3>>;
 rehydrateProtocolDeploymentContract(deploymentContract);
 
 dataset('invalidDependency', {

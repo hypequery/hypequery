@@ -4,6 +4,7 @@ import { defineBusinessContext, defineCloudPublication } from './cloud-publicati
 import { publishToCloud } from './cloud-publishing.js';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
+import { contract3AuthoringDataset } from './contract-3-authoring.fixture.js';
 
 const Orders = dataset('orders', {
   source: 'analytics.orders',
@@ -37,6 +38,16 @@ describe('defineBusinessContext', () => {
 });
 
 describe('defineCloudPublication', () => {
+  it('accepts a contract 3 deployment from publishToCloud', () => {
+    const contract3 = publishToCloud({
+      access: { roles: [], scopes: [] },
+      datasets: { events: contract3AuthoringDataset },
+    });
+    expect(contract3.version).toBe(3);
+    const cloud = defineCloudPublication({ deployment: contract3, businessContext: { industry: 'Retail' } });
+    expect(cloud.deployment).toBe(contract3);
+  });
+
   it('packages a deployment with business context', () => {
     const cloud = defineCloudPublication({
       deployment,

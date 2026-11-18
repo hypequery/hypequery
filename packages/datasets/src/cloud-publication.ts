@@ -1,7 +1,7 @@
 import {
   validateProtocolBusinessContext,
   type ProtocolBusinessContext,
-  type ProtocolDeploymentContract,
+  type ProtocolDeploymentContractAnyVersion,
 } from '@hypequery/protocol';
 
 /** Business context as authored in code: the document without its header. */
@@ -17,13 +17,13 @@ export type BusinessContextInput = Omit<ProtocolBusinessContext, 'kind' | 'versi
 export interface CloudPublication {
   readonly kind: 'hypequery-cloud-publication';
   readonly version: 1;
-  readonly deployment: ProtocolDeploymentContract;
+  readonly deployment: ProtocolDeploymentContractAnyVersion;
   readonly businessContext?: ProtocolBusinessContext;
 }
 
 export interface CloudPublicationOptions {
   /** The result of `publishToCloud({ datasets, access })`. */
-  readonly deployment: ProtocolDeploymentContract;
+  readonly deployment: ProtocolDeploymentContractAnyVersion;
   /** Reviewed business context: summary, KPIs, glossary, conventions, caveats. */
   readonly businessContext?: ProtocolBusinessContext | BusinessContextInput;
 }

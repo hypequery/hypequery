@@ -538,8 +538,10 @@ events = dataset(
 - Segments are named row filters callers select with
   `DatasetQuery(segments=("paid",))`.
 
-Approximate counts, segments, windows and shifts plan and run locally, but
-publishing them needs deployment contract 3, as in TypeScript.
+Approximate counts, segments, windows and shifts plan and run locally, and
+publishing them emits deployment contract 3 (RFC 0015), as in TypeScript. A
+deployment that uses none of them stays contract 2, with unchanged bytes and
+identity.
 
 ## DataFrames
 

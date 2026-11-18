@@ -10,7 +10,11 @@ import { windowCatalogMetadata, type WindowCatalogMetadata } from './window-cata
  * of which source produced it.
  */
 
-import type { ProtocolDatasetContract, ProtocolDeploymentDataset } from '@hypequery/protocol';
+import type {
+  ProtocolDatasetContract,
+  ProtocolDatasetFilter,
+  ProtocolDeploymentDatasetAnyVersion,
+} from '@hypequery/protocol';
 import type {
   AgentCatalogDataset,
   AgentCatalogDimension,
@@ -243,9 +247,33 @@ export function recordDatasetToAgentDataset(dataset: RecordShapedDataset): Agent
  * stored — they are derived from the target dataset's publishable dimensions.
  */
 export function protocolDatasetToAgentDataset(
-  dataset: ProtocolDatasetContract | ProtocolDeploymentDataset,
-  datasets: ReadonlyMap<string, ProtocolDatasetContract | ProtocolDeploymentDataset>,
+  dataset: ProtocolDatasetContract | ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDatasetContract | ProtocolDeploymentDatasetAnyVersion>,
 ): AgentCatalogDataset {
+  // Contract 3 renames the filter allow-list to `allowedFilters`.
+  const allowedFilters: readonly ProtocolDatasetFilter[] =
+    'allowedFilters' in dataset && dataset.allowedFilters !== undefined
+      ? dataset.allowedFilters
+      : (dataset as { filters?: readonly ProtocolDatasetFilter[] }).filters ?? [];
+  const segments = 'segments' in dataset && Array.isArray(dataset.segments) ? dataset.segments : [];
+  // A derived measure that uses a window or shift measure, directly or through
+  // another derived measure, also needs a grain and a bounded time range. The
+  // contract records that only on the window and shift measures themselves.
+  const timeBound = new Set<string>(
+    dataset.measures
+      .filter(measure => 'requiresTimeRange' in measure && measure.requiresTimeRange)
+      .map(measure => String(measure.name)),
+  );
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const measure of dataset.measures) {
+      const uses = 'uses' in measure && Array.isArray(measure.uses) ? measure.uses : [];
+      if (!timeBound.has(String(measure.name)) && uses.some(use => timeBound.has(String(use.measure)))) {
+        timeBound.add(String(measure.name));
+        grew = true;
+      }
+    }
+  }
   const dimensions: AgentCatalogDimension[] = sortedByName(
     dataset.dimensions
       .filter(dimension => dimension.filterable || dimension.groupable)
@@ -263,7 +291,7 @@ export function protocolDatasetToAgentDataset(
     dataset.dimensions.map(dimension => [dimension.name, dimension.type]),
   );
   const filterNames = new Set(
-    dataset.filters
+    allowedFilters
       .filter(filter => dimensionNames.has(String(filter.field)))
       .map(filter => String(filter.name)),
   );
@@ -280,7 +308,12 @@ export function protocolDatasetToAgentDataset(
       dataset.measures.map(measure => ({
         name: measure.name,
         ...optionalText(measure),
+        // Contract 3 window and shift measures.
+        ...('requiresTimeRange' in measure && measure.requiresTimeRange
+          ? windowCatalogMetadata(measure as WindowCatalogMetadata)
+          : timeBound.has(String(measure.name)) ? { requiresTimeRange: true as const } : {}),
         ...snapshotSemanticMetadata(measure),
+        ...('approximate' in measure && measure.approximate ? { approximate: true as const } : {}),
       })),
     ),
     metrics: sortedByName(
@@ -295,7 +328,7 @@ export function protocolDatasetToAgentDataset(
       })),
     ),
     filters: sortedByName(
-      dataset.filters
+      allowedFilters
         .filter(filter => filterNames.has(String(filter.name)))
         .map((filter): AgentCatalogFilter | undefined => {
           const type = dimensionTypes.get(String(filter.field));
@@ -309,6 +342,9 @@ export function protocolDatasetToAgentDataset(
         })
         .filter((filter): filter is AgentCatalogFilter => filter !== undefined),
     ),
+    ...(segments.length > 0 ? {
+      segments: sortedByName(segments.map(segment => ({ name: segment.name, ...optionalText(segment) }))),
+    } : {}),
     relationships: sortedByName(
       dataset.relationships
         .filter(relationship => relationship.queryable)

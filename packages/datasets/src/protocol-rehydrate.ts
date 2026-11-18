@@ -14,15 +14,18 @@
 
 import type {
   ProtocolDatasetContract,
-  ProtocolDeploymentContract,
-  ProtocolDeploymentDataset,
+  ProtocolDeploymentContractAnyVersion,
+  ProtocolDeploymentDatasetAnyVersion,
   ProtocolDatasetDerivedMeasure,
   ProtocolDatasetMeasure,
   ProtocolDatasetMetric,
+  ProtocolDatasetSegment,
+  ProtocolDatasetShiftMeasure,
+  ProtocolDatasetWindowMeasure,
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { validateProtocolDeploymentContract } from '@hypequery/protocol';
+import { validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -34,15 +37,20 @@ import type {
   MetricFilter,
   MetricHandle,
   RelationshipDefinition,
+  SegmentDefinition,
   SemanticFilterDefinition,
+  ShiftMeasureDefinition,
   TimeGrain,
+  WindowMeasureDefinition,
 } from './types.js';
 import { rehydrateCompositeRelationshipJoin } from './utils/relationship-keys.js';
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
 import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
-import { PORTABLE_TIME_GRAINS } from './utils/portable-grains.js';
+import { PUBLISHED_TIME_GRAINS } from './utils/portable-grains.js';
+import { createShiftMeasure } from './utils/shift-measure-definition.js';
+import { createWindowMeasure } from './utils/window-measure-definition.js';
 import {
   UNSUPPORTED_CONTRACT_REASONS,
   type UnsupportedContractReason,
@@ -178,6 +186,62 @@ function rehydrateDerivedMeasure(
     ...(measure.label !== undefined ? { label: measure.label } : {}),
     ...(measure.description !== undefined ? { description: measure.description } : {}),
   };
+}
+
+type ProtocolTimeMeasure = ProtocolDatasetWindowMeasure | ProtocolDatasetShiftMeasure;
+
+/** A contract 3 window or shift measure, rebuilt through the authoring factories. */
+function rehydrateTimeMeasure(measure: ProtocolTimeMeasure): WindowMeasureDefinition | ShiftMeasureDefinition {
+  const options = {
+    ...snapshotSemanticMetadata(measure),
+    ...(measure.label !== undefined ? { label: measure.label } : {}),
+    ...(measure.description !== undefined ? { description: measure.description } : {}),
+  };
+  const base = String(measure.measure);
+  if (measure.kind === 'shift') {
+    return createShiftMeasure(base, { amount: measure.interval.amount, unit: measure.interval.unit }, options);
+  }
+  const mode = measure.trailing !== undefined
+    ? { trailing: { amount: measure.trailing.amount, unit: measure.trailing.unit } }
+    : measure.toDate !== undefined
+      ? { toDate: measure.toDate }
+      : { cumulative: true as const };
+  return createWindowMeasure(base, mode, options);
+}
+
+/**
+ * A segment's predicate as the AND list of comparisons a local segment holds.
+ * Publishing only emits a comparison or an `and` of comparisons; `or`, `not`
+ * and anything else has no local segment form, so it is refused rather than
+ * rebuilt as a different predicate.
+ */
+function segmentConditions(
+  datasetName: string,
+  segment: ProtocolDatasetSegment,
+  expression: ProtocolExpression,
+): MetricFilter[] {
+  const unsupported = () => new UnsupportedContractFeatureError(
+    datasetName,
+    `segment "${String(segment.name)}"`,
+    'its predicate is not an and of field/operator/value comparisons',
+    UNSUPPORTED_CONTRACT_REASONS.segmentPredicateNotConjunction,
+  );
+  if (expression.kind === 'logical') {
+    if (expression.operator !== 'and') throw unsupported();
+    return expression.operands.flatMap(operand => segmentConditions(datasetName, segment, operand));
+  }
+  return [rehydrateMeasureFilter(expression, unsupported)];
+}
+
+function rehydrateSegments(
+  datasetName: string,
+  segments: readonly ProtocolDatasetSegment[] | undefined,
+): Record<string, SegmentDefinition> {
+  return Object.fromEntries((segments ?? []).map(segment => [String(segment.name), {
+    filters: segmentConditions(datasetName, segment, segment.predicate),
+    ...(segment.label !== undefined ? { label: segment.label } : {}),
+    ...(segment.description !== undefined ? { description: segment.description } : {}),
+  }]));
 }
 
 function rehydrateFilters(
@@ -379,20 +443,29 @@ function rehydrateMetric(
  * `projectAgentSafeCatalog`, and `DatasetClient` already accept.
  */
 export function rehydrateProtocolDatasets(
-  contracts: readonly (ProtocolDatasetContract | ProtocolDeploymentDataset)[],
+  contracts: readonly (ProtocolDatasetContract | ProtocolDeploymentDatasetAnyVersion)[],
   options: RehydrateProtocolDatasetsOptions = {},
 ): Readonly<Record<string, RehydratedDataset>> {
   const normalized = contracts.map(contract => {
-    const measures = contract.measures as readonly (ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure)[];
+    const measures = contract.measures as readonly (
+      ProtocolDatasetMeasure | ProtocolDatasetDerivedMeasure | ProtocolTimeMeasure
+    )[];
     const derived = measures.filter(
-      (measure): measure is ProtocolDatasetDerivedMeasure => 'kind' in measure,
+      (measure): measure is ProtocolDatasetDerivedMeasure => 'kind' in measure && measure.kind === 'derived',
     );
+    const timed = measures.filter(
+      (measure): measure is ProtocolTimeMeasure => 'kind' in measure && measure.kind !== 'derived',
+    );
+    // Contract 3 renames the filter allow-list `allowedFilters` (RFC 0015).
+    const v3 = contract as { readonly allowedFilters?: ProtocolDatasetContract['filters'];
+      readonly segments?: readonly ProtocolDatasetSegment[] };
     const base = {
       ...contract,
       measures: measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
-      metrics: contract.metrics ?? [],
+      filters: v3.allowedFilters ?? (contract as ProtocolDatasetContract).filters,
+      metrics: (contract as ProtocolDatasetContract).metrics ?? [],
     } as ProtocolDatasetContract;
-    return { base, derived };
+    return { base, derived, timed, segments: v3.segments };
   });
   const instances = new Map<string, AnyDatasetInstance>();
   const registry = new Map<string, RehydratedDataset>();
@@ -415,7 +488,7 @@ export function rehydrateProtocolDatasets(
     return instance;
   };
 
-  for (const { base: contract, derived } of normalized) {
+  for (const { base: contract, derived, timed, segments } of normalized) {
     const name = String(contract.name);
     const instance = dataset(name, {
       source: contract.source,
@@ -429,20 +502,24 @@ export function rehydrateProtocolDatasets(
         ...(contract.defaults.dimensions !== undefined ? { dimensions: [...contract.defaults.dimensions] } : {}),
       } } : {}),
       ...(contract.tenant.kind === 'required' ? { tenantKey: contract.tenant.field } : {}),
-      // A published dataset supports only the grains its contract can carry,
-      // so its catalog never advertises a grain the portable path would refuse.
+      // A published dataset accepts every grain the planner buckets on; the
+      // invocation version decides whether a caller may ask for sub-day ones.
       ...(contract.timeField !== undefined
-        ? { timeKey: String(contract.timeField), timeGrains: PORTABLE_TIME_GRAINS }
+        ? { timeKey: String(contract.timeField), timeGrains: PUBLISHED_TIME_GRAINS }
         : {}),
       dimensions: rehydrateDimensions(contract),
       measures: Object.fromEntries([
         ...contract.measures.map(measure => [
           String(measure.name), rehydrateMeasure(name, measure),
         ] as const),
+        ...timed.map(measure => [String(measure.name), rehydrateTimeMeasure(measure)] as const),
         ...derived.map(measure => [
           String(measure.name), rehydrateDerivedMeasure(name, measure),
         ] as const),
       ]),
+      ...(segments !== undefined && segments.length > 0
+        ? { segments: rehydrateSegments(name, segments) }
+        : {}),
       filters: rehydrateFilters(contract),
       relationships: rehydrateRelationships(contract, resolve),
       ...(contract.limits !== undefined ? { limits: { ...contract.limits } } : {}),
@@ -472,11 +549,11 @@ export function rehydrateProtocolDatasets(
   return Object.fromEntries(registry);
 }
 
-/** Strict v2 reader that returns executable datasets without metric handles. */
+/** Strict contract 2 or 3 reader that returns executable datasets without metric handles. */
 export function rehydrateProtocolDeploymentContract(
   input: unknown,
   options: RehydrateProtocolDatasetsOptions = {},
 ): Readonly<Record<string, RehydratedDataset>> {
-  const contract: ProtocolDeploymentContract = validateProtocolDeploymentContract(input);
+  const contract: ProtocolDeploymentContractAnyVersion = validateProtocolDeploymentContractAnyVersion(input);
   return rehydrateProtocolDatasets(contract.datasets, options);
 }

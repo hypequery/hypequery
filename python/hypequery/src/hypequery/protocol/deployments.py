@@ -597,3 +597,30 @@ def validate_protocol_deployment_contract_v3(
     if not any(_uses_contract_3_feature(dataset) for dataset in datasets):
         deployment_error("HQ_DEPLOYMENT_INVALID_VERSION", "$.version")
     return {"kind": "hypequery-deployment", "version": 3, "datasets": datasets}
+
+
+def is_contract_3_envelope(value: object) -> bool:
+    """Whether *value* declares deployment contract 3, before any validation.
+
+    Mirrors TypeScript's ``isContract3Envelope``; the selected validator then
+    checks the envelope in full.
+    """
+
+    return isinstance(value, dict) and value.get("version") == 3
+
+
+def validate_protocol_deployment_contract_any_version(
+    value: object,
+    *,
+    limits: ProtocolDeploymentLimits = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+) -> dict[str, object]:
+    """Validate a deployment contract 2 or 3, selected by its ``version``.
+
+    Consumers that support contract 3 must keep accepting contract 2 (RFC 0015);
+    this is the reader for them. Mirrors TypeScript's
+    ``validateProtocolDeploymentContractAnyVersion``.
+    """
+
+    if is_contract_3_envelope(value):
+        return validate_protocol_deployment_contract_v3(value, limits=limits)
+    return validate_protocol_deployment_contract(value, limits=limits)
