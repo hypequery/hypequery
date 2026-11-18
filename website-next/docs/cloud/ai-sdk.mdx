@@ -1,0 +1,107 @@
+---
+title: AI SDK
+description: Build an agent in your own app with the Vercel AI SDK, using hypequery cloud's MCP server as its tools.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Give an agent in your own app the same tools Claude gets. The AI SDK's MCP client connects to your project's
+[MCP server](/docs/cloud/mcp) with an API key. The model then lists datasets, reads their fields and runs queries
+itself. Every query runs with the key's access and shows in **Logs**.
+
+## Get a key for your server
+
+Create a [runtime API key](/docs/cloud/api-keys) with MCP access (the `mcp:invoke` scope), or ask an Admin for one.
+Add it to your server's environment, for example `.env.local`:
+
+<CodeBlock>
+```bash
+HYPEQUERY_API_KEY=hqgw_...
+```
+</CodeBlock>
+
+The key stays on your server. Never send it to the browser.
+
+## Install the AI SDK and its MCP client
+
+<CodeBlock>
+```bash
+npm install ai @ai-sdk/mcp
+```
+</CodeBlock>
+
+## Give the model hypequery's tools
+
+This Next.js route connects to hypequery's MCP server, hands its tools to `streamText`, and streams the answer to your
+chat UI. Use the MCP URL that **Connect** shows for the project, or the one `hypequery deployment:status --mcp-config`
+prints.
+
+<CodeBlock>
+```ts
+// app/api/chat/route.ts
+import { createMCPClient } from '@ai-sdk/mcp';
+import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
+
+export async function POST(request: Request) {
+  const { messages }: { messages: UIMessage[] } = await request.json();
+
+  // hypequery's MCP server: list datasets, describe them, query them.
+  const hypequery = await createMCPClient({
+    transport: {
+      type: 'http',
+      url: 'https://<environment-slug>.hypequery.app/mcp',
+      headers: { Authorization: `Bearer ${process.env.HYPEQUERY_API_KEY}` },
+    },
+  });
+
+  const result = streamText({
+    model: 'anthropic/claude-sonnet-5.5',
+    instructions: "Answer with numbers from hypequery's tools. Say which dataset and filters you used.",
+    messages: await convertToModelMessages(messages),
+    tools: await hypequery.tools(),
+    // Room to find the dataset, read its fields and run the query.
+    stopWhen: isStepCount(8),
+    onEnd: () => hypequery.close(),
+  });
+
+  return result.toUIMessageStreamResponse();
+}
+```
+</CodeBlock>
+
+Any AI SDK model works. `stopWhen` caps the tool loop: a typical question takes three steps (list, schema, query) plus
+the answer. `onEnd` closes the MCP connection once the response and its tool calls have finished.
+
+This route uses AI SDK 7. On AI SDK 5 or 6, use `system` instead of `instructions` and `stepCountIs(8)` instead of
+`isStepCount(8)`, and check the [AI SDK docs](https://ai-sdk.dev/docs/ai-sdk-core/mcp-tools) for the version you
+installed.
+
+## Tenants
+
+The agent queries with the key's access. For tenant-scoped datasets, a key bound to one customer needs nothing extra.
+To answer for the signed-in user's customer with a trusted backend key, add `x-hypequery-tenant-id` to the transport's
+`headers`, taken from your server-side session. See [API keys & tenants](/docs/cloud/api-keys#tenant-authority).
+
+To give each end user their own short-lived token instead of a shared key, see [In-app agents](/docs/cloud/in-app-agents).
+
+## Other frameworks
+
+hypequery's MCP server works with any agent framework that speaks MCP over Streamable HTTP. The OpenAI Agents SDK,
+LangChain and others connect to the same MCP URL with the same `Authorization` header.
+
+## Hand it to your coding agent
+
+<CodeBlock>
+```text
+Add an AI chat route to this app with the Vercel AI SDK that answers questions from hypequery.
+- Install `ai` and `@ai-sdk/mcp`.
+- In a server route, connect with `createMCPClient` from `@ai-sdk/mcp` over HTTP to <your MCP URL>,
+  sending `Authorization: Bearer ${process.env.HYPEQUERY_API_KEY}`.
+- Pass `await client.tools()` to `streamText`, let it take several steps (`stopWhen`), and close the
+  client when the stream ends (`onEnd`).
+- Keep HYPEQUERY_API_KEY on the server only. Check the AI SDK docs for the version installed if an API differs.
+```
+</CodeBlock>

@@ -12,13 +12,103 @@ Every cloud release also serves an MCP endpoint at `/mcp`, so agents can discove
 Cloud hosts the MCP server and handles authentication, so you don't run one yourself, whether you published from
 TypeScript or Python.
 
-## Configure a client
+There are two ways to connect:
 
-Print a client configuration with:
+- **Your MCP client, signed in as you.** For team members using Claude, Claude Code, Cursor or VS Code.
+- **One project, with an API key.** For headless agents, CI, or a client that can't sign in.
+
+## Connect your MCP client
+
+Your organisation has one MCP URL for every project. Copy it from **Connect › MCP** in the app, add it to your
+client, and sign in with your hypequery account. There's no key to create or paste. The client can do what your role
+allows, and no more.
+
+The steps below write the URL as `<your MCP URL>`.
+
+### Claude
+
+1. In claude.ai or Claude Desktop, open **Settings › Connectors**.
+2. Choose **Add custom connector**, name it `hypequery` and paste your MCP URL.
+3. Choose **Connect** and sign in with your hypequery account.
+
+Claude connects from Anthropic's servers, so it can't reach a `localhost` URL. To try a local server, use Claude Code.
+
+### Claude Code
+
+Run this in your project:
 
 <CodeBlock>
 ```bash
-npx hypequery deployment:status --mcp-config
+claude mcp add --transport http hypequery <your MCP URL>
+```
+</CodeBlock>
+
+Then, in Claude Code, run `/mcp`, choose `hypequery` and sign in with your hypequery account.
+
+### Cursor
+
+In **Connect › MCP**, choose **Add to Cursor** and then **Install**. Or add the server to `.cursor/mcp.json`:
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "type": "http",
+      "url": "<your MCP URL>"
+    }
+  }
+}
+```
+</CodeBlock>
+
+Sign in with your hypequery account when Cursor asks.
+
+### VS Code
+
+In **Connect › MCP**, choose **Add to VS Code** and then **Install**. Or add the server to `.vscode/mcp.json`:
+
+<CodeBlock>
+```json
+{
+  "servers": {
+    "hypequery": {
+      "type": "http",
+      "url": "<your MCP URL>"
+    }
+  }
+}
+```
+</CodeBlock>
+
+Sign in with your hypequery account when VS Code asks.
+
+### Other clients
+
+Add a remote server that uses Streamable HTTP, with this configuration, and sign in with your hypequery account when
+the client asks:
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "type": "http",
+      "url": "<your MCP URL>"
+    }
+  }
+}
+```
+</CodeBlock>
+
+## One project, with an API key
+
+For headless agents, CI, or a client that can't sign in, connect to one project's MCP endpoint with a
+[runtime API key](/docs/cloud/api-keys) that has MCP access. Print a client configuration with:
+
+<CodeBlock>
+```bash
+npx --yes --package=@hypequery/cli hypequery deployment:status --mcp-config
 ```
 </CodeBlock>
 
@@ -41,27 +131,28 @@ It looks like this:
 The key is a placeholder your MCP client expands from its environment. The CLI never writes a credential into the
 configuration it prints. Set `HYPEQUERY_API_KEY` in the client's environment or secret manager.
 
-## Sign in with OAuth
+### Sign in with OAuth
 
-MCP clients that support OAuth can connect without an API key. The client discovers cloud's authorization server
-from the endpoint, and an organisation owner or admin approves it. When approving, they choose which tenants (1 to 32)
-the client may query, and the client's access is limited to exactly those tenants.
+MCP clients that support OAuth can also connect to one project's endpoint without an API key. The client discovers
+cloud's authorization server from the endpoint, and an organisation owner or admin approves it. When approving, they
+choose which tenants (1 to 32) the client may query, and the client's access is limited to exactly those tenants.
 
-## Tenants
+### Tenants
 
 Hosted MCP follows the same [tenant rules](/docs/cloud/api-keys#tenant-authority) as REST. A key with several
 permitted tenants selects one with the `x-hypequery-tenant-id` header. Tool arguments and chat messages cannot change
 the tenant a query runs as.
 
-## Check the endpoint
+### Check the endpoint
 
 <CodeBlock>
 ```bash
-HYPEQUERY_API_KEY=... npx hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
+HYPEQUERY_API_KEY=... npx --yes --package=@hypequery/cli hypequery mcp --self-test --url https://<environment-slug>.hypequery.app/mcp
 ```
 </CodeBlock>
 
 The self-test initializes a session and lists the available tools without calling one. A `401` means the API key was
 refused.
 
-For setup in each client, the tools agents get, and what they can and cannot do, see [Connect: MCP](/docs/mcp/overview) and [MCP safety](/docs/mcp/safety).
+To build an agent into your own app, see [AI SDK](/docs/cloud/ai-sdk). For the tools agents get, and what they can and
+cannot do, see [Connect: MCP](/docs/mcp/overview) and [MCP safety](/docs/mcp/safety).

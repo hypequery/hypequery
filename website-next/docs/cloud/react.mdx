@@ -47,6 +47,7 @@ dataset endpoints return the same data, metadata, and errors as Serve. For the f
 
     ```tsx
     // src/analytics.tsx
+    'use client';
     import { useMemo, type ReactNode } from 'react';
     import { createAnalyticsHooks, createHypequeryClient, HypequeryProvider } from '@hypequery/react';
     import { clientBaseUrl, clientManifest, type ClientApi } from './hypequery-client';
@@ -87,8 +88,10 @@ dataset endpoints return the same data, metadata, and errors as Serve. For the f
       tenant registry.
 
     Either way, the customer comes from the signed token, so a user only ever sees
-    their own customer's rows. Add your app's origin to the environment's allowed
-    origins (`http://localhost:3000` for development).
+    their own customer's rows. The browser calls Cloud directly, so add your app's
+    origin to the environment's allowed origins in **Settings › Customer access**
+    (`http://localhost:3000` for development). Requests from any other origin are
+    refused.
   </Step>
 
   <Step>
@@ -144,11 +147,12 @@ Paste this into Claude Code, Cursor or another coding agent in your app's repo:
 
 ```text
 Connect this React app to our hypequery Cloud datasets.
-1. Install @hypequery/react and @tanstack/react-query.
+1. Install @hypequery/react and @tanstack/react-query, and @hypequery/cli as a dev dependency
+   (`npx hypequery` without it runs an unrelated package).
 2. Run `npx hypequery generate:client --cloud --output src/hypequery-client.ts`
    (run `npx hypequery login` first if it asks). Don't edit the generated file.
-3. Create src/analytics.tsx: export useDataset from createAnalyticsHooks<ClientApi>() with no config,
-   and an AnalyticsProvider that builds createHypequeryClient<ClientApi>({ baseUrl: clientBaseUrl,
+3. Create src/analytics.tsx, marked 'use client': export useDataset from createAnalyticsHooks<ClientApi>()
+   with no config, and an AnalyticsProvider that builds createHypequeryClient<ClientApi>({ baseUrl: clientBaseUrl,
    manifest: clientManifest, token: () => getUserToken() }) per signed-in user and renders
    <HypequeryProvider key={userId} client={client}>, so switching accounts never reuses cached rows.
 4. getUserToken must return the signed-in user's end-user token: our auth provider's JWT if
@@ -156,6 +160,7 @@ Connect this React app to our hypequery Cloud datasets.
    POST <clientBaseUrl>/embed/tokens with a server API key. Never put an hqgw_ key in browser code.
 5. Render AnalyticsProvider inside the sign-in boundary and replace one chart with useDataset to prove it works.
 6. Add `npx hypequery generate:client --cloud --output src/hypequery-client.ts --check` to CI.
+7. Our app's origin must be in the environment's allowed origins (Settings › Customer access).
 ```
 
 ## Or proxy through your server
