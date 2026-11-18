@@ -198,7 +198,11 @@ export default function LuzmoAlternativesPage() {
                 product.
               </p>
               <p>
-                <strong className="text-text">Trade-off:</strong> ClickHouse only, and no editor of any kind.
+                <strong className="text-text">Trade-off:</strong> ClickHouse only, and no editor of any kind. See{' '}
+                <Link href="/compare/hypequery-vs-luzmo" className={inlineLink}>
+                  hypequery vs Luzmo
+                </Link>
+                .
               </p>
             </Option>
             <Option name="Embeddable">
