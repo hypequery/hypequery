@@ -24,9 +24,19 @@ import { envFileVariableNames } from '../utils/env-provenance.js';
 import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
 import { VaultUnavailableError } from '../utils/cloud-vault.js';
 import {
+  deviceAuthorizationExpired,
   pollDeviceAuthorization,
+  requestDeviceToken,
   startDeviceAuthorization,
 } from '../utils/device-sign-in.js';
+import {
+  deletePendingDeviceSignIn,
+  loadPendingDeviceSignIn,
+  samePendingRequest,
+  savePendingDeviceSignIn,
+  type PendingDeviceSignIn,
+  type PendingStoreDependencies,
+} from '../utils/device-sign-in-pending.js';
 import { managementCredentialFromResponse } from '../utils/management-token-response.js';
 import {
   deleteManagementCredentials,
@@ -57,6 +67,8 @@ export interface LoginOptions {
   readonly project?: string;
   /** With --device: cap the management token to these capabilities (comma-separated). */
   readonly capabilities?: string;
+  /** With --device: print the code and exit instead of waiting; run again to finish (`--no-wait`). */
+  readonly wait?: boolean;
 }
 
 export interface LoginDependencies {
@@ -79,6 +91,8 @@ export interface LoginDependencies {
    * Defaults to what `bin/cli.ts` recorded before loading env files.
    */
   readonly envFileVariables?: ReadonlySet<string>;
+  /** Where `--no-wait` keeps a sign-in between runs; injected in tests. */
+  readonly pendingStore?: PendingStoreDependencies;
 }
 
 export interface LogoutDependencies {
@@ -336,6 +350,10 @@ async function storeBrowserManagementToken(
  * person approve it in any browser, and poll for a management token. Works
  * over SSH, in containers and for coding agents; the browser opens only when
  * a person is at this terminal.
+ *
+ * With `--no-wait` it never waits: the first run prints the code and exits
+ * with `status: "pending"`, and running it again finishes the sign-in once the
+ * person approved. A coding agent can show the link in chat between the two.
  */
 async function deviceLogin(
   origin: string,
@@ -354,12 +372,47 @@ async function deviceLogin(
     sleep: dependencies.sleep,
     requestTimeoutMs: dependencies.requestTimeoutMs,
   };
-  const authorization = await startDeviceAuthorization({
+  const pendingStore = dependencies.pendingStore ?? {};
+  const request = {
     origin,
     ...(options.project !== undefined ? { project: options.project } : {}),
     ...(capabilities ? { capabilities } : {}),
-  }, flow);
-  const minutes = Math.max(1, Math.round((authorization.expiresAt - (dependencies.now ?? Date.now)()) / 60_000));
+  };
+  const now = dependencies.now ?? Date.now;
+
+  if (options.wait === false) {
+    const saved = await loadPendingDeviceSignIn(pendingStore);
+    if (saved && samePendingRequest(saved, request) && !deviceAuthorizationExpired(saved, now())) {
+      let step;
+      try {
+        step = await requestDeviceToken(origin, saved, flow);
+      } catch (error) {
+        // Denied, expired or refused: the next run starts a new sign-in.
+        await deletePendingDeviceSignIn(pendingStore);
+        throw error;
+      }
+      if (step.kind === 'approved') {
+        await deletePendingDeviceSignIn(pendingStore);
+        await saveDeviceCredential(origin, step.body, dependencies);
+        return;
+      }
+      reportPendingDeviceSignIn(saved, now());
+      return;
+    }
+  }
+
+  const authorization = await startDeviceAuthorization(request, flow);
+  if (options.wait === false) {
+    const pending = { ...authorization, ...request };
+    await savePendingDeviceSignIn(pending, pendingStore);
+    if ((dependencies.isInteractive ?? defaultIsInteractive)()) {
+      await (dependencies.openBrowser ?? open)(authorization.verificationUriComplete ?? authorization.verificationUri)
+        .catch(() => undefined);
+    }
+    reportPendingDeviceSignIn(pending, now());
+    return;
+  }
+  const minutes = Math.max(1, Math.round((authorization.expiresAt - now()) / 60_000));
   instruct(`To sign in to Hypequery Cloud, open ${authorization.verificationUri} and enter the code: ${authorization.userCode}`);
   if (authorization.verificationUriComplete) {
     instruct(`Or open this link, which fills in the code: ${authorization.verificationUriComplete}`);
@@ -370,6 +423,30 @@ async function deviceLogin(
       .catch(() => undefined);
   }
   const body = await pollDeviceAuthorization(origin, authorization, flow);
+  await saveDeviceCredential(origin, body, dependencies);
+}
+
+/** `--no-wait`: the link and code, for the person, on stderr and in the JSON result. */
+function reportPendingDeviceSignIn(pending: PendingDeviceSignIn, now: number) {
+  const minutes = Math.max(1, Math.round((pending.expiresAt - now) / 60_000));
+  const link = pending.verificationUriComplete ?? pending.verificationUri;
+  instruct(`Ask the person to open ${link} and approve the code ${pending.userCode}.`);
+  instruct(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. After they approve, run \`hypequery login --device --no-wait\` again to finish.`);
+  emitResult({
+    signedIn: false,
+    status: 'pending',
+    method: 'device',
+    cloudUrl: pending.origin,
+    verificationUri: pending.verificationUri,
+    verificationUriComplete: pending.verificationUriComplete ?? null,
+    userCode: pending.userCode,
+    expiresAt: pending.expiresAt,
+    next: 'After the person approves, run `hypequery login --device --no-wait` again.',
+  });
+}
+
+/** Store the management token a device sign-in returned, and report it. */
+async function saveDeviceCredential(origin: string, body: Record<string, unknown>, dependencies: LoginDependencies) {
   const credential = managementCredentialFromResponse(body, {
     origin,
     now: (dependencies.now ?? Date.now)(),
@@ -451,9 +528,9 @@ export async function loginCommand(
     await deviceLogin(origin, options, dependencies);
     return;
   }
-  if (options.project !== undefined || options.capabilities !== undefined) {
-    throw new CliError('USAGE', '--project and --capabilities apply only with --device.', {
-      hint: 'Add --device, or drop --project and --capabilities.',
+  if (options.project !== undefined || options.capabilities !== undefined || options.wait === false) {
+    throw new CliError('USAGE', '--project, --capabilities and --no-wait apply only with --device.', {
+      hint: 'Add --device, or drop --project, --capabilities and --no-wait.',
     });
   }
   const state = randomBytes(24).toString('base64url');

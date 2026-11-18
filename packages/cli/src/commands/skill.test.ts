@@ -39,7 +39,7 @@ describe('hypequery skill install', () => {
     ['all', ['.claude/skills', '.agents/skills']],
   ])('installs for %s where that agent loads skills', async (agent, roots) => {
     const cwd = await directory();
-    await skillCommand('install', { agent }, { cwd });
+    await skillCommand('install', { agent, scope: 'project' }, { cwd });
     for (const root of roots) {
       for (const skill of AGENT_SKILLS) {
         expect(await readFile(path.join(cwd, root, skill.name, 'SKILL.md'), 'utf8')).toBe(skill.content);
@@ -51,28 +51,36 @@ describe('hypequery skill install', () => {
 
   it('is idempotent, and --check passes after an install', async () => {
     const cwd = await directory();
-    await skillCommand('install', {}, { cwd });
-    await skillCommand('install', {}, { cwd });
-    await skillCommand('install', { check: true }, { cwd });
+    await skillCommand('install', { scope: 'project' }, { cwd });
+    await skillCommand('install', { scope: 'project' }, { cwd });
+    await skillCommand('install', { check: true, scope: 'project' }, { cwd });
     expect(process.exitCode ?? 0).toBe(0);
   });
 
   it('--check exits 1 when a skill is missing or edited, without writing', async () => {
     const cwd = await directory();
-    await expect(skillCommand('install', { check: true, agent: 'claude' }, { cwd }))
+    await expect(skillCommand('install', { check: true, agent: 'claude', scope: 'project' }, { cwd }))
       .rejects.toMatchObject({ code: 'OUT_OF_DATE', category: 'stale_contract' });
     expect(await readdir(cwd)).toEqual([]);
   });
 
   it('refuses to overwrite an edited skill unless forced', async () => {
     const cwd = await directory();
-    await skillCommand('install', { agent: 'claude' }, { cwd });
+    await skillCommand('install', { agent: 'claude', scope: 'project' }, { cwd });
     const file = path.join(cwd, '.claude/skills', names[0], 'SKILL.md');
     await writeFile(file, 'my own notes');
-    await expect(skillCommand('install', { agent: 'claude' }, { cwd })).rejects.toThrow('--force');
+    await expect(skillCommand('install', { agent: 'claude', scope: 'project' }, { cwd })).rejects.toThrow('--force');
     expect(await readFile(file, 'utf8')).toBe('my own notes');
-    await skillCommand('install', { agent: 'claude', force: true }, { cwd });
+    await skillCommand('install', { agent: 'claude', force: true, scope: 'project' }, { cwd });
     expect(await readFile(file, 'utf8')).toBe(AGENT_SKILLS[0].content);
+  });
+
+  it('installs into the home directory by default, never the current folder', async () => {
+    const cwd = await directory();
+    const home = await directory();
+    await skillCommand('install', { agent: 'claude' }, { cwd, home });
+    expect(await readdir(cwd)).toEqual([]);
+    expect(await readdir(path.join(home, '.claude/skills'))).toEqual([...names].sort());
   });
 
   it('installs into the home directory with --scope user', async () => {
@@ -90,6 +98,6 @@ describe('hypequery skill install', () => {
     ['install', { scope: 'global' }, 'Unknown --scope global'],
     ['install', { check: true, force: true }, '--force cannot be combined'],
   ])('rejects %s %o', async (action, options, message) => {
-    await expect(skillCommand(action, options, { cwd: await directory() })).rejects.toThrow(message);
+    await expect(skillCommand(action, options, { cwd: await directory(), home: await directory() })).rejects.toThrow(message);
   });
 });

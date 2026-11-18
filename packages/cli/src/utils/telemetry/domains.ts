@@ -14,7 +14,7 @@ export const COMMANDS = [
   'generate:manifest', 'generate:client', 'export:client-contract', 'login', 'logout', 'deploy', 'deployment:build',
   'deployment:validate', 'deployment:release', 'deployment:submit', 'deployment:status',
   'pull', 'diff', 'help', 'version', 'telemetry', 'skill', 'examples', 'create', 'schema', 'onboard',
-  'cloud-operation', 'unknown',
+  'mcp:install', 'start', 'doctor', 'next', 'cloud-operation', 'unknown',
 ] as const;
 export type TelemetryCommand = typeof COMMANDS[number];
 /**
@@ -45,7 +45,11 @@ export const COMMAND_FLAGS = {
   'generate:manifest': ['--output'],
   'generate:client': ['--output', '--check', '--force', '--cloud', '--project', '--environment', '--endpoint'],
   'export:client-contract': ['--output', '--stdout', '--check', '--force'],
-  login: ['--cloud-url', '--environment', '--device', '--project', '--capabilities'],
+  login: ['--cloud-url', '--environment', '--device', '--project', '--capabilities', '--no-wait'],
+  'mcp:install': ['--agent', '--scope', '--hosted', '--force', '--dry-run', '--remove'],
+  start: ['--hosted', '--agent', '--scope', '--no-mcp', '--no-skills', '--dry-run'],
+  doctor: [],
+  next: [],
   logout: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--no-source', '--endpoint', '--replace-restored', '--take-ownership', '--mcp-config', '--draft', '--client'],
   'deployment:build': ['--bundle-output', '--no-source'],
@@ -77,6 +81,10 @@ export const VALUE_FLAGS = {
   'export:client-contract': ['--output'],
   login: ['--cloud-url', '--environment', '--project', '--capabilities'],
   logout: [],
+  'mcp:install': ['--agent', '--scope'],
+  start: ['--agent', '--scope'],
+  doctor: [],
+  next: [],
   deploy: ['--bundle-output', '--release-output', '--project', '--environment', '--endpoint', '--draft', '--client'],
   'deployment:build': ['--bundle-output'],
   'deployment:validate': [],

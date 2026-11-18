@@ -179,6 +179,78 @@ function expired(): CliError {
     });
 }
 
+/** One answer from `POST /api/cli/device/token`. */
+export type DeviceTokenStep =
+  | { readonly kind: 'approved'; readonly body: Record<string, unknown> }
+  /** Not approved yet; `interval` is the wait the server asked for, in seconds. */
+  | { readonly kind: 'pending'; readonly interval?: number }
+  | { readonly kind: 'slow_down'; readonly interval?: number }
+  /** A network or server failure worth retrying; `error` is what to throw if retries run out. */
+  | { readonly kind: 'retry'; readonly error: unknown };
+
+/**
+ * Asks once whether the person approved. A denial, an expired code or an
+ * unexpected rejection throws; everything else is a step.
+ */
+export async function requestDeviceToken(
+  origin: string,
+  authorization: Pick<DeviceAuthorization, 'deviceCode'>,
+  dependencies: DeviceSignInDependencies = {},
+): Promise<DeviceTokenStep> {
+  const send = dependencies.fetch ?? fetch;
+  let response: Response;
+  try {
+    response = await send(new URL('/api/cli/device/token', origin), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        grant_type: DEVICE_CODE_GRANT_TYPE,
+        device_code: authorization.deviceCode,
+        client_id: DEVICE_CLIENT_ID,
+      }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // RFC 8628 §3.5: a client may keep polling through a transient failure.
+    return { kind: 'retry', error: unreachable(origin, error) };
+  }
+  const body = await readJson(response);
+  if (response.ok) {
+    if (!isRecord(body)) throw new Error('Cloud returned an invalid device sign-in response.');
+    return { kind: 'approved', body };
+  }
+  const error = isRecord(body) && typeof body.error === 'string' ? body.error : undefined;
+  const description = errorDescription(body);
+  const serverInterval = isRecord(body) ? positiveSeconds(body.interval) : undefined;
+  if (error === 'authorization_pending') return { kind: 'pending', ...(serverInterval !== undefined ? { interval: serverInterval } : {}) };
+  if (error === 'slow_down' || response.status === 429) {
+    return { kind: 'slow_down', ...(serverInterval !== undefined ? { interval: serverInterval } : {}) };
+  }
+  if (error === 'expired_token') throw expired();
+  if (error === 'access_denied') {
+    throw new CliError('CLOUD_AUTHORIZATION_DECLINED',
+      `Device sign-in was denied${description ? `: ${description}` : '.'} Run \`hypequery login --device\` again to retry.`, {
+        exitClass: 'auth',
+        hint: 'Run `hypequery login --device` again and approve the code in the browser.',
+      });
+  }
+  if (error === 'invalid_grant') {
+    throw new CliError('CLOUD_AUTHORIZATION_DECLINED',
+      'Cloud no longer recognises this device sign-in. Run `hypequery login --device` again.', {
+        exitClass: 'auth',
+        hint: 'Run `hypequery login --device` again.',
+      });
+  }
+  const rejection = cloudHttpError(
+    response.status,
+    `Cloud rejected the device sign-in poll (HTTP ${response.status}${error ? `, ${error}` : ''}).`,
+    parseCloudErrorBody(JSON.stringify(body ?? {})),
+  );
+  if (response.status >= 500) return { kind: 'retry', error: rejection };
+  throw rejection;
+}
+
 /**
  * Polls `POST /api/cli/device/token` until the person approves or denies, or
  * the code expires. Honours `interval` and `slow_down`. Returns the success
@@ -189,7 +261,6 @@ export async function pollDeviceAuthorization(
   authorization: DeviceAuthorization,
   dependencies: DeviceSignInDependencies = {},
 ): Promise<Record<string, unknown>> {
-  const send = dependencies.fetch ?? fetch;
   const now = dependencies.now ?? Date.now;
   const sleep = dependencies.sleep
     ?? ((milliseconds: number) => new Promise<void>(resolve => setTimeout(resolve, milliseconds)));
@@ -198,66 +269,23 @@ export async function pollDeviceAuthorization(
   for (;;) {
     if (now() >= authorization.expiresAt) throw expired();
     await sleep(interval * 1_000);
-    let response: Response;
-    try {
-      response = await send(new URL('/api/cli/device/token', origin), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          grant_type: DEVICE_CODE_GRANT_TYPE,
-          device_code: authorization.deviceCode,
-          client_id: DEVICE_CLIENT_ID,
-        }),
-        redirect: 'error',
-        signal: AbortSignal.timeout(dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS),
-      });
-    } catch (error) {
-      // RFC 8628 §3.5: a client may keep polling through a transient failure.
+    const step = await requestDeviceToken(origin, authorization, dependencies);
+    if (step.kind === 'approved') return step.body;
+    if (step.kind === 'retry') {
       failures += 1;
-      if (failures >= MAX_POLL_FAILURES) throw unreachable(origin, error);
+      if (failures >= MAX_POLL_FAILURES) throw step.error;
       continue;
     }
-    const body = await readJson(response);
-    if (response.ok) {
-      if (!isRecord(body)) throw new Error('Cloud returned an invalid device sign-in response.');
-      return body;
-    }
-    const error = isRecord(body) && typeof body.error === 'string' ? body.error : undefined;
-    const description = errorDescription(body);
-    const serverInterval = isRecord(body) ? positiveSeconds(body.interval) : undefined;
-    if (error === 'authorization_pending') {
-      failures = 0;
-      if (serverInterval !== undefined) interval = clampInterval(serverInterval);
+    failures = 0;
+    if (step.kind === 'pending') {
+      if (step.interval !== undefined) interval = clampInterval(step.interval);
       continue;
     }
-    if (error === 'slow_down' || response.status === 429) {
-      failures = 0;
-      interval = clampInterval(Math.max(serverInterval ?? 0, interval + SLOW_DOWN_STEP_SECONDS));
-      continue;
-    }
-    if (error === 'expired_token') throw expired();
-    if (error === 'access_denied') {
-      throw new CliError('CLOUD_AUTHORIZATION_DECLINED',
-        `Device sign-in was denied${description ? `: ${description}` : '.'} Run \`hypequery login --device\` again to retry.`, {
-          exitClass: 'auth',
-          hint: 'Run `hypequery login --device` again and approve the code in the browser.',
-        });
-    }
-    if (error === 'invalid_grant') {
-      throw new CliError('CLOUD_AUTHORIZATION_DECLINED',
-        'Cloud no longer recognises this device sign-in. Run `hypequery login --device` again.', {
-          exitClass: 'auth',
-          hint: 'Run `hypequery login --device` again.',
-        });
-    }
-    if (response.status >= 500) {
-      failures += 1;
-      if (failures < MAX_POLL_FAILURES) continue;
-    }
-    throw cloudHttpError(
-      response.status,
-      `Cloud rejected the device sign-in poll (HTTP ${response.status}${error ? `, ${error}` : ''}).`,
-      parseCloudErrorBody(JSON.stringify(body ?? {})),
-    );
+    interval = clampInterval(Math.max(step.interval ?? 0, interval + SLOW_DOWN_STEP_SECONDS));
   }
+}
+
+/** Whether the device code has run out, so a saved sign-in must start again. */
+export function deviceAuthorizationExpired(authorization: Pick<DeviceAuthorization, 'expiresAt'>, now = Date.now()): boolean {
+  return now >= authorization.expiresAt;
 }

@@ -498,3 +498,63 @@ describe('hypequery logout and management tokens', () => {
     expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(expect.stringContaining('HYPEQUERY_API_TOKEN'));
   });
 });
+
+describe('hypequery login --device --no-wait', () => {
+  async function store() {
+    const configDirectory = await mkdtemp(path.join(tmpdir(), 'hq-device-pending-'));
+    return { configDirectory, cleanup: () => rm(configDirectory, { recursive: true, force: true }) };
+  }
+
+  it('prints the link, exits pending without waiting, and finishes on the next run once approved', async () => {
+    const pending = await store();
+    const cloud = deviceCloud(
+      () => json(400, { error: 'authorization_pending' }),
+      () => approved(),
+    );
+    const dependencies = deviceDependencies(cloud, { pendingStore: { configDirectory: pending.configDirectory } });
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies);
+      expect(dependencies.sleep).not.toHaveBeenCalled();
+      expect(cloud.requests.map(request => request.path)).toEqual(['/api/cli/device/code']);
+      expect(stderr.mock.calls.flat().join('\n')).toContain(`${ORIGIN}/cli/device?code=BCDF-GHJK`);
+      expect(dependencies.saveManagementCredential).not.toHaveBeenCalled();
+
+      // Not approved yet: one poll, still pending, still no wait.
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies);
+      expect(cloud.requests.map(request => request.path)).toEqual(['/api/cli/device/code', '/api/cli/device/token']);
+      expect(dependencies.saveManagementCredential).not.toHaveBeenCalled();
+
+      // Approved: the same device code is exchanged and the pending sign-in is gone.
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies);
+      expect(cloud.requests.map(request => request.path)).toEqual(['/api/cli/device/code', '/api/cli/device/token', '/api/cli/device/token']);
+      expect(dependencies.saveManagementCredential).toHaveBeenCalledTimes(1);
+      expect(dependencies.sleep).not.toHaveBeenCalled();
+      await expect(import('node:fs/promises').then(fs => fs.stat(path.join(pending.configDirectory, 'device-sign-in.json')))).rejects.toThrow();
+    } finally {
+      stderr.mockRestore();
+      await pending.cleanup();
+    }
+  });
+
+  it('forgets a denied sign-in so the next run starts over', async () => {
+    const pending = await store();
+    const cloud = deviceCloud(() => json(400, { error: 'access_denied' }));
+    const dependencies = deviceDependencies(cloud, { pendingStore: { configDirectory: pending.configDirectory } });
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies);
+      await expect(loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies))
+        .rejects.toMatchObject({ code: 'CLOUD_AUTHORIZATION_DECLINED' });
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false }, dependencies);
+      expect(cloud.requests.filter(request => request.path === '/api/cli/device/code')).toHaveLength(2);
+    } finally {
+      stderr.mockRestore();
+      await pending.cleanup();
+    }
+  });
+
+  it('is only for device sign-in', async () => {
+    await expect(loginCommand({ cloudUrl: ORIGIN, wait: false }, {})).rejects.toMatchObject({ code: 'USAGE' });
+  });
+});
