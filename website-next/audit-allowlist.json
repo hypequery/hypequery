@@ -1,0 +1,10 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "reason": "No patched release exists (advisory covers <= 4.0.7, the latest). picomatch reaches the site only through build tooling (tinyglobby in fumadocs-core and fumadocs-mdx, the vercel CLI); no site code passes request input to a glob matcher.",
+      "reviewBy": "2026-12-02"
+    }
+  ]
+}

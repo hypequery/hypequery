@@ -84,7 +84,7 @@ When a PR is merged, Changesets handles the versioning flow automatically in the
 ## Dependency advisories
 
 The CI **audit** job runs `pnpm audit --prod --audit-level high` for the
-workspace packages and `npm audit --omit=dev --audit-level=high` for
+workspace packages and `npm audit --omit=dev` at high severity for
 `website-next`. A high or critical advisory in a production dependency fails CI.
 Dependabot (`.github/dependabot.yml`) opens grouped weekly updates, and
 security updates as they are published.
@@ -98,6 +98,13 @@ Prefer upgrading the dependent package. When that isn't possible, add a root
 exists yet, record the advisory ID, why it isn't exploitable here, and a review
 date in the PR before relaxing the check for that advisory alone. Don't lower
 `--audit-level` or remove the job to get a build green.
+
+For `website-next`, the audit step runs `node scripts/audit-website.mjs`, which
+reads `website-next/audit-allowlist.json`. To excuse an advisory that has no fix,
+add an entry with its GHSA `id`, the `package`, the `reason` it isn't exploitable
+here and a `reviewBy` date. The entry applies to that advisory on that package
+only, and the check fails again the day after `reviewBy`. Remove the entry once a
+patched version is installed.
 
 ## Questions?
 
