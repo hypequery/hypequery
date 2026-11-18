@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { prepareProtocolDeploymentContract, type ProtocolDeploymentContract, type ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
+import { prepareProtocolDeploymentContractAnyVersion, type ProtocolDeploymentContract, type ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { CliError } from '../cli-error.js';
 import { verifyDeploymentBundle } from '../deployment-bundle.js';
 import { loadModule } from '../load-api.js';
@@ -83,7 +83,7 @@ export async function loadOnboardContract(source: string | undefined, cwd = proc
   }
   if (path.extname(file).toLowerCase() === '.json') {
     try {
-      return { source: file, kind: 'contract', contract: prepareProtocolDeploymentContract(JSON.parse(await readFile(file, 'utf8'))).contract };
+      return { source: file, kind: 'contract', contract: contract2(prepareProtocolDeploymentContractAnyVersion(JSON.parse(await readFile(file, 'utf8'))).contract) };
     } catch (error) {
       throw invalid(chosen, error instanceof Error ? error.message : String(error));
     }

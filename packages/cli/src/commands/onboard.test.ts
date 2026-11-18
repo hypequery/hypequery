@@ -436,7 +436,7 @@ describe('hypequery onboard check', () => {
       dataset('orders', 'orders', [{ name: 'customer', kind: 'belongsTo', target: 'customers', from: 'customer_id', to: 'id', queryable: true }]),
       dataset('customers', 'customers'),
     ]);
-    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
+    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContractAnyVersion');
     prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
     try {
       const result = await json(() => onboardCommand('check', file, {}, { engine, query, input }));
@@ -455,7 +455,7 @@ describe('hypequery onboard check', () => {
       'measure-checks': { verifyMeasures: async () => [{ check: 'M2', dataset: 'orders', measure: 'revenue', outcome: 'failed', reason: 'Routes differ by 12%.' }] },
     });
     const { file } = await contractFile([dataset('orders', 'orders')]);
-    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
+    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContractAnyVersion');
     prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
     try {
       const error = await onboardCommand('check', file, { join: 'orders.id=customers.id' }, { engine, query, input }).catch(caught => caught);
@@ -471,7 +471,7 @@ describe('hypequery onboard check', () => {
 
   async function withContract<T>(datasets: unknown[], run: (file: string) => Promise<T>): Promise<T> {
     const { file } = await contractFile(datasets);
-    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
+    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContractAnyVersion');
     prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
     try {
       return await run(file);
@@ -559,7 +559,7 @@ describe('hypequery onboard check', () => {
     const verifyMeasures = vi.fn();
     const { engine } = fakeEngine({ 'measure-checks': { verifyMeasures } });
     const { file } = await contractFile([dataset('ghost', 'ghost_table')]);
-    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContract');
+    const prepare = vi.spyOn(await import('@hypequery/protocol'), 'prepareProtocolDeploymentContractAnyVersion');
     prepare.mockImplementation(((value: unknown) => ({ contract: value, identity: 'x' })) as never);
     try {
       await expect(onboardCommand('check', file, {}, { engine, query, input }))
