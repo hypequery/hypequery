@@ -19,8 +19,8 @@ There are two ways to connect:
 
 ## Connect your MCP client
 
-Your organisation has one MCP URL for every project. Copy it from **Connect › MCP** in the app, add it to your
-client, and sign in with your hypequery account. There's no key to create or paste. The client can do what your role
+Your organisation has one MCP URL for every project. Copy the MCP server URL from **Connect** in hypequery
+(**Endpoints › MCP server**), add it to your client, and sign in with your hypequery account. There's no key to create or paste. The client can do what your role
 allows, and no more.
 
 The steps below write the URL as `<your MCP URL>`.
@@ -47,14 +47,13 @@ Then, in Claude Code, run `/mcp`, choose `hypequery` and sign in with your hypeq
 
 ### Cursor
 
-In **Connect › MCP**, choose **Add to Cursor** and then **Install**. Or add the server to `.cursor/mcp.json`:
+Add the server to `~/.cursor/mcp.json` to use it in every project, or to `.cursor/mcp.json` in one project:
 
 <CodeBlock>
 ```json
 {
   "mcpServers": {
     "hypequery": {
-      "type": "http",
       "url": "<your MCP URL>"
     }
   }
@@ -64,9 +63,19 @@ In **Connect › MCP**, choose **Add to Cursor** and then **Install**. Or add th
 
 Sign in with your hypequery account when Cursor asks.
 
+To share a one-click install link with your team instead, use Cursor's install link format. `config` is the
+Base64 encoding of `{"url":"<your MCP URL>"}`:
+
+<CodeBlock>
+```text
+cursor://anysphere.cursor-deeplink/mcp/install?name=hypequery&config=<base64 of {"url":"<your MCP URL>"}>
+```
+</CodeBlock>
+
 ### VS Code
 
-In **Connect › MCP**, choose **Add to VS Code** and then **Install**. Or add the server to `.vscode/mcp.json`:
+Run **MCP: Add Server** from the Command Palette, choose **HTTP** and paste your MCP URL. Or add the server to
+`.vscode/mcp.json`:
 
 <CodeBlock>
 ```json

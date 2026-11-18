@@ -14,7 +14,8 @@ itself. Every query runs with the key's access and shows in **Logs**.
 
 ## Get a key for your server
 
-Create a [runtime API key](/docs/cloud/api-keys) with MCP access (the `mcp:invoke` scope), or ask an Admin for one.
+Create a [runtime API key](/docs/cloud/api-keys) with MCP access (the `mcp:invoke` scope) in **Settings › Keys**, or
+ask an Admin for one.
 Add it to your server's environment, for example `.env.local`:
 
 <CodeBlock>
@@ -36,8 +37,8 @@ npm install ai @ai-sdk/mcp
 ## Give the model hypequery's tools
 
 This Next.js route connects to hypequery's MCP server, hands its tools to `streamText`, and streams the answer to your
-chat UI. Use the MCP URL that **Connect** shows for the project, or the one `hypequery deployment:status --mcp-config`
-prints.
+chat UI. Use the MCP server URL from **Connect** in hypequery (**Endpoints › MCP server**), or the one
+`hypequery deployment:status --mcp-config` prints.
 
 <CodeBlock>
 ```ts

@@ -14,7 +14,7 @@ only `requests`.
 
 ## Get a key
 
-Create a [runtime API key](/docs/cloud/api-keys) on the **Keys** page, or ask an Admin for one. Keep it in the
+Create a [runtime API key](/docs/cloud/api-keys) in **Settings › Keys**, or ask an Admin for one. Keep it in the
 `HYPEQUERY_API_KEY` environment variable:
 
 <CodeBlock>
@@ -35,8 +35,9 @@ pip install requests pandas
 
 ## Query a dataset
 
-Each dataset is served at `https://<environment-slug>.hypequery.app` plus its path. `hypequery deployment:status` and
-the **APIs** page print the exact URL for each dataset.
+Each dataset is served at `https://<environment-slug>.hypequery.app` plus its path. Copy the REST API URL from
+**Connect** in hypequery (**Endpoints › REST API**). `hypequery deployment:status` and the **APIs** page print the
+exact URL for each dataset.
 
 <CodeBlock>
 ```python
