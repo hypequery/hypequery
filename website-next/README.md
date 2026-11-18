@@ -50,6 +50,32 @@ The site is configured for Vercel through `vercel.json`. Build it locally before
 npm run build
 ```
 
+## Product analytics (PostHog)
+
+The site sends pageviews, page leaves (time on page, scroll depth), clicks,
+heatmaps, web vitals and custom events to PostHog from
+`src/instrumentation-client.ts`. Set these in Vercel, then deploy:
+
+```dotenv
+NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=phc_your_project_token
+# Optional; defaults to the US ingestion host. Point it at a reverse proxy
+# domain to avoid tracker blockers.
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+hypequery Cloud sends to the same project. Every event has an `app` property
+(`website` here, `cloud` there) and `environment`; website events also carry
+`page_section` (`home`, `docs`, `blog`, `compare`, `landing`, ...).
+
+Without the token nothing is sent. Local hosts never send unless
+`NEXT_PUBLIC_POSTHOG_CAPTURE_LOCAL=true`. Until a visitor accepts the Analytics
+cookie category PostHog runs cookieless (ids in memory, no session recording);
+see `src/lib/analytics.ts` and `CookieConsent.tsx`.
+
+Custom events go through `trackEvent` in `src/lib/analytics.ts`, which sends to
+Umami and PostHog. Elements with `data-umami-event` are mirrored to PostHog by
+`DeclarativeEventTracker`.
+
 ## CLI telemetry endpoint
 
 `POST /api/telemetry` accepts the published CLI's allowlisted schema-v1 batches.

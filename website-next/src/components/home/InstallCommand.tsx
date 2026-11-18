@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { trackUmamiEvent } from '@/lib/umami';
+import { trackEvent } from '@/lib/analytics';
 
 const DEFAULT_COMMAND = 'npx @hypequery/cli init';
 
@@ -25,7 +25,7 @@ export function InstallCommand({
     } catch {
       return;
     }
-    trackUmamiEvent('code_copy', {
+    trackEvent('code_copy', {
       kind: 'install',
       method: 'button',
       snippet: command,

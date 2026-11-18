@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import * as CookieConsent from 'vanilla-cookieconsent';
 import 'vanilla-cookieconsent/dist/cookieconsent.css';
+import { applyAnalyticsConsent } from '@/lib/analytics';
 import { isLocalHostname } from '@/lib/local-host';
 import './CookieConsent.css';
 
@@ -95,6 +96,8 @@ export default function CookieConsentBanner({
           (c) => (c === 'analytics' || c === 'marketing') && !CookieConsent.acceptedCategory(c),
         );
         if (removed) {
+          // Drop PostHog's stored ids before the reload restarts it cookieless.
+          if (!CookieConsent.acceptedCategory('analytics')) applyAnalyticsConsent(false);
           window.location.reload();
           return;
         }
@@ -108,7 +111,7 @@ export default function CookieConsentBanner({
             consentModal: {
               title: 'We value your privacy',
               description:
-                'We count visits with anonymous, cookieless analytics (Umami). Other analytics and marketing trackers use cookies and only run with your consent.',
+                'We measure visits and page usage with anonymous, cookieless analytics (Umami and PostHog). Analytics cookies, session recording and marketing trackers only run with your consent.',
               acceptAllBtn: 'Accept all',
               acceptNecessaryBtn: 'Reject all',
               showPreferencesBtn: 'Manage preferences',
@@ -123,13 +126,13 @@ export default function CookieConsentBanner({
                 {
                   title: 'Strictly necessary',
                   description:
-                    'Required for the site to function (e.g. remembering your theme), plus anonymous, cookieless visit counts (Umami) that store nothing on your device. Always on.',
+                    'Required for the site to function (e.g. remembering your theme), plus anonymous, cookieless usage analytics (Umami and PostHog) that store nothing on your device. Always on.',
                   linkedCategory: 'necessary',
                 },
                 {
                   title: 'Analytics',
                   description:
-                    'Google Analytics, which uses cookies to help us understand how visitors use the site.',
+                    'Google Analytics and PostHog, which use cookies to recognise returning visitors and, for PostHog, record sessions, to help us understand how visitors use the site.',
                   linkedCategory: 'analytics',
                 },
                 {
@@ -146,6 +149,9 @@ export default function CookieConsentBanner({
     });
 
     function applyConsent() {
+      // PostHog is already running cookieless; consent lets it persist ids and
+      // record sessions. A no-op wherever PostHog did not start.
+      if (CookieConsent.acceptedCategory('analytics')) applyAnalyticsConsent(true);
       // Never load trackers during local development, whatever was consented.
       if (isLocalHostname(window.location.hostname)) return;
       if (CookieConsent.acceptedCategory('analytics')) {

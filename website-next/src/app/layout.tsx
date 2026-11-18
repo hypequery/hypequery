@@ -7,6 +7,7 @@ import CookieConsentBanner from "@/components/CookieConsent";
 import UmamiScript from "@/components/UmamiScript";
 import { WaitlistDialog } from "@/components/home/DeployWaitlist";
 import { CodeCopyTracker } from "@/components/CodeCopyTracker";
+import { DeclarativeEventTracker } from "@/components/DeclarativeEventTracker";
 import { MarkdownAlternate } from "@/components/MarkdownAlternate";
 import { HTML_TWIN_PAGES, LAYOUT_ALTERNATE_ROOTS } from "@/lib/markdown-twin";
 import { absoluteUrl, siteUrl } from "@/lib/site";
@@ -160,6 +161,7 @@ export default function RootLayout({
           {children}
           <WaitlistDialog />
           <CodeCopyTracker />
+          <DeclarativeEventTracker />
         </RootProvider>
         <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>

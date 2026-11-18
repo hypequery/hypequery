@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Info } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
 
 const FORM_ACTION = 'https://formspree.io/f/mzdwnylk';
 const OPEN_EVENT = 'hypequery:open-waitlist';
@@ -46,7 +47,9 @@ export function WaitlistDialog() {
       // Records the page and button, e.g. `homepage-deploy-hero` or `docs-deploy-cloud-notice`.
       const { pathname } = window.location;
       const page = pathname === '/' ? 'homepage' : pathname.split('/')[1];
-      setSource(`${page}-deploy-${(event as CustomEvent<string>).detail}`);
+      const openedFrom = `${page}-deploy-${(event as CustomEvent<string>).detail}`;
+      setSource(openedFrom);
+      trackEvent('waitlist_opened', { source: openedFrom, page: pathname });
       setStatus('idle');
       dialogRef.current?.showModal();
     };
@@ -57,14 +60,23 @@ export function WaitlistDialog() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
+    // Only the choices, never the email or free text.
+    const data = new FormData(form);
+    const details = {
+      source,
+      page: window.location.pathname,
+      design_partner: data.get('design_partner') === 'yes',
+    };
     setStatus('sending');
     try {
       const response = await fetch(FORM_ACTION, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error('Waitlist signup failed');
       form.reset();
       setStatus('sent');
+      trackEvent('waitlist_submitted', details);
     } catch {
       setStatus('error');
+      trackEvent('waitlist_submit_failed', details);
     }
   }
 
