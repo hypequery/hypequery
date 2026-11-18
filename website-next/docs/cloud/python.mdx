@@ -97,6 +97,8 @@ while True:
         json={
             "dimensions": ["country"],
             "measures": ["revenue"],
+            # Pages need a fixed order, or rows can repeat or go missing between requests.
+            "orderBy": [{"field": "country", "direction": "asc"}],
             "limit": page_size,
             "offset": offset,
             "includeMeta": True,
@@ -108,11 +110,15 @@ while True:
     rows.extend(body["data"])
     if not body["meta"]["pagination"]["hasMore"]:
         break
-    offset += page_size
+    # The endpoint may serve fewer rows than asked for: move on by what came back.
+    offset += len(body["data"])
 
 orders = pd.DataFrame(rows)
 ```
 </CodeBlock>
+
+Order by fields that together tell every grouped row apart (here `country` alone does). Without a full order,
+ClickHouse may return rows in a different order on each request.
 
 ## When each customer sees only their rows
 

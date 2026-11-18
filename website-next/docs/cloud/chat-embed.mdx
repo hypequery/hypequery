@@ -66,20 +66,40 @@ Start a thread, then send each message to it. The assistant's turn streams back 
 ```ts
 // chat.ts
 const ORIGIN = 'https://<environment-slug>.hypequery.app';
-const token = (await (await fetch('/api/hypequery-token', { method: 'POST' })).json()).token;
-const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+// Tokens last minutes: mint a fresh one shortly before the last expires.
+let current: { token: string; expiresAt: number } | null = null;
+async function headers() {
+  if (!current || current.expiresAt - Date.now() < 60_000) {
+    const minted = await (await fetch('/api/hypequery-token', { method: 'POST' })).json();
+    current = { token: minted.token, expiresAt: Date.parse(minted.expiresAt) };
+  }
+  return { Authorization: `Bearer ${current.token}`, 'Content-Type': 'application/json' };
+}
+
+/** A refusal (for example a usage limit) is plain JSON with an error, not a stream. */
+async function refused(response: Response) {
+  const body = await response.json().catch(() => null);
+  return new Error(body?.error?.message ?? `The request failed (${response.status}).`);
+}
 
 // One thread per conversation.
-const { thread } = await (
-  await fetch(`${ORIGIN}/embed/threads`, { method: 'POST', headers, body: '{}' })
-).json();
+const started = await fetch(`${ORIGIN}/embed/threads`, {
+  method: 'POST',
+  headers: await headers(),
+  body: '{}',
+});
+if (!started.ok) throw await refused(started);
+const { thread } = await started.json();
 
 export async function ask(text: string, onEvent: (event: ChatEvent) => void) {
   const response = await fetch(`${ORIGIN}/embed/threads/${thread.id}/messages`, {
     method: 'POST',
-    headers,
+    headers: await headers(),
     body: JSON.stringify({ text }),
   });
+  // Show the user why it failed, e.g. a usage limit, and when to try again.
+  if (!response.ok) throw await refused(response);
   // The turn streams as one JSON object per line.
   const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
   let buffered = '';
@@ -104,7 +124,9 @@ type ChatEvent =
 ```
 </CodeBlock>
 
-With your own JWT, set `token` to your sign-in provider's token for the user instead of calling the token route.
+With your own JWT, have `headers()` use your sign-in provider's current token for the user instead of calling the
+token route. Before a turn starts, a refusal comes back as JSON with an `error`, not a stream: `ask` throws it so you
+can show the message and, for a usage limit, when to try again.
 
 Your app's origin must be in the environment's allowed origins, under **Customer access**. Add
 `http://localhost:3000` for development, or the browser's requests are refused.

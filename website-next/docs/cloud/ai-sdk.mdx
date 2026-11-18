@@ -47,6 +47,10 @@ import { createMCPClient } from '@ai-sdk/mcp';
 import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 'ai';
 
 export async function POST(request: Request) {
+  // Only your signed-in users may ask: the tools below read with your server's key.
+  const user = await getSignedInUser(request); // Your own auth.
+  if (!user) return new Response('Sign in first.', { status: 401 });
+
   const { messages }: { messages: UIMessage[] } = await request.json();
 
   // hypequery's MCP server: list datasets, describe them, query them.
@@ -72,6 +76,10 @@ export async function POST(request: Request) {
 }
 ```
 </CodeBlock>
+
+**Check who is asking first.** The route's tools read with your server's key, so anyone who can call the route can
+read whatever that key can. Check the caller's session before creating the MCP client, as above, and only give them a
+key or tenant they're allowed to use (see [Tenants](#tenants)). Keeping the key on the server isn't enough on its own.
 
 Any AI SDK model works. `stopWhen` caps the tool loop: a typical question takes three steps (list, schema, query) plus
 the answer. `onEnd` closes the MCP connection once the response and its tool calls have finished.
@@ -99,7 +107,9 @@ LangChain and others connect to the same MCP URL with the same `Authorization` h
 ```text
 Add an AI chat route to this app with the Vercel AI SDK that answers questions from hypequery.
 - Install `ai` and `@ai-sdk/mcp`.
-- In a server route, connect with `createMCPClient` from `@ai-sdk/mcp` over HTTP to <your MCP URL>,
+- In a server route, first check the caller's server-side session and refuse anyone not signed in; only
+  use a key or tenant that user is allowed to read.
+- Then connect with `createMCPClient` from `@ai-sdk/mcp` over HTTP to <your MCP URL>,
   sending `Authorization: Bearer ${process.env.HYPEQUERY_API_KEY}`.
 - Pass `await client.tools()` to `streamText`, let it take several steps (`stopWhen`), and close the
   client when the stream ends (`onEnd`).
