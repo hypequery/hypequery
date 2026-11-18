@@ -67,20 +67,23 @@ Start a thread, then send each message to it. The assistant's turn streams back 
 // chat.ts
 const ORIGIN = 'https://<environment-slug>.hypequery.app';
 
-// Tokens last minutes: mint a fresh one shortly before the last expires.
-let current: { token: string; expiresAt: number } | null = null;
-async function headers() {
-  if (!current || current.expiresAt - Date.now() < 60_000) {
-    const minted = await (await fetch('/api/hypequery-token', { method: 'POST' })).json();
-    current = { token: minted.token, expiresAt: Date.parse(minted.expiresAt) };
-  }
-  return { Authorization: `Bearer ${current.token}`, 'Content-Type': 'application/json' };
-}
-
 /** A refusal (for example a usage limit) is plain JSON with an error, not a stream. */
 async function refused(response: Response) {
   const body = await response.json().catch(() => null);
   return new Error(body?.error?.message ?? `The request failed (${response.status}).`);
+}
+
+// Tokens last minutes: mint a fresh one shortly before the last expires.
+let current: { token: string; expiresAt: number } | null = null;
+async function headers() {
+  if (!current || current.expiresAt - Date.now() < 60_000) {
+    const response = await fetch('/api/hypequery-token', { method: 'POST' });
+    // A failed refresh keeps nothing, so the next call tries again.
+    if (!response.ok) throw await refused(response);
+    const minted = await response.json();
+    current = { token: minted.token, expiresAt: Date.parse(minted.expiresAt) };
+  }
+  return { Authorization: `Bearer ${current.token}`, 'Content-Type': 'application/json' };
 }
 
 // One thread per conversation.
