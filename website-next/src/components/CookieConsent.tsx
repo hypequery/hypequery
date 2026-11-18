@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import * as CookieConsent from 'vanilla-cookieconsent';
 import 'vanilla-cookieconsent/dist/cookieconsent.css';
-import { applyAnalyticsConsent } from '@/lib/analytics';
+import { applyAnalyticsConsent, consentChange } from '@/lib/analytics';
 import { isLocalHostname } from '@/lib/local-host';
 import './CookieConsent.css';
 
@@ -92,12 +92,10 @@ export default function CookieConsentBanner({
       // Applying withdrawn consent to an already-running script isn't possible
       // in-session, so reload to unload trackers when a category is turned off.
       onChange: ({ changedCategories }) => {
-        const removed = changedCategories.some(
-          (c) => (c === 'analytics' || c === 'marketing') && !CookieConsent.acceptedCategory(c),
-        );
-        if (removed) {
-          // Drop PostHog's stored ids before the reload restarts it cookieless.
-          if (!CookieConsent.acceptedCategory('analytics')) applyAnalyticsConsent(false);
+        const change = consentChange(changedCategories, (c) => CookieConsent.acceptedCategory(c));
+        // Drop PostHog's stored ids before the reload restarts it cookieless.
+        if (change.clearPostHog) applyAnalyticsConsent(false);
+        if (change.reload) {
           window.location.reload();
           return;
         }
