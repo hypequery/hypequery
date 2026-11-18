@@ -7,6 +7,8 @@
 
 <p align="center"><strong>Embedded analytics on ClickHouse.</strong></p>
 
+<p align="center">Listed in the <a href="https://clickhouse.com/docs/integrations/connectors/data-visualization/community-integrations/hypequery-and-clickhouse">ClickHouse docs</a> as a community integration.</p>
+
 Define your metrics once, in the codebase you already have. Dashboards, APIs, and AI agents all answer from that one definition. Run it in your own backend today. A hosted option, hypequery cloud, is coming soon.
 
 hypequery is an open-source embedded analytics toolkit for ClickHouse that runs inside your own application. You define datasets in TypeScript or Python (beta), with their dimensions, measures, metrics, and tenant rules, then query them by name and serve them as authenticated HTTP endpoints with OpenAPI, typed React hooks, and MCP tools for AI agents. The TypeScript SDK also includes a type-safe ClickHouse query builder. It is for engineers building dashboards, APIs, and agent tools on their own ClickHouse. hypequery is not a hosted BI tool, not a database, and not a separate semantic-layer server: it is a set of Apache 2.0 libraries you install and deploy with your backend.
