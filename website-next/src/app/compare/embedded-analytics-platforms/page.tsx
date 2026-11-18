@@ -611,7 +611,11 @@ export default function EmbeddedAnalyticsPlatformsPage() {
                 <Link href="/cube-js-alternative" className={inlineLink}>
                   Cube alternatives
                 </Link>{' '}
-                for other semantic layers, and what headless BI means.
+                for other semantic layers, and{' '}
+                <Link href="/semantic-layer/headless-bi" className={inlineLink}>
+                  what headless BI means
+                </Link>
+                .
               </li>
               <li>
                 <strong className="text-text">

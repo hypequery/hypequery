@@ -286,3 +286,43 @@ tests were run and pass. The TypeScript snippets in A2–A4 type-check.
 
 Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
 reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.
+
+# SEO verification log: /semantic-layer/headless-bi (2026-11-18)
+
+New spoke targeting "headless bi", "headless business intelligence", "what is headless bi", "headless bi vs
+semantic layer" and "headless bi tools". Every vendor claim was fetched from the vendor's own site, blog, docs or
+repository on 2026-11-18.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| /semantic-layer/headless-bi | Cube: headless BI "decouples governed business definitions from the presentation layers that use them"; four components (data modelling, access control, caching, APIs); Cube Core is "the open-source semantic layer: the headless foundation you can self-host and manage as code"; post published 2023-03-23, updated 2026-09-16 | https://cube.dev/blog/headless-bi | 2026-11-18 |
+| /semantic-layer/headless-bi | Cube described itself as "the headless BI platform" when renaming from Cube.js (post dated 2022-08-31) | https://cube.dev/blog/cube-js-is-now-cube | 2026-11-18 |
+| /semantic-layer/headless-bi | Cube: "We even had "Headless BI" as a slogan on our website back in 2022" (post dated 2025-10-01) | https://cube.dev/blog/cube-native-ai-bi-frontend | 2026-11-18 |
+| /semantic-layer/headless-bi | Cube docs: "Cube is the agentic analytics platform built on a semantic layer"; SQL (Postgres-compatible), REST (JSON) and GraphQL APIs; Cube Core is open source | https://docs.cube.dev/docs/introduction | 2026-11-18 |
+| /semantic-layer/headless-bi | Cube docs cover more than 25 data sources (26 data source pages plus an index), ClickHouse among them | https://github.com/cube-js/cube/tree/master/docs-mintlify/admin/connect-to-data/data-sources ; https://github.com/cube-js/cube/blob/master/docs-mintlify/admin/connect-to-data/data-sources/clickhouse.mdx | 2026-11-18 |
+| /semantic-layer/headless-bi | GoodData lists "Headless BI" in its Product navigation; home page lists "SQL, MCP, A2A, and SDKs" as ways to connect | https://www.gooddata.ai/ | 2026-11-18 |
+| /semantic-layer/headless-bi | GoodData (published 2022-09-08): "Headless BI is an analytical backend that makes metric definitions accessible via declarative APIs"; enables headless BI "through a universal semantic layer"; Python, JavaScript and React SDKs; "goes beyond headless BI" with multi-tenancy and its own self-service UI | https://www.gooddata.ai/resources/headless-bi-what-you-need-to-know/ | 2026-11-18 |
+| /semantic-layer/headless-bi | Embeddable: headless BI is the architecture, the semantic layer "one of its components"; Embeddable "is built from the ground up to work with headless BI tools like Cube.dev" (updated 2026-07-23) | https://embeddable.com/blog/headless-bi-vs-semantic-layer | 2026-11-18 |
+| /semantic-layer/headless-bi | Embeddable: "Cube-based data models govern access and define each metric once"; "Building blocks owned by your engineers, experiences owned by your product team or agents" | https://embeddable.com/ | 2026-11-18 |
+
+hypequery claims were checked against this repository: Apache 2.0 (`LICENSE`); TypeScript and Python datasets
+(`packages/datasets`, `website-next/docs/python`); OpenAPI from serve (`packages/serve/src/openapi.ts`,
+`website-next/docs/(connect)/react/getting-started.mdx`); typed React hooks `useDataset` and `useMetric`
+(`@hypequery/react`); MCP tools (`packages/mcp-server`); `tenantKey` and `tenant.required`; `approxCountDistinct`
+(ClickHouse `uniq`), `argMax` and `merge` measures (`packages/datasets/src/aggregations.ts`, `measure.ts`); chDB
+(`website-next/docs/(typescript)/(query-builder)/chdb.mdx`, `website-next/docs/python/(datasets)/datasets/chdb.mdx`).
+Cloud wording matches `src/components/home/Hero.tsx` ("in early access"). The code sample is the Embeddable compare
+page snippet, type-checked against @hypequery/datasets 0.30.0 and @hypequery/serve 0.25.0.
+
+## Cut from /semantic-layer/headless-bi
+
+- **Cube as a "universal semantic layer"**: not on cube.dev or docs.cube.dev today; Cube's current wording is
+  "agentic analytics platform built on a semantic layer", so the page uses that.
+- **Cube calling itself headless BI in 2021**: only seen in a search snippet of the Integrations Gallery post, not
+  fetched; the page cites the 2022 rename post instead.
+- **Embeddable pricing ($1,000/month)**: from a third-party comparison site, not Embeddable's own pricing page.
+- **GoodData pricing ($12,000/year)**: from a search summary, not fetched from GoodData.
+- **Power BI as headless BI via the Execute Queries API or XMLA**: from a search summary only, not verified on
+  Microsoft's docs.
+- **Luzmo, ThoughtSpot, Polar Analytics and InetSoft positions on headless BI**: seen only in search results, not
+  checked on their sites.

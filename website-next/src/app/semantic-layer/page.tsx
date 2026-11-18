@@ -474,7 +474,12 @@ export default function SemanticLayerPage() {
               <Link href="/cube-js-alternative" className={inlineLink}>
                 Cube alternatives comparison
               </Link>{' '}
-              lays out the other semantic layers by how and where their models are defined.
+              lays out the other semantic layers by how and where their models are defined. Serving the layer over APIs
+              to front ends you build is what vendors call{' '}
+              <Link href="/semantic-layer/headless-bi" className={inlineLink}>
+                headless BI
+              </Link>
+              .
             </li>
             <li>
               <strong className="text-text">The metrics power your own product</strong>, behind your API and in

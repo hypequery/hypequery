@@ -57,6 +57,11 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     description: 'Tenant isolation, row-level and column-level rules, cache scoping and a pre-launch test list for dashboards, embedded analytics and agents.',
   },
   {
+    href: '/semantic-layer/headless-bi',
+    label: 'Headless BI',
+    description: 'What headless BI is, how it differs from a semantic layer, the three ways to put analytics in a product and which vendors sell it.',
+  },
+  {
     href: '/semantic-layer/dbt-semantic-layer-alternatives',
     label: 'dbt Semantic Layer alternatives',
     description: 'Nine alternatives compared by model format, databases (including ClickHouse), APIs, MCP and licence, and when to stay on dbt.',
