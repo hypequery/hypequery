@@ -2,6 +2,7 @@ import { isCmsAuthenticated } from '@/lib/cms-auth';
 import Link from 'next/link';
 import { logoutAction } from './actions';
 import type { Metadata } from 'next';
+import { NO_CAPTURE_CLASS } from '@/lib/analytics';
 
 export const metadata: Metadata = {
   title: 'CMS',
@@ -25,7 +26,7 @@ export default async function CmsLayout({
   const authenticated = await isCmsAuthenticated();
 
   return (
-    <div className="min-h-screen bg-[#050816] text-white">
+    <div className={`${NO_CAPTURE_CLASS} min-h-screen bg-[#050816] text-white`}>
       {authenticated ? (
         <>
           <header className="border-b border-white/10 bg-black/20">

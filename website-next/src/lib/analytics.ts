@@ -10,6 +10,14 @@ import { trackUmamiEvent } from '@/lib/umami';
  */
 export const ANALYTICS_APP = 'website';
 
+/**
+ * PostHog's block class. Session replay renders an element with this class as
+ * an empty placeholder and records nothing inside it; autocapture ignores it
+ * too. The CMS root carries it so editor screens and unpublished previews
+ * never reach a recording, however the editor navigates there.
+ */
+export const NO_CAPTURE_CLASS = 'ph-no-capture';
+
 /** vanilla-cookieconsent's cookie: URL-encoded JSON with the accepted categories. */
 const CONSENT_COOKIE = 'cc_cookie';
 

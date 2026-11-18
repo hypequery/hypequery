@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   applyAnalyticsConsent,
@@ -6,6 +7,7 @@ import {
   consentChange,
   hasAnalyticsConsent,
   pageSection,
+  NO_CAPTURE_CLASS,
   type ConsentClient,
   type DeviceStorage,
 } from './analytics';
@@ -133,4 +135,10 @@ test('turning only Marketing off reloads but keeps PostHog ids', () => {
 test('turning Analytics on is applied without a reload', () => {
   const accepted = new Set(['necessary', 'analytics']);
   assert.deepEqual(consentChange(['analytics'], (c) => accepted.has(c)), { reload: false, clearPostHog: false, apply: true });
+});
+
+test('the CMS root is blocked from session replay', () => {
+  assert.equal(NO_CAPTURE_CLASS, 'ph-no-capture'); // posthog-js recorder blockClass
+  const layout = readFileSync(new URL('../app/cms/layout.tsx', import.meta.url), 'utf8');
+  assert.match(layout, /<div className=\{`\$\{NO_CAPTURE_CLASS\} min-h-screen/);
 });

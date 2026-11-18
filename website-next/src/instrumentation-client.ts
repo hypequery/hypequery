@@ -43,7 +43,9 @@ if (!token) {
         if (!event) return null;
         const { pathname } = window.location;
         const section = pageSection(pathname);
-        // The CMS is our own admin tool, not visitor behaviour.
+        // The CMS is our own admin tool, not visitor behaviour. Its root also
+        // carries NO_CAPTURE_CLASS, which keeps it out of session replays,
+        // whose snapshots are buffered and can be sent after leaving /cms.
         if (section === 'cms') return null;
         event.properties = {
           ...event.properties,
