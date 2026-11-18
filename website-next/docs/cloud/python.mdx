@@ -1,0 +1,156 @@
+---
+title: Python
+description: Query a hypequery cloud dataset from Python and load the rows into a pandas DataFrame.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Pull a published dataset into pandas for a notebook, a script or a pipeline. Each dataset is an HTTP endpoint: you
+send the measures, dimensions and filters you want, and get rows back. You don't need a hypequery package for this,
+only `requests`.
+
+## Get a key
+
+Create a [runtime API key](/docs/cloud/api-keys) in **Settings › Keys**, or ask an Admin for one. Keep it in the
+`HYPEQUERY_API_KEY` environment variable:
+
+<CodeBlock>
+```bash
+export HYPEQUERY_API_KEY=hqgw_...
+```
+</CodeBlock>
+
+Never commit the key or print it in notebook output. Load it from the environment or your secret manager.
+
+## Install requests and pandas
+
+<CodeBlock>
+```bash
+pip install requests pandas
+```
+</CodeBlock>
+
+## Query a dataset
+
+Each dataset is served at `https://<environment-slug>.hypequery.app` plus its path. Copy the REST API URL from
+**Connect** in hypequery (**Endpoints › REST API**). `hypequery deployment:status` and the **APIs** page print the
+exact URL for each dataset.
+
+<CodeBlock>
+```python
+import os
+
+import pandas as pd
+import requests
+
+response = requests.post(
+    "https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query",
+    headers={"Authorization": f"Bearer {os.environ['HYPEQUERY_API_KEY']}"},
+    json={"dimensions": ["country"], "measures": ["revenue"], "limit": 100},
+    timeout=30,
+)
+response.raise_for_status()
+
+# The rows are in "data".
+orders = pd.DataFrame(response.json()["data"])
+```
+</CodeBlock>
+
+Measure values arrive as strings (or `None`) so decimals keep their precision. Convert the columns you need, for
+example with `pd.to_numeric` or `decimal.Decimal`.
+
+## The request body
+
+The body uses the same dataset query format as the [REST API](/docs/cloud/rest-api):
+
+| Field | |
+| --- | --- |
+| `measures` | The measures to compute, such as `["revenue"]`. |
+| `dimensions` | The fields to group by, such as `["country"]`. |
+| `filters` | Conditions on the dataset's fields. |
+| `orderBy` | How to sort the rows. |
+| `limit` | How many rows to return. |
+| `offset` | How many rows to skip, for paging. |
+| `includeMeta` | Set to `true` to also get `meta`, including pagination. |
+
+The **APIs** page lists each dataset's fields and the filters it accepts.
+
+## Page through large results
+
+Ask for `meta` with `includeMeta`, then keep requesting with a larger `offset` while `meta.pagination.hasMore` is true:
+
+<CodeBlock>
+```python
+url = "https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query"
+headers = {"Authorization": f"Bearer {os.environ['HYPEQUERY_API_KEY']}"}
+page_size = 1000
+rows = []
+offset = 0
+
+while True:
+    response = requests.post(
+        url,
+        headers=headers,
+        json={
+            "dimensions": ["country"],
+            "measures": ["revenue"],
+            # Pages need a fixed order, or rows can repeat or go missing between requests.
+            "orderBy": [{"field": "country", "direction": "asc"}],
+            "limit": page_size,
+            "offset": offset,
+            "includeMeta": True,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    body = response.json()
+    rows.extend(body["data"])
+    if not body["meta"]["pagination"]["hasMore"]:
+        break
+    # The endpoint may serve fewer rows than asked for: move on by what came back.
+    offset += len(body["data"])
+
+orders = pd.DataFrame(rows)
+```
+</CodeBlock>
+
+Order by fields that together tell every grouped row apart (here `country` alone does). Without a full order,
+ClickHouse may return rows in a different order on each request.
+
+## When each customer sees only their rows
+
+For tenant-scoped datasets, a query runs as one customer. A key bound to one tenant needs nothing extra. A key with
+several permitted tenants, or a trusted backend key, names the customer in the `x-hypequery-tenant-id` header:
+
+<CodeBlock>
+```python
+headers = {
+    "Authorization": f"Bearer {os.environ['HYPEQUERY_API_KEY']}",
+    # The signed-in user's customer, from your server-side session, never from user input.
+    "x-hypequery-tenant-id": customer_id,
+}
+```
+</CodeBlock>
+
+See [API keys & tenants](/docs/cloud/api-keys#tenant-authority) for how tenant authority works.
+
+## Hand it to your coding agent
+
+Paste this into Claude Code, Cursor or another coding agent in your Python project:
+
+<CodeBlock>
+```text
+Load data from hypequery Cloud into pandas in this Python project.
+- Use requests (or httpx) to POST JSON to https://<environment-slug>.hypequery.app<the dataset's path>,
+  with "Authorization: Bearer <key>" read from the HYPEQUERY_API_KEY environment variable.
+- If the dataset is per customer, send "x-hypequery-tenant-id" with the customer's ID, taken from the
+  server-side session, never from user input.
+- The body names measures, dimensions, filters, orderBy, limit and offset. The response's "data" is a list of
+  rows: pass it to pd.DataFrame. To page, send "includeMeta": true and repeat with a larger offset while
+  meta.pagination.hasMore is true.
+- Never print or commit the key.
+```
+</CodeBlock>
