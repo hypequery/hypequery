@@ -278,7 +278,7 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
         title="Apply the checklist to real platforms"
         intro={
           <p>
-            The companion comparison groups twelve current tools by architecture and records their embedding method,
+            The companion comparison groups fifteen current tools by architecture and records their embedding method,
             tenant model, ClickHouse support, self-hosting and pricing. Use this guide to set the criteria, then use the
             dated vendor comparison to build the shortlist.
           </p>
@@ -286,7 +286,7 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
       >
         <div className="grid gap-5 md:grid-cols-3">
           <Link href="/compare/embedded-analytics-platforms" className={marketing.card}>
-            <h3 className={marketing.cardTitle}>Compare 12 platforms</h3>
+            <h3 className={marketing.cardTitle}>Compare 15 platforms</h3>
             <p className="mt-3 text-sm leading-6 text-text-muted">
               Code-first layers, embedded BI platforms and BI tools with embedding, checked against vendor sources.
             </p>

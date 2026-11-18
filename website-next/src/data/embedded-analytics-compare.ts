@@ -19,7 +19,7 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description:
-      'Twelve platforms grouped by approach: code-first and headless, embedded BI, and BI tools with embedding. Embedding method, multi-tenancy, pricing model and who each suits.',
+      'Fifteen platforms grouped by approach: code-first and headless, embedded BI, and BI tools with embedding. Embedding method, multi-tenancy, pricing model and who each suits.',
   },
   {
     href: '/compare/build-vs-buy-embedded-analytics',

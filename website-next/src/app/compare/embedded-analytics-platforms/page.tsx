@@ -9,12 +9,14 @@ import { updatedFor } from '@/data/page-dates';
 
 // Prices and plan gates here repeat /compare/embedded-analytics-pricing. Re-verify both together, quarterly.
 const PATH = '/compare/embedded-analytics-platforms';
-const TITLE = '12 Best Embedded Analytics Tools & Platforms (2026)';
+const TITLE = '15 Best Embedded Analytics Tools & Platforms (2026)';
 const DESCRIPTION =
-  'Compare 12 embedded analytics tools by multi-tenancy, embedding method, ClickHouse support, self-hosting and pricing, with the best fit for each team.';
+  'Compare 15 embedded analytics tools by multi-tenancy, embedding method, ClickHouse support, self-hosting and pricing, with the best fit for each team.';
 const PUBLISHED = '2026-11-12';
 const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 12, 2026';
+// Qrvey, Databrain and Reveal were added later and checked on this date.
+const ADDED_VERIFIED_ON = 'November 18, 2026';
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -164,6 +166,39 @@ const categories: Category[] = [
         bestFor: 'Large deployments that need on-premises or dedicated cloud hosting.',
         watchOut: 'Multi-tenancy, full white-labelling and SSO are Enterprise features. ClickHouse support could not be confirmed in its docs.',
       },
+      {
+        id: 'qrvey',
+        name: 'Qrvey',
+        url: 'https://qrvey.com',
+        what: 'An embedded analytics platform for SaaS companies that is deployed into your own cloud. Qrvey Pro is for teams with an analytics-ready database; Qrvey Ultra adds a built-in data engine and transformation layer.',
+        embedding: 'JavaScript components and APIs with token-based authentication. Its site says “No iframes, ever”.',
+        tenancy: 'Tenant scopes with row, column, object and feature-level policies; the built-in data engine supports co-mingled and segregated tenant data models.',
+        pricing: <>Flat rate for unlimited tenants and users, with a perpetual licence option. No prices are published (contact sales).</>,
+        bestFor: 'SaaS teams who must keep analytics inside their own cloud account and want a price that does not grow with customers.',
+        watchOut: 'It is self-hosted in your VPC by default, so you operate it; a managed option exists. ClickHouse support could not be confirmed on the pages we read.',
+      },
+      {
+        id: 'databrain',
+        name: 'Databrain',
+        url: 'https://www.usedatabrain.com',
+        what: 'An analytics platform with paid builder seats and free viewers, a metric store and an AI agent. Embedded analytics, white-labelling and multi-tenancy are part of its Enterprise plan.',
+        embedding: 'Web components from an npm package that works with React, Vue and Angular, authorised with a guest token created through its API.',
+        tenancy: 'A clientId on the guest token, mapped to a tenant column in shared tables or to a schema or database per tenant.',
+        pricing: <>Solo $39, Team $199 and Business $3,125 a month are published. Embedding is Enterprise only, quoted per instance with unlimited tenants and viewers.</>,
+        bestFor: 'Teams who want a per-instance embedded licence with unlimited viewers, self-hosted if needed.',
+        watchOut: 'None of the published plans include embedding. Its docs warn that tables without a client mapping stay unfiltered under automatic client scope.',
+      },
+      {
+        id: 'reveal',
+        name: 'Reveal',
+        url: 'https://www.revealbi.io',
+        what: 'An embedded analytics SDK that renders dashboards natively in your app’s DOM, with conversational analytics and AI-assisted exploration.',
+        embedding: 'Native SDK for React, Angular, Vue.js, Blazor and Web Components, with server SDKs for ASP.NET, Java and Node.js.',
+        tenancy: 'Its site describes tenant isolation at the data and session layers, with row-level filtering applied at the query level.',
+        pricing: <>One fixed price with unlimited users and no extra embed cost per customer. The price is not published (contact sales). White-labelling and data connectors are included.</>,
+        bestFor: 'Teams who want a native SDK they deploy themselves, including on-premises or air-gapped.',
+        watchOut: 'No price is published. Some data sources are not supported on every server platform, so check its support table for yours.',
+      },
     ],
   },
   {
@@ -237,6 +272,9 @@ const masterRows = [
   ['ThoughtSpot Embedded', 'Embedded BI', 'Visual Embed SDK (iframe)', 'RLS, multi-tenant by organisation', 'Yes', 'Not checked', 'Per user or customer'],
   ['GoodData', 'Embedded BI', 'iframe, Web Components, React SDK', 'Workspaces with data filters', 'Yes', 'Enterprise, on demand', 'Platform fee plus workspaces'],
   ['Sisense', 'Embedded BI', 'iframe, Compose SDK', 'Enterprise multi-tenant architecture', 'Not confirmed', 'Enterprise on-premises', 'Quote'],
+  ['Qrvey', 'Embedded BI', 'JavaScript components, no iframes', 'Tenant scopes with row and column policies', 'Not confirmed', 'Yes (your cloud by default)', 'Flat rate, quote'],
+  ['Databrain', 'Embedded BI', 'Web components with a guest token', 'clientId on the guest token', 'Yes', 'Enterprise', 'Per instance, quote'],
+  ['Reveal', 'Embedded BI', 'Native SDK, Web Components', 'Tenant isolation at data and session layers', 'Yes', 'Yes (cloud or on-premises)', 'Fixed price, quote'],
   ['Metabase', 'BI with embedding', 'Web components, React SDK, iframe', 'Tenants with SSO, or locked parameters', 'Yes', 'Yes', 'Plan fee plus per user'],
   ['Power BI Embedded', 'BI with embedding', 'JS and .NET SDKs, iframe', 'RLS or workspace per tenant', 'Via connector and gateway', 'Not checked (embedding runs on Azure capacity)', 'Capacity per hour'],
   ['Looker', 'BI with embedding', 'Signed embedding', 'Signed embed users', 'Yes', 'Not checked', 'Platform plus per user, quote'],
@@ -244,6 +282,11 @@ const masterRows = [
 ];
 
 const faqItems: FaqItem[] = [
+  {
+    question: 'What is an embedded analytics platform?',
+    answer:
+      'An embedded analytics platform is software that puts charts, dashboards and reports inside your own product, for your own customers. It supplies some or all of four parts: a data or semantic layer, charts or a dashboard builder, a way to embed them (iframe, SDK, web component or API) and per-customer access control.',
+  },
   {
     question: 'What is embedded analytics?',
     answer:
@@ -267,7 +310,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Which embedded analytics tools support ClickHouse?',
     answer:
-      'Of the 12 platforms here, hypequery, Cube, Embeddable, Luzmo, ThoughtSpot, GoodData, Metabase, Looker and Superset document ClickHouse connections. Sigma’s ClickHouse connector is in beta, Power BI connects through an ODBC-based connector and a data gateway, and Sisense’s support could not be confirmed.',
+      'Of the 15 platforms here, hypequery, Cube, Embeddable, Luzmo, ThoughtSpot, GoodData, Databrain, Reveal, Metabase, Looker and Superset document ClickHouse connections. Sigma’s ClickHouse connector is in beta, Power BI connects through an ODBC-based connector and a data gateway, and support in Sisense and Qrvey could not be confirmed.',
   },
   {
     question: 'What happened to Explo?',
@@ -284,6 +327,9 @@ const sources = [
   { vendor: 'ThoughtSpot', urls: ['https://www.thoughtspot.com/pricing', 'https://developers.thoughtspot.com/docs/getting-started', 'https://clickhouse.com/docs/integrations/connectors/data-visualization/thoughtspot-and-clickhouse'] },
   { vendor: 'GoodData', urls: ['https://www.gooddata.ai/pricing/', 'https://www.gooddata.ai/docs/cloud/connect-data/create-data-sources/clickhouse/'] },
   { vendor: 'Sisense', urls: ['https://www.sisense.com/plans/', 'https://www.sisense.com/ai-analytics-platform/compose-sdk/'] },
+  { vendor: 'Qrvey', urls: ['https://qrvey.com/pricing/', 'https://qrvey.com/embedded-analytics/', 'https://qrvey.com/multi-tenant-analytics/'] },
+  { vendor: 'Databrain', urls: ['https://www.usedatabrain.com/pricing', 'https://www.usedatabrain.com/integrations', 'https://docs.usedatabrain.com/developer-docs/how-to-embed.md', 'https://docs.usedatabrain.com/developer-docs/tenancy-model.md'] },
+  { vendor: 'Reveal', urls: ['https://www.revealbi.io/pricing/embedded-analytics', 'https://www.revealbi.io/embedded-analytics', 'https://help.revealbi.io/web/datasources/'] },
   { vendor: 'Metabase', urls: ['https://www.metabase.com/pricing/', 'https://www.metabase.com/docs/latest/embedding/introduction', 'https://www.metabase.com/docs/latest/databases/connections/clickhouse'] },
   { vendor: 'Microsoft', urls: ['https://azure.microsoft.com/en-us/pricing/details/power-bi-embedded/', 'https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-row-level-security', 'https://clickhouse.com/docs/integrations/connectors/data-visualization/powerbi-and-clickhouse'] },
   { vendor: 'Looker', urls: ['https://cloud.google.com/looker/pricing', 'https://clickhouse.com/docs/integrations/connectors/data-visualization/looker-and-clickhouse'] },
@@ -328,18 +374,36 @@ export default function EmbeddedAnalyticsPlatformsPage() {
         { label: 'Embedded analytics platforms' },
       ]}
       eyebrow="Embedded analytics platforms"
-      title="12 embedded analytics tools and platforms compared"
+      title="15 embedded analytics tools and platforms compared"
       updated={UPDATED}
       lead={
         <p>
           Start with who needs to build the dashboard. If it is your engineers, shortlist Cube, Embeddable or hypequery.
           If product teams need a visual builder, look at Luzmo, GoodData or Sisense. If you already have an internal BI
           tool—or need the lowest-cost route—Metabase, Power BI, Looker or Superset may be a better fit. This guide
-          compares all 12 by embedding method, tenant isolation, ClickHouse support and price.
+          compares all 15 by embedding method, tenant isolation, ClickHouse support and price.
         </p>
       }
-      primaryCta={{ href: '#master-table', label: 'Compare all 12', target: 'listicle_table' }}
+      primaryCta={{ href: '#master-table', label: 'Compare all 15', target: 'listicle_table' }}
       secondaryCta={{ href: '/compare/embedded-analytics-pricing', label: 'Pricing compared', target: 'listicle_pricing' }}
+      definition={{
+        term: 'What is an embedded analytics platform?',
+        body: (
+          <>
+            <p>
+              An embedded analytics platform is software that puts charts, dashboards and reports inside your own
+              product, for your own customers. It supplies some or all of four parts: a data or semantic layer that
+              defines the metrics, charts or a dashboard builder, a way to embed them (iframe, SDK, web component or
+              API), and access control that limits each customer to their own data.
+            </p>
+            <p>
+              Platforms differ mainly in how many of those parts they own. An embedded BI platform owns all four. A
+              code-first or headless platform owns the data layer and access control and leaves the charts to you. A
+              general BI tool with embedding was built for internal reporting and adds the embed as a feature.
+            </p>
+          </>
+        ),
+      }}
       jsonLd={[
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         itemListJsonLd(
@@ -357,7 +421,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
             <p>
               We included tools that SaaS teams shortlist for customer-facing analytics and that publish enough
               documentation to evaluate. Each was checked against its own pricing page, docs or repository on{' '}
-              {VERIFIED_ON}, on seven criteria:
+              {VERIFIED_ON} (Qrvey, Databrain and Reveal on {ADDED_VERIFIED_ON}), on seven criteria:
             </p>
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
@@ -414,16 +478,16 @@ export default function EmbeddedAnalyticsPlatformsPage() {
       <HubSection
         id="master-table"
         eyebrow="Full comparison"
-        title="Embedded analytics tools: all 12 side by side"
-        intro={<p>Use this table to narrow the list by architecture, tenant model, ClickHouse support and cost. Verified on {VERIFIED_ON}.</p>}
+        title="Embedded analytics tools: all 15 side by side"
+        intro={<p>Use this table to narrow the list by architecture, tenant model, ClickHouse support and cost. Verified on {VERIFIED_ON}; Qrvey, Databrain and Reveal on {ADDED_VERIFIED_ON}.</p>}
       >
         <HubTable
-          caption={`12 embedded analytics platforms compared, verified ${VERIFIED_ON}`}
+          caption={`15 embedded analytics platforms compared, verified ${VERIFIED_ON} and ${ADDED_VERIFIED_ON}`}
           columns={['Platform', 'Group', 'Embedding', 'Multi-tenancy', 'ClickHouse', 'Self-host', 'Pricing model']}
           rows={masterRows}
         />
         <p className="mt-4 text-xs leading-5 text-text-dim">
-          Verified on {VERIFIED_ON}. “Not checked” means the vendor’s pages we read did not answer the question. hypequery is our product.
+          Verified on {VERIFIED_ON}; Qrvey, Databrain and Reveal on {ADDED_VERIFIED_ON}. “Not checked” means the vendor’s pages we read did not answer the question. hypequery is our product.
         </p>
       </HubSection>
 
@@ -451,7 +515,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
               </li>
               <li>
                 <strong className="text-text">Framework SDKs.</strong> React (and sometimes Angular or Vue) components
-                you import, as Luzmo, Sigma, GoodData, Sisense and Metabase offer. You place them like your own
+                you import, as Luzmo, Sigma, GoodData, Sisense, Reveal and Metabase offer. You place them like your own
                 components and can react to their events.
               </li>
               <li>
@@ -539,6 +603,10 @@ export default function EmbeddedAnalyticsPlatformsPage() {
                 <strong className="text-text">You already report in Power BI or Looker:</strong> embed what you have.
               </li>
               <li>
+                <strong className="text-text">Analytics must run in your own cloud at a price that ignores viewer counts:</strong>{' '}
+                Qrvey or Reveal.
+              </li>
+              <li>
                 <strong className="text-text">Many databases behind one model:</strong> Cube. See{' '}
                 <Link href="/cube-js-alternative" className={inlineLink}>
                   Cube alternatives
@@ -575,7 +643,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
         <HubFaq items={faqItems} />
       </HubSection>
 
-      <HubSources checkedOn={VERIFIED_ON} sources={sources} />
+      <HubSources checkedOn={`${VERIFIED_ON}, and ${ADDED_VERIFIED_ON} for Qrvey, Databrain and Reveal`} sources={sources} />
     </HubShell>
   );
 }
