@@ -1,5 +1,5 @@
 import { type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
-import type { ProtocolDeploymentContract } from '@hypequery/protocol';
+import type { ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import {
   getDatasetCatalog,
   type DatasetCatalog,
@@ -102,7 +102,7 @@ export type AgentCatalogDatasetRegistry = Readonly<
 export type AgentCatalogSource =
   | AgentCatalogDatasetRegistry
   | SemanticContract
-  | ProtocolDeploymentContract;
+  | ProtocolDeploymentContractAnyVersion;
 
 /**
  * Proof supplied by an owning application after it authorizes a trusted-debug
@@ -116,11 +116,11 @@ export interface TrustedDebugCatalogAuthorization {
 export type TrustedDebugCatalog =
   | { readonly kind: 'dataset-catalog'; readonly datasets: DatasetCatalogMap }
   | { readonly kind: 'semantic-contract'; readonly contract: SemanticContract }
-  | { readonly kind: 'deployment-contract'; readonly contract: ProtocolDeploymentContract };
+  | { readonly kind: 'deployment-contract'; readonly contract: ProtocolDeploymentContractAnyVersion };
 
 function isProtocolDeploymentContract(
   source: AgentCatalogSource,
-): source is ProtocolDeploymentContract {
+): source is ProtocolDeploymentContractAnyVersion {
   return 'kind' in source && source.kind === 'hypequery-deployment';
 }
 

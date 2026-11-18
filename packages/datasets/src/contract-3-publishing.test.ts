@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateProtocolDeploymentContractV3 } from '@hypequery/protocol';
+import { projectAgentSafeCatalog } from './agent-catalog.js';
 import { between, buildProtocolDeploymentContract, createDatasetClient, dataset, dimension, measure, rehydrateProtocolDeploymentContract, UNSUPPORTED_CONTRACT_REASONS, UnsupportedContractFeatureError } from './index.js';
 import type { DatasetQuery } from './types.js';
 import { contract3AuthoringDataset as Events } from './contract-3-authoring.fixture.js';
@@ -121,5 +122,29 @@ describe('publishing contract 3 (RFC 0015)', () => {
     const client = createDatasetClient({ queryBuilder: factory() });
     const query: DatasetQuery = { measures: ['revenue'], segments: ['midTier'] };
     expect(client.compileDataset(rebuilt, query).sql).toBe(client.compileDataset(ranged, query).sql);
+  });
+});
+
+describe('agent catalog of a published contract 3', () => {
+  it('projects the same agent-safe catalog as the authored dataset', () => {
+    const published = buildProtocolDeploymentContract([Events]);
+    expect(published.version).toBe(3);
+    // supportedGrains is local catalog metadata; the contract does not carry it.
+    const withoutGrains = (value: unknown): unknown => JSON.parse(
+      JSON.stringify(value, (key, item: unknown) => (key === 'supportedGrains' ? undefined : item)),
+    );
+    expect(projectAgentSafeCatalog(published)).toEqual(withoutGrains(projectAgentSafeCatalog({ events: Events })));
+  });
+
+  it('keeps contract 3 filters, segments, window metadata and approximate markers', () => {
+    const catalog = projectAgentSafeCatalog(buildProtocolDeploymentContract([Events])).datasets[0]!;
+    expect(catalog.filters.length).toBeGreaterThan(0);
+    expect(catalog.segments?.map(segment => segment.name)).toEqual(expect.arrayContaining(['enterprise']));
+    const measure = (name: string) => catalog.measures.find(item => item.name === name);
+    expect(measure('revenue7d')).toMatchObject({ kind: 'window', measure: 'revenue', requiresTimeRange: true });
+    expect(measure('revenuePriorWeek')).toMatchObject({ kind: 'shift', requiresTimeRange: true });
+    expect(measure('revenueGrowth')).toMatchObject({ requiresTimeRange: true });
+    expect(measure('visitors')).toMatchObject({ approximate: true });
+    expect(measure('revenue')).not.toHaveProperty('requiresTimeRange');
   });
 });
