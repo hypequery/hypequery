@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useInView } from 'motion/react';
 import { Cloud, Code2 } from 'lucide-react';
-import { trackUmamiEvent } from '@/lib/umami';
+import { trackEvent } from '@/lib/analytics';
 import { AiAuthoringPanel } from './AiAuthoring';
 import { DatasetQuickstartPanel } from './DatasetQuickstart';
 
@@ -24,14 +24,14 @@ export function BuildYourWay() {
   // Tab events only fire on a switch, so log the default tab once it's seen. Without this the
   // default path never shows up in the data and the comparison is skewed.
   useEffect(() => {
-    if (inView) trackUmamiEvent('build_path_view', { path: PATHS[0].id, page: '/' });
+    if (inView) trackEvent('build_path_view', { path: PATHS[0].id, page: '/' });
   }, [inView]);
 
   const select = (id: PathId) => {
     if (id === active) return;
     setActive(id);
     // Which way people want to build tells us which to lead with.
-    trackUmamiEvent('build_path_tab', { path: id, page: '/' });
+    trackEvent('build_path_tab', { path: id, page: '/' });
   };
 
   const onKeyDown = (event: React.KeyboardEvent, index: number) => {

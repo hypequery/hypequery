@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { classifyCopiedCode } from '@/lib/code-copy';
-import { trackUmamiEvent } from '@/lib/umami';
+import { trackEvent } from '@/lib/analytics';
 
 // Fumadocs sets data-checked on the copy button once the clipboard write
 // succeeds, then clears it about 1.5s later. Stop waiting well after that.
@@ -17,7 +17,7 @@ export function CodeCopyTracker() {
   useEffect(() => {
     const track = (text: string, method: 'button' | 'selection') => {
       if (text.trim() === '') return;
-      trackUmamiEvent('code_copy', {
+      trackEvent('code_copy', {
         ...classifyCopiedCode(text),
         method,
         page: window.location.pathname,

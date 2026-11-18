@@ -29,7 +29,7 @@ import {
   SiTypescript,
   SiVercel,
 } from 'react-icons/si';
-import { trackUmamiEvent } from '@/lib/umami';
+import { trackEvent } from '@/lib/analytics';
 import { RUNTIME_EXAMPLES, type RuntimeLanguage } from './runtimeExamples';
 import { marketing } from '@/components/ui/marketing';
 import { AGENT_GROUPS, DATABASE_GROUPS, HOSTED_GROUP, type StackGroup } from './stackTargets';
@@ -89,7 +89,7 @@ function Chip({ id, name, detail, href, column }: { id: string; name: string; de
       <Link
         href={href}
         title={detail}
-        onClick={() => trackUmamiEvent('runtime_link', { runtime: id, column, page: '/' })}
+        onClick={() => trackEvent('runtime_link', { runtime: id, column, page: '/' })}
         className="group inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-bg-card px-2.5 text-[12.5px] font-medium text-text-muted transition hover:border-border-strong hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {ChipIcon ? <ChipIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
