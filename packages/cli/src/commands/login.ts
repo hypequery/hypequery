@@ -22,6 +22,7 @@ import { parseCapabilityList } from '../utils/capability-list.js';
 import { cloudOriginFromEnv, DEFAULT_CLOUD_URL } from '../utils/cloud-origin.js';
 import { envFileVariableNames } from '../utils/env-provenance.js';
 import { revokeCloudToken } from '../utils/cloud-token-revocation.js';
+import { shellQuote } from '../utils/shell-quote.js';
 import { VaultUnavailableError } from '../utils/cloud-vault.js';
 import {
   deviceAuthorizationExpired,
@@ -426,12 +427,26 @@ async function deviceLogin(
   await saveDeviceCredential(origin, body, dependencies);
 }
 
+/**
+ * The command that finishes a pending sign-in: the same origin, project and
+ * capabilities, or the next run would start a new sign-in instead.
+ */
+function resumeCommand(pending: PendingDeviceSignIn): string {
+  return [
+    'hypequery', 'login', '--device', '--no-wait',
+    ...(pending.origin !== DEFAULT_CLOUD_URL ? ['--cloud-url', pending.origin] : []),
+    ...(pending.project !== undefined ? ['--project', pending.project] : []),
+    ...(pending.capabilities?.length ? ['--capabilities', pending.capabilities.join(',')] : []),
+  ].map(shellQuote).join(' ');
+}
+
 /** `--no-wait`: the link and code, for the person, on stderr and in the JSON result. */
 function reportPendingDeviceSignIn(pending: PendingDeviceSignIn, now: number) {
   const minutes = Math.max(1, Math.round((pending.expiresAt - now) / 60_000));
   const link = pending.verificationUriComplete ?? pending.verificationUri;
+  const resume = resumeCommand(pending);
   instruct(`Ask the person to open ${link} and approve the code ${pending.userCode}.`);
-  instruct(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. After they approve, run \`hypequery login --device --no-wait\` again to finish.`);
+  instruct(`The code expires in ${minutes} minute${minutes === 1 ? '' : 's'}. After they approve, run \`${resume}\` again to finish.`);
   emitResult({
     signedIn: false,
     status: 'pending',
@@ -441,7 +456,8 @@ function reportPendingDeviceSignIn(pending: PendingDeviceSignIn, now: number) {
     verificationUriComplete: pending.verificationUriComplete ?? null,
     userCode: pending.userCode,
     expiresAt: pending.expiresAt,
-    next: 'After the person approves, run `hypequery login --device --no-wait` again.',
+    resumeCommand: resume,
+    next: `After the person approves, run \`${resume}\` again.`,
   });
 }
 

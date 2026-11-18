@@ -1,6 +1,7 @@
 import { chmod, copyFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { withFileLock } from '../file-lock.js';
 import { readGeneratedFile, writeGeneratedFileAtomically } from '../generated-file.js';
 
 /** Why a config file was left alone. */
@@ -65,6 +66,15 @@ export interface JsonEdit {
  * not write is replaced only with `force`.
  */
 export async function editJsonServer(edit: JsonEdit): Promise<JsonEditOutcome> {
+  // Read, change and write under one lock, so two installs (say for two
+  // projects in one ~/.claude.json) can't each write back a copy without the
+  // other's entry.
+  if (edit.dryRun) return applyEdit(edit);
+  await mkdir(path.dirname(edit.file), { recursive: true });
+  return withFileLock(edit.file, () => applyEdit(edit));
+}
+
+async function applyEdit(edit: JsonEdit): Promise<JsonEditOutcome> {
   const { source, config } = await readJsonConfig(edit.file);
   const servers = serversAt(config, edit.pointer, edit.file);
   const current = servers?.[edit.name];

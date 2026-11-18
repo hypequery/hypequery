@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -12,6 +11,8 @@ import {
   type AgentEnvironment,
 } from '../agent-config/clients.js';
 import { readJsonConfig, serversAt } from '../agent-config/json-config.js';
+import { codexEntry } from '../agent-config/codex.js';
+import { runExecutable } from '../agent-config/run-command.js';
 import {
   CONFIGURED_BY_VARIABLE,
   HOSTED_SERVER_NAME,
@@ -105,8 +106,7 @@ export interface CollectOptions extends AgentEnvironment {
 }
 
 function defaultRun(command: string, args: readonly string[], cwd: string) {
-  const result = spawnSync(command, [...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15_000 });
-  return { status: result.status, stdout: result.stdout ?? '' };
+  return runExecutable(command, args, { cwd });
 }
 
 /** `SELECT getSetting('readonly')`: also proves the URL, user and password work. */
@@ -230,18 +230,16 @@ async function agentStates(options: CollectOptions, directory: string): Promise<
         const run = options.run ?? defaultRun;
         for (const name of [LOCAL_SERVER_NAME, HOSTED_SERVER_NAME]) {
           if (!codex) break;
-          const result = run(codex, ['mcp', 'get', name], directory);
+          const result = run(codex, ['mcp', 'get', name, '--json'], directory);
           if (result.status !== 0) continue;
-          const projectMatch = result.stdout.match(new RegExp(`${PROJECT_DIR_VARIABLE}=(\\S+)`));
-          servers.push({
-            name,
-            scope: 'user',
-            file: agentTarget('codex', 'user', options)!.file,
-            kind: name === HOSTED_SERVER_NAME ? 'hosted' : 'local',
-            managed: result.stdout.includes(CONFIGURED_BY_VARIABLE) || name === HOSTED_SERVER_NAME,
-            missingExecutables: [],
-            projectDirectory: projectMatch?.[1] ?? null,
-          });
+          const entry = codexEntry(result.stdout);
+          const file = agentTarget('codex', 'user', options)!.file;
+          servers.push(entry
+            ? serverState(name, entry, 'user', file, exists)
+            : {
+              name, scope: 'user', file, kind: name === HOSTED_SERVER_NAME ? 'hosted' : 'local',
+              managed: result.stdout.includes(CONFIGURED_BY_VARIABLE), missingExecutables: [], projectDirectory: null,
+            });
         }
       } else {
         const seen = new Set<string>();
@@ -311,6 +309,8 @@ export async function collectSetupState(options: CollectOptions = {}): Promise<S
 
 /** The local MCP entries that serve this project, across agents. */
 export function projectServers(state: SetupState): ServerState[] {
+  // A broken entry (its Node or CLI is gone) serves nothing: `next` must send it back to mcp:install.
   return state.agents.flatMap(agent => agent.servers).filter(server => server.kind === 'local'
+    && server.missingExecutables.length === 0
     && (server.projectDirectory === null || path.resolve(server.projectDirectory) === path.resolve(state.project.directory)));
 }

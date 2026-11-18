@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import {
   agentTarget,
   findExecutable,
@@ -9,6 +9,8 @@ import {
   type AgentTarget,
 } from '../utils/agent-config/clients.js';
 import { AgentConfigError, editJsonServer, type JsonEditOutcome } from '../utils/agent-config/json-config.js';
+import { codexEntry } from '../utils/agent-config/codex.js';
+import { runExecutable, type CommandRun } from '../utils/agent-config/run-command.js';
 import {
   CONFIGURED_BY_VALUE,
   CONFIGURED_BY_VARIABLE,
@@ -24,7 +26,7 @@ import {
 } from '../utils/agent-config/server-entry.js';
 import { getCliVersion } from '../utils/cli-version.js';
 import { CliError } from '../utils/cli-error.js';
-import { findQueriesFile } from '../utils/find-files.js';
+import { findDatasetsFile, findQueriesFile } from '../utils/find-files.js';
 import { logger } from '../utils/logger.js';
 import { emitResult } from '../utils/machine-output.js';
 
@@ -41,20 +43,19 @@ export interface McpInstallOptions {
   dryRun?: boolean;
   /** Remove the entry this command added. */
   remove?: boolean;
+  /** Trusted tenant for tenant-scoped datasets, passed to `hypequery mcp --tenant`. */
+  tenant?: string;
 }
 
-export interface CommandRun {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly error?: Error;
-}
+export type { CommandRun };
 
 export interface McpInstallDependencies extends AgentEnvironment {
   readonly run?: (command: string, args: readonly string[]) => CommandRun;
   readonly serverCommand?: LocalServerCommand;
   /** Whether the project has a Serve API file for `hypequery mcp`; injected in tests. */
   readonly hasEntrypoint?: () => Promise<boolean>;
+  /** Whether the project's datasets set a tenantKey; injected in tests. */
+  readonly hasTenantDatasets?: () => Promise<boolean>;
 }
 
 export type McpInstallOutcome = JsonEditOutcome | 'skipped' | 'failed';
@@ -69,8 +70,19 @@ export interface McpInstallChange {
 }
 
 function defaultRun(command: string, args: readonly string[]): CommandRun {
-  const result = spawnSync(command, [...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000 });
-  return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', error: result.error };
+  return runExecutable(command, args);
+}
+
+/**
+ * Whether the datasets file declares a `tenantKey`. `hypequery mcp` refuses to
+ * serve tenant-scoped datasets without `--tenant`, so an install without one
+ * would only add a server that fails to start.
+ */
+async function datasetsHaveTenantKey(): Promise<boolean> {
+  const file = await findDatasetsFile();
+  if (!file) return false;
+  const source = await readFile(file, 'utf8').catch(() => '');
+  return /\btenant(Key|_key)\s*[:=]/.test(source);
 }
 
 function parseScope(value: string | undefined, hosted: boolean): AgentScope {
@@ -95,9 +107,10 @@ function codexChange(
   const executable = findExecutable(target.executable, dependencies);
   if (!executable) throw new AgentConfigError('The `codex` command is not on PATH. Install the Codex CLI, or choose another --agent.', target.file);
   const run = dependencies.run ?? defaultRun;
-  const current = run(executable, ['mcp', 'get', name]);
+  const current = run(executable, ['mcp', 'get', name, '--json']);
   const exists = current.status === 0;
-  const managed = exists && (current.stdout.includes(CONFIGURED_BY_VARIABLE) || current.stdout.includes(HOSTED_MCP_URL));
+  const entry = exists ? codexEntry(current.stdout) : undefined;
+  const managed = exists && (entry ? isManagedEntry(entry) : current.stdout.includes(CONFIGURED_BY_VARIABLE) || current.stdout.includes(HOSTED_MCP_URL));
   if (exists && !managed && !options.force) {
     throw new AgentConfigError(
       `Codex already has an MCP server named "${name}" that hypequery did not write. Pass --force to replace it, or remove it first.`,
@@ -106,11 +119,13 @@ function codexChange(
   }
   if (options.remove && !exists) return 'absent';
   if (options.dryRun) return options.remove ? 'removed' : exists ? 'updated' : 'added';
-  if (exists) {
+  if (options.remove) {
     const removed = run(executable, ['mcp', 'remove', name]);
     if (removed.status !== 0) throw new AgentConfigError(commandFailure(removed, 'codex mcp remove failed'), target.file);
+    return 'removed';
   }
-  if (options.remove) return 'removed';
+  // `codex mcp add` replaces an entry of the same name in place, so a failed
+  // update leaves the working entry as it was.
   const added = run(executable, ['mcp', 'add', name, ...addArgs]);
   if (added.status !== 0) throw new AgentConfigError(commandFailure(added, 'codex mcp add failed'), target.file);
   return exists ? 'updated' : 'added';
@@ -140,7 +155,17 @@ export async function mcpInstallCommand(options: McpInstallOptions = {}, depende
   }
   const projectDirectory = dependencies.cwd ?? process.cwd();
   const name = hosted ? HOSTED_SERVER_NAME : LOCAL_SERVER_NAME;
-  const command = hosted ? undefined : dependencies.serverCommand ?? localServerCommand({ projectDirectory, version: getCliVersion() });
+  const tenant = options.tenant?.trim();
+  if (options.tenant !== undefined && !tenant) throw new CliError('USAGE', '--tenant needs a tenant id.');
+  if (hosted && tenant) throw new CliError('USAGE', '--tenant applies to the local server; the hosted connector takes the tenant from your sign-in.');
+  if (!hosted && !options.remove && !tenant && await (dependencies.hasTenantDatasets ?? datasetsHaveTenantKey)()) {
+    throw new CliError('TENANT_REQUIRED', 'This project\'s datasets set tenantKey, so `hypequery mcp` needs a trusted tenant and would not start without one.', {
+      hint: 'Pass --tenant <id> with the tenant the agent may query (for example your own test tenant).',
+      telemetryCode: 'tenant_required',
+    });
+  }
+  const baseCommand = hosted ? undefined : dependencies.serverCommand ?? localServerCommand({ projectDirectory, version: getCliVersion() });
+  const command = baseCommand && tenant ? { ...baseCommand, args: [...baseCommand.args, '--tenant', tenant] } : baseCommand;
 
   const changes: McpInstallChange[] = [];
   for (const client of clients) {

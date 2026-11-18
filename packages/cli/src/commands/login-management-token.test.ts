@@ -554,6 +554,20 @@ describe('hypequery login --device --no-wait', () => {
     }
   });
 
+  it('prints a resume command that keeps the project, capabilities and Cloud', async () => {
+    const pending = await store();
+    const dependencies = deviceDependencies(deviceCloud(), { pendingStore: { configDirectory: pending.configDirectory } });
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      await loginCommand({ cloudUrl: ORIGIN, device: true, wait: false, project: 'shop', capabilities: 'workspace:view' }, dependencies);
+      expect(stderr.mock.calls.flat().join('\n'))
+        .toContain(`hypequery login --device --no-wait --cloud-url ${ORIGIN} --project shop --capabilities workspace:view`);
+    } finally {
+      stderr.mockRestore();
+      await pending.cleanup();
+    }
+  });
+
   it('is only for device sign-in', async () => {
     await expect(loginCommand({ cloudUrl: ORIGIN, wait: false }, {})).rejects.toMatchObject({ code: 'USAGE' });
   });

@@ -22,7 +22,7 @@ const serverCommand = { command: '/opt/node/bin/node', args: ['/project/node_mod
 async function setup() {
   const home = await directory();
   const cwd = await directory();
-  return { home, cwd, serverCommand, platform: 'linux' as const, env: { PATH: '' }, hasEntrypoint: async () => true };
+  return { home, cwd, serverCommand, platform: 'linux' as const, env: { PATH: '' }, hasEntrypoint: async () => true, hasTenantDatasets: async () => false };
 }
 
 const readJson = async (file: string) => JSON.parse(await readFile(file, 'utf8'));
@@ -102,23 +102,52 @@ describe('hypequery mcp:install', () => {
     expect((await readJson(path.join(dependencies.home, '.claude.json'))).mcpServers).toEqual({});
   });
 
-  it('configures Codex through `codex mcp add`, never by editing its TOML', async () => {
+  it('configures Codex through `codex mcp add`, never by editing its TOML, and replaces in place', async () => {
     const dependencies = await setup();
     const bin = await directory();
     await writeFile(path.join(bin, 'codex'), '');
     const calls: string[][] = [];
+    let saved: string | undefined;
     const run = (command: string, args: readonly string[]): CommandRun => {
       calls.push([command, ...args]);
-      return args[1] === 'get' ? { status: 1, stdout: '', stderr: 'not found' } : { status: 0, stdout: '', stderr: '' };
+      if (args[1] === 'get') return saved ? { status: 0, stdout: saved, stderr: '' } : { status: 1, stdout: '', stderr: 'not found' };
+      if (args[1] === 'add') {
+        saved = JSON.stringify({ transport: { type: 'stdio', command: args.at(-3), args: args.slice(-2), env: { HYPEQUERY_MCP_CONFIGURED_BY: 'hypequery' } } });
+      }
+      return { status: 0, stdout: '', stderr: '' };
     };
     const changes = await mcpInstallCommand({ agent: 'codex' }, { ...dependencies, env: { PATH: bin }, run });
     expect(changes[0]).toMatchObject({ client: 'codex', scope: 'user', outcome: 'added' });
+    expect(calls[0].slice(1)).toEqual(['mcp', 'get', 'hypequery', '--json']);
     expect(calls[1]).toEqual([
       path.join(bin, 'codex'), 'mcp', 'add', 'hypequery',
       '--env', `HYPEQUERY_PROJECT_DIR=${dependencies.cwd}`,
       '--env', 'HYPEQUERY_MCP_CONFIGURED_BY=hypequery',
       '--', '/opt/node/bin/node', '/project/node_modules/@hypequery/cli/dist/bin/cli.js', 'mcp',
     ]);
+    // An update never removes the working entry first.
+    calls.length = 0;
+    expect((await mcpInstallCommand({ agent: 'codex' }, { ...dependencies, env: { PATH: bin }, run }))[0].outcome).toBe('updated');
+    expect(calls.map(call => call[2])).toEqual(['get', 'add']);
+  });
+
+  it('refuses tenant-scoped datasets without --tenant, and saves the tenant it is given', async () => {
+    const dependencies = { ...(await setup()), hasTenantDatasets: async () => true };
+    await expect(mcpInstallCommand({ agent: 'claude-code', scope: 'user' }, dependencies)).rejects.toMatchObject({ code: 'TENANT_REQUIRED' });
+    await mcpInstallCommand({ agent: 'claude-code', scope: 'user', tenant: 'acme' }, dependencies);
+    expect((await readJson(path.join(dependencies.home, '.claude.json'))).mcpServers.hypequery.args)
+      .toEqual(['/project/node_modules/@hypequery/cli/dist/bin/cli.js', 'mcp', '--tenant', 'acme']);
+  });
+
+  it('keeps both projects when two installs write one ~/.claude.json at once', async () => {
+    const base = await setup();
+    const other = await directory();
+    await Promise.all([
+      mcpInstallCommand({ agent: 'claude-code' }, base),
+      mcpInstallCommand({ agent: 'claude-code' }, { ...base, cwd: other }),
+    ]);
+    const projects = (await readJson(path.join(base.home, '.claude.json'))).projects;
+    expect(Object.keys(projects).sort()).toEqual([base.cwd, other].sort());
   });
 
   it('names the flag to pass when no agent is installed', async () => {

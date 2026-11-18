@@ -39,3 +39,22 @@ describe('MCP entries', () => {
     expect(entryExecutables({ command: 'npx', args: ['-y', 'x'] })).toEqual([]);
   });
 });
+
+describe('Windows shims', () => {
+  it('quotes each argument for cmd.exe and refuses what cmd.exe would expand', async () => {
+    const { windowsShimCommandLine } = await import('./run-command.js');
+    expect(windowsShimCommandLine('C:\\npm\\codex.cmd', ['mcp', 'add', 'hypequery', '--', 'C:\\Program Files\\node.exe', 'a&b']))
+      .toBe('""C:\\npm\\codex.cmd" "mcp" "add" "hypequery" "--" "C:\\Program Files\\node.exe" "a&b""');
+    expect(() => windowsShimCommandLine('codex.cmd', ['%PATH%'])).toThrow('cmd.exe');
+    expect(() => windowsShimCommandLine('codex.cmd', ['a"b'])).toThrow('cmd.exe');
+  });
+
+  it('reads a Codex entry from `mcp get --json`', async () => {
+    const { codexEntry } = await import('./codex.js');
+    expect(codexEntry(JSON.stringify({ transport: { type: 'stdio', command: '/n/node', args: ['/cli.js', 'mcp'], env: { A: '1' } } })))
+      .toEqual({ command: '/n/node', args: ['/cli.js', 'mcp'], env: { A: '1' } });
+    expect(codexEntry(JSON.stringify({ transport: { type: 'streamable_http', url: 'https://mcp.hypequery.com/mcp' } })))
+      .toEqual({ url: 'https://mcp.hypequery.com/mcp' });
+    expect(codexEntry('hypequery\n  command: node')).toBeUndefined();
+  });
+});

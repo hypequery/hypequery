@@ -13,6 +13,8 @@ export interface StartOptions {
   agent?: string;
   /** Scope for the MCP server (see `mcp:install --scope`). */
   scope?: string;
+  /** Trusted tenant for tenant-scoped datasets (see `mcp:install --tenant`). */
+  tenant?: string;
   /** Leave agents' MCP configuration alone. */
   mcp?: boolean;
   /** Leave the skills alone. */
@@ -39,7 +41,7 @@ interface StartStep {
 function needs(state: SetupState): string[] {
   const list: string[] = [];
   if (!state.connection.configured) {
-    list.push('A ClickHouse connection: the person runs `npx hypequery init` in their own terminal, or puts CLICKHOUSE_URL, CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD in .env. Never ask for the password in chat.');
+    list.push('A ClickHouse connection: the person runs `npx -y @hypequery/cli init` in their own terminal, or puts CLICKHOUSE_URL, CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD in .env. Never ask for the password in chat.');
   } else if (state.connection.reachable === false) {
     list.push(`A working ClickHouse connection: ${state.connection.error}`);
   }
@@ -83,7 +85,7 @@ export async function startCommand(options: StartOptions = {}, dependencies: Sta
     try {
       const exitCode = process.exitCode;
       const changes = await withoutResult(() => mcpInstallCommand({
-        hosted, agent: options.agent, scope: options.scope, dryRun: options.dryRun,
+        hosted, agent: options.agent, scope: options.scope, tenant: options.tenant, dryRun: options.dryRun,
       }, dependencies.mcp));
       // A failed agent is reported in this step; start itself carries on.
       process.exitCode = exitCode;

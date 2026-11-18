@@ -10,7 +10,7 @@ export interface DoctorCheck {
   readonly fix?: string;
 }
 
-const PASSWORD_RULE = 'Never paste the password into a chat: put CLICKHOUSE_PASSWORD in .env yourself, or run `npx hypequery init` in your own terminal.';
+const PASSWORD_RULE = 'Never paste the password into a chat: put CLICKHOUSE_PASSWORD in .env yourself, or run `npx -y @hypequery/cli init` in your own terminal.';
 
 /** Turn the collected state into checks, each naming its fix. Pure, so every case is testable. */
 export function doctorChecks(state: SetupState): DoctorCheck[] {

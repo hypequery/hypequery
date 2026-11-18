@@ -1842,7 +1842,8 @@
       "--hosted",
       "--force",
       "--dry-run",
-      "--remove"
+      "--remove",
+      "--tenant"
     ],
     "start": [
       "--hosted",
@@ -1850,7 +1851,8 @@
       "--scope",
       "--no-mcp",
       "--no-skills",
-      "--dry-run"
+      "--dry-run",
+      "--tenant"
     ],
     "doctor": [],
     "next": [],

@@ -339,6 +339,7 @@ program
   .option('--force', 'Replace a server of the same name that hypequery did not write')
   .option('--dry-run', 'Show what would change without writing')
   .option('--remove', 'Remove the server this command added')
+  .option('--tenant <id>', 'Trusted tenant for tenant-scoped datasets (passed to hypequery mcp --tenant)')
   .action(runCommand(async (options: McpInstallOptions) => {
     await mcpInstallCommand(options);
   }));
@@ -351,6 +352,7 @@ program
   .option('--scope <scope>', 'Scope for the MCP server: project or user')
   .option('--no-mcp', 'Leave agents\' MCP configuration alone')
   .option('--no-skills', 'Leave the agent skills alone')
+  .option('--tenant <id>', 'Trusted tenant for tenant-scoped datasets (see mcp:install --tenant)')
   .option('--dry-run', 'Show what would change without writing')
   .action(runCommand(async (options: StartOptions) => {
     await startCommand(options);

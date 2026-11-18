@@ -36,11 +36,19 @@ describe('hypequery next', () => {
     ['fix-connection', withState(state => ({ ...state, connection: { ...state.connection, reachable: false, error: 'Authentication failed' } }))],
     ['model', withState(state => ({ ...state, project: { ...state.project, datasetsFile: null, apiFile: null } }))],
     ['serve', withState(state => ({ ...state, project: { ...state.project, apiFile: null } }))],
+    ['serve', withState(state => ({ ...state, project: { ...state.project, mcpPackage: false } }))],
     ['connect-agent', withState(state => ({ ...state, agents: [{ client: 'cursor', error: null, servers: [] }] }))],
+    ['connect-agent', withState(state => ({ ...state, agents: [{ client: 'claude-code', error: null, servers: [{ ...ready().agents[0].servers[0], missingExecutables: ['/old/node'] }] }] }))],
     ['skills', withState(state => ({ ...state, skills: { user: 'missing', project: 'missing' } }))],
     ['ask', ready()],
   ])('is %s when that is the first thing missing', (step, state) => {
     expect(chooseNextStep(state).step).toBe(step);
+  });
+
+  it('names the scoped package until the project has the CLI, never the unrelated `hypequery` package', () => {
+    const next = chooseNextStep(withState(state => ({ ...state, cli: { ...state.cli, inProject: false }, project: { ...state.project, packageJson: false }, connection: { ...state.connection, configured: false } })));
+    expect(renderNextStep(next)).toContain('npx -y @hypequery/cli');
+    expect(renderNextStep(next)).not.toMatch(/npx hypequery /);
   });
 
   it('never asks the agent to collect the database password', () => {

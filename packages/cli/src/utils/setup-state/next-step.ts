@@ -15,7 +15,14 @@ export interface NextStep {
   readonly progress: readonly string[];
 }
 
-const RUN = 'npx --no-install hypequery';
+/**
+ * How to run the CLI. `--no-install` once the project has it; before that,
+ * name the scoped package, because the unscoped npm name `hypequery` is an
+ * unrelated package that `npx hypequery` would download and run.
+ */
+function cli(state: SetupState): string {
+  return state.cli.inProject ? 'npx --no-install hypequery' : 'npx -y @hypequery/cli';
+}
 
 function step(id: NextStepId, title: string, instructions: string[], commands: string[]): Omit<NextStep, 'progress'> {
   return { step: id, title, instructions, commands };
@@ -40,6 +47,7 @@ export function chooseNextStep(state: SetupState): NextStep {
 }
 
 function dueStep(state: SetupState): Omit<NextStep, 'progress'> {
+  const RUN = cli(state);
   if (!state.node.supported) {
     return step('upgrade-node', 'Upgrade Node', [
       `hypequery needs Node ${state.node.minimum} or newer; this is Node ${state.node.version}.`,
@@ -59,7 +67,7 @@ function dueStep(state: SetupState): Omit<NextStep, 'progress'> {
     return step('connect', 'Connect ClickHouse', [
       'Ask the person for the ClickHouse URL (with http:// or https:// and the port), the database and the user name.',
       'Never ask for the password in the chat, and never print or read back .env. Ask the person to do one of these themselves and tell you when it is done:',
-      '  1. run `npx hypequery init` in their own terminal, which asks for the password there and tests the connection; or',
+      `  1. run \`${RUN} init\` in their own terminal, which asks for the password there and tests the connection; or`,
       '  2. add CLICKHOUSE_URL, CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD to .env.',
       'Suggest a read-only ClickHouse user: agents only need to read.',
       'Make sure .env is in .gitignore. Then run `hypequery next` again.',
@@ -85,9 +93,11 @@ function dueStep(state: SetupState): Omit<NextStep, 'progress'> {
       `${RUN} onboard check <datasets file> --json`,
     ]);
   }
-  if (!state.project.apiFile) {
+  if (!state.project.apiFile || !state.project.mcpPackage) {
     return step('serve', 'Expose the datasets through a Serve API', [
-      `The MCP server serves datasets through a Serve API file; ${state.project.datasetsFile} has none yet.`,
+      state.project.apiFile
+        ? `${state.project.apiFile} exists, but @hypequery/mcp is not installed, so \`hypequery mcp\` cannot start.`
+        : `The MCP server serves datasets through a Serve API file; ${state.project.datasetsFile} has none yet.`,
       'Run `onboard check` first if you have not since the last edit. Then create analytics/api.ts with defineServe and the datasets, as in https://hypequery.com/docs/mcp/quickstart, and install @hypequery/serve and @hypequery/mcp.',
       'Check it with `hypequery mcp --self-test`.',
     ], [
