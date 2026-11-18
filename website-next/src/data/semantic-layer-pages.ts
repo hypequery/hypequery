@@ -33,8 +33,8 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
   },
   {
     href: '/semantic-layer/open-semantic-interchange',
-    label: 'Open Semantic Interchange (OSI)',
-    description: 'The vendor-neutral spec for exchanging semantic models: who is behind it, what the format covers and what it leaves out.',
+    label: 'Apache Ossie (Open Semantic Interchange)',
+    description: 'Apache Ossie, formerly OSI, the vendor-neutral spec for exchanging semantic models: who is behind it, what the format covers and what it leaves out.',
   },
   {
     href: '/semantic-layer/open-source-tools',

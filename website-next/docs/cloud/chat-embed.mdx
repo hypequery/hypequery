@@ -1,0 +1,195 @@
+---
+title: Chat embed
+description: Give each of your users hypequery cloud's assistant inside your app, answering from their own customer's rows.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+The chat embed puts hypequery's assistant inside your app, for each of your users. They ask in plain words, and the
+assistant answers by running queries as that user. It sees only their customer's rows, within the permission set you
+give them in **Settings › Customer access**.
+
+<Callout type="info">
+  A drop-in chat component and an embeddable page are on the way. Until then, you build the chat on the API below.
+  It streams the same answers the component will draw.
+</Callout>
+
+The chat embed runs on your Production environment.
+
+## A token for each user
+
+The browser talks to the assistant with a short-lived token for the signed-in user. Choose how your app gets one in
+**Customer access**:
+
+- **Your own JWT.** If Customer access is set to accept your app's JWTs (Clerk, Auth0, Supabase, Cognito or any JWKS
+  issuer), the token your sign-in provider already gives the browser works as it is. Customer access reads the
+  customer from its claim. There is nothing to add on your server.
+- **A hypequery token minted by your backend.** Your server checks who is signed in, then swaps them for a token:
+
+<CodeBlock>
+```ts
+// app/api/hypequery-token/route.ts: runs on your server, with your key.
+export async function POST() {
+  const user = await getSignedInUser(); // Your own auth.
+  if (!user) return new Response(null, { status: 401 });
+
+  const response = await fetch('https://<environment-slug>.hypequery.app/embed/tokens', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.HYPEQUERY_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      subject: user.id,
+      tenantId: user.customerId, // Which customer's rows they see.
+      permissionSet: '<permission set>', // Its name in Customer access.
+    }),
+  });
+  // { token, expiresAt }: a token for this user only, valid for minutes.
+  return Response.json(await response.json(), { status: response.status });
+}
+```
+</CodeBlock>
+
+Take `subject` and `tenantId` from your server-side session, never from the request. Mint a new token before
+`expiresAt`. The API key stays on your server. The customer must be registered in the environment's tenant registry.
+
+## Chat from the browser
+
+Start a thread, then send each message to it. The assistant's turn streams back as NDJSON: one JSON object per line.
+
+<CodeBlock>
+```ts
+// chat.ts
+const ORIGIN = 'https://<environment-slug>.hypequery.app';
+
+/** A refusal (for example a usage limit) is plain JSON with an error, not a stream. */
+async function refused(response: Response) {
+  const body = await response.json().catch(() => null);
+  return new Error(body?.error?.message ?? `The request failed (${response.status}).`);
+}
+
+// Tokens last minutes: mint a fresh one shortly before the last expires.
+let current: { token: string; expiresAt: number } | null = null;
+async function headers() {
+  if (!current || current.expiresAt - Date.now() < 60_000) {
+    const response = await fetch('/api/hypequery-token', { method: 'POST' });
+    // A failed refresh keeps nothing, so the next call tries again.
+    if (!response.ok) throw await refused(response);
+    const minted = await response.json();
+    current = { token: minted.token, expiresAt: Date.parse(minted.expiresAt) };
+  }
+  return { Authorization: `Bearer ${current.token}`, 'Content-Type': 'application/json' };
+}
+
+// One thread per conversation.
+const started = await fetch(`${ORIGIN}/embed/threads`, {
+  method: 'POST',
+  headers: await headers(),
+  body: '{}',
+});
+if (!started.ok) throw await refused(started);
+const { thread } = await started.json();
+
+export async function ask(text: string, onEvent: (event: ChatEvent) => void) {
+  const response = await fetch(`${ORIGIN}/embed/threads/${thread.id}/messages`, {
+    method: 'POST',
+    headers: await headers(),
+    body: JSON.stringify({ text }),
+  });
+  // Show the user why it failed, e.g. a usage limit, and when to try again.
+  if (!response.ok) throw await refused(response);
+  // The turn streams as one JSON object per line.
+  const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+  let buffered = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += value;
+    const lines = buffered.split('\n');
+    buffered = lines.pop()!;
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line));
+  }
+}
+
+type ChatEvent =
+  | { type: 'activity'; label: string } // "Thinking", "Running a query"
+  | { type: 'text'; delta: string } // The reply, a piece at a time.
+  | { type: 'answer'; answerId: string; title: string; dataset: string; query: unknown; chart: unknown; rowCount: number }
+  | { type: 'analysis'; action: 'created' | 'updated'; analysisId: string; title: string; revision: number }
+  | { type: 'notice'; message: string }
+  | { type: 'error'; message: string }
+  | { type: 'done' };
+```
+</CodeBlock>
+
+With your own JWT, have `headers()` use your sign-in provider's current token for the user instead of calling the
+token route. Before a turn starts, a refusal comes back as JSON with an `error`, not a stream: `ask` throws it so you
+can show the message and, for a usage limit, when to try again.
+
+Your app's origin must be in the environment's allowed origins, under **Customer access**. Add
+`http://localhost:3000` for development, or the browser's requests are refused.
+
+### The events
+
+| Event | What to do |
+| --- | --- |
+| `activity` | Show what the assistant is doing, such as "Thinking" or "Running a query". |
+| `text` | Append `delta` to the reply as it streams. |
+| `answer` | An answer card. Run its `query` against the `dataset`'s endpoint with the same token, and draw the `chart` it names. |
+| `analysis` | The assistant created or updated one of the user's saved analyses. Reload it. |
+| `notice` | A message to show the user, for example when a usage limit ended the turn early. |
+| `error` | The turn failed. Show `message`. |
+| `done` | The turn is complete and stored. |
+
+Answers carry queries, not rows, so the numbers your app shows always come from running the query.
+
+## Threads
+
+| Request | Does |
+| --- | --- |
+| `GET /embed/threads` | Lists the user's threads, most recent first. |
+| `POST /embed/threads` | Starts a thread. The body can set a `title`. |
+| `GET /embed/threads/{id}` | Returns the thread's messages and answer cards. |
+| `POST /embed/threads/{id}/messages` | Sends `{ "text" }` and streams the assistant's turn. |
+| `DELETE /embed/threads/{id}` | Hides the thread. |
+
+The server keeps the transcript: the browser sends only the new message. One turn runs per thread at a time; a second
+message while a turn is running gets `409` with `HQ_CLOUD_THREAD_BUSY`. Threads expire 90 days after their last
+activity.
+
+## Usage limits
+
+Messages and tokens are limited per user, per customer and per organisation. A request over a limit gets `429`, a
+`Retry-After` header and the code `HQ_CLOUD_EMBED_USAGE_LIMIT`:
+
+<CodeBlock>
+```json
+{ "error": { "code": "HQ_CLOUD_EMBED_USAGE_LIMIT", "message": "You've reached today's message limit. Try again tomorrow.", "limit": "user-messages" } }
+```
+</CodeBlock>
+
+The `message` is written for your end user, so you can show it as it is. Set the per-customer limits in
+**Customer access**.
+
+## Hand it to your coding agent
+
+<CodeBlock>
+```text
+Add hypequery's assistant to this app as a chat for each signed-in user.
+- Token: a server route that POSTs { subject, tenantId, permissionSet } to
+  https://<environment-slug>.hypequery.app/embed/tokens with "Authorization: Bearer $HYPEQUERY_API_KEY" and
+  returns { token, expiresAt }. Take subject and tenantId from the server-side session; mint again before
+  expiresAt. (If hypequery accepts our sign-in JWT, use that token instead.)
+- Chat: from the browser, POST https://<environment-slug>.hypequery.app/embed/threads to start a thread, then
+  POST /embed/threads/{id}/messages with { text } and the token as a Bearer header. The reply streams as NDJSON:
+  activity, text deltas, answer cards (title, dataset, query, chart), analysis, notice, error and done.
+- Render text as it streams. For an answer card, run its query against the dataset's endpoint with the same
+  token and draw the chart it names.
+- The app's origin must be in Customer access's allowed origins.
+```
+</CodeBlock>

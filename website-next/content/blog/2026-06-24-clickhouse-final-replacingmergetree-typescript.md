@@ -1,9 +1,10 @@
 ---
-title: "FINAL vs ReplacingMergeTree Dedup in TypeScript Queries"
+title: "ClickHouse FINAL and ReplacingMergeTree: Why You See Duplicates and How to Fix Them"
 description: "ReplacingMergeTree deduplicates at merge time, so queries can see duplicates until merges run. Learn when the FINAL keyword is the right fix, what it costs, and when the argMax or LIMIT BY patterns are better — with typed TypeScript examples."
 seoTitle: "ClickHouse FINAL Keyword: ReplacingMergeTree Dedup Explained"
 seoDescription: "ClickHouse FINAL forces ReplacingMergeTree deduplication at query time, at a cost. When FINAL is fine, and when argMax or LIMIT BY is the better choice."
 pubDate: 2026-06-24
+updatedAt: 2026-11-17
 heroImage: ""
 slug: clickhouse-final-replacingmergetree-typescript
 status: published
@@ -17,6 +18,19 @@ If you came to ClickHouse from Postgres or MySQL, `ReplacingMergeTree` looks lik
 **Short answer:** `ReplacingMergeTree` deduplicates during background merges, which happen *eventually* and on ClickHouse's schedule, not on insert. Until a merge runs, queries see every version of every row. Adding the `FINAL` keyword to a query forces merge semantics at read time, so you always get the deduplicated result, but you pay for that merge work on every query. For hot paths, the `argMax(col, version) ... GROUP BY key` pattern or `LIMIT 1 BY key` is usually the better trade. hypequery supports all three natively: `.final()`, `.argMax()`, and `.limitBy()`.
 
 This post shows the failure mode, the three fixes in SQL and in typed TypeScript, and a practical rule for choosing between them. If you want the typed setup first, the [quick start](/docs/quick-start) gets you from a live ClickHouse schema to a generated [query builder](/clickhouse-query-builder) in a few minutes.
+
+## What is ReplacingMergeTree?
+
+`ReplacingMergeTree` is a MergeTree table engine that removes rows with the same sorting key (the `ORDER BY` columns) when it merges data parts in the background. It takes two optional parameters, `ReplacingMergeTree([ver [, is_deleted]])`:
+
+- **`ver`**, the version column. Of the rows that share a sorting key, the one with the highest version is kept. Without it, the last inserted row wins.
+- **`is_deleted`**, a `UInt8` column that needs `ver`. When the latest version of a row has `is_deleted = 1`, `FINAL` leaves it out of the result, so inserting a new version with the flag set works as a delete.
+
+Three behaviours catch people out. We checked each one on ClickHouse 25.8 and 26.6:
+
+- **Deduplication happens at merge time, not on insert.** That is the rest of this post.
+- **Merges never cross partitions.** With `PARTITION BY toYYYYMM(d)`, the same key inserted in January and in February stays as two rows on disk, even after `OPTIMIZE TABLE ... FINAL`. A `FINAL` query still returns one row, because `do_not_merge_across_partitions_select_final` is 0 by default and the read-time merge spans partitions. If a key can move between partitions, the old rows are never cleaned up, so keep the partition key stable for each sorting key.
+- **`OPTIMIZE TABLE ... FINAL` is not a query-time fix.** It forces a merge by rewriting whole partitions, which is fine for a one-off cleanup but too expensive to run before every read.
 
 ## Why You See Duplicates
 
@@ -159,7 +173,7 @@ FROM (
 );
 ```
 
-In hypequery you can build the inner query with the builder and attach it as a CTE with `.withCTE(alias, builder)`, but if this two-level shape is on a hot dashboard path, the better answer is usually to stop deduplicating at query time entirely and maintain the current state with a materialized view — see [the guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse).
+In hypequery you can build the inner query with the builder and attach it as a CTE with `.withCTE(alias, builder)`, but if this two-level shape is on a hot dashboard path, the better answer is usually to stop deduplicating at query time entirely and maintain the current state with a materialized view — see [the guide to ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse).
 
 ## Option 3: LIMIT BY
 

@@ -179,6 +179,10 @@ It's a weaker fit when the embedded report has to look and behave like the rest 
 
 In East US on 9 November 2026: from $735.91 a month for an always-on A1, or $262.80 for a Fabric F2, plus $14 a month (paid yearly) per Pro license for report authors.
 
+### Is Power BI Embedded priced per user?
+
+No. You pay for capacity by the hour, and customer viewers need no license when your app owns the data. The only per-user cost is a Pro license for each person who publishes reports. In the worked example above, 300 customer users cost about $0.97 each a month on F2 ($290.80 in total) and about $2.55 each on A1 ($763.91), and the per-user figure falls as you add viewers until the capacity runs out of headroom.
+
 ### Do my customers need Power BI licenses to view embedded reports?
 
 Not when you embed for your customers (app owns data). When you embed for your organization, every viewer needs Pro or PPU unless you're on F64 or larger.

@@ -1,10 +1,10 @@
 ---
-title: "Official ClickHouse MCP vs Governed MCP: When Raw SQL Access Is a Problem"
+title: "ClickHouse MCP Servers Compared: Official, Cloud, Altinity and Governed"
 description: "How to connect Claude Code, Claude Desktop, Cursor and other AI agents to ClickHouse over MCP, what the official mcp-clickhouse server, the ClickHouse Cloud remote MCP server and a governed MCP server each expose, and how to lock them down with a read-only user."
-seoTitle: "Official ClickHouse MCP vs Governed MCP: Raw SQL or Metrics"
-seoDescription: "The official ClickHouse MCP server gives agents a read-only SQL tool; a governed MCP gives them named metrics. When raw SQL access becomes a problem."
+seoTitle: "ClickHouse MCP Servers Compared: Official, Altinity, Governed"
+seoDescription: "The official mcp-clickhouse server, the ClickHouse Cloud remote MCP, Altinity's altinity-mcp and a governed MCP compared: tools, auth, writes, and when raw SQL is a problem."
 pubDate: 2026-11-08
-updatedAt: 2026-11-08
+updatedAt: 2026-11-17
 heroImage: ""
 slug: clickhouse-mcp-servers-compared
 status: published
@@ -13,9 +13,9 @@ tags:
   - MCP
 ---
 
-To connect Claude, Cursor or another AI agent to ClickHouse, you run an MCP (Model Context Protocol) server that the agent calls as a set of tools. ClickHouse maintains two: the open-source [`mcp-clickhouse`](https://github.com/ClickHouse/mcp-clickhouse) server, which gives the agent a `run_query` SQL tool plus schema discovery and runs queries with `readonly=1` by default, and a managed remote MCP server built into ClickHouse Cloud at `https://mcp.clickhouse.cloud/mcp`, which uses OAuth and only allows `SELECT`. A third kind, governed servers such as `@hypequery/mcp`, exposes predefined datasets and metrics as tools and gives the agent no SQL tool at all.
+To connect Claude, Cursor or another AI agent to ClickHouse, you run an MCP (Model Context Protocol) server that the agent calls as a set of tools. ClickHouse maintains two: the open-source [`mcp-clickhouse`](https://github.com/ClickHouse/mcp-clickhouse) server, which gives the agent a `run_query` SQL tool plus schema discovery and runs queries with `readonly=1` by default, and a managed remote MCP server built into ClickHouse Cloud at `https://mcp.clickhouse.cloud/mcp`, which uses OAuth and only allows `SELECT`. Altinity maintains a third SQL server, [`altinity-mcp`](https://github.com/Altinity/altinity-mcp), built for self-hosted deployments. A fourth kind, governed servers such as `@hypequery/mcp`, exposes predefined datasets and metrics as tools and gives the agent no SQL tool at all.
 
-This guide compares the three, shows the setup for Claude Code, Claude Desktop and Cursor using the snippets from each project's own docs, and shows the ClickHouse user you should create before connecting any of them. Server details below come from the `mcp-clickhouse` README at version 0.7.0, the ClickHouse Cloud docs as of November 2026, and `@hypequery/mcp` 0.11.3. SQL was checked on ClickHouse 26.6.
+This guide compares them, shows the setup for Claude Code, Claude Desktop and Cursor using the snippets from each project's own docs, and shows the ClickHouse user you should create before connecting any of them. Server details below come from the `mcp-clickhouse` README at version 0.7.0, the ClickHouse Cloud docs as of November 2026, and `@hypequery/mcp` 0.11.3. SQL was checked on ClickHouse 26.6.
 
 ## What is a ClickHouse MCP server?
 
@@ -25,19 +25,19 @@ What the server's tools accept decides what the agent can do. A tool that takes 
 
 ## Which ClickHouse MCP servers are there?
 
-There are three practical choices, and they differ mainly in where the server runs and whether the agent writes SQL.
+There are four practical choices, and they differ mainly in where the server runs and whether the agent writes SQL.
 
-| | `mcp-clickhouse` (open source) | ClickHouse Cloud remote MCP | `@hypequery/mcp` (governed) |
-| --- | --- | --- | --- |
-| Runs | Locally over stdio by default; HTTP or SSE optional | Managed by ClickHouse Cloud, Streamable HTTP | Locally over stdio, or inside your own MCP transport |
-| Works with | Any ClickHouse (self-hosted or Cloud), plus embedded chDB | ClickHouse Cloud services (and Cloud Managed Postgres) | Any ClickHouse your query builder can reach |
-| Agent sends | SQL (`run_query`) | `SELECT` SQL (`run_select_query`) | Dataset, metric, dimension and filter names as JSON |
-| Discovery tools | `list_databases`, `list_tables` | `list_databases`, `list_tables`, plus organization, service, backup, ClickPipes and billing tools | `list_datasets`, `get_dataset_schema` |
-| Writes | Off by default; opt in with `CLICKHOUSE_ALLOW_WRITE_ACCESS`, destructive statements also need `CLICKHOUSE_ALLOW_DROP` | All tools are read-only | No SQL tool; tools are annotated read-only |
-| Auth to ClickHouse | A ClickHouse user in environment variables | OAuth 2.0 with your Cloud login, or a Cloud API key | A ClickHouse user held in the server process |
-| Agent can see | Everything that ClickHouse user can read | The organizations and services your Cloud user can access | Only the datasets you publish |
+| | `mcp-clickhouse` (open source) | ClickHouse Cloud remote MCP | `altinity-mcp` (open source) | `@hypequery/mcp` (governed) |
+| --- | --- | --- | --- | --- |
+| Runs | Locally over stdio by default; HTTP or SSE optional | Managed by ClickHouse Cloud, Streamable HTTP | Self-hosted binary, Docker image or Helm chart; stdio, HTTP or SSE | Locally over stdio, or inside your own MCP transport |
+| Works with | Any ClickHouse (self-hosted or Cloud), plus embedded chDB | ClickHouse Cloud services (and Cloud Managed Postgres) | Any ClickHouse | Any ClickHouse your query builder can reach |
+| Agent sends | SQL (`run_query`) | `SELECT` SQL (`run_select_query`) | SQL (`execute_query`), or arguments to tools generated from views | Dataset, metric, dimension and filter names as JSON |
+| Discovery tools | `list_databases`, `list_tables` | `list_databases`, `list_tables`, plus organization, service, backup, ClickPipes and billing tools | Schema resources, plus one tool per view you expose | `list_datasets`, `get_dataset_schema` |
+| Writes | Off by default; opt in with `CLICKHOUSE_ALLOW_WRITE_ACCESS`, destructive statements also need `CLICKHOUSE_ALLOW_DROP` | All tools are read-only | `execute_query` is `SELECT`-only; `write_query` exists only when `read_only: false` | No SQL tool; tools are annotated read-only |
+| Auth to ClickHouse | A ClickHouse user in environment variables | OAuth 2.0 with your Cloud login, or a Cloud API key | A ClickHouse user, or OAuth 2.0 brokered through your OIDC provider | A ClickHouse user held in the server process |
+| Agent can see | Everything that ClickHouse user can read | The organizations and services your Cloud user can access | Everything that ClickHouse user can read, or only the views you expose | Only the datasets you publish |
 
-Sources: the [`mcp-clickhouse` README](https://github.com/ClickHouse/mcp-clickhouse), [Remote MCP in Cloud](https://clickhouse.com/docs/products/cloud/features/ai-ml/remote-mcp), and the [`@hypequery/mcp` tools reference](/docs/mcp/overview).
+Sources: the [`mcp-clickhouse` README](https://github.com/ClickHouse/mcp-clickhouse), [Remote MCP in Cloud](https://clickhouse.com/docs/products/cloud/features/ai-ml/remote-mcp), the [`altinity-mcp` tools docs](https://github.com/Altinity/altinity-mcp/blob/main/docs/tools.md), and the [`@hypequery/mcp` tools reference](/docs/mcp/overview).
 
 One naming note: the current `mcp-clickhouse` README calls its query tool `run_query`. Its first release called it `run_select_query`, and some ClickHouse docs pages still use that name. The ClickHouse docs say the tool names "may vary by version".
 
@@ -141,6 +141,14 @@ claude mcp add --transport http clickhouse-cloud https://mcp.clickhouse.cloud/mc
 Then start `claude`, run `/mcp`, select `clickhouse-cloud` and authenticate with your ClickHouse Cloud credentials. In the Claude web app, add it under **Customize** > **Connectors** as a custom connector. In Cursor, the guide says to install a ClickHouse server from the Cursor Marketplace and authenticate with OAuth. For headless machines where a browser login is impractical, the guide shows sending a ClickHouse Cloud API key as an HTTP Basic `Authorization` header.
 
 Per the [Remote MCP in Cloud](https://clickhouse.com/docs/products/cloud/features/ai-ml/remote-mcp) reference, every tool is annotated `readOnlyHint: true`, `run_select_query` only permits `SELECT`, and OAuth access is scoped to the organizations and services your Cloud user can reach. Beyond querying, it can list services, backups and ClickPipes and return organization cost data, which the open-source server cannot. It only works with ClickHouse Cloud. For self-hosted ClickHouse, use `mcp-clickhouse`.
+
+## What about Altinity's MCP server (altinity-mcp)?
+
+[`altinity-mcp`](https://github.com/Altinity/altinity-mcp) is an Apache 2.0 server from Altinity, written in Go and shipped as a binary, a Docker image and a Helm chart. It works with any ClickHouse, speaks stdio, HTTP or SSE, and can broker OAuth 2.0 against your own OIDC provider, so it suits a shared, self-hosted MCP endpoint more than a single developer's laptop. The details below come from its README and [tools documentation](https://github.com/Altinity/altinity-mcp/blob/main/docs/tools.md) at release v1.7.1 (October 2026).
+
+Its main tool, `execute_query`, rejects anything that is not `SELECT`, `WITH`, `SHOW`, `DESCRIBE`, `EXISTS` or `EXPLAIN`. A separate `write_query` tool for DDL and DML is only registered when you set `clickhouse.read_only: false`. Results are capped at 500 rows and 50,000 bytes by default, and the response says when a cap cut the result short.
+
+It also has dynamic tools, which put it between a raw SQL server and a governed one. Each ClickHouse view you select (by regular expression in the config) becomes its own read-only MCP tool, and `{name: Type}` placeholders in a parameterized view become the tool's arguments. The view comment becomes the tool description. If you only enable dynamic tools, the agent can call the queries you wrote as views but cannot write its own SQL. The trade-off against a governed server is that each question shape needs its own view, and tenant scope still comes from the ClickHouse user or a row policy rather than from the server.
 
 ## How is a governed MCP server like @hypequery/mcp different?
 
@@ -287,7 +295,7 @@ If several customers' rows share a table and an agent must be able to run SQL ag
 
 ## Which ClickHouse MCP server should you choose?
 
-Use `mcp-clickhouse` or the Cloud remote MCP server when the person talking to the agent owns the data and wants to explore it. Ad hoc questions, schema discovery, debugging a slow query with `EXPLAIN ESTIMATE` and drafting SQL all need the agent to write arbitrary SQL, and a governed server cannot do them. Pick the Cloud server if you are on ClickHouse Cloud and want OAuth with nothing to run, or if you want the service, backup, ClickPipes and billing tools. Pick `mcp-clickhouse` for self-hosted ClickHouse, for chDB, or when you need to run the MCP server inside your own network. Either way, connect it as a `readonly = 1` user with grants limited to the databases in scope.
+Use `mcp-clickhouse` or the Cloud remote MCP server when the person talking to the agent owns the data and wants to explore it. Ad hoc questions, schema discovery, debugging a slow query with `EXPLAIN ESTIMATE` and drafting SQL all need the agent to write arbitrary SQL, and a governed server cannot do them. Pick the Cloud server if you are on ClickHouse Cloud and want OAuth with nothing to run, or if you want the service, backup, ClickPipes and billing tools. Pick `mcp-clickhouse` for self-hosted ClickHouse, for chDB, or when you need to run the MCP server inside your own network. Pick `altinity-mcp` when several people share one self-hosted MCP endpoint behind your own OIDC login, or when you want to expose a handful of parameterized views as tools. Either way, connect it as a `readonly = 1` user with grants limited to the databases in scope.
 
 Use a governed server when the agent answers questions for people who should not have SQL access: customers inside your product, or a company-wide assistant where "revenue" has to mean the same thing as it does on the finance dashboard. A raw SQL tool there means every table the user can read is reachable, the agent decides how each metric is calculated, and tenant scope depends on row policies or on the model writing the right `WHERE` clause. With published datasets, the definitions, row limits and tenant are fixed by the server, at the cost of modelling the data first.
 

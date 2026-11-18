@@ -24,7 +24,7 @@ Use hypequery to replace typed ClickHouse queries, semantic metrics, APIs, React
 
 | MooseStack responsibility | Migration destination |
 | --- | --- |
-| ClickHouse tables, materialized views, and DDL | Your existing SQL migration system, ClickHouse tooling, or infrastructure workflow |
+| ClickHouse tables, [materialized views](/blog/a-guide-to-materialized-views-in-clickhouse), and DDL | Your existing SQL migration system, ClickHouse tooling, or infrastructure workflow |
 | Kafka/Redpanda ingestion | Keep the pipeline or move it independently |
 | Temporal workflows | Keep Temporal or choose another scheduler independently |
 | Typed read queries | `@hypequery/clickhouse` |
@@ -42,7 +42,7 @@ Before changing application code, capture what Moose actually created in ClickHo
 - tables and engines;
 - partition and ordering keys;
 - materialized views and target tables;
-- dictionaries and projections;
+- dictionaries and [projections](/blog/clickhouse-projections-vs-materialized-views);
 - ingestion topics and consumers;
 - scheduled workflows;
 - query and ingest endpoints still receiving traffic.

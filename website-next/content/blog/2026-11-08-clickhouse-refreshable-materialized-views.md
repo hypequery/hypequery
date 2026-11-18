@@ -15,7 +15,7 @@ tags:
 
 A refreshable materialized view in ClickHouse reruns its whole `SELECT` on a schedule (`REFRESH EVERY 1 HOUR` or `REFRESH AFTER 10 MINUTE`) and atomically replaces the contents of its target table, or adds rows to it when you write `APPEND`. On ClickHouse 26.6 no setting is needed: `allow_experimental_refreshable_materialized_view` is marked obsolete and does nothing, but the default replace mode needs a database with the Atomic or Replicated engine. You trigger a refresh by hand with `SYSTEM REFRESH VIEW` and check status in `system.view_refreshes`.
 
-This guide covers the refreshable kind only. For how incremental (insert-triggered) views work and the production pitfalls around them, see the main [guide to materialized views in ClickHouse](/blog/a-guide-to-materialized-views-in-clickhouse). Everything below was run on ClickHouse 26.6.
+This guide covers the refreshable kind only. For how incremental (insert-triggered) views work and the production pitfalls around them, see the main [guide to ClickHouse materialized views](/blog/a-guide-to-materialized-views-in-clickhouse). Everything below was run on ClickHouse 26.6.
 
 ## Do refreshable materialized views need a setting enabled?
 
