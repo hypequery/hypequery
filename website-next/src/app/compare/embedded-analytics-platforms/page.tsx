@@ -86,7 +86,7 @@ const categories: Category[] = [
         tenancy: 'A security context passed to its Tokens API, applied by security filters, SQL-based rules in the model, or access policies on views.',
         pricing: <>Flat monthly subscription with unlimited usage; custom pricing (contact sales). See {pricingLink}.</>,
         bestFor: 'Teams who want their own components but need non-engineers to build and change dashboards.',
-        watchOut: 'The platform is hosted in US or EU regions; only the Cube layer can be your own. AI endpoints are in beta.',
+        watchOut: <>The platform is hosted in US or EU regions; only the Cube layer can be your own. AI endpoints are in beta. See <Link href="/compare/embeddable-alternatives" className={inlineLink}>Embeddable alternatives</Link>.</>,
       },
       {
         id: 'hypequery',

@@ -384,7 +384,11 @@ export default function HypequeryVsEmbeddablePage() {
               </li>
             </ul>
             <p>
-              The full list, grouped by approach, is in{' '}
+              More options, grouped by why teams move off Embeddable, are in{' '}
+              <Link href="/compare/embeddable-alternatives" className={inlineLink}>
+                Embeddable alternatives
+              </Link>
+              . The full list, grouped by approach, is in{' '}
               <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
                 the best embedded analytics platforms
               </Link>
