@@ -12,8 +12,8 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/embedded-analytics';
 const TITLE = 'Embedded Analytics for Developers: Build vs Buy';
 const DESCRIPTION =
-  'What embedded analytics is, when to embed a BI tool and when to build, how to isolate tenants on ClickHouse, and how 8 tools compare.';
-// The date the vendor table was checked against each vendor's own site.
+  'What embedded analytics is, when to embed a BI tool and when to build, how to isolate tenants on ClickHouse, and which kind of tool fits.';
+// The date the vendor claims on this page were checked against each vendor's own site.
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
@@ -72,62 +72,21 @@ const buildVsBuyRows = [
   ['Cost model', 'Platform fee, per user, per viewer or usage based.', 'Engineering time plus your database and hosting.'],
 ];
 
-const vendorRows = [
+const groupRows = [
   [
-    'Metabase',
-    'iframe (full app or guest embeds), web components, React SDK',
-    'Partly: open source edition under AGPL; paid editions under a commercial license',
-    'Yes',
-    'Open source free. Starter $100/mo plus $6/user, Pro $575/mo plus $12/user, Enterprise from $20,000/yr',
+    'Code-first and headless',
+    'Cube, Embeddable, hypequery',
+    'Analytics is part of the product and has to look and behave like the rest of it. You own the front end.',
   ],
   [
-    'Luzmo',
-    'Web component plus React, React Native, Angular and Vue components, authorised with a server-side embed token',
-    'No',
-    'Private infrastructure is available as a tailored deployment option',
-    'From €1,995/mo billed annually, scaling with usage',
+    'Embedded BI platforms',
+    'Luzmo, Sigma, ThoughtSpot Embedded, GoodData, Sisense, Qrvey, Databrain, Reveal',
+    'You need many dashboards quickly, or customers who build and explore on their own, in the vendor’s builder and charts.',
   ],
   [
-    'Embeddable',
-    'Web component; engineers register React chart components and assemble dashboards in its builder',
-    'No: the hosted platform is commercial; the component-suite licence was not confirmed',
-    'No: the platform is hosted; the Cube data layer it uses can run in your environment',
-    'Quote on request; fixed price with unlimited usage',
-  ],
-  [
-    'GoodData',
-    'iframe, web components, React SDK (GoodData.UI), raw data from the JS and Python SDKs',
-    'Partly: Python SDK is MIT; GoodData.UI is under a commercial license',
-    'Enterprise only, on demand',
-    'Professional: platform fee plus per workspace. Enterprise: custom. No public prices',
-  ],
-  [
-    'Apache Superset',
-    'Embedded SDK that inserts an iframe authorised with a guest token',
-    'Yes: Apache 2.0',
-    'Yes',
-    'Free to self-host; managed Preset embedding starts at $500/mo for 50 viewers',
-  ],
-  [
-    'Sisense',
-    'iframe or Compose SDK for React, Angular and Vue',
-    'No: commercial platform',
-    'Enterprise: your own cloud or on-prem',
-    'No public prices; contact sales',
-  ],
-  [
-    'Cube',
-    'iframe and React Embed SDK (Premium and Enterprise plans), headless REST, GraphQL and SQL APIs',
-    'Yes: Cube Core, Apache 2.0',
-    'Yes (Cube Core)',
-    'Free tier. Starter $40 and Premium $80 per developer per month. Enterprise custom',
-  ],
-  [
-    'hypequery',
-    'Headless: typed HTTP API and React hooks over your datasets; you render the charts',
-    'Yes: Apache 2.0',
-    'Yes: a library that runs in your own backend',
-    'Open source, free. A hosted option is on a waitlist',
+    'BI tools with embedding',
+    'Metabase, Power BI Embedded, Looker, Apache Superset',
+    'You already run one internally, or licence cost matters more than a native look.',
   ],
 ];
 
@@ -216,12 +175,12 @@ const faqItems: FaqItem[] = [
   {
     question: 'What does embedded analytics cost?',
     answer:
-      'Published starting prices in the table run from free open-source editions to €1,995 a month for Luzmo, while several vendors quote only on request. Building costs engineering time instead of licence fees.',
+      'Published starting prices run from free open-source editions to €1,995 a month for Luzmo, while several vendors quote only on request. Building costs engineering time instead of licence fees.',
   },
   {
     question: 'Which embedded analytics tools are open source?',
     answer:
-      'Of the tools compared here, Metabase has an AGPL open-source edition, while Cube Core, Apache Superset and hypequery are Apache 2.0.',
+      'Metabase has an AGPL open-source edition, while Cube Core, Apache Superset and hypequery are Apache 2.0.',
   },
 ];
 
@@ -234,7 +193,7 @@ const guides: HubLink[] = [
   {
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
-    description: 'Twelve vendors in three groups, each with a best-for and a watch-out.',
+    description: 'Fifteen vendors in three groups, each with a best-for and a watch-out.',
   },
   {
     href: '/compare/embedded-analytics-pricing',
@@ -329,11 +288,11 @@ export default function EmbeddedAnalyticsPage() {
       lead={
         <p>
           How to put customer-facing dashboards into your product: when embedding a BI tool is the right call, when to
-          build on a code-first layer, how to keep tenants apart, and what eight tools offer today.
+          build on a code-first layer, how to keep tenants apart, and which kind of tool fits.
         </p>
       }
       primaryCta={{ href: '#build-vs-buy', label: 'Build vs buy', target: 'embedded_build_vs_buy' }}
-      secondaryCta={{ href: '#vendors', label: 'Compare vendors', target: 'embedded_vendors' }}
+      secondaryCta={{ href: '#vendors', label: 'Tool types', target: 'embedded_vendors' }}
       definition={{
         term: 'What is embedded analytics?',
         body: (
@@ -484,24 +443,26 @@ export default function EmbeddedAnalyticsPage() {
       <HubSection
         id="vendors"
         band
-        eyebrow="Vendor comparison"
-        title="Embedded analytics tools compared"
+        eyebrow="Tool types"
+        title="Three kinds of embedded analytics tool"
         intro={
           <p>
-            How each tool gets analytics into your app, whether you can read and run the code yourself, and how it is
-            priced. Each cell was checked against the vendor’s own site on {VERIFIED_ON}; prices change, so confirm on
-            the vendor’s pricing page before you decide.
+            Vendors fall into three groups, and the group matters more than the vendor: it decides who draws the charts
+            and where your metrics live. The{' '}
+            <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
+              embedded analytics platforms comparison
+            </Link>{' '}
+            covers all fifteen tools one by one, with embedding method, tenant isolation, ClickHouse support and pricing.
           </p>
         }
       >
         <HubTable
-          caption={`Embedded analytics vendors compared, checked ${VERIFIED_ON}`}
-          columns={['Tool', 'How it embeds', 'Open source', 'Self-host', 'Pricing (published)']}
-          rows={vendorRows}
+          caption="Embedded analytics tools by type"
+          columns={['Type', 'Tools', 'Choose it when']}
+          rows={groupRows}
         />
         <p className="mt-4 text-xs leading-5 text-text-dim">
-          Seven document a ClickHouse connection; Sisense support could not be confirmed. Embeddable connects to databases
-          through Cube. hypequery is listed last because it is ours. Explo is not listed because{' '}
+          hypequery is ours. Explo is not listed because{' '}
           <a href="https://omni.co/blog/omni-acquires-explo/" rel="noopener nofollow" className={inlineLink}>
             Omni acquired it in October 2025
           </a>{' '}
@@ -561,7 +522,7 @@ export default function EmbeddedAnalyticsPage() {
 
       <section className={`${marketing.container} pb-14`}>
         <h2 className="text-lg font-medium text-text">Sources</h2>
-        <p className="mt-2 text-sm text-text-muted">Vendor pages used for the comparison table, all fetched on {VERIFIED_ON}.</p>
+        <p className="mt-2 text-sm text-text-muted">Vendor pages used for this page, all fetched on {VERIFIED_ON}.</p>
         <dl className="mt-4 grid gap-x-8 gap-y-3 text-[13px] sm:grid-cols-2">
           {sources.map((source) => (
             <div key={source.vendor}>

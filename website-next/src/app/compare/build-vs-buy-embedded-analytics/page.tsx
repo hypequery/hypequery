@@ -265,7 +265,7 @@ export default function BuildVsBuyEmbeddedAnalyticsPage() {
         }
       >
         <p className="text-sm leading-6 text-text-muted">
-          Twelve platforms are compared in{' '}
+          Fifteen platforms are compared in{' '}
           <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
             best embedded analytics platforms
           </Link>
