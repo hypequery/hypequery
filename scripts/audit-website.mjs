@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evaluateAudit } from './utils/npm-audit-allowlist.mjs';
+import { evaluateAudit, isIsoDate } from './utils/npm-audit-allowlist.mjs';
 
 const websiteDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'website-next');
 const allowlist = JSON.parse(readFileSync(resolve(websiteDir, 'audit-allowlist.json'), 'utf8')).advisories;
@@ -40,7 +40,10 @@ for (const advisory of allowed) {
   console.log(`allowed until ${advisory.reviewBy}: ${advisory.id} (${advisory.package}, ${advisory.severity}): ${advisory.reason}`);
 }
 for (const advisory of expired) {
-  console.error(`review date passed (${advisory.reviewBy}): ${advisory.id} (${advisory.package}). Patch it or re-triage and set a new date.`);
+  const why = isIsoDate(advisory.reviewBy)
+    ? `review date passed (${advisory.reviewBy})`
+    : `allowlist reviewBy is missing or not a YYYY-MM-DD date (${JSON.stringify(advisory.reviewBy)})`;
+  console.error(`${why}: ${advisory.id} (${advisory.package}). Patch it or re-triage and set a new date.`);
 }
 for (const advisory of blocking) {
   console.error(`${advisory.severity}: ${advisory.id} in ${advisory.package}: ${advisory.title ?? ''} ${advisory.url ?? ''}`);
