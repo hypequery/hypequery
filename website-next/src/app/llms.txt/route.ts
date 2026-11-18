@@ -25,7 +25,7 @@ function sectionOf(url: string): string {
 // Markdown twin, converted from the rendered page (src/app/llms.mdx/pages).
 const PRODUCT_PAGES: Entry[] = [
   { title: 'hypequery homepage', url: '/', description: 'Overview: define metrics once in TypeScript or Python, then serve dashboards, APIs and agents from ClickHouse.' },
-  { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and 8 tools compared on embed model, licensing, self-hosting and pricing.' },
+  { title: 'Embedded analytics for developers', url: '/embedded-analytics', description: 'What embedded analytics is, when to embed a BI tool and when to build, tenant isolation on ClickHouse, and the three kinds of tool. Vendor-by-vendor comparison is at /compare/embedded-analytics-platforms.' },
   { title: 'ClickHouse for TypeScript and Python developers', url: '/clickhouse', description: 'Hub for querying ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, the function reference, APIs and MCP.' },
   ...semanticLayerPages.map((page) => ({ title: page.label, url: page.href, description: page.description })),
   { title: 'ClickHouse semantic layer', url: '/clickhouse-semantic-layer', description: 'What a semantic layer is, and how to define one for ClickHouse in TypeScript or Python with typed datasets, tenant keys and time keys.' },
