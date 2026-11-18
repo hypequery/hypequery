@@ -51,9 +51,14 @@ export function filterExpression(filter: MetricFilter): ProtocolExpression {
   if (filter.operator === 'isNull' || filter.operator === 'isNotNull') {
     return { kind: 'comparison', operator: filter.operator, left } satisfies ProtocolComparisonExpression;
   }
+  // RFC 0003: `between` bounds are a two-item tuple; `in`/`notIn` take an array.
   const right: ProtocolLiteralExpression = {
     kind: 'literal',
-    value: canonicalValue(filter.value),
+    value: filter.operator === 'between' && Array.isArray(filter.value)
+      ? validateCanonicalValue({
+        $hypequery: { type: 'tuple', version: 1, values: filter.value.map(canonicalValue) },
+      })
+      : canonicalValue(filter.value),
   };
   const result: ProtocolComparisonExpression = {
     kind: 'comparison',

@@ -95,4 +95,31 @@ describe('publishing contract 3 (RFC 0015)', () => {
     expect((error as UnsupportedContractFeatureError).reason)
       .toBe(UNSUPPORTED_CONTRACT_REASONS.segmentPredicateNotConjunction);
   });
+
+  it('publishes a range segment with tuple bounds, as Python does', () => {
+    const ranged = dataset('orders', {
+      source: 'orders', timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp(), amount: dimension.number() },
+      measures: { revenue: measure.sum('amount') },
+      segments: { midTier: { filters: [between('amount', 100, 200)] } },
+    });
+    const contract = buildProtocolDeploymentContract([ranged]);
+    expect(contract.version).toBe(3);
+    expect(() => validateProtocolDeploymentContractV3(contract)).not.toThrow();
+    const [entry] = contract.datasets as unknown as { segments: unknown[] }[];
+    // `tests/test_contract_3_authoring.py` pins the same predicate for Python.
+    expect(entry!.segments).toEqual([{
+      name: 'midTier',
+      predicate: {
+        kind: 'comparison',
+        operator: 'between',
+        left: { kind: 'reference', name: 'amount' },
+        right: { kind: 'literal', value: { $hypequery: { type: 'tuple', version: 1, values: [100, 200] } } },
+      },
+    }]);
+    const rebuilt = rehydrateProtocolDeploymentContract(contract).orders!;
+    const client = createDatasetClient({ queryBuilder: factory() });
+    const query: DatasetQuery = { measures: ['revenue'], segments: ['midTier'] };
+    expect(client.compileDataset(rebuilt, query).sql).toBe(client.compileDataset(ranged, query).sql);
+  });
 });

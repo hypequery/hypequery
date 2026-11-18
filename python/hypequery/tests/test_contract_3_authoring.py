@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -115,3 +116,35 @@ def test_a_deployment_without_contract_3_features_stays_contract_2() -> None:
 def test_contract_3_features_are_refused_by_the_standalone_contract_2_snapshot() -> None:
     with pytest.raises(ValueError, match=r"shift measures \(revenuePriorWeek\)"):
         build_protocol_dataset_contract(events())
+
+
+def test_a_range_segment_publishes_tuple_bounds_as_typescript_does() -> None:
+    ranged = dataset(
+        "orders",
+        source="orders",
+        time_key="createdAt",
+        dimensions={"createdAt": dimension.timestamp(), "amount": dimension.number()},
+        measures={"revenue": measure.sum("amount")},
+        segments={"midTier": segment(filter.between("amount", 100, 200))},
+    )
+    contract = build_protocol_deployment_contract(create_dataset_registry(ranged))
+    assert contract["version"] == 3
+    validate_protocol_deployment_contract_v3(to_binary64_tree(contract))
+    # `contract-3-publishing.test.ts` pins the same predicate for TypeScript.
+    datasets = cast(list[dict[str, object]], contract["datasets"])
+    assert datasets[0]["segments"] == [
+        {
+            "name": "midTier",
+            "predicate": {
+                "kind": "comparison",
+                "operator": "between",
+                "left": {"kind": "reference", "name": "amount"},
+                "right": {
+                    "kind": "literal",
+                    "value": {"$hypequery": {"type": "tuple", "version": 1, "values": [100, 200]}},
+                },
+            },
+        }
+    ]
+    bundle = prepare_dataset_bundle(create_dataset_registry(ranged))
+    assert json.loads(bundle.deployment_bytes)["version"] == 3

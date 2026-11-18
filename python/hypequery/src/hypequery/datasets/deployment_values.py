@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from hypequery.protocol import array_value, validate_canonical_value
+from hypequery.protocol import array_value, tuple_value, validate_canonical_value
 from hypequery.protocol.values import CanonicalValue
 
 from .immutability import FrozenMapping
@@ -58,5 +58,12 @@ def filter_expression(value: Filter) -> dict[str, object]:
         "left": {"kind": "reference", "name": value.field},
     }
     if not value.is_null_check:
-        expression["right"] = {"kind": "literal", "value": canonical_filter_value(value.value)}
+        literal: CanonicalValue
+        if value.operator == "between" and type(value.value) in (list, tuple):
+            # RFC 0003: `between` bounds are a two-item tuple; in/notIn take an array.
+            bounds = cast(tuple[object, ...], tuple(cast(list[object], value.value)))
+            literal = tuple_value([canonical_filter_value(bound) for bound in bounds])
+        else:
+            literal = canonical_filter_value(value.value)
+        expression["right"] = {"kind": "literal", "value": literal}
     return expression
