@@ -514,6 +514,13 @@ export default function ClickHouseSemanticLayerPage() {
             <p>
               For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend; a hosted hypequery cloud is on a waitlist and not live yet.
             </p>
+            <p>
+              Serving one set of definitions over APIs to front ends you build yourself is often called{' '}
+              <Link href="/semantic-layer/headless-bi" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
+                headless BI
+              </Link>
+              . Datasets work that way, with the model kept in your app repo instead of a separate service.
+            </p>
           </SectionIntro>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {shapes.map((shape) => (
