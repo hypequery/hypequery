@@ -198,7 +198,11 @@ export default function LuzmoAlternativesPage() {
                 product.
               </p>
               <p>
-                <strong className="text-text">Trade-off:</strong> ClickHouse only, and no editor of any kind.
+                <strong className="text-text">Trade-off:</strong> ClickHouse only, and no editor of any kind. See{' '}
+                <Link href="/compare/hypequery-vs-luzmo" className={inlineLink}>
+                  hypequery vs Luzmo
+                </Link>
+                .
               </p>
             </Option>
             <Option name="Embeddable">
@@ -210,6 +214,10 @@ export default function LuzmoAlternativesPage() {
                 <strong className="text-text">Trade-off:</strong> still a hosted platform, priced by quote. See{' '}
                 <Link href="/compare/hypequery-vs-embeddable" className={inlineLink}>
                   hypequery vs Embeddable
+                </Link>{' '}
+                and{' '}
+                <Link href="/compare/embeddable-alternatives" className={inlineLink}>
+                  Embeddable alternatives
                 </Link>
                 .
               </p>

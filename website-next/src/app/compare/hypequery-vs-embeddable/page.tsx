@@ -365,6 +365,10 @@ export default function HypequeryVsEmbeddablePage() {
               <li>
                 <strong className="text-text">Luzmo</strong>: embedded BI with an embedded dashboard editor for end users;
                 one published plan from €1,995 a month, billed annually. See{' '}
+                <Link href="/compare/hypequery-vs-luzmo" className={inlineLink}>
+                  hypequery vs Luzmo
+                </Link>{' '}
+                and{' '}
                 <Link href="/compare/luzmo-alternatives" className={inlineLink}>
                   Luzmo alternatives
                 </Link>
@@ -384,7 +388,11 @@ export default function HypequeryVsEmbeddablePage() {
               </li>
             </ul>
             <p>
-              The full list, grouped by approach, is in{' '}
+              More options, grouped by why teams move off Embeddable, are in{' '}
+              <Link href="/compare/embeddable-alternatives" className={inlineLink}>
+                Embeddable alternatives
+              </Link>
+              . The full list, grouped by approach, is in{' '}
               <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
                 the best embedded analytics platforms
               </Link>

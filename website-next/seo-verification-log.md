@@ -287,6 +287,116 @@ tests were run and pass. The TypeScript snippets in A2–A4 type-check.
 Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
 reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.
 
+## /compare/clickhouse-cloud-vs-tinybird: re-verified 2026-11-18
+
+Every price and product claim on the page and its seed post (`content/blog/2026-08-22-clickhouse-cloud-vs-tinybird.md`) was re-read live. Nothing had changed; only the "checked on" dates moved from 9 to 18 November 2026.
+
+| Claim | Source | Checked |
+|---|---|---|
+| Tinybird Free: 0.25 vCPU, 1,000 requests a day, 10 GB, no credit card | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird Developer "Starting at $25/month"; the 0.5 vCPU size is $49/month with 25 GB included | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird SaaS and Enterprise: credit-based billing with a 12-month commitment | https://www.tinybird.co/docs/forward/pricing | 2026-11-18 |
+| Tinybird's ClickHouse interface is read-only | https://www.tinybird.co/docs/forward/work-with-data/publish-data/clickhouse-interface | 2026-11-18 |
+| Tinybird self-managed regions are in beta, for development environments only | https://www.tinybird.co/docs/forward/install-tinybird/self-managed | 2026-11-18 |
+| ClickHouse Cloud: $300 of credits for 30 days; storage $25.30 per TB-month; compute $0.2181 (Basic), $0.2985 (Scale), $0.3903 (Enterprise) per unit-hour | https://clickhouse.com/pricing | 2026-11-18 |
+| ClickHouse Cloud Basic running 24 hours a day: $159.66/month compute; 6 hours a day: $66.52/month total (ClickHouse's own worked example) | https://clickhouse.com/docs/cloud/manage/billing/overview | 2026-11-18 |
+| ClickHouse BYOC on AWS, GCP and Azure | https://clickhouse.com/cloud/bring-your-own-cloud | 2026-11-18 |
+
+# SEO verification log: hypequery vs Luzmo (2026-11-18)
+
+| # | Page | URL |
+|---|---|---|
+| L1 | hypequery vs Luzmo | /compare/hypequery-vs-luzmo |
+
+hypequery claims (ClickHouse only, TypeScript datasets and Python datasets in beta at `hypequery` 0.1.0b6, tenant key
+that fails closed, REST with OpenAPI, `@hypequery/react` hooks, `@hypequery/mcp` refusing to start without a tenant,
+Apache 2.0, no chart components or editor, hypequery cloud in early access with no published price) were checked
+against `packages/*`, `python/hypequery/pyproject.toml`, `website-next/docs/` and the wording in
+`src/components/home/Hero.tsx` on 2026-11-18. The dataset snippet is the one type-checked for P2 against
+`@hypequery/datasets@0.30.0` and `@hypequery/serve@0.25.0`. The Luzmo code sample was copied from the rendered HTML
+of the multi-tenant guide (second code block), not from a summary.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| L1 | One plan, "Embedded Everywhere", from €1,995/month, billed annually | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | "Nothing is reserved for a higher plan"; white-label, self-service, AI and APIs included | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | Licence includes 500 AI conversations and 100 million Warp rows a month; €0.25 per extra million Warp rows; some contracts scale on monthly active users | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | Free trial of the full product | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | 19 database integrations, including ClickHouse, Postgres, Snowflake, BigQuery | https://www.luzmo.com/connect | 2026-11-18 |
+| L1 | "A metric lives in exactly one place, as a formula, a derived column or a SQL view"; definitions "can be created and maintained programmatically" through the API; "there is no dbt or Cube connector"; no file-based or git workflow described | https://www.luzmo.com/semantic-layer | 2026-11-18 |
+| L1 | Multi-tenancy via `parameter_overrides` on a parameter filter (one dataset for all clients) or `account_overrides` (host, user, password per connection); ClickHouse listed among plugins supporting connection overrides | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Put the embed filter on the dataset level; users with "use" access to a dashboard can duplicate or modify it and remove a dashboard parameter filter | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Code sample (`client.create('authorization', ...)` with `parameter_overrides`), verbatim | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Embedding with a web component and React, React Native, Angular and Vue components on npm; embed authorization token generated server-side | https://developer.luzmo.com/guide/dashboard-embedding--embed-into-application | 2026-11-18 |
+| L1 | Embedded dashboard editor lets end users create and change dashboards; `editLimited` and `editFull` modes; designer or owner role on the token | https://developer.luzmo.com/guide/dashboard-embedding--embedded-dashboard-editor | 2026-11-18 |
+| L1 | Flex: "an SDK that enables you to create customizable visualizations fully from code" | https://developer.luzmo.com/guide/flex--introduction | 2026-11-18 |
+| L1 | Luzmo IQ "allows you to generate AI-powered answers to data-related questions"; chat and answer components | https://developer.luzmo.com/guide/iq--introduction | 2026-11-18 |
+| L1 | Hosted MCP server giving agents access to Luzmo IQ; EU, US and VPC endpoints; embed key-token per end user "so each user only gets access to their own data"; embed tokens get `search_datasets`, `answer_question`, `create_chart` by default | https://developer.luzmo.com/guide/mcp--introduction | 2026-11-18 |
+| L1 | Private infrastructure as an enterprise option (table row "Where it runs") | https://www.luzmo.com/pricing | 2026-11-18 |
+
+## Cut from L1
+
+- **Luzmo USD price** ($2,495/month on the pricing page): left out to match the other pages, which quote euros only.
+- **Luzmo MCP server release status** (beta or GA): the MCP page states neither.
+- **How Luzmo IQ applies multi-tenant filters**: the IQ introduction does not say; L1 claims only the MCP page's per-user embed token.
+- **Luzmo Warp** ("data acceleration layer", from the semantic-layer FAQ): not explained on L1; Warp rows appear only as priced.
+- **Homepage "white-label MCP server", Agent API and Analyst agent**: marketing copy with no docs page read; left out.
+- **Luzmo SSO and iframe embedding**: still not stated on the pages read (as for P1).
+- **ACK (Analytics Component Kit)**: seen only in docs navigation; not read, left out.
+
+# SEO verification log: /compare/embeddable-alternatives (2026-11-18)
+
+Every claim below was re-fetched from the vendor's own site on 2026-11-18; the Nov 12 entries above were not reused.
+hypequery claims were checked against this repository: `tenantKey` fail-closed behaviour in
+`docs/(typescript)/(datasets)/datasets/multi-tenancy.mdx` and the `packages/datasets` tests ("requires runtime tenant
+scoping", "Cannot filter on tenant field"), the Apache 2.0 licence in `LICENSE` and package manifests, and the cloud
+early-access wording in `src/components/home/Hero.tsx`.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| /compare/embeddable-alternatives | Embeddable publishes no price; flat monthly subscription, unlimited usage, every feature; "No usage-based pricing"; priced primarily on project scope, not MAU; "Fully white-labelled by default"; custom quote | https://embeddable.com/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | "Under the hood, Embeddable uses a popular data modeling language called Cube"; `*.cube.yml` files; built-in Cube by default | https://docs.embeddable.com/data-modeling/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | Can connect to an external Cube Cloud or Cube Core deployment | https://docs.embeddable.com/data/bring-your-own-cube | 2026-11-18 |
+| /compare/embeddable-alternatives | 14 connection types listed, including ClickHouse and Postgres | https://docs.embeddable.com/data/credentials | 2026-11-18 |
+| /compare/embeddable-alternatives | React components; drag-and-drop no-code builder; Dashboards as Code in YAML in your repo; Custom Canvas for end users on your templates | https://docs.embeddable.com/dashboards/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | `<em-beddable>` web component with a security token; no iframe | https://docs.embeddable.com/deployment/embedding | 2026-11-18 |
+| /compare/embeddable-alternatives | Security context in a token; security filters, SQL-based security, access policies | https://docs.embeddable.com/data-modeling/row-level-security/access-policies | 2026-11-18 |
+| /compare/embeddable-alternatives | Hosted in US and EU regions; self-hosting the platform not mentioned | https://docs.embeddable.com/deployment/deployment-regions | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube Free plan; Starter $40 and Premium $80 per developer/month; Premium viewer seat $20/user/month; dedicated deployment billed hourly; embedded dashboards and analytics chat on Premium | https://cube.dev/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube Core Apache 2.0 backend; SQL, REST and GraphQL interfaces | https://github.com/cube-js/cube | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube lists ClickHouse among data sources | https://docs.cube.dev/admin/connect-to-data/data-sources | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube embedded dashboards and Analytics Chat by iframe; REST, GraphQL and SQL APIs for your own front end | https://cube.dev/embedded-analytics | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube security context from JWT; `queryRewrite` for row-level tenancy | https://github.com/cube-js/cube/blob/master/docs-mintlify/embedding/multitenancy.mdx | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo: one plan, Embedded Everywhere, from €1,995/month billed annually; white-label included | https://www.luzmo.com/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo: 19 database integrations, including ClickHouse | https://www.luzmo.com/connect | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo embedded editor lets customers "create and alter dashboards straight from within your application" | https://developer.luzmo.com/guide/dashboard-embedding--embedded-dashboard-editor | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo `parameter_overrides` and `account_overrides` for tenants | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData: Professional and Enterprise, "Contact us", no amounts; Professional is platform fee plus per workspace; embedding (iFrame, Web Components, React SDK), white-labelling and SSO on both plans | https://www.gooddata.ai/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData child workspaces narrowed by workspace data filters | https://www.gooddata.ai/docs/cloud/workspaces/workspace-data-filters/ | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData ClickHouse data source | https://www.gooddata.ai/docs/cloud/connect-data/create-data-sources/clickhouse/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase: Open Source free; Pro $575/month with 10 users, then $12/user/month; guest embeds on all plans, viewers not counted as users; "Powered by Metabase" badge on Open Source and Starter guest embeds | https://www.metabase.com/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase guest embeds view-only; SSO modular embedding (Pro/Enterprise) gives drill-through, query builder, SQL editor, AI chat; Tenants | https://www.metabase.com/docs/latest/embedding/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase built-in ClickHouse driver (v54.1+) | https://www.metabase.com/docs/latest/databases/connections/clickhouse | 2026-11-18 |
+| /compare/embeddable-alternatives | Superset Apache 2.0; ClickHouse listed among databases | https://superset.apache.org/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Superset embedded SDK inserts an iframe; guest token from your backend; guest tokens carry RLS rules; `EMBEDDED_SUPERSET` feature flag | https://github.com/apache/superset/tree/master/superset-embedded-sdk | 2026-11-18 |
+| /compare/embeddable-alternatives | Preset: "Embedded dashboard viewer licenses ($500/mo for 50 Viewers)", Professional and Enterprise; above 50 via sales | https://preset.io/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird: managed ClickHouse, hosted ingestion, SQL published as low-latency APIs; user-facing analytics | https://www.tinybird.co/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird free plan, no credit card | https://www.tinybird.co/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird JWT `fixed_params` set by your backend cannot be overridden by the user | https://www.tinybird.co/docs/forward/administration/tokens/jwt | 2026-11-18 |
+| /compare/embeddable-alternatives | Omni announced acquiring Explo on October 22, 2025, moving customers over 12 months; explo.co shows "Explo is joining Omni!" | https://omni.co/blog/omni-acquires-explo/ ; https://www.explo.co/ | 2026-11-18 |
+
+## Cut from /compare/embeddable-alternatives
+
+- **Tinybird Developer plan price**: the pricing page shows both "$49/month" and "Starting at $25/month" for Developer on
+  2026-11-18, so no figure is given; the page says only "Free plan; paid plans plus usage".
+- **Cube data source count** ("about 26" on older pages): the data sources page lists 29 entries, several routed to one
+  page, so the page says "many SQL sources, including ClickHouse".
+- **GoodData source count**: not re-verified today; the page says "many sources, including ClickHouse".
+- **Embeddable Remarkable Pro and `defineComponent`**: not described on the dashboards page fetched today; left out.
+- **Superset embedded SDK on npm**: npmjs.com returned 403; the README in the Superset GitHub repo was used instead.
+- **Explo**: left out as an alternative because it is moving its customers to Omni.
+- **Sigma, ThoughtSpot and Omni**: not checked today, so not included.
+
 # SEO verification log: /semantic-layer/headless-bi (2026-11-18)
 
 New spoke targeting "headless bi", "headless business intelligence", "what is headless bi", "headless bi vs
