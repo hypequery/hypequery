@@ -40,6 +40,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse Flask', href: '/clickhouse-flask' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
       { label: 'ClickHouse AI chat', href: '/clickhouse-ai' },
+      { label: 'ClickHouse docs listing', href: 'https://clickhouse.com/docs/integrations/connectors/data-visualization/community-integrations/hypequery-and-clickhouse', external: true },
     ],
   },
   {
