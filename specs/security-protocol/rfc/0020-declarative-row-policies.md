@@ -148,7 +148,8 @@ The rules for applying it:
   `attributes: { regions: { scope: 'all' } }`, scoped to one attribute, never
   a global "skip policies" switch. A bypass is a trusted value like any other.
   It enters the cache key (as `all`) and is reported to the audit hook
-  (RFC 0011 query events) with the policy name. See open decision 1.
+  (RFC 0011 query events) with the policy name. A bypass with no audit hook
+  configured refuses the call. See decision 1.
 - **Callers can't filter on a policy column.** Caller filters on the tenant
   column are already refused while tenancy is active. The same refusal
   extends to every column a policy covers, so that a caller can't probe
@@ -200,10 +201,10 @@ reads. Options:
   responsible, and the DB-native layer (below) is the backstop.
 - **(c) Refuse raw SQL altogether** on policy-bearing datasets.
 
-The recommendation is (a). It targets the one construct that reads outside
-the scoped source, without banning the expressions many datasets need.
+This RFC takes (a). It targets the one construct that reads outside the
+scoped source, without banning the expressions many datasets need.
 `dictGet` and table functions have the same problem and go on the same deny
-list. See open decision 2.
+list. See decision 2.
 
 ### Defense in depth: DB-native policies (later phase)
 
@@ -222,7 +223,7 @@ This guards against compiler bugs only. The settings are sent by the same
 application, so a compromised application sets whatever it likes. It costs a
 DDL deployment step and a database user per application. It's opt-in, emitted
 by the CLI (`hypequery policies sql`), and never applied automatically. See
-open decision 3.
+decision 3.
 
 ## Implementation phases
 
@@ -233,28 +234,52 @@ open decision 3.
    backend path. Add a property-style test that runs every query shape under
    a constraint and a tenant and asserts that both are applied. No change to
    generated SQL for existing queries.
-2. **Row policies.** Add `rowPolicies` and `runtime.attributes`, the bypass,
-   the refusal of caller filters on policy columns, the cache preimage `scope`
-   member, catalog and contract publication, and data-plane enforcement from
-   the contract.
+2. **Row policies.** Add `rowPolicies` and `runtime.attributes`, the bypass
+   and the audit hook it requires, the refusal of caller filters on policy
+   columns, the cache preimage `scope` member, catalog and contract
+   publication, and data-plane enforcement from the contract. Add the raw SQL
+   rule for `rowPolicies` datasets and the warning for `tenantKey`-only ones
+   (decision 2), and the backend-path refusal (decision 4).
 3. **Parity.** Python SDK and protocol conformance fixtures for policy
    resolution, refusals and cache keys.
 4. **DB-native policies** (if accepted): DDL generation and per-query
    settings for ClickHouse, then Postgres.
 
-## Open decisions
+## Decisions
 
-1. **Bypass semantics.** Is the bypass per attribute (proposed), per policy,
-   or only the existing tenant `scope: 'all'`? Should a bypass require an
-   audit hook to be configured?
-2. **Raw SQL rule.** Option (a), (b) or (c) above, and whether it applies to
-   `tenantKey`-only datasets (a behaviour change for existing users) or only
-   to datasets that declare `rowPolicies`.
-3. **DB-native policies.** In scope as phase 4, or left to users with a
-   documented recipe?
-4. **Backend path.** The deprecated plan/backend path can express one tenant
-   predicate. Phase 1 refuses constraints there. Should row policies also be
-   refused there (proposed, matching `final`), or lowered into plan filters?
+The four questions this RFC left open are settled below (2026-11-19). The
+RFC stays Proposed until both maintainers accept them.
+
+1. **Bypass semantics: per attribute, and only with an audit hook.**
+   - The bypass is `attributes: { <name>: { scope: 'all' } }`. It lifts every
+     policy bound to that attribute and nothing else. There is no per-policy
+     or global bypass.
+   - Phase 2 adds an audit hook to the dataset client, called with RFC 0011
+     query events. A call that carries any attribute bypass refuses unless the
+     hook is configured. The hook receives each bypassed policy's name and
+     dataset, never attribute values.
+   - The existing tenant `scope: 'all'` keeps working without a hook, so
+     current users don't break. It is reported to the hook when one is
+     configured. Requiring the hook for it too is left to the next major.
+2. **Raw SQL rule: option (a), on `rowPolicies` datasets now.**
+   - At definition time, refuse `SELECT`, `dictGet`/`dictGetOrDefault`, and
+     table functions in any `sql` expression, after stripping string literals
+     and comments. This applies to datasets that declare `rowPolicies`.
+   - `tenantKey`-only datasets get the same rule in the next major, because
+     it changes existing projects. Until then the definition only warns.
+   - A host that runs other people's deployments (a hosted data plane) MAY
+     refuse these expressions on `tenantKey`-only datasets at intake now.
+3. **DB-native policies: in scope as phase 4, opt-in.**
+   - `hypequery policies sql` generates the DDL. The runtime sends the
+     matching settings on every query once a deployment opts in. Neither is
+     ever applied automatically.
+   - A connection check reports whether each policy-bearing table is covered
+     and whether the connecting user is bound by the policy.
+   - Phase 4 can follow phase 2. The recipe ships in the docs with phase 2.
+4. **Backend path: refuse row policies.** The deprecated plan/backend path
+   refuses a dataset with `rowPolicies`, and any call with
+   `runtime.attributes`, as it already refuses constraints and `final`. It
+   does not lower policies into plan filters.
 
 ## Security
 
