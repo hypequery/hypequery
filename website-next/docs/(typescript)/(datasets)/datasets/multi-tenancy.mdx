@@ -104,6 +104,74 @@ await analytics.execute(Orders, {
 
 Tenant identity should come from trusted runtime state, not end-user query input.
 
+## Narrowing within a tenant
+
+The tenant key is the wall between your customers. Inside one customer you often need finer rules: a user sees only their workspace, or a regional manager sees only their regions. Don't fold those into the tenant key. Keep the customer in `tenantKey` and narrow within it using enforced constraints in `runtime.constraints`.
+
+<CodeBlock>
+```typescript
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'org_id',
+  dimensions: {
+    workspaceId: dimension.string({ column: 'workspace_id' }),
+    region: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+
+await analytics.execute(Orders, { dimensions: ['status'], measures: ['revenue'] }, {
+  runtime: {
+    tenant: user.orgId,
+    constraints: [
+      { field: 'workspaceId', operator: 'in', value: user.workspaceIds },
+    ],
+  },
+});
+```
+</CodeBlock>
+
+This applies predicates equivalent to:
+
+<CodeBlock>
+```sql
+WHERE org_id = 'acme' AND workspace_id IN ('ws_1', 'ws_2')
+```
+</CodeBlock>
+
+Constraints follow these rules:
+
+- **Trusted context only.** Build them on your server from the authenticated user, the same way you resolve the tenant. Never copy them from request input.
+- **They only narrow.** Each constraint is ANDed with the caller's filters and segments, so nothing the caller sends can widen it.
+- **Same vocabulary as caller filters.** `field` names a filter the dataset allows (a filterable dimension or a declared filter) or a one-hop `relationship.field`. Operators and value types follow the same rules as a caller filter.
+- **Fail closed.** A constraint the dataset can't enforce refuses the whole call with `Dataset "orders" cannot enforce a runtime constraint.` The message doesn't describe the constraint. Causes include an unknown field, a disallowed operator, a wrong value type or too many constraints.
+- **Bounded.** A call accepts at most 32 constraints. They count toward the dataset's `limits.maxFilters`, so the caller's own allowance shrinks by the number of constraints.
+- **Part of the cache key.** Two users with different constraint values never share a cached result.
+
+Current limits:
+
+- The constraint field has to be a filter the caller could also use, so it appears in the dataset's catalog.
+- A constraint applies to the queried dataset only. Joined datasets are still scoped by their own `tenantKey`, but not by the constraint. To narrow by a joined value, constrain on the `relationship.field` itself.
+- Constraints are supported with `createDatasetClient`. Serve endpoints, the MCP server and the Python SDK don't set them yet, and the deprecated `createBackend` path refuses them.
+
+### Composite tenant identity
+
+`tenantKey` names one physical column. If your tenant really is a pair, such as an account ID that is only unique within a region, give each tenant-scoped table one derived column and use it as the tenant key:
+
+<CodeBlock>
+```sql
+ALTER TABLE orders
+  ADD COLUMN tenant_key String MATERIALIZED concat(region, ':', toString(account_id));
+```
+</CodeBlock>
+
+Prefer `MATERIALIZED` to `ALIAS`: an alias column is computed on every read, so the tenant filter can't use the primary key. Run `ALTER TABLE orders MATERIALIZE COLUMN tenant_key` to write the column for existing rows. On new tables, put the column first in `ORDER BY`. Every tenant-scoped dataset you join needs the same derived column, because joins across several tenants match on the tenant keys. Choose a delimiter that can't appear in either part.
+
+If the second part is a level inside the tenant (an organisation's workspaces, say), you don't need this. Use the organisation as the tenant key and a constraint for the workspace, as shown above.
+
 ## Serve tenant context
 
 With `@hypequery/serve`, configure tenant extraction from auth or request context. Semantic dataset endpoints pass that tenant identity into `@hypequery/datasets`, and datasets auto-inject the filter from `tenantKey`.
