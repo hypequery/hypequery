@@ -46,6 +46,12 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
       'Where the data model lives, how tenant isolation is enforced, who owns the UI, and what each serves besides dashboards.',
   },
   {
+    href: '/compare/hypequery-vs-luzmo',
+    title: 'hypequery vs Luzmo',
+    description:
+      'Hosted embedded BI with a dashboard editor, or a ClickHouse semantic layer in your repo: data model, tenant isolation, UI ownership, MCP and pricing.',
+  },
+  {
     href: '/cube-js-alternative',
     title: 'Cube alternatives',
     description:
