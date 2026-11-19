@@ -8,7 +8,6 @@ import { Inter } from 'next/font/google';
 import { NpmDownloadsBadge } from './NpmDownloadsBadge';
 import type { NpmDownloadCounts } from '@/lib/npm-downloads';
 import { OpenSourceBadge } from './OpenSourceBadge';
-import { ClickHouseDocsBadge } from './ClickHouseDocsBadge';
 import { marketing } from '../ui/marketing';
 
 // ClickHouse's wordmark is set in Inter; load just the bold weight for it.
@@ -21,7 +20,6 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
         <div className="flex flex-wrap items-center gap-2">
           <NpmDownloadsBadge counts={npmDownloads} />
           <OpenSourceBadge />
-          <ClickHouseDocsBadge />
         </div>
         <h1 className="mt-5 text-[clamp(2.25rem,4.6vw,4rem)] font-normal leading-[1.04] tracking-[-0.05em] text-text">Connect{' '}
           <span className="whitespace-nowrap">
