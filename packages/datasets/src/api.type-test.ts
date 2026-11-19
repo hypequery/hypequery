@@ -566,3 +566,8 @@ void mergedStateFunction;
 void mergedField;
 void allowlisted;
 void mergedSpec;
+
+// @ts-expect-error timezone belongs on createDatasetClient or the query, not on a dimension.
+dimension.timestamp({ timezone: 'UTC' });
+// @ts-expect-error timezone belongs on createDatasetClient or the query, not on a measure.
+measure.sum('amount', { timezone: 'UTC' });

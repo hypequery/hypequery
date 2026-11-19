@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { belongsTo, dataset, dimension, serializeSemanticContract } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, divide, measure, serializeSemanticContract } from '@hypequery/datasets';
 import { publicSemanticContract } from './public-contract.js';
 
 const Customers = dataset('customers', {
@@ -31,5 +31,31 @@ describe('publicSemanticContract', () => {
     for (const column of ['customer_id', 'region_code', '"keys"', '"from"', '"to"']) {
       expect(serialized).not.toContain(column);
     }
+  });
+
+  it('publishes derived measures with their formula inputs', () => {
+    const Sales = dataset('sales', {
+      source: 'sales',
+      dimensions: { status: dimension.string() },
+      measures: {
+        revenue: measure.sum('amount'),
+        orderCount: measure.count(),
+        averageOrderValue: measure.derived({
+          uses: { revenue: 'revenue', orderCount: 'orderCount' },
+          formula: ({ revenue, orderCount }) => divide(revenue, orderCount),
+          label: 'Average order value',
+        }),
+      },
+    });
+    const published = publicSemanticContract(serializeSemanticContract({ sales: Sales }));
+    expect(published.datasets.sales).toMatchObject({
+      derivedMeasures: {
+        averageOrderValue: {
+          label: 'Average order value',
+          uses: [{ alias: 'orderCount', measure: 'orderCount' }, { alias: 'revenue', measure: 'revenue' }],
+          expression: expect.any(Object),
+        },
+      },
+    });
   });
 });

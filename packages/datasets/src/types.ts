@@ -49,6 +49,8 @@ export interface DimensionOptions extends SemanticMetadata {
   dependencies?: readonly string[];
   filterable?: boolean;
   groupable?: boolean;
+  /** Not accepted: set `timezone` on `createDatasetClient` or the query. Declaring it throws when the dataset loads. */
+  timezone?: never;
 }
 
 export interface DimensionDefinition<TType extends DimensionType = DimensionType> extends SemanticMetadata {
@@ -152,6 +154,8 @@ export interface MeasureOptions extends SemanticMetadata {
   label?: string;
   description?: string;
   filters?: MetricFilter[];
+  /** Not accepted: set `timezone` on `createDatasetClient` or the query. Declaring it throws when the dataset loads. */
+  timezone?: never;
 }
 
 export interface MeasureDefinition extends SemanticMetadata {

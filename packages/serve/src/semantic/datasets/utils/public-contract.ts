@@ -35,6 +35,12 @@ export function publicSemanticContract(contract: SemanticContract): {
         'kind', 'measure', 'interval', 'trailing', 'toDate', 'cumulative',
         'requiresTimeRange', 'supportedGrains',
       ]),
+      ...(dataset.derivedMeasures ? {
+        derivedMeasures: logicalEntries(dataset.derivedMeasures, [
+          'label', 'description', 'approximate', 'uses', 'expression',
+          'requiresTimeRange', 'supportedGrains',
+        ]),
+      } : {}),
       metrics: logicalEntries(dataset.metrics, [
         'kind', 'valueType', 'label', 'description', 'dimensions', 'measures',
         'filters', 'grains', 'grain',
