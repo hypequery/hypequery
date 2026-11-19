@@ -287,6 +287,63 @@ tests were run and pass. The TypeScript snippets in A2–A4 type-check.
 Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
 reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.
 
+## /compare/clickhouse-cloud-vs-tinybird: re-verified 2026-11-18
+
+Every price and product claim on the page and its seed post (`content/blog/2026-08-22-clickhouse-cloud-vs-tinybird.md`) was re-read live. Nothing had changed; only the "checked on" dates moved from 9 to 18 November 2026.
+
+| Claim | Source | Checked |
+|---|---|---|
+| Tinybird Free: 0.25 vCPU, 1,000 requests a day, 10 GB, no credit card | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird Developer "Starting at $25/month"; the 0.5 vCPU size is $49/month with 25 GB included | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird SaaS and Enterprise: credit-based billing with a 12-month commitment | https://www.tinybird.co/docs/forward/pricing | 2026-11-18 |
+| Tinybird's ClickHouse interface is read-only | https://www.tinybird.co/docs/forward/work-with-data/publish-data/clickhouse-interface | 2026-11-18 |
+| Tinybird self-managed regions are in beta, for development environments only | https://www.tinybird.co/docs/forward/install-tinybird/self-managed | 2026-11-18 |
+| ClickHouse Cloud: $300 of credits for 30 days; storage $25.30 per TB-month; compute $0.2181 (Basic), $0.2985 (Scale), $0.3903 (Enterprise) per unit-hour | https://clickhouse.com/pricing | 2026-11-18 |
+| ClickHouse Cloud Basic running 24 hours a day: $159.66/month compute; 6 hours a day: $66.52/month total (ClickHouse's own worked example) | https://clickhouse.com/docs/cloud/manage/billing/overview | 2026-11-18 |
+| ClickHouse BYOC on AWS, GCP and Azure | https://clickhouse.com/cloud/bring-your-own-cloud | 2026-11-18 |
+
+# SEO verification log: hypequery vs Luzmo (2026-11-18)
+
+| # | Page | URL |
+|---|---|---|
+| L1 | hypequery vs Luzmo | /compare/hypequery-vs-luzmo |
+
+hypequery claims (ClickHouse only, TypeScript datasets and Python datasets in beta at `hypequery` 0.1.0b6, tenant key
+that fails closed, REST with OpenAPI, `@hypequery/react` hooks, `@hypequery/mcp` refusing to start without a tenant,
+Apache 2.0, no chart components or editor, hypequery cloud in early access with no published price) were checked
+against `packages/*`, `python/hypequery/pyproject.toml`, `website-next/docs/` and the wording in
+`src/components/home/Hero.tsx` on 2026-11-18. The dataset snippet is the one type-checked for P2 against
+`@hypequery/datasets@0.30.0` and `@hypequery/serve@0.25.0`. The Luzmo code sample was copied from the rendered HTML
+of the multi-tenant guide (second code block), not from a summary.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| L1 | One plan, "Embedded Everywhere", from €1,995/month, billed annually | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | "Nothing is reserved for a higher plan"; white-label, self-service, AI and APIs included | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | Licence includes 500 AI conversations and 100 million Warp rows a month; €0.25 per extra million Warp rows; some contracts scale on monthly active users | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | Free trial of the full product | https://www.luzmo.com/pricing | 2026-11-18 |
+| L1 | 19 database integrations, including ClickHouse, Postgres, Snowflake, BigQuery | https://www.luzmo.com/connect | 2026-11-18 |
+| L1 | "A metric lives in exactly one place, as a formula, a derived column or a SQL view"; definitions "can be created and maintained programmatically" through the API; "there is no dbt or Cube connector"; no file-based or git workflow described | https://www.luzmo.com/semantic-layer | 2026-11-18 |
+| L1 | Multi-tenancy via `parameter_overrides` on a parameter filter (one dataset for all clients) or `account_overrides` (host, user, password per connection); ClickHouse listed among plugins supporting connection overrides | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Put the embed filter on the dataset level; users with "use" access to a dashboard can duplicate or modify it and remove a dashboard parameter filter | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Code sample (`client.create('authorization', ...)` with `parameter_overrides`), verbatim | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| L1 | Embedding with a web component and React, React Native, Angular and Vue components on npm; embed authorization token generated server-side | https://developer.luzmo.com/guide/dashboard-embedding--embed-into-application | 2026-11-18 |
+| L1 | Embedded dashboard editor lets end users create and change dashboards; `editLimited` and `editFull` modes; designer or owner role on the token | https://developer.luzmo.com/guide/dashboard-embedding--embedded-dashboard-editor | 2026-11-18 |
+| L1 | Flex: "an SDK that enables you to create customizable visualizations fully from code" | https://developer.luzmo.com/guide/flex--introduction | 2026-11-18 |
+| L1 | Luzmo IQ "allows you to generate AI-powered answers to data-related questions"; chat and answer components | https://developer.luzmo.com/guide/iq--introduction | 2026-11-18 |
+| L1 | Hosted MCP server giving agents access to Luzmo IQ; EU, US and VPC endpoints; embed key-token per end user "so each user only gets access to their own data"; embed tokens get `search_datasets`, `answer_question`, `create_chart` by default | https://developer.luzmo.com/guide/mcp--introduction | 2026-11-18 |
+| L1 | Private infrastructure as an enterprise option (table row "Where it runs") | https://www.luzmo.com/pricing | 2026-11-18 |
+
+## Cut from L1
+
+- **Luzmo USD price** ($2,495/month on the pricing page): left out to match the other pages, which quote euros only.
+- **Luzmo MCP server release status** (beta or GA): the MCP page states neither.
+- **How Luzmo IQ applies multi-tenant filters**: the IQ introduction does not say; L1 claims only the MCP page's per-user embed token.
+- **Luzmo Warp** ("data acceleration layer", from the semantic-layer FAQ): not explained on L1; Warp rows appear only as priced.
+- **Homepage "white-label MCP server", Agent API and Analyst agent**: marketing copy with no docs page read; left out.
+- **Luzmo SSO and iframe embedding**: still not stated on the pages read (as for P1).
+- **ACK (Analytics Component Kit)**: seen only in docs navigation; not read, left out.
+
 # SEO verification log: /compare/embeddable-alternatives (2026-11-18)
 
 Every claim below was re-fetched from the vendor's own site on 2026-11-18; the Nov 12 entries above were not reused.

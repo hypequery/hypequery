@@ -480,7 +480,7 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Is Tinybird more expensive than ClickHouse Cloud?',
         answer:
-          'Not at the entry level. Tinybird Developer starts at $25/month, and its 0.5 vCPU size is $49/month with 25 GB of storage and endpoint hosting included. The smallest ClickHouse Cloud service (Basic, 8 GiB and 2 vCPUs on AWS us-east-1) costs $159.66/month in compute running 24/7, plus $25.30 per TB-month of storage, and less if it idles. ClickHouse Cloud gives more compute for the money, and Tinybird SaaS and Enterprise plans are custom-priced, so for larger workloads compare both calculators. Prices checked on 9 November 2026.',
+          'Not at the entry level. Tinybird Developer starts at $25/month, and its 0.5 vCPU size is $49/month with 25 GB of storage and endpoint hosting included. The smallest ClickHouse Cloud service (Basic, 8 GiB and 2 vCPUs on AWS us-east-1) costs $159.66/month in compute running 24/7, plus $25.30 per TB-month of storage, and less if it idles. ClickHouse Cloud gives more compute for the money, and Tinybird SaaS and Enterprise plans are custom-priced, so for larger workloads compare both calculators. Prices checked on 18 November 2026.',
       },
       {
         question: 'Is Tinybird better than ClickHouse?',

@@ -365,6 +365,10 @@ export default function HypequeryVsEmbeddablePage() {
               <li>
                 <strong className="text-text">Luzmo</strong>: embedded BI with an embedded dashboard editor for end users;
                 one published plan from €1,995 a month, billed annually. See{' '}
+                <Link href="/compare/hypequery-vs-luzmo" className={inlineLink}>
+                  hypequery vs Luzmo
+                </Link>{' '}
+                and{' '}
                 <Link href="/compare/luzmo-alternatives" className={inlineLink}>
                   Luzmo alternatives
                 </Link>
