@@ -156,7 +156,7 @@ export default function ClickHouseHonoPage() {
       ]}
       problems={[
         {
-          title: 'Hono has no built-in ClickHouse integration — raw queries lose types immediately',
+          title: 'Hono has no built-in ClickHouse integration, so raw queries lose types immediately',
           copy:
             "Hono is deliberately data-layer agnostic. When you reach for @clickhouse/client inside a Hono route, you get untyped query results. You're back to casting responses or writing manual interfaces that drift from the actual ClickHouse schema.",
         },
@@ -175,12 +175,12 @@ export default function ClickHouseHonoPage() {
         eyebrow: 'How it fits together',
         title: 'hypequery gives Hono routes a typed ClickHouse return value',
         description:
-          "hypequery query builder methods return types inferred from your ClickHouse schema. When you call the query builder inside a Hono route handler and return c.json({ data: rows }), Hono infers the response shape from the rows type. The hc() RPC client gets the correct type automatically — no manual annotation on the route.",
+          "hypequery query builder methods return types inferred from your ClickHouse schema. When you call the query builder inside a Hono route handler and return c.json({ data: rows }), Hono infers the response shape from the rows type. The hc() RPC client gets the correct type automatically, with no manual annotation on the route.",
         bullets: [
           'Generate schema.ts with npx @hypequery/cli generate against your ClickHouse instance',
           'Call the hypequery query builder inside Hono route handlers',
-          'Use zValidator from @hono/zod-validator for input validation — same pattern as hypequery input schemas',
-          'Return c.json({ data: rows }) — Hono infers the response type from rows',
+          'Use zValidator from @hono/zod-validator for input validation, the same pattern as hypequery input schemas',
+          'Return c.json({ data: rows }) and Hono infers the response type from rows',
           'Use hc<AppType>() on the client to get fully typed responses from your ClickHouse analytics routes',
         ],
         codePanel: {
@@ -195,7 +195,7 @@ export default function ClickHouseHonoPage() {
         eyebrow: 'Hono RPC pattern',
         title: 'End-to-end typed analytics with Hono RPC and hypequery',
         description:
-          "Hono's typed RPC system requires that route handlers return typed values. hypequery satisfies that requirement by inferring column types from your schema — so the hc() client on the browser side gets the correct shape for every ClickHouse response without any manual type definition.",
+          "Hono's typed RPC system requires that route handlers return typed values. hypequery satisfies that requirement by inferring column types from your schema, so the hc() client on the browser side gets the correct shape for every ClickHouse response without any manual type definition.",
         paragraphs: [
           "This pattern translates cleanly between Node.js and fetch-based runtimes. The hypequery query builder uses ClickHouse over HTTP, which fits the deployment model Hono is commonly used for.",
           'If you need interactive API documentation alongside the Hono routes, pair this with @hypequery/serve. The serve() function generates an OpenAPI spec and Swagger UI from your query definitions without requiring manual annotation.',
@@ -204,7 +204,7 @@ export default function ClickHouseHonoPage() {
           eyebrow: 'Full stack example',
           title: 'Hono app with typed RPC and ClickHouse data layer',
           description:
-            'The AppType export carries route types to the client. The hc() call gets back typed data — { day: string; users: string }[] — without any manual interface on the client side.',
+            'The AppType export carries route types to the client. The hc() call gets back typed data ({ day: string; users: string }[]) without any manual interface on the client side.',
           code: honoRpcCode,
         },
       }}
@@ -234,7 +234,7 @@ export default function ClickHouseHonoPage() {
         {
           href: '/clickhouse-api',
           title: 'ClickHouse REST API',
-          description: 'The general REST API guide — covers @hypequery/serve as a standalone HTTP server.',
+          description: 'The general REST API guide. It covers running @hypequery/serve on its own as an HTTP server.',
         },
         {
           href: '/clickhouse-openapi',
@@ -244,7 +244,7 @@ export default function ClickHouseHonoPage() {
         {
           href: '/clickhouse-typescript',
           title: 'ClickHouse TypeScript',
-          description: 'Schema generation and the typed query builder — the foundation for Hono integration.',
+          description: 'Schema generation and the typed query builder that the Hono integration builds on.',
         },
         {
           href: '/clickhouse-nodejs',

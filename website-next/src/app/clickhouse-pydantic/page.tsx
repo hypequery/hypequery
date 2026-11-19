@@ -104,7 +104,7 @@ export default function ClickHousePydanticPage() {
         },
         {
           title: 'The agent defines revenue a second time',
-          copy: 'An agent that writes its own query gets a number that disagrees with your API and dashboards. The definition should be shared, not re-derived per question.',
+          copy: 'An agent that writes its own query gets a number that disagrees with your API and dashboards. The agent should use the same definition as your API and dashboards.',
         },
       ]}
       solutionSection={{
@@ -113,7 +113,7 @@ export default function ClickHousePydanticPage() {
         description:
           'A hypequery dataset names the table, the fields an agent may group and filter by, and the measures it may ask for. Datasets are immutable Pydantic models, validated when you create them, and importing `hypequery.datasets` needs only `pydantic`.',
         bullets: [
-          'A wrong column type or a measure over an unknown field fails at import, not at the first question',
+          'A wrong column type or a measure over an unknown field fails at import, before anyone asks a question',
           '`tenant_key` makes the dataset fail closed: it will not run without a tenant, and every query is filtered to it',
           'The same definition serves your REST API, your React dashboard and the agent',
           'No database driver or web framework is loaded until you serve or query',

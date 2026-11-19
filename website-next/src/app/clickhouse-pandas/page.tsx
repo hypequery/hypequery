@@ -4,7 +4,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 
 const TITLE = 'ClickHouse to pandas: Governed Metrics in Your Notebooks';
 const DESCRIPTION =
-  'Pull ClickHouse measures into pandas from the same definitions your product uses. Query revenue by month by name, not by copying SQL into a notebook.';
+  'Pull ClickHouse measures into pandas from the same definitions your product uses. Query revenue by month by name instead of copying SQL into a notebook.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -113,7 +113,7 @@ export default function ClickHousePandasPage() {
         eyebrow: 'Types and scope',
         title: 'Typed columns, from the definition',
         description:
-          'Each column’s type comes from the dataset, not from guessing at values: time buckets become datetimes in the query’s timezone, counts nullable integers, other measures floats. An empty result gets the same dtypes.',
+          'Each column’s type comes from the dataset instead of being guessed from the values. Time buckets become datetimes in the query’s timezone, counts nullable integers, other measures floats. An empty result gets the same dtypes.',
         paragraphs: [
           'Pass `decimals="decimal"` to keep ClickHouse decimals exact. Integers beyond Int64 become unsigned or exact columns rather than overflowing.',
           'Tenant-scoped datasets require a tenant. For internal analysis across every customer, pass `all_tenants()` explicitly so the intent is visible in the code.',
@@ -137,7 +137,7 @@ export default function ClickHousePandasPage() {
         {
           href: '/compare/hypequery-vs-clickhouse-connect',
           title: 'hypequery vs clickhouse-connect',
-          description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
+          description: 'When to keep the driver for ad hoc SQL, and when to move shared metrics into datasets.',
         },
         { href: '/docs/python/dataframes', title: 'pandas, Polars and Arrow', description: 'Column types, timezones, and exact decimals.' },
         { href: '/docs/quick-start#python', title: 'Python quick start', description: 'Install hypequery and define your first dataset.' },

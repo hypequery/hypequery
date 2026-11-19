@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Real-Time Analytics in TypeScript',
   description:
-    'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
+    'Query ClickHouse in real time with TypeScript, using typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-real-time-analytics'),
   },
@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-real-time-analytics'),
     title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',
     description:
-      'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
+      'Query ClickHouse in real time with TypeScript, using typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',
     description:
-      'Query ClickHouse in real time with TypeScript: typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
+      'Query ClickHouse in real time with TypeScript, using typed queries for live analytics dashboards, low-latency reads, tenant isolation and typed HTTP APIs.',
   },
 };
 
@@ -171,17 +171,17 @@ export default function ClickHouseRealTimeAnalyticsPage() {
         {
           title: 'At real-time query rates, type errors are harder to catch',
           copy:
-            'When queries run every five seconds, a schema drift — a renamed column, a type change — becomes a continuous error stream instead of a one-off bug. Schema-generated types that catch the mismatch at compile time are not optional at real-time rates.',
+            'When queries run every five seconds, a schema drift (a renamed column, a type change) becomes a continuous error stream instead of a one-off bug. Schema-generated types that catch the mismatch at compile time are not optional at real-time rates.',
         },
       ]}
       solutionSection={{
         eyebrow: 'Low-latency query pattern',
         title: 'Typed, narrow queries for low-latency ClickHouse reads',
         description:
-          'The core win for real-time analytics is not a magic helper method. It is a repeatable query shape: filter by tenant and recent time windows, keep the selected columns narrow, and expose the query through a stable typed API that the frontend can poll confidently.',
+          'The core win for real-time analytics is a repeatable query shape. Filter by tenant and recent time windows, keep the selected columns narrow, and expose the query through a stable typed API that the frontend can poll confidently.',
         bullets: [
           'Filter hard on tenant_id and recent time ranges in every live query',
-          'Keep SELECT lists narrow — avoid wide event payloads in hot paths',
+          'Keep SELECT lists narrow and avoid wide event payloads in hot paths',
           'Use uniq() instead of COUNT(DISTINCT) for real-time active user counts at scale',
           'Use typed query definitions so polling endpoints do not drift silently',
           'When you need hand-tuned ClickHouse SQL such as PREWHERE, use rawQuery() intentionally instead of pretending the builder wraps it today',
@@ -191,18 +191,18 @@ export default function ClickHouseRealTimeAnalyticsPage() {
           eyebrow: 'Low-latency queries',
           title: 'Real-time metrics with explicit filters and narrow selects',
           description:
-            'These queries stay honest to the current API surface: standard typed .where() filters, narrow projections, and reusable time-window helpers. If you later need a hand-tuned PREWHERE query, that is a separate raw SQL decision.',
+            'These queries stick to the current API surface. They use standard typed .where() filters, narrow projections, and reusable time-window helpers. If you later need a hand-tuned PREWHERE query, that is a separate raw SQL decision.',
           code: realtimeQueryCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Polling and streaming',
-        title: 'One query definition, two delivery patterns — polling and SSE',
+        title: 'One query definition for both polling and SSE',
         description:
           'The same hypequery call that powers a polling React hook can also power an SSE endpoint. The query definition is not coupled to the delivery mechanism, so teams can switch or combine patterns without rewriting queries.',
         paragraphs: [
           'Polling via TanStack Query is the simpler path and works for most live dashboards. The refetchInterval option on the hook handles the scheduling without custom setInterval code in components.',
-          'SSE is appropriate when multiple panels need to update in lockstep, or when the client cannot afford a round-trip for every panel independently. The streaming route uses the same getLiveMetrics call — just delivered differently.',
+          'SSE is appropriate when multiple panels need to update in lockstep, or when the client cannot afford a round-trip for every panel independently. The streaming route uses the same getLiveMetrics call and only changes how results are delivered.',
         ],
         codePanel: {
           eyebrow: 'Polling and SSE',
@@ -221,7 +221,7 @@ export default function ClickHouseRealTimeAnalyticsPage() {
         {
           title: 'ClickHouse live dashboard TypeScript',
           copy:
-            'A live TypeScript dashboard on ClickHouse is best served by a thin polling or SSE layer on top of a typed analytics API — not a WebSocket to raw ClickHouse.',
+            'A live TypeScript dashboard on ClickHouse is best served by a thin polling or SSE layer on top of a typed analytics API, rather than a WebSocket to raw ClickHouse.',
         },
         {
           title: 'ClickHouse low latency analytics API',

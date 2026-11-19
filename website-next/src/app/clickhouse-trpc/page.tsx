@@ -3,27 +3,27 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse tRPC — Typed Analytics Procedures',
+  title: 'ClickHouse tRPC: Typed Analytics Procedures',
   description:
-    'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures — fully typed from ClickHouse schema to React client.',
+    'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures, fully typed from ClickHouse schema to React client.',
   robots: {
     index: false,
     follow: true,
   },
   alternates: { canonical: absoluteUrl('/clickhouse-trpc') },
   openGraph: {
-    images: ogImage('ClickHouse tRPC — Typed Analytics Procedures'),
+    images: ogImage('ClickHouse tRPC: Typed Analytics Procedures'),
     type: 'website',
     url: absoluteUrl('/clickhouse-trpc'),
-    title: 'ClickHouse tRPC — Typed Analytics Procedures | hypequery',
+    title: 'ClickHouse tRPC: Typed Analytics Procedures | hypequery',
     description:
-      'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures — fully typed from ClickHouse schema to React client.',
+      'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures, fully typed from ClickHouse schema to React client.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse tRPC — Typed Analytics Procedures | hypequery',
+    title: 'ClickHouse tRPC: Typed Analytics Procedures | hypequery',
     description:
-      'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures — fully typed from ClickHouse schema to React client.',
+      'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures, fully typed from ClickHouse schema to React client.',
   },
 };
 
@@ -115,48 +115,48 @@ export default function ClickHouseTrpcPage() {
       ]}
       problems={[
         {
-          title: "tRPC doesn't query ClickHouse natively — you lose types immediately",
+          title: "tRPC doesn't query ClickHouse natively, so you lose types immediately",
           copy:
             "tRPC procedures delegate to whatever data layer you choose. When that layer is raw @clickhouse/client, the response is untyped. You end up casting to any or manually annotating shapes that should be inferred from the ClickHouse schema itself.",
         },
         {
           title: 'ClickHouse analytics need a bridge into the tRPC router model',
           copy:
-            'A tRPC procedure expects validated input and a typed return value. ClickHouse queries produce rows with column names and ClickHouse-native types — DateTime, UInt64, Nullable. Reconciling the two by hand means schema definitions in three places: the database, the query, and the tRPC output type.',
+            'A tRPC procedure expects validated input and a typed return value. ClickHouse queries produce rows with column names and ClickHouse-native types (DateTime, UInt64, Nullable). Reconciling the two by hand means schema definitions in three places: the database, the query, and the tRPC output type.',
         },
         {
-          title: 'Multi-tenant analytics need tenant context from tRPC ctx — wiring it manually is repetitive',
+          title: 'Multi-tenant analytics need tenant context from tRPC ctx, and wiring it by hand is repetitive',
           copy:
             'Every analytics procedure needs to read tenantId from the tRPC context and inject it into the ClickHouse WHERE clause. Without a shared pattern, each procedure implements its own auth extraction and tenant filtering independently.',
         },
       ]}
       solutionSection={{
         eyebrow: 'How it fits together',
-        title: 'Call hypequery inside tRPC procedures — types flow through automatically',
+        title: 'Call hypequery inside tRPC procedures and the types flow through',
         description:
-          'hypequery query builder methods return TypeScript types inferred directly from your ClickHouse schema. When you call those methods inside a tRPC procedure, the return type of the procedure is inferred automatically — no manual annotation, no casting.',
+          'hypequery query builder methods return TypeScript types inferred directly from your ClickHouse schema. When you call those methods inside a tRPC procedure, tRPC infers the return type of the procedure, so there is nothing to annotate or cast.',
         bullets: [
           'Run npx @hypequery/cli generate to produce schema.ts from your live ClickHouse instance',
           'Import db (the typed query builder) and call it inside a tRPC procedure',
           'Pass ctx.tenantId from tRPC context directly into the WHERE clause',
           'tRPC infers the procedure output type from the hypequery return value',
-          'useQuery() on the client gets the same inferred type — DateTime columns as string, UInt64 as string, Nullable as T | null',
+          'useQuery() on the client gets the same inferred type: DateTime columns as string, UInt64 as string, Nullable as T | null',
         ],
         codePanel: {
           eyebrow: 'tRPC procedure',
           title: 'Typed ClickHouse query inside a tRPC router',
           description:
-            'Tenant context flows from tRPC ctx to the ClickHouse WHERE clause. The procedure output type is inferred from the query — no manual annotation needed.',
+            'Tenant context flows from tRPC ctx to the ClickHouse WHERE clause. The procedure output type is inferred from the query, so it needs no manual annotation.',
           code: procedureCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Full stack',
-        title: 'From ClickHouse schema to React hook — one type chain, no casting',
+        title: 'One type chain from ClickHouse schema to React hook, with no casting',
         description:
-          'The hypequery query builder produces column types from your schema. Those types become the tRPC procedure output. tRPC propagates them to the React client. The component that renders the chart knows the exact shape of every row without any manual type annotation in the middle.',
+          'The hypequery query builder produces column types from your schema. Those types become the tRPC procedure output. tRPC propagates them to the React client. The component that renders the chart gets the exact type of every row, with no manual type annotation in between.',
         paragraphs: [
-          'This pattern scales to multi-tenant apps cleanly. Each procedure reads tenantId from the tRPC context once — defined in the context factory when you create the tRPC instance — and passes it to the ClickHouse query. No per-procedure auth logic.',
+          'This pattern scales to multi-tenant apps cleanly. Each procedure reads tenantId from the tRPC context, which you define once in the context factory when you create the tRPC instance, and passes it to the ClickHouse query. No procedure needs its own auth logic.',
           'If you need HTTP access from outside the tRPC client (mobile apps, third-party consumers), pair this with @hypequery/serve to expose the same query as a REST endpoint alongside the tRPC router.',
         ],
         codePanel: {
@@ -176,17 +176,17 @@ export default function ClickHouseTrpcPage() {
         {
           title: 'tRPC analytics backend TypeScript',
           copy:
-            'A tRPC analytics backend needs validated inputs, typed ClickHouse responses, and tenant context injection. hypequery handles the ClickHouse side — you wire the tRPC context once and every procedure inherits it.',
+            'A tRPC analytics backend needs validated inputs, typed ClickHouse responses, and tenant context injection. hypequery handles the ClickHouse side. You wire the tRPC context once and every procedure inherits it.',
         },
         {
           title: 'ClickHouse typed procedures',
           copy:
-            'ClickHouse column types (DateTime, UInt64, Nullable) map to TypeScript types through hypequery schema generation. The procedure output type is inferred — you never write a manual response interface for a ClickHouse query again.',
+            'ClickHouse column types (DateTime, UInt64, Nullable) map to TypeScript types through hypequery schema generation. The procedure output type is inferred, so you never write a manual response interface for a ClickHouse query again.',
         },
         {
           title: 'tRPC ClickHouse query builder',
           copy:
-            "Using a query builder inside tRPC procedures keeps analytics logic reusable. The same hypequery query can run inside a tRPC procedure, a server component, or a cron job — it's not bound to the HTTP layer.",
+            "Using a query builder inside tRPC procedures keeps analytics logic reusable. The same hypequery query can run inside a tRPC procedure, a server component, or a cron job, because it isn't bound to the HTTP layer.",
         },
       ]}
       readingLinks={[
@@ -198,7 +198,7 @@ export default function ClickHouseTrpcPage() {
         {
           href: '/clickhouse-react',
           title: 'ClickHouse React',
-          description: 'Typed React hooks for ClickHouse analytics — the browser-side counterpart to tRPC procedures.',
+          description: 'Typed React hooks for ClickHouse analytics. They are the browser-side counterpart to tRPC procedures.',
         },
         {
           href: '/clickhouse-api',
@@ -221,7 +221,7 @@ export default function ClickHouseTrpcPage() {
         eyebrow: 'Next step',
         title: 'Generate your schema, then call the query builder inside a tRPC procedure',
         description:
-          'Run npx @hypequery/cli generate to produce typed schema bindings from your ClickHouse instance. After that, the query builder is ready to call from any tRPC procedure — types flow through automatically.',
+          'Run npx @hypequery/cli generate to produce typed schema bindings from your ClickHouse instance. After that, the query builder is ready to call from any tRPC procedure, and the types flow through automatically.',
         primaryCta: { href: '/docs/quick-start', label: 'Open the quick start' },
         secondaryCta: { href: '/clickhouse-typescript', label: 'See the TypeScript guide' },
       }}

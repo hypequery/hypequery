@@ -9,7 +9,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/compare/build-vs-buy-embedded-analytics';
 const TITLE = 'Build vs Buy Embedded Analytics (2026): Costs, Risks and a Third Option';
 const DESCRIPTION =
-  'Should you build embedded analytics in-house or buy a platform? What each part really costs (data model, tenant isolation, caching, APIs, charts, AI agents), when each choice wins, and the middle path: an open-source data layer with your own front end.';
+  'Should you build embedded analytics in-house or buy a platform? What each part really costs (data model, tenant isolation, caching, APIs, charts, AI agents), when each choice wins, and the middle path of an open-source data layer with your own front end.';
 const PUBLISHED = '2026-11-14';
 const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 14, 2026';
@@ -36,7 +36,7 @@ const pathsRows = [
     'Build everything',
     'Your own queries, API, tenant filters, caching and charts.',
     'Full control, no vendor bill, nothing to fit around.',
-    'You own every part, including the parts that are easy to get wrong: tenant isolation, cache scoping and metric consistency.',
+    'You own every part, including tenant isolation, cache scoping and metric consistency, which are easy to get wrong.',
   ],
   [
     'Buy a platform',
@@ -76,11 +76,11 @@ const costRows = [
   [
     'Caching and performance',
     'Fast repeated queries without serving one tenant’s cached result to another.',
-    'Easy to add, easy to get wrong: the cache key must include the tenant.',
+    'Easy to add and easy to get wrong, because the cache key must include the tenant.',
   ],
   [
     'Charts and dashboards',
-    'The part customers see: charts, filters, date pickers, exports.',
+    'The part customers see, such as charts, filters, date pickers and exports.',
     'Large but familiar front-end work. Chart libraries do much of it.',
   ],
   [
@@ -139,7 +139,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'How does hypequery fit into build vs buy?',
     answer:
-      'hypequery covers the backend half of building: datasets with measures and a tenant key, a typed HTTP API, React hooks, tenant-scoped caching and an MCP server, all open source and run in your own app against ClickHouse. It has no chart components or dashboard builder, so the front end is yours to build.',
+      'hypequery covers the backend half of building. It gives you datasets with measures and a tenant key, a typed HTTP API, React hooks, tenant-scoped caching and an MCP server, all open source and run in your own app against ClickHouse. It has no chart components or dashboard builder, so the front end is yours to build.',
   },
 ];
 
@@ -190,8 +190,8 @@ export default function BuildVsBuyEmbeddedAnalyticsPage() {
               analytics platform provides dashboards and embedding, and you configure it.
             </p>
             <p>
-              Between the two sits a third path: adopt an open-source or hosted data layer for the hard backend parts,
-              definitions, tenant isolation, caching and APIs, and build only the screens.
+              Between the two sits a third path. Adopt an open-source or hosted data layer for the hard backend parts
+              (definitions, tenant isolation, caching and APIs) and build only the screens.
             </p>
           </>
         ),
@@ -203,7 +203,7 @@ export default function BuildVsBuyEmbeddedAnalyticsPage() {
     >
       <HubSection id="paths" eyebrow="The options" title="Three ways to ship embedded analytics">
         <HubTable
-          caption="Build, buy or adopt a data layer: what each path involves"
+          caption="What building, buying or adopting a data layer involves"
           columns={['Path', 'What you get', 'Strengths', 'Costs and risks']}
           rows={pathsRows}
         />
@@ -285,13 +285,13 @@ export default function BuildVsBuyEmbeddedAnalyticsPage() {
         intro={
           <>
             <p>
-              The expensive, risky parts of building are in the backend: definitions, tenant isolation, caching and
-              the query API. The parts that make analytics feel like your product are in the front end. A semantic
+              The expensive, risky parts of building are in the backend (definitions, tenant isolation, caching and
+              the query API). The parts that make analytics feel like your product are in the front end. A semantic
               layer splits the work along that line.
             </p>
             <p>
               Cube does this as a separate service with REST, GraphQL and Postgres-wire SQL APIs. hypequery does it as
-              an open-source library inside your own backend, for ClickHouse: datasets in TypeScript or Python, a tenant
+              an open-source library inside your own backend, for ClickHouse. It gives you datasets in TypeScript or Python, a tenant
               key that refuses unscoped queries, a typed HTTP API and React hooks for your charts, and an MCP server so
               agents use the same definitions.
             </p>

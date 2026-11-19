@@ -292,7 +292,7 @@ export default function HypequeryVsEmbeddablePage() {
           <>
             <p>
               hypequery serves the same datasets as REST endpoints with an OpenAPI spec, so customers can pull numbers into
-              their own tools, and as MCP tools through <code className={inlineCode}>@hypequery/mcp</code>, released and
+              their own tools, and as MCP tools through <code className={inlineCode}>@hypequery/mcp</code>, which is released and
               documented. An MCP server for tenant-scoped datasets refuses to start without a tenant. See{' '}
               <Link href="/clickhouse-mcp" className={inlineLink}>
                 ClickHouse MCP
@@ -416,7 +416,7 @@ export default function HypequeryVsEmbeddablePage() {
             <p className={marketing.eyebrow}>Next step</p>
             <h2 className="mt-3 text-2xl font-normal tracking-[-0.03em] text-text">Try one tenant-scoped dataset</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
-              Define a dataset over a ClickHouse table you already have and serve it from your backend in a few minutes.
+              Define a dataset over a ClickHouse table you already have and serve it from your backend.
             </p>
           </div>
           <div className="mt-6 flex shrink-0 flex-wrap gap-3 md:mt-0">

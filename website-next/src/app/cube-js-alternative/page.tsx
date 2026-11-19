@@ -288,7 +288,7 @@ export default function CubeAlternativesPage() {
       lead={
         <p>
           Cube (formerly Cube.js) is still a strong choice when one semantic layer must serve many databases and clients.
-          The best alternative depends on what you want to simplify: dbt Semantic Layer for teams already on dbt,
+          Which alternative fits depends on what you want to simplify: dbt Semantic Layer for teams already on dbt,
           AtScale for Power BI and Excel, GoodData for managed dashboards, Boring Semantic Layer for a small Python
           library, or hypequery for typed ClickHouse metrics inside the application repo.
         </p>

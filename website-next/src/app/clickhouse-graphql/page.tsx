@@ -3,27 +3,27 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript',
+  title: 'ClickHouse GraphQL: Typed Analytics Resolvers in TypeScript',
   description:
-    'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Schema-generated types flow from ClickHouse through your resolver to the GraphQL schema — no manual type bridging.',
+    'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Types generated from ClickHouse flow through each resolver to the GraphQL schema, no casting.',
   robots: {
     index: false,
     follow: true,
   },
   alternates: { canonical: absoluteUrl('/clickhouse-graphql') },
   openGraph: {
-    images: ogImage('ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript'),
+    images: ogImage('ClickHouse GraphQL: Typed Analytics Resolvers in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-graphql'),
-    title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript | hypequery',
+    title: 'ClickHouse GraphQL: Typed Analytics Resolvers in TypeScript | hypequery',
     description:
-      'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Schema-generated types flow from ClickHouse through your resolver to the GraphQL schema — no manual type bridging.',
+      'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Types generated from ClickHouse flow through each resolver to the GraphQL schema, no casting.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript | hypequery',
+    title: 'ClickHouse GraphQL: Typed Analytics Resolvers in TypeScript | hypequery',
     description:
-      'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Schema-generated types flow from ClickHouse through your resolver to the GraphQL schema — no manual type bridging.',
+      'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Types generated from ClickHouse flow through each resolver to the GraphQL schema, no casting.',
   },
 };
 
@@ -150,7 +150,7 @@ export default function ClickHouseGraphQLPage() {
       leadPage="/clickhouse-graphql"
       eyebrow="ClickHouse GraphQL"
       title="Use hypequery as the ClickHouse data layer for GraphQL resolvers"
-      description="GraphQL resolvers need a data layer. When that data is in ClickHouse, the naive approach is to call @clickhouse/client directly and return untyped rows. hypequery gives resolvers a typed ClickHouse query builder — column types are inferred from the schema, so the resolver return type matches the GraphQL schema without manual bridging."
+      description="GraphQL resolvers need a data layer. When that data is in ClickHouse, the naive approach is to call @clickhouse/client directly and return untyped rows. hypequery gives resolvers a typed ClickHouse query builder. Column types are inferred from the schema, so the resolver return type matches the GraphQL schema without manual bridging."
       primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
       secondaryCta={{ href: '/clickhouse-typescript', label: 'See the TypeScript guide' }}
       stats={[
@@ -160,9 +160,9 @@ export default function ClickHouseGraphQLPage() {
       ]}
       problems={[
         {
-          title: 'GraphQL resolvers querying ClickHouse return any — schema and ClickHouse types are disconnected',
+          title: 'GraphQL resolvers querying ClickHouse return any, so the GraphQL schema and ClickHouse types are disconnected',
           copy:
-            'GraphQL code-first frameworks infer the schema from resolver return types. When the resolver calls @clickhouse/client and gets back any, the connection between the GraphQL schema and the ClickHouse column definitions is severed. Schema changes in ClickHouse do not surface as TypeScript errors in the resolver — they surface at runtime.',
+            'GraphQL code-first frameworks infer the schema from resolver return types. When the resolver calls @clickhouse/client and gets back any, the connection between the GraphQL schema and the ClickHouse column definitions is severed. Schema changes in ClickHouse do not surface as TypeScript errors in the resolver. They surface at runtime.',
         },
         {
           title: 'N+1 query problems are worse with ClickHouse because each query carries real cost',
@@ -172,18 +172,18 @@ export default function ClickHouseGraphQLPage() {
         {
           title: 'Auth and tenancy need to flow from GraphQL context to ClickHouse queries without manual wiring',
           copy:
-            'GraphQL context carries auth information — user identity, tenant ID, permissions. Every ClickHouse resolver needs to read that context and inject a WHERE tenant_id = clause. Without a shared pattern, each resolver implements its own extraction logic independently.',
+            'GraphQL context carries auth information such as user identity, tenant ID and permissions. Every ClickHouse resolver needs to read that context and inject a WHERE tenant_id = clause. Without a shared pattern, each resolver implements its own extraction logic independently.',
         },
       ]}
       solutionSection={{
         eyebrow: 'How it fits together',
         title: 'hypequery resolvers: column types inferred, tenant context injected once',
         description:
-          'hypequery infers TypeScript types from your ClickHouse schema via npx @hypequery/cli generate. When you call the query builder inside a GraphQL resolver, the return type is inferred from the column definitions. If the GraphQL schema expects { day: string; activeUsers: string } and the ClickHouse query returns the same shape, TypeScript confirms the match — no casting, no manual interface.',
+          'hypequery infers TypeScript types from your ClickHouse schema via npx @hypequery/cli generate. When you call the query builder inside a GraphQL resolver, the return type is inferred from the column definitions. If the GraphQL schema expects { day: string; activeUsers: string } and the ClickHouse query returns the same shape, TypeScript confirms the match without casting or a manual interface.',
         bullets: [
-          'Run npx @hypequery/cli generate to produce schema.ts — DateTime→string, UInt64→string, Nullable→T|null',
+          'Run npx @hypequery/cli generate to produce schema.ts (DateTime→string, UInt64→string, Nullable→T|null)',
           'Call the hypequery query builder inside GraphQL resolvers and return the result directly',
-          'Define tenant context injection once in the GraphQL context factory — every resolver receives ctx.tenantId',
+          'Define tenant context injection once in the GraphQL context factory, and every resolver receives ctx.tenantId',
           'Use DataLoader for batching when resolvers are called in parallel (avoids N+1 on ClickHouse)',
           'Type errors surface at compile time if the ClickHouse query shape diverges from the GraphQL schema',
         ],
@@ -191,7 +191,7 @@ export default function ClickHouseGraphQLPage() {
           eyebrow: 'GraphQL resolver',
           title: 'Typed ClickHouse query inside a GraphQL resolver',
           description:
-            'ctx.tenantId comes from the GraphQL context factory — defined once, available in every resolver. The return type matches the GraphQL schema shape without any manual bridging.',
+            'ctx.tenantId comes from the GraphQL context factory, so it is defined once and available in every resolver. The return type matches the GraphQL schema shape without any manual bridging.',
           code: resolverCode,
         },
       }}
@@ -199,16 +199,16 @@ export default function ClickHouseGraphQLPage() {
         eyebrow: 'Apollo Server setup',
         title: 'Apollo Server with hypequery as the ClickHouse resolver layer',
         description:
-          'The GraphQL context factory verifies the JWT and extracts tenantId once. Every resolver receives ctx.tenantId and passes it to the hypequery WHERE clause. The ClickHouse query return types align with the GraphQL SDL types — TypeScript catches any mismatch before deployment.',
+          'The GraphQL context factory verifies the JWT and extracts tenantId once. Every resolver receives ctx.tenantId and passes it to the hypequery WHERE clause. The ClickHouse query return types align with the GraphQL SDL types, and TypeScript catches any mismatch before deployment.',
         paragraphs: [
-          'This pattern works identically with GraphQL Yoga, Pothos, or any GraphQL server that supports a context factory. The resolver code is the same regardless of which server library you use — the ClickHouse data layer is decoupled from the HTTP layer.',
-          'For analytics queries that are computationally expensive, consider wrapping the hypequery call in a DataLoader to deduplicate identical queries within a single GraphQL request. ClickHouse handles large single queries better than many small ones — batching at the resolver level aligns with that characteristic.',
+          'This pattern works identically with GraphQL Yoga, Pothos, or any GraphQL server that supports a context factory. The resolver code is the same regardless of which server library you use, because the ClickHouse data layer is decoupled from the HTTP layer.',
+          'For analytics queries that are computationally expensive, consider wrapping the hypequery call in a DataLoader to deduplicate identical queries within a single GraphQL request. ClickHouse handles large single queries better than many small ones, so batching at the resolver level suits it.',
         ],
         codePanel: {
           eyebrow: 'Full server example',
           title: 'Apollo Server with hypequery analytics resolvers',
           description:
-            'Context factory extracts tenant from JWT. Resolvers read ctx.tenantId and pass it to hypequery. The return types align with the SDL type definitions — no separate TypeScript interfaces required.',
+            'Context factory extracts tenant from JWT. Resolvers read ctx.tenantId and pass it to hypequery. The return types align with the SDL type definitions, so no separate TypeScript interfaces are required.',
           code: apolloServerCode,
         },
       }}
@@ -221,12 +221,12 @@ export default function ClickHouseGraphQLPage() {
         {
           title: 'GraphQL analytics ClickHouse resolver',
           copy:
-            'Analytics resolvers on ClickHouse need tenant isolation, validated inputs, and typed responses. hypequery handles the ClickHouse side — you define tenant injection in the context factory and the query builder carries it through.',
+            'Analytics resolvers on ClickHouse need tenant isolation, validated inputs, and typed responses. hypequery handles the ClickHouse side. You define tenant injection in the context factory and the query builder carries it through.',
         },
         {
           title: 'ClickHouse GraphQL schema',
           copy:
-            "The GraphQL schema and the ClickHouse schema need to stay in sync. hypequery's CLI generates TypeScript types from the live ClickHouse schema — those types can drive both the resolver implementation and the GraphQL SDL type definitions.",
+            "The GraphQL schema and the ClickHouse schema need to stay in sync. hypequery's CLI generates TypeScript types from the live ClickHouse schema, and those types can drive both the resolver implementation and the GraphQL SDL type definitions.",
         },
         {
           title: 'ClickHouse Apollo Server',
@@ -243,12 +243,12 @@ export default function ClickHouseGraphQLPage() {
         {
           href: '/clickhouse-typescript',
           title: 'ClickHouse TypeScript',
-          description: 'Schema generation and the typed query builder — the foundation for GraphQL resolver integration.',
+          description: 'Schema generation and the typed query builder, which GraphQL resolver integration builds on.',
         },
         {
           href: '/clickhouse-query-builder',
           title: 'ClickHouse Query Builder',
-          description: 'The full query builder API — composable queries, typed filters, joins, and CTE helpers.',
+          description: 'The full query builder API, with composable queries, typed filters, joins, and CTE helpers.',
         },
         {
           href: '/clickhouse-nodejs',
@@ -266,7 +266,7 @@ export default function ClickHouseGraphQLPage() {
         eyebrow: 'Next step',
         title: 'Generate your ClickHouse schema types, then wire them into GraphQL resolvers',
         description:
-          'Run npx @hypequery/cli generate to produce typed schema bindings. Call the hypequery query builder inside your resolvers and return the result — column types align with the GraphQL SDL automatically.',
+          'Run npx @hypequery/cli generate to produce typed schema bindings. Call the hypequery query builder inside your resolvers and return the result. Column types align with the GraphQL SDL automatically.',
         primaryCta: { href: '/docs/quick-start', label: 'Open the quick start' },
         secondaryCta: { href: '/clickhouse-typescript', label: 'See the TypeScript guide' },
       }}

@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     url: absoluteUrl('/clickhouse-query-builder'),
     title: 'ClickHouse Query Builder for TypeScript | hypequery',
     description:
-      'Build composable, type-safe ClickHouse queries. Types generated from your live schema — including correct ClickHouse-to-TypeScript mappings.',
+      'Build composable, type-safe ClickHouse queries. Types are generated from your live schema, with correct ClickHouse-to-TypeScript mappings.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Query Builder for TypeScript | hypequery',
     description:
-      'Build composable, type-safe ClickHouse queries. Types generated from your live schema — including correct ClickHouse-to-TypeScript mappings.',
+      'Build composable, type-safe ClickHouse queries. Types are generated from your live schema, with correct ClickHouse-to-TypeScript mappings.',
   },
 };
 
@@ -103,7 +103,7 @@ export default function ClickHouseQueryBuilderPage() {
         eyebrow: 'What the builder gives you',
         title: 'Start from the real schema, then write normal ClickHouse query code',
         description:
-          'Run schema generation once, point the query builder at the generated type, and then write queries against real table and column names. That is the useful part: less casting, better autocomplete, and fewer mistakes when a query gets edited six months later.',
+          'Run schema generation once, point the query builder at the generated type, and then write queries against real table and column names. The payoff is less casting, better autocomplete, and fewer mistakes when a query gets edited six months later.',
         bullets: [
           'Schema types generated from your live ClickHouse database',
           'Column names and return shapes inferred from that schema',
@@ -115,7 +115,7 @@ export default function ClickHouseQueryBuilderPage() {
           eyebrow: 'Builder example',
           title: 'A typed query without post-query casting',
           description:
-            'The important part is not the fluent syntax. It is that the builder knows the schema it is operating on, so table names, columns, and result shapes stay aligned with the database.',
+            'The builder knows the schema it is operating on, so table names, columns, and result shapes stay aligned with the database.',
           code: builderCode,
         },
       }}
@@ -123,7 +123,7 @@ export default function ClickHouseQueryBuilderPage() {
         eyebrow: 'When the query stops being local',
         title: 'Promote a useful query into a named API definition',
         description:
-          'This is where the page should stay concrete: the query builder helps you author and test the query. If that same query later needs to power a dashboard or internal API, move it into a named definition with `initServe()` rather than rewriting it in a route file.',
+          'The query builder helps you author and test the query. If that same query later needs to power a dashboard or internal API, move it into a named definition with `initServe()` rather than rewriting it in a route file.',
         paragraphs: [
           'That is the boundary between this page and the broader analytics pages. Start here if you are replacing raw query strings. Move to the REST or React pages only when the query needs consumers outside the current process.',
           'If you are comparing libraries, the companion article walks through @clickhouse/client, Kysely, Cube, and hypequery with the tradeoffs spelled out.',
@@ -211,8 +211,8 @@ export default function ClickHouseQueryBuilderPage() {
         },
         {
           href: '/blog/clickhouse-cte-typescript',
-          title: 'ClickHouse CTEs in TypeScript — WITH Clause Patterns',
-          description: 'ClickHouse CTEs explained for TypeScript developers: inlining semantics, scalar WITH expressions, and type-safe WITH clauses using hypequery\'s native .withCTE() with query builders or raw SQL.',
+          title: 'ClickHouse CTE and WITH Clause Patterns in TypeScript',
+          description: 'ClickHouse CTEs for TypeScript developers. Covers inlining semantics, scalar WITH expressions, and type-safe WITH clauses using hypequery\'s native .withCTE() with query builders or raw SQL.',
         },
         {
           href: '/blog/clickhouse-group-by-typescript',
@@ -221,13 +221,13 @@ export default function ClickHouseQueryBuilderPage() {
         },
         {
           href: '/blog/clickhouse-asof-join-typescript',
-          title: 'ClickHouse ASOF JOIN — Nearest-Match Time-Series Joins in TypeScript',
+          title: 'ClickHouse ASOF JOIN for Nearest-Match Time-Series Joins in TypeScript',
           description: 'ClickHouse ASOF JOIN joins each row to the nearest matching row by timestamp. Learn the syntax, the one-inequality rule, and how to use it from TypeScript.',
         },
         {
           href: '/blog/clickhouse-array-functions-typescript',
-          title: 'ClickHouse Array Functions in TypeScript — A Practical Guide',
-          description: 'How to use ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has, and hasAny — with type-safe hypequery examples and a full collect-filter-transform pipeline.',
+          title: 'A Practical Guide to ClickHouse Array Functions in TypeScript',
+          description: 'How to use ClickHouse array functions from TypeScript: groupArray, arrayMap, arrayFilter, ARRAY JOIN, arraySum, has, and hasAny, with type-safe hypequery examples and a full collect-filter-transform pipeline.',
         },
       ]}
       relatedPillars={[

@@ -100,7 +100,7 @@ export default function ClickHouseDjangoPage() {
         eyebrow: 'Views and tasks',
         title: 'Query named measures from any view',
         description:
-          'Add the app and middleware, point `HYPEQUERY` at your datasets, and every view gets `request.analytics`: a client already scoped to the signed-in user’s organisation. The query is planned from your dataset, with the tenant filter added for you.',
+          'Add the app and middleware, point `HYPEQUERY` at your datasets, and every view gets `request.analytics`, a client already scoped to the signed-in user’s organisation. The query is planned from your dataset, with the tenant filter added for you.',
         bullets: [
           'Sync views get the sync client; async views get the async one, from the same attribute',
           '`manage.py check` validates the setting without connecting to ClickHouse',
@@ -122,7 +122,7 @@ export default function ClickHouseDjangoPage() {
           'Outside a request, `get_client()` returns the process-wide client and you bind the tenant explicitly. Reports, exports and scheduled jobs use the same definitions as your views, and `to_pandas()` turns results into typed DataFrames.',
         paragraphs: [
           'The client connects on its first query, is closed when the process exits, and is rebuilt in each forked worker, so gunicorn and Celery prefork pools are safe.',
-          'For typed React hooks or the MCP bridge, mount hypequery’s HTTP endpoints in your URLconf with `urls(api)`: no second service, and the session API uses your Django login.',
+          'For typed React hooks or the MCP bridge, mount hypequery’s HTTP endpoints in your URLconf with `urls(api)`. You don’t run a second service, and the session API uses your Django login.',
         ],
         codePanel: {
           eyebrow: 'tasks.py',
@@ -135,7 +135,7 @@ export default function ClickHouseDjangoPage() {
       searchIntentCards={[
         { title: 'Django analytics dashboard', copy: 'Views return measures by dimension and time grain, scoped to the user’s organisation.' },
         { title: 'Celery jobs on ClickHouse', copy: 'Reports and exports use the same definitions as the app, with an explicit tenant for each run.' },
-        { title: 'Can the Django ORM query ClickHouse?', copy: 'Through a third-party database backend: the community django-clickhouse-backend package (2.0 on PyPI, checked 14 November 2026) lets Django models target ClickHouse. hypequery takes the other route: the ORM stays on your transactional database, and analytics go through named, tenant-scoped measures.' },
+        { title: 'Can the Django ORM query ClickHouse?', copy: 'Through a third-party database backend. The community django-clickhouse-backend package (2.0 on PyPI, checked 14 November 2026) lets Django models target ClickHouse. hypequery takes the other route. The ORM stays on your transactional database, and analytics go through named, tenant-scoped measures.' },
         { title: 'Is there a Django integration?', copy: 'Yes: `hypequery.contrib.django` adds settings, a system check, `request.analytics` middleware, and clients for tasks and commands.' },
       ]}
       readingLinks={[

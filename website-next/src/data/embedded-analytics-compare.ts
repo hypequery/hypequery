@@ -19,13 +19,13 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/compare/embedded-analytics-platforms',
     title: 'Best embedded analytics platforms',
     description:
-      'Fifteen platforms grouped by approach: code-first and headless, embedded BI, and BI tools with embedding. Embedding method, multi-tenancy, pricing model and who each suits.',
+      'Fifteen platforms grouped by approach (code-first and headless, embedded BI, and BI tools with embedding), with embedding method, multi-tenancy, pricing model and who each suits.',
   },
   {
     href: '/compare/build-vs-buy-embedded-analytics',
     title: 'Build vs buy embedded analytics',
     description:
-      'What each part of embedded analytics costs to build, when buying a platform wins, and the middle path: an open-source data layer with your own front end.',
+      'What each part of embedded analytics costs to build, when buying a platform wins, and the middle path of an open-source data layer with your own front end.',
   },
   {
     href: '/compare/embedded-analytics-pricing',
@@ -37,7 +37,7 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/compare/luzmo-alternatives',
     title: 'Luzmo alternatives',
     description:
-      'Alternatives grouped by why teams leave Luzmo: owning the front end, giving customers a full BI tool, or cost at scale.',
+      'Alternatives grouped by why teams leave Luzmo, whether they want to own the front end, give customers a full BI tool or cut cost at scale.',
   },
   {
     href: '/compare/embeddable-alternatives',
@@ -61,6 +61,6 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/cube-js-alternative',
     title: 'Cube alternatives',
     description:
-      'Semantic layers compared for embedded analytics and AI agents: hypequery, the dbt Semantic Layer, AtScale, GoodData and Boring Semantic Layer.',
+      'Semantic layers compared for embedded analytics and AI agents, covering hypequery, the dbt Semantic Layer, AtScale, GoodData and Boring Semantic Layer.',
   },
 ];

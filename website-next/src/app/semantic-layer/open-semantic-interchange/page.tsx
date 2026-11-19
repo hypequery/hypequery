@@ -127,7 +127,7 @@ const timelineRows = [
 const specRows = [
   ['Semantic model', '`version`, `name`, `datasets` (required), plus relationships, model-scoped metrics, `ai_context` and `custom_extensions`', 'One model per YAML or JSON document.'],
   ['Dataset', '`name` and `source` (required), primary and unique keys, fields, dataset-scoped metrics', 'A logical table over a physical table.'],
-  ['Field', '`name` and `expression` (required), `datatype`, `dimension.is_time`, label', 'There is no separate dimension object: dimensions are fields.'],
+  ['Field', '`name` and `expression` (required), `datatype`, `dimension.is_time`, label', 'There is no separate dimension object. Dimensions are fields.'],
   ['Relationship', '`from`, `to`, `from_columns`, `to_columns`', 'Many-to-one, by field names.'],
   ['Metric', 'A name and an aggregate expression, on a dataset or across the model', 'A metric cannot reference another metric.'],
   ['AI context', 'Instructions, synonyms and examples on the model, datasets, fields and metrics', 'For agents and natural-language tools.'],
@@ -164,7 +164,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'What version is the OSI spec?',
     answer:
-      'The only release is 0.1.1, dated December 11, 2025. The main branch is a draft, 0.3.0.dev0, with breaking changes: one model per document with no semantic_model wrapper, and keys and metric expressions that refer to dataset fields rather than source columns. There will be no 0.2.0.',
+      'The only release is 0.1.1, dated December 11, 2025. The main branch is a draft, 0.3.0.dev0, with breaking changes. Each document holds one model with no semantic_model wrapper, and keys and metric expressions refer to dataset fields rather than source columns. There will be no 0.2.0.',
   },
   {
     question: 'Is OSI a query language?',
@@ -255,7 +255,7 @@ export default function OpenSemanticInterchangePage() {
             </p>
             <p>
               OSI&rsquo;s answer is a shared file format that each tool can import and export, so a model written once
-              can be converted rather than rewritten. The pressure comes largely from AI: agents need the same metric
+              can be converted rather than rewritten. The pressure comes largely from AI, because agents need the same metric
               definitions and synonyms whichever tool they run in.
             </p>
           </>
@@ -298,7 +298,7 @@ export default function OpenSemanticInterchangePage() {
             <p>
               What the code version adds is everything Ossie leaves to each tool: a tenant key enforced at query time,
               and the query itself, through function calls, an HTTP API, React hooks or MCP. hypequery does not read or
-              write Ossie files today. Nor is there a ClickHouse converter yet: a proposal to add one to the Ossie
+              write Ossie files today. Nor is there a ClickHouse converter yet. A proposal to add one to the Ossie
               repository was closed without merging in October 2026.
             </p>
           </>
@@ -378,8 +378,8 @@ export default function OpenSemanticInterchangePage() {
               </li>
             </ul>
             <p>
-              None of this makes Ossie less useful as an exchange format. It does mean a semantic layer still needs its
-              own runtime, its own access rules and its own query API, whichever format it imports.
+              None of this makes Ossie less useful as an exchange format. It does mean a semantic layer still needs a
+              runtime, access rules and a query API of its own, whichever format it imports.
             </p>
           </>
         }

@@ -153,7 +153,7 @@ npx hypequery mcp --http --tenant acme
         {
           title: 'ClickHouse semantics are easy to get wrong',
           copy:
-            'A ReplacingMergeTree read without FINAL counts rows twice, uniq and uniqExact disagree, and UTC DateTime columns shift day boundaries. Generated SQL gets these wrong quietly.',
+            'A ReplacingMergeTree read without FINAL counts rows twice, uniq and uniqExact disagree, and UTC DateTime columns shift day boundaries. Generated SQL gets these wrong without raising an error.',
         },
         {
           title: 'The chat disagrees with your dashboards',
@@ -163,7 +163,7 @@ npx hypequery mcp --http --tenant acme
         {
           title: 'A prompt is not a tenant boundary',
           copy:
-            'Nothing in a generated SQL string stops a read of another customer\'s rows. In a multi-tenant product, the tenant has to come from your auth, not from the model.',
+            'Nothing in a generated SQL string stops a read of another customer\'s rows. In a multi-tenant product, the tenant has to come from your auth layer, never from the model.',
         },
       ]}
       solutionSection={{

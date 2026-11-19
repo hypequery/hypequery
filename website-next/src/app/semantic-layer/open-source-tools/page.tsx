@@ -74,7 +74,7 @@ const tools: Tool[] = [
     href: 'https://github.com/lightdash/lightdash',
     what: 'A BI tool with a semantic layer. Metrics and dimensions are defined in your dbt project’s YAML or in standalone Lightdash YAML, and Lightdash builds charts and dashboards on top.',
     strengths: 'One place for the metric definitions and the dashboards that use them; ClickHouse is a supported adapter.',
-    limits: 'It is a BI application rather than a layer other apps query. Code under ee/, including the MCP server, is under a commercial licence: MCP is on Lightdash Cloud, or self-hosted with an Enterprise licence.',
+    limits: 'It is a BI application rather than a layer other apps query. Code under ee/, including the MCP server, is under a commercial licence. MCP is on Lightdash Cloud, or self-hosted with an Enterprise licence.',
     bestFor: 'dbt teams who want open-source BI that reads their metric definitions.',
   },
   {
@@ -91,7 +91,7 @@ const tools: Tool[] = [
       </>
     ),
     strengths: 'Fits straight into an existing dbt project; you can define and query metrics locally with the mf CLI.',
-    limits: 'Locally you get the CLI only: the APIs and integrations need a paid dbt plan, and the hosted Semantic Layer does not list ClickHouse.',
+    limits: 'Locally you get the CLI only. The APIs and integrations need a paid dbt plan, and the hosted Semantic Layer does not list ClickHouse.',
     bestFor: 'Analytics engineering teams already modelling in dbt on a supported warehouse.',
   },
   {
@@ -147,7 +147,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Is Cube open source?',
     answer:
-      'Cube Core is: its backend is Apache 2.0 and its client libraries are MIT. Cube Cloud, which runs the hosted MCP server, is a commercial service.',
+      'Cube Core is, with its backend under Apache 2.0 and its client libraries under MIT. Cube Cloud, which runs the hosted MCP server, is a commercial service.',
   },
   {
     question: 'Is the dbt Semantic Layer open source?',
@@ -277,8 +277,8 @@ export default function OpenSourceSemanticLayerToolsPage() {
               yourself.
             </p>
             <p>
-              Several projects are open at the core and commercial at the edges: hosted APIs, MCP servers or enterprise
-              features. The table and the notes below say where that line falls for each one.
+              Several projects keep the core open source and make hosted APIs, MCP servers or enterprise features
+              commercial. The table and the notes below say where that line falls for each one.
             </p>
           </>
         ),

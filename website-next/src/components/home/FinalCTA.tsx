@@ -10,7 +10,7 @@ export function FinalCTA() {
         Ship your analytics layer today
       </h2>
       <p className="mt-3.5 text-body text-text-muted max-w-[560px] mx-auto text-pretty">
-        Start open source in your own backend. A hosted option, hypequery cloud, is coming soon.
+        Start open source in your own backend. hypequery cloud, the hosted option, is in early access.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         <Link

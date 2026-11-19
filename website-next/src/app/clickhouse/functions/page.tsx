@@ -38,7 +38,7 @@ const clusterLabel: Record<string, string> = {
 
 const clusterDescription: Record<string, string> = {
   date:
-    'Date and time functions for bucketing, truncating, and formatting timestamps — the foundation of every ClickHouse analytics query.',
+    'Date and time functions for bucketing, truncating, and formatting timestamps. Every ClickHouse analytics query builds on them.',
   aggregate:
     'Aggregate functions for counting, summing, averaging, and estimating cardinality across millions of rows.',
   string: 'String manipulation functions for formatting display values, parsing, and building composite keys.',
@@ -46,7 +46,7 @@ const clusterDescription: Record<string, string> = {
     'Conditional expressions for inline branching, NULL handling, and multi-way value selection.',
   math: 'Math functions for rounding, integer arithmetic, and numeric bucketing.',
   array:
-    'Array functions for transforming, filtering, and unnesting array columns — including higher-order functions with lambda expressions.',
+    'Array functions for transforming, filtering, and unnesting array columns, including higher-order functions with lambda expressions.',
 };
 
 const clusterColor: Record<string, string> = {
@@ -94,7 +94,7 @@ const beyondFunctionsLinks = [
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'ClickHouse Functions — TypeScript Examples',
+  name: 'ClickHouse Functions: TypeScript Examples',
   description:
     'TypeScript example pages for common ClickHouse functions grouped by category: date, aggregate, string, conditional, and math.',
   url: absoluteUrl('/clickhouse/functions').toString(),

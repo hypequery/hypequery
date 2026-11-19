@@ -45,7 +45,7 @@ const src = (href: string, label: string) => (
 const masterRows = [
   ['Power BI Embedded', 'Capacity (hourly)', 'A1: $1.0081/hour, about $735.91/month at 730 hours (East US)', 'Viewers need no licence when the app owns the data; publishers need Pro or a service principal', 'Capacity size (A or F SKU)', src('https://azure.microsoft.com/en-us/pricing/details/power-bi-embedded/', 'azure.microsoft.com')],
   ['Microsoft Fabric (F SKUs)', 'Capacity (hourly)', 'F2: $0.36/hour, about $262.80/month at 730 hours (East US, pay as you go)', 'Below F64, embedding for your organisation needs a Pro or PPU licence per viewer', 'Capacity units', src('https://azure.microsoft.com/en-us/pricing/details/microsoft-fabric/', 'azure.microsoft.com')],
-  ['Metabase', 'Plan fee plus per user', 'Open source: free, with “Powered by Metabase” badge. Pro: $575/month plus $12/user/month after 10 users', 'Row-level permissions, SSO, multi-tenant embedding and white-labelling start on Pro', 'Signed-in users; guest-embed viewers are not counted', src('https://www.metabase.com/pricing/', 'metabase.com/pricing')],
+  ['Metabase', 'Plan fee plus per user', 'Open source is free, with a “Powered by Metabase” badge. Pro is $575/month plus $12/user/month after 10 users', 'Row-level permissions, SSO, multi-tenant embedding and white-labelling start on Pro', 'Signed-in users; guest-embed viewers are not counted', src('https://www.metabase.com/pricing/', 'metabase.com/pricing')],
   ['Luzmo', 'Platform fee plus usage', '€1,995/month, billed annually', 'Nothing: one plan includes white-label, self-service, AI and APIs', 'AI conversations and Warp rows, or monthly active users on some contracts', src('https://www.luzmo.com/pricing', 'luzmo.com/pricing')],
   ['Embeddable', 'Flat subscription', 'Custom pricing (contact sales)', 'Nothing: every feature included', 'Project scope, not users or queries', src('https://embeddable.com/pricing', 'embeddable.com/pricing')],
   ['Preset (managed Superset)', 'Per user plus viewer bundles', 'Professional $20/user/month (annual) plus embedding add-on from $500/month for 50 viewers', 'Embedding is an add-on; SSO is Enterprise', 'Embedded viewer licences', src('https://preset.io/pricing/', 'preset.io/pricing')],
@@ -101,7 +101,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'What is the cheapest way to embed analytics for 1,000 customer users?',
     answer:
-      'By licence cost, the open-source options cost nothing: Apache Superset, Metabase open source (with its badge) and hypequery (ClickHouse only, you build the UI). Among paid tools, Metabase Pro with guest embeds is $575 a month regardless of viewer count. Hosting and engineering time are extra in every case.',
+      'By licence cost, Apache Superset, Metabase open source (with its badge) and hypequery (ClickHouse only, you build the UI) cost nothing. Among paid tools, Metabase Pro with guest embeds is $575 a month regardless of viewer count. Hosting and engineering time are extra in every case.',
   },
 ];
 
@@ -145,8 +145,8 @@ export default function EmbeddedAnalyticsPricingPage() {
         <p>
           Published prices run from no licence fee for self-hosted open-source tools to $575 a month for Metabase Pro,
           about $735.91 a month for a continuously running Power BI Embedded A1 capacity, and €1,995 a month for Luzmo.
-          Many vendors still require a quote. The real comparison is the billing unit—viewer, capacity, workspace or
-          usage—so we show both the entry price and a 1,000-viewer SaaS scenario. Every figure was checked against the
+          Many vendors still require a quote. The real comparison is the billing unit (viewer, capacity, workspace or
+          usage), so we show both the entry price and a 1,000-viewer SaaS scenario. Every figure was checked against the
           vendor’s own page on {VERIFIED_ON}.
         </p>
       }
@@ -232,7 +232,7 @@ export default function EmbeddedAnalyticsPricingPage() {
             <p>
               The free and Starter editions embed with a “Powered by Metabase” badge. Guest embeds (which replaced static
               embedding) don’t count viewers as users, but they are view-only. Interactive SSO embeds give viewers
-              drill-through, the query builder and AI chat, and each viewer becomes a billed user: that is the jump from
+              drill-through, the query builder and AI chat, and each viewer becomes a billed user, which is the jump from
               $575 to $12,491 a month in the scenario.
             </p>
           </Note>
@@ -259,7 +259,7 @@ export default function EmbeddedAnalyticsPricingPage() {
           </Note>
           <Note name="Explo">
             <p>
-              Explo no longer publishes pricing: its pricing page returns a 404. Omni announced its acquisition of Explo on
+              Explo no longer publishes pricing, and its pricing page returns a 404. Omni announced its acquisition of Explo on
               October 22, 2025 and said it would migrate Explo customers to Omni over 12 months. If you are pricing Explo
               today, you are pricing Omni.
             </p>
@@ -318,7 +318,7 @@ export default function EmbeddedAnalyticsPricingPage() {
         title="Questions to ask every vendor"
         intro={
           <ol className="list-decimal space-y-2 pl-5">
-            <li>What exactly is the billing unit: monthly active viewer, named user, workspace, capacity hour or row?</li>
+            <li>Is the billing unit a monthly active viewer, named user, workspace, capacity hour or row?</li>
             <li>Do external viewers count as users, and does that change between view-only and interactive embeds?</li>
             <li>Are white-labelling, SSO, row-level security and multi-tenancy in the plan you are quoting?</li>
             <li>What happens to price at 2× and 10× your current customer count?</li>

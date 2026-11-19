@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/access-control';
 const TITLE = 'Semantic Layer Access Control: Row, Column and Tenant Security';
 const DESCRIPTION =
-  'Where to enforce access control for dashboards, embedded analytics and AI agents: tenant isolation, row- and column-level rules, cache keys and a test list.';
+  'Where to enforce access control for dashboards, embedded analytics and AI agents. Covers tenant isolation, row- and column-level rules, cache keys and tests.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 14, 2026';
@@ -148,7 +148,7 @@ const vendorRows = [
   ],
   [
     'dbt Semantic Layer',
-    'No tenant rule in the model: access follows the warehouse credentials mapped to each token',
+    'No tenant rule in the model. Access follows the warehouse credentials mapped to each token',
     'The warehouse’s own row policies, which the mapped credentials respect',
     'The warehouse’s own grants and policies',
     'Service tokens mapped to warehouse credentials, or personal tokens; multiple credentials on Enterprise plans',
@@ -210,7 +210,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Does hypequery support row-level and column-level security?',
     answer:
-      'Tenant isolation is built in: a dataset with a tenant key refuses any query without a trusted tenant. Further row rules can be passed as trusted constraints from server context, and they are applied to every query shape and enter the cache key. Roles and scopes control access per dataset. Hiding individual fields per role is available in the hypequery deployment runtime but not yet in a self-hosted Serve app, and there is no data masking.',
+      'Tenant isolation is built in. A dataset with a tenant key refuses any query without a trusted tenant. Further row rules can be passed as trusted constraints from server context, and they are applied to every query shape and enter the cache key. Roles and scopes control access per dataset. Hiding individual fields per role is available in the hypequery deployment runtime but not yet in a self-hosted Serve app, and there is no data masking.',
   },
 ];
 
@@ -258,7 +258,7 @@ export default function SemanticLayerAccessControlPage() {
       updated={UPDATED}
       lead={
         <p>
-          How to make sure every dashboard, API call and AI agent sees only the rows and fields it should: where to
+          How to make sure every dashboard, API call and AI agent sees only the rows and fields it should. It covers where to
           enforce the rules, which rules a multi-tenant product needs, how caches leak, and what to test before launch.
         </p>
       }
@@ -390,18 +390,18 @@ export default function SemanticLayerAccessControlPage() {
         intro={
           <>
             <p>
-              A cache that keys on the query text alone is a cross-tenant leak waiting for traffic: two customers ask
+              A cache that keys on the query text alone is a cross-tenant leak waiting for traffic. Two customers ask
               the same question, and the second gets the first one&rsquo;s answer. The same applies to rollups and
               pre-aggregations built for one tenant and read by another.
             </p>
             <p>
-              The rule is simple to state: anything that changes which rows a query may read belongs in the cache key.
+              Anything that changes which rows a query may read belongs in the cache key.
               hypequery&rsquo;s{' '}
               <Link href="/docs/datasets/caching" className={inlineLink}>
                 dataset cache
               </Link>{' '}
               includes the tenant, the runtime constraints and an optional explicit scope in every key, and stores
-              keys as opaque hashes. Whatever tool you use, test it: run one query as two tenants with caching on.
+              keys as opaque hashes. Whatever tool you use, test it by running one query as two tenants with caching on.
             </p>
           </>
         }
@@ -472,20 +472,20 @@ export default function SemanticLayerAccessControlPage() {
           <>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                You need column masking, or field and row rules per user group: Cube&rsquo;s access policies combine
+                You need column masking, or field and row rules per user group. Cube&rsquo;s access policies combine
                 row filters, member includes and masking per group.
               </li>
               <li>
-                Your data and users are all in Snowflake: row access and masking policies in Snowflake cover every
+                Your data and users are all in Snowflake. Row access and masking policies in Snowflake cover every
                 client, including Cortex Analyst.
               </li>
               <li>
-                Many unrelated tools query the database directly: enforce in the database first, with row policies and
+                Many unrelated tools query the database directly. Enforce in the database first, with row policies and
                 grants, and treat any semantic layer as the second line.
               </li>
             </ul>
             <p>
-              hypequery fits when the data is in ClickHouse and the analytics live inside your application: the tenant
+              hypequery fits when the data is in ClickHouse and the analytics live inside your application. The tenant
               rule sits beside the dataset in your repo, reads the same session your app already verifies, and covers
               your API, React hooks and MCP tools at once.
             </p>

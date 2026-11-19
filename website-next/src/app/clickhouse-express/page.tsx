@@ -123,7 +123,7 @@ export default function ClickHouseExpressPage() {
       leadPage="/clickhouse-express"
       eyebrow="ClickHouse Express"
       title="Mount typed ClickHouse analytics on your Express.js server"
-      description="Most backend teams already have an Express.js server. Adding ClickHouse analytics means writing route handlers, request validation, auth extraction, and documentation. @hypequery/serve provides a framework-agnostic handler that you can mount in Express with the Node adapter — validated inputs, typed responses, and OpenAPI docs included."
+      description="Most backend teams already have an Express.js server. Adding ClickHouse analytics means writing route handlers, request validation, auth extraction, and documentation. @hypequery/serve provides a framework-agnostic handler that you can mount in Express with the Node adapter. Validated inputs, typed responses, and OpenAPI docs are included."
       primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
       secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API guide' }}
       stats={[
@@ -135,7 +135,7 @@ export default function ClickHouseExpressPage() {
         {
           title: 'Writing Express routes for ClickHouse means raw SQL and untyped responses',
           copy:
-            'The standard path is: write a raw SQL query, call @clickhouse/client, cast the response to an interface you defined manually, then return it. Every analytics route in the codebase follows this pattern — and every one is slightly different.',
+            'The standard path is: write a raw SQL query, call @clickhouse/client, cast the response to an interface you defined manually, then return it. Every analytics route in the codebase follows this pattern, and every one is slightly different.',
         },
         {
           title: 'Every analytics route reimplements the same auth and tenant extraction boilerplate',
@@ -145,16 +145,16 @@ export default function ClickHouseExpressPage() {
         {
           title: 'No documentation for ClickHouse Express routes means frontend teams guess response shapes',
           copy:
-            "Without a schema or OpenAPI spec, the frontend team reads the Express source code to understand what each analytics endpoint returns. When a ClickHouse column changes, there's no warning — the frontend just breaks.",
+            "Without a schema or OpenAPI spec, the frontend team reads the Express source code to understand what each analytics endpoint returns. When a ClickHouse column changes, there's no warning. The frontend just breaks.",
         },
       ]}
       solutionSection={{
         eyebrow: 'How @hypequery/serve works with Express',
-        title: 'Define analytics queries once — mount them on Express as typed endpoints',
+        title: 'Define analytics queries once and mount them on Express as typed endpoints',
         description:
-          'initServe() takes a context factory that runs per-request. It reads tenant and auth information from the Express request and makes it available to every query. You define analytics queries with the query() function — each one gets Zod input validation and a typed ClickHouse query builder. Then you expose the resulting `api.handler` through `createNodeHandler()` and mount that in Express.',
+          'initServe() takes a context factory that runs per-request. It reads tenant and auth information from the Express request and makes it available to every query. You define analytics queries with the query() function, and each one gets Zod input validation and a typed ClickHouse query builder. Then you expose the resulting `api.handler` through `createNodeHandler()` and mount that in Express.',
         bullets: [
-          'initServe() context factory runs per-request — reads JWT, session, or headers',
+          'initServe() context factory runs per-request and reads JWT, session, or headers',
           'query() definitions include Zod input validation and typed ClickHouse queries',
           'createNodeHandler(api.handler) mounts the generated HTTP surface in Express',
           'OpenAPI spec generated automatically from input/output types',
@@ -164,7 +164,7 @@ export default function ClickHouseExpressPage() {
           eyebrow: 'Query definitions',
           title: 'Define analytics queries with initServe',
           description:
-            "Context is injected per-request — the auth middleware sets req.tenant, and the context factory reads it. Every query definition has access to db and tenantId without re-implementing extraction logic.",
+            "Context is injected per-request. The auth middleware sets req.tenant, and the context factory reads it. Every query definition has access to db and tenantId without re-implementing extraction logic.",
           code: initServeCode,
         },
       }}
@@ -172,7 +172,7 @@ export default function ClickHouseExpressPage() {
         eyebrow: 'Express integration',
         title: 'Mount analytics routes alongside your existing Express server',
         description:
-          'createNodeHandler(api.handler) returns a Node-compatible request handler. You mount it on its base path, /api/analytics by default, alongside your existing routes. The analytics handler does not interfere with the rest of the Express app — it handles its own validation, error responses, and documentation.',
+          'createNodeHandler(api.handler) returns a Node-compatible request handler. You mount it on its base path, /api/analytics by default, alongside your existing routes. The analytics handler does not interfere with the rest of the Express app because it handles its own validation, error responses, and documentation.',
         paragraphs: [
           'Auth middleware runs before the analytics middleware and attaches tenant context to the request. The initServe() context factory reads that context and makes it available to all query definitions. One auth change propagates to every analytics endpoint.',
           'The generated OpenAPI spec is available at /api/analytics/openapi.json. Use it to generate TypeScript client types for your frontend, validate integration tests against the schema, or import it into API gateway tooling.',
@@ -199,19 +199,19 @@ export default function ClickHouseExpressPage() {
         {
           title: 'ClickHouse REST Express',
           copy:
-            "If you're serving ClickHouse data from Express, the win is not avoiding all code. It is avoiding repeated boilerplate for validation, docs, and response typing around each analytics route.",
+            "If you're serving ClickHouse data from Express, the win is avoiding repeated boilerplate for validation, docs, and response typing around each analytics route.",
         },
         {
           title: 'Express ClickHouse query builder',
           copy:
-            'The query builder is framework-agnostic, which is the important part. Express is just one host for the handler, not the place your ClickHouse query logic has to live forever.',
+            "The query builder is framework-agnostic. Express is one host for the handler. Your ClickHouse query logic doesn't have to live inside it.",
         },
       ]}
       readingLinks={[
         {
           href: '/clickhouse-nodejs',
           title: 'ClickHouse Node.js',
-          description: 'Node.js-specific ClickHouse patterns — the foundation for Express integration.',
+          description: 'Node.js-specific ClickHouse patterns that Express integration builds on.',
         },
         {
           href: '/clickhouse-api',
@@ -239,7 +239,7 @@ export default function ClickHouseExpressPage() {
         eyebrow: 'Next step',
         title: 'Mount analytics on your Express server in under 30 minutes',
         description:
-          'Install @hypequery/serve, generate your schema with the CLI, define your first analytics query, and mount it on your Express app. OpenAPI docs are available immediately — no extra configuration.',
+          'Install @hypequery/serve, generate your schema with the CLI, define your first analytics query, and mount it on your Express app. OpenAPI docs are available immediately with no extra configuration.',
         primaryCta: { href: '/docs/quick-start', label: 'Open the quick start' },
         secondaryCta: { href: '/clickhouse-openapi', label: 'See OpenAPI docs' },
       }}

@@ -95,13 +95,13 @@ export default function ClickHouseNodejsPage() {
       ]}
       solutionSection={{
         eyebrow: 'Setup',
-        title: 'Start with a typed backend query layer, not another helper module',
+        title: 'Start with a typed backend query layer',
         description:
           'Generate the schema once, initialize the builder in your backend, and make that the standard way Node code reaches ClickHouse. That gives scripts, workers, and services the same typed starting point.',
         bullets: [
           'Works well in Node.js services, scripts, and Bun runtimes',
           'Schema types generated from your live ClickHouse instance',
-          'Correct ClickHouse-to-Node.js type mappings — no guessing',
+          'Correct ClickHouse-to-Node.js type mappings, so you don\'t have to guess them',
           'Composable query builder with support for typed filters, joins, CTEs, and raw SQL when needed',
           'Optional HTTP serving layer via @hypequery/serve handlers',
         ],
@@ -126,7 +126,7 @@ export default function ClickHouseNodejsPage() {
           eyebrow: 'Express integration',
           title: 'A thin Express mount around a shared analytics definition',
           description:
-            'The useful part is not the middleware line by itself. It is that the route is no longer where the analytics logic lives.',
+            'The analytics logic no longer lives in the route.',
           code: expressCode,
         },
       }}
@@ -156,12 +156,12 @@ export default function ClickHouseNodejsPage() {
         {
           href: '/clickhouse-js',
           title: 'ClickHouse JavaScript',
-          description: 'The broader JavaScript and TypeScript guide — the same patterns in a framework-agnostic context.',
+          description: 'The broader JavaScript and TypeScript guide, with the same patterns in a framework-agnostic context.',
         },
         {
           href: '/clickhouse-nextjs',
           title: 'ClickHouse Next.js',
-          description: 'Integrating ClickHouse into Next.js App Router — server components and API routes.',
+          description: 'Integrating ClickHouse into Next.js App Router with server components and API routes.',
         },
         {
           href: '/clickhouse-api',
@@ -171,7 +171,7 @@ export default function ClickHouseNodejsPage() {
         {
           href: '/clickhouse-typescript',
           title: 'ClickHouse TypeScript',
-          description: 'The full TypeScript workflow — schema types, typed queries, HTTP APIs, and React hooks.',
+          description: 'The full TypeScript workflow, covering schema types, typed queries, HTTP APIs, and React hooks.',
         },
         {
           href: '/blog/add-clickhouse-analytics-nodejs-backend',

@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'A Python Semantic Layer for ClickHouse: Analytics as Code',
   description:
-    'Define measures, dimensions, relationships and tenant rules as Python code: an open-source semantic layer inside your app, with no YAML and no extra server.',
+    'Define measures, dimensions, relationships and tenant rules as Python code in an open-source semantic layer that runs inside your app. No YAML, no extra server.',
   alternates: { canonical: absoluteUrl('/python-semantic-layer') },
   openGraph: {
     images: ogImage('A Python Semantic Layer for ClickHouse: Analytics as Code'),
@@ -94,7 +94,7 @@ export default function PythonSemanticLayerPage() {
         {
           title: 'Config files sit outside your workflow',
           copy:
-            'Models kept in separate YAML files or a separate platform miss the tools your team already relies on: type checks, tests, refactoring, and review alongside the code that uses them.',
+            'Models kept in separate YAML files or a separate platform miss the type checks, tests, refactoring, and review that the code using them already gets.',
         },
         {
           title: 'Another server is another thing to run',
@@ -162,7 +162,7 @@ export default function PythonSemanticLayerPage() {
         {
           href: '/compare/hypequery-vs-clickhouse-connect',
           title: 'hypequery vs clickhouse-connect',
-          description: 'When to keep the driver for ad hoc SQL, and when shared datasets earn their place.',
+          description: 'When to keep the driver for ad hoc SQL, and when to move repeated metrics into shared datasets.',
         },
         {
           href: '/docs/python/datasets/defining-datasets',

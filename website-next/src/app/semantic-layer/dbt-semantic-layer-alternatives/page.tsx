@@ -207,8 +207,8 @@ export default function DbtSemanticLayerAlternativesPage() {
               is open source, while the hosted APIs are part of the paid dbt platform.
             </p>
             <p>
-              An alternative replaces the metric definitions and the serving layer. It does not replace dbt itself:
-              every option below can read tables that dbt builds.
+              An alternative replaces the metric definitions and the serving layer, and keeps dbt itself.
+              Every option below can read tables that dbt builds.
             </p>
           </>
         ),
@@ -271,7 +271,7 @@ export default function DbtSemanticLayerAlternativesPage() {
         intro={
           <>
             <p>
-              This is the most common reason the dbt Semantic Layer is off the table: dbt can transform data in
+              This is the most common reason the dbt Semantic Layer is off the table. dbt can transform data in
               ClickHouse, but the Semantic Layer cannot query it. Your choices are a service that supports ClickHouse
               among many sources (Cube, Wren AI), BI on top of dbt YAML (Lightdash), or a layer built for ClickHouse.
             </p>

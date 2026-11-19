@@ -144,7 +144,7 @@ const comparisonLinks = [
   {
     href: '/blog/clickhouse-typescript-type-problem',
     title: 'The ClickHouse TypeScript type problem',
-    description: 'A deep dive into the runtime type mismatches that bite TypeScript teams on ClickHouse.',
+    description: 'The runtime type mismatches that bite TypeScript teams on ClickHouse, and how to handle each one.',
   },
   {
     href: '/compare/hypequery-vs-clickhouse-client',
@@ -174,7 +174,7 @@ const comparisonLinks = [
   {
     href: '/blog/clickhouse-pagination-typescript',
     title: 'How to Paginate ClickHouse Results in TypeScript',
-    description: 'Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client.',
+    description: 'Three pagination patterns for ClickHouse in TypeScript: offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client.',
   },
 ];
 
@@ -197,7 +197,7 @@ const ecosystemLinks = [
   {
     href: '/clickhouse-analytics',
     title: 'ClickHouse Analytics',
-    description: 'Why schema-driven query definitions become an analytics layer, not just a query builder.',
+    description: 'How schema-driven query definitions grow from a query builder into an analytics layer.',
   },
   {
     href: '/clickhouse-multi-tenant-analytics',
@@ -220,7 +220,7 @@ export default function ClickHouseTypeScriptPage() {
               A TypeScript client for ClickHouse and ClickHouse Cloud
             </h1>
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
-              The official TypeScript client for ClickHouse Cloud is <code>@clickhouse/client</code> for Node.js, or <code>@clickhouse/client-web</code> for browsers and Cloudflare Workers, connecting over HTTPS on port 8443. hypequery builds on it and connects to ClickHouse Cloud, self-hosted ClickHouse, or a local container with the same code. The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
+              The official TypeScript client for ClickHouse Cloud is <code>@clickhouse/client</code> for Node.js, or <code>@clickhouse/client-web</code> for browsers and Cloudflare Workers, connecting over HTTPS on port 8443. hypequery builds on it and connects to ClickHouse Cloud, self-hosted ClickHouse, or a local container with the same code. The annoying part of using ClickHouse from TypeScript is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
@@ -386,8 +386,7 @@ export default function ClickHouseTypeScriptPage() {
                   ClickHouse query builder for TypeScript
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-text-muted">
-                  If you want a ClickHouse query builder with real TypeScript support, the key question is not just syntax.
-                  It is whether the builder understands ClickHouse runtime types and can be reused across your app.
+                  If you want a ClickHouse query builder with real TypeScript support, the key question is whether the builder understands ClickHouse runtime types and can be reused across your app.
                 </p>
               </div>
               <div className={marketing.card}>

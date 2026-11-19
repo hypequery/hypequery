@@ -95,7 +95,7 @@ export default function ClickHouseNextJsPage() {
           eyebrow: 'App Router',
           title: 'One route file that stays thin',
           description:
-            'The route exists to expose the query, not to become the place where the query is authored.',
+            'The route only exposes the query. The query itself is authored elsewhere.',
           code: routeCode,
         },
       }}

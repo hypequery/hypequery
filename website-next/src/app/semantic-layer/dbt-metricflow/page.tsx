@@ -175,7 +175,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Does the dbt Semantic Layer support ClickHouse?',
     answer:
-      'Not the hosted Semantic Layer: dbt lists Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino. Open-source MetricFlow merged experimental ClickHouse support on September 29, 2026, after its latest release, and that change leaves out FINAL handling for ReplacingMergeTree tables.',
+      'Not the hosted Semantic Layer. dbt lists Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino. Open-source MetricFlow merged experimental ClickHouse support on September 29, 2026, after its latest release, and that change leaves out FINAL handling for ReplacingMergeTree tables.',
   },
   {
     question: 'What changed in the new dbt metrics spec?',
@@ -240,7 +240,7 @@ export default function DbtMetricFlowPage() {
               and AI agents. You ask for revenue by customer country; it writes the joins and the SQL.
             </p>
             <p>
-              <strong className="text-text">MetricFlow</strong> is the engine underneath: it reads the YAML and compiles
+              <strong className="text-text">MetricFlow</strong> is the engine underneath. It reads the YAML and compiles
               metric requests into SQL for your warehouse. MetricFlow is open source under Apache 2.0. The hosted
               Semantic Layer, with its APIs and integrations, is part of the paid dbt platform.
             </p>
@@ -259,8 +259,8 @@ export default function DbtMetricFlowPage() {
               A <strong className="text-text">semantic model</strong> sits on top of one dbt model. It names the
               table&rsquo;s <strong className="text-text">entities</strong> (primary, foreign, unique or natural keys,
               which is how MetricFlow finds joins) and its <strong className="text-text">dimensions</strong>{' '}
-              (categorical or time). <strong className="text-text">Metrics</strong> come in five types: simple, ratio,
-              cumulative, derived and conversion.
+              (categorical or time). <strong className="text-text">Metrics</strong> come in five types (simple, ratio,
+              cumulative, derived and conversion).
             </p>
             <p>
               The latest spec, used by the dbt platform, dbt v2 and dbt v1.12, deprecates measures in favour of simple
@@ -329,7 +329,7 @@ export default function DbtMetricFlowPage() {
         title="The orders model as a code-defined semantic layer"
         intro={
           <p>
-            Here is the same model as a hypequery dataset: one file in your application repo, imported by the backend
+            Here is the same model as a hypequery dataset, in one file in your application repo, imported by the backend
             that serves your product. It adds the one thing the dbt version leaves to the warehouse, a tenant key, so
             each request only sees one customer&rsquo;s rows.
           </p>
@@ -369,14 +369,14 @@ export default function DbtMetricFlowPage() {
           <>
             <ul className="list-disc space-y-2 pl-5">
               <li>Your tables are already built in dbt on a supported warehouse, and analytics engineers own the metrics.</li>
-              <li>The consumers are BI tools and spreadsheets: Tableau, Power BI, Excel, Google Sheets, Hex, Sigma.</li>
+              <li>The consumers are BI tools and spreadsheets (Tableau, Power BI, Excel, Google Sheets, Hex, Sigma).</li>
               <li>You need conversion metrics, which a code-defined layer does not model directly.</li>
               <li>Metrics are for internal reporting, where warehouse credentials and policies are the right access model.</li>
             </ul>
             <p>
-              Define metrics in code when they serve your own product: customer-facing dashboards, a public API or an
-              in-app agent, where each request belongs to one customer and your backend already knows which one. Many
-              teams use both: dbt builds the tables, and the application layer defines what customers see. The{' '}
+              Define metrics in code when they serve your own product (customer-facing dashboards, a public API or an
+              in-app agent), where each request belongs to one customer and your backend already knows which one. Many
+              teams use both. dbt builds the tables, and the application layer defines what customers see. The{' '}
               <Link href="/blog/typescript-vs-dbt-clickhouse" className={inlineLink}>
                 TypeScript vs dbt guide
               </Link>{' '}
