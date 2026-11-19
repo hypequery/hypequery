@@ -164,7 +164,7 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
       updated={UPDATED}
       lead={
         <p>
-          For a TypeScript team, the decisive question is not which product renders a chart fastest. It is where metric
+          For a TypeScript team, the decisive question is where metric
           definitions and tenant rules live, whether every consumer uses them, and how safely they change.
         </p>
       }
@@ -174,7 +174,7 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
         term: 'What should TypeScript teams look for in embedded analytics?',
         body: (
           <p>
-            Choose an architecture that gives metrics, dimensions and tenant rules one source of truth; makes database
+            Choose an architecture that defines metrics, dimensions and tenant rules in one place; makes database
             and API types visible to TypeScript; and serves the same definitions to dashboards, APIs and AI agents. Use
             an embedded BI tool when speed and customer self-service matter most, a standalone semantic layer when many
             tools need one model, and a code-first layer when product engineers own the analytics experience in the

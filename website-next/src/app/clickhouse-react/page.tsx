@@ -96,13 +96,13 @@ export default function ClickHouseReactPage() {
           eyebrow: 'Hook setup',
           title: 'One hook layer for the whole React app',
           description:
-            'This is the boundary worth preserving. The hook layer learns from the API type rather than inventing its own client-side contract.',
+            'Keep this boundary in place. The hook layer takes its types from the API instead of inventing its own client-side contract.',
           code: hooksCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Dashboard usage',
-        title: 'Let components deal with UI state, not transport details',
+        title: 'Let components handle UI state and leave transport to the hooks',
         description:
           'Once the hooks exist, a component can ask for a named query and render it. That keeps the React layer concerned with charts, filters, and interaction instead of transport details.',
         paragraphs: [
@@ -126,7 +126,7 @@ export default function ClickHouseReactPage() {
         {
           title: 'Where React should stop',
           copy:
-            'The React layer should own cache behavior and UI state, not ClickHouse details or backend schema assumptions.',
+            'The React layer should own cache behavior and UI state. ClickHouse details and backend schema assumptions belong on the server.',
         },
         {
           title: 'What makes the typing trustworthy',

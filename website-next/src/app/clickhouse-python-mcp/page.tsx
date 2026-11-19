@@ -79,7 +79,7 @@ export default function ClickHousePythonMcpPage() {
         },
         {
           title: 'Agents invent their own revenue',
-          copy: 'When the agent writes its own query, its number disagrees with your dashboard. The definition has to be shared, not re-derived.',
+          copy: 'When the agent writes its own query, its number disagrees with your dashboard. The agent has to use the same definition as your dashboard.',
         },
         {
           title: 'Python teams were left out',
@@ -90,7 +90,7 @@ export default function ClickHousePythonMcpPage() {
         eyebrow: 'Client contract',
         title: 'Publish what agents may call',
         description:
-          'Install dataset endpoints with a client profile and add the client-contract route. The contract lists each endpoint’s fields, operators, and limits for the calling principal, and nothing else.',
+          'Install dataset endpoints with a client profile and add the client-contract route. The contract lists only the endpoints the calling principal may call, with each one’s fields, operators, and limits.',
         bullets: [
           'Agents see only endpoints the API key’s principal is allowed to call',
           'The tenant comes from that principal on the Python side; the agent cannot choose it',

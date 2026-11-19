@@ -3,7 +3,7 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse ORM — Typed Queries in TypeScript',
+  title: 'ClickHouse ORM: Typed Queries in TypeScript',
   description:
     'An ORM-style workflow built for ClickHouse: generate TypeScript types from your live schema in one command, then write fully typed queries and APIs.',
   alternates: { canonical: absoluteUrl('/clickhouse-orm') },
@@ -11,13 +11,13 @@ export const metadata: Metadata = {
     images: ogImage('ORM for ClickHouse in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-orm'),
-    title: 'ClickHouse ORM — Typed Queries in TypeScript | hypequery',
+    title: 'ClickHouse ORM: Typed Queries in TypeScript | hypequery',
     description:
       'Generate TypeScript types from your live ClickHouse schema in one command, then write fully typed queries and APIs. No migrations, no remodeling.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse ORM — Typed Queries in TypeScript | hypequery',
+    title: 'ClickHouse ORM: Typed Queries in TypeScript | hypequery',
     description:
       'Generate TypeScript types from your live ClickHouse schema in one command, then write fully typed queries and APIs.',
   },
@@ -79,7 +79,7 @@ export default function ClickHouseOrmPage() {
         {
           title: 'Transactional ORMs are the wrong abstraction for ClickHouse',
           copy:
-            'Prisma and Drizzle model rows, relationships, and transactions. ClickHouse is columnar, append-optimised, and designed for aggregations over billions of rows — not joins and foreign keys. Forcing a relational ORM onto it produces awkward code and missing features.',
+            'Prisma and Drizzle model rows, relationships, and transactions. ClickHouse is columnar, append-optimised, and designed for aggregations over billions of rows rather than joins and foreign keys. Forcing a relational ORM onto it produces awkward code and missing features.',
         },
         {
           title: 'Kysely and generic query builders do not understand ClickHouse types',
@@ -98,7 +98,7 @@ export default function ClickHouseOrmPage() {
         description:
           'hypequery introspects your live ClickHouse schema and generates a TypeScript interface for every table and column with the right ClickHouse-to-TypeScript mappings. You then build queries with a fluent builder that stays close to real ClickHouse usage.',
         bullets: [
-          'Schema types generated from your live ClickHouse database — not hand-written',
+          'Schema types generated from your live ClickHouse database instead of written by hand',
           'Correct runtime mappings: DateTime→string, UInt64→string, Nullable→T|null',
           'Composable query builder with typed filters, joins, CTEs, and raw SQL escape hatches',
           'Same query definition runs inline, over HTTP, or as a React hook',
@@ -133,17 +133,17 @@ export default function ClickHouseOrmPage() {
         {
           title: 'Is there an ORM for ClickHouse in TypeScript?',
           copy:
-            'There is no Prisma or Drizzle for ClickHouse — the data model is too different. hypequery is the schema-driven, type-safe query layer that fills that gap, built specifically for ClickHouse analytics workloads.',
+            'There is no Prisma or Drizzle for ClickHouse, because the data model is too different. hypequery is the schema-driven, type-safe query layer that fills that gap, built specifically for ClickHouse analytics workloads.',
         },
         {
           title: 'Does Prisma support ClickHouse?',
           copy:
-            'Prisma does not support ClickHouse. hypequery gives you the same schema-first experience — generate types from your database, build typed queries, and get autocomplete — without needing a relational data model.',
+            'Prisma does not support ClickHouse. hypequery gives you the same schema-first experience without needing a relational data model. You generate types from your database, build typed queries, and get autocomplete.',
         },
         {
           title: 'Does Drizzle support ClickHouse?',
           copy:
-            'Drizzle does not support ClickHouse. hypequery is the TypeScript-first ClickHouse alternative — schema generation, a composable query builder, and typed HTTP APIs designed for analytics-heavy applications.',
+            'Drizzle does not support ClickHouse. hypequery is the TypeScript-first ClickHouse alternative, with schema generation, a composable query builder, and typed HTTP APIs designed for analytics-heavy applications.',
         },
         {
           title: 'Does TypeORM support ClickHouse?',
@@ -153,14 +153,14 @@ export default function ClickHouseOrmPage() {
         {
           title: 'Type-safe ClickHouse queries without hand-written interfaces',
           copy:
-            'The useful part of the ORM promise is simple: types should come from the database, not from your imagination. That is exactly what hypequery gives you for ClickHouse.',
+            'The useful part of the ORM promise is that types come from the database. hypequery gives you exactly that for ClickHouse.',
         },
       ]}
       readingLinks={[
         {
           href: '/clickhouse-query-builder',
           title: 'ClickHouse Query Builder',
-          description: 'The full composable query builder — filters, aggregations, joins, CTE helpers, and practical escape hatches.',
+          description: 'The full composable query builder, covering filters, aggregations, joins, CTE helpers, and practical escape hatches.',
         },
         {
           href: '/compare/hypequery-vs-clickhouse-client',

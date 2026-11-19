@@ -5,23 +5,23 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Product Analytics in TypeScript',
   description:
-    'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
+    'Build product analytics on ClickHouse in TypeScript with typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-product-analytics'),
   },
   openGraph: {
-    images: ogImage('ClickHouse Product Analytics — TypeScript Event Tracking & Querying'),
+    images: ogImage('ClickHouse Product Analytics: TypeScript Event Tracking & Querying'),
     type: 'website',
     url: absoluteUrl('/clickhouse-product-analytics'),
-    title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
+    title: 'ClickHouse Product Analytics: TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript with typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
+    title: 'ClickHouse Product Analytics: TypeScript Event Tracking & Querying | hypequery',
     description:
-      'Build product analytics on ClickHouse in TypeScript: typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
+      'Build product analytics on ClickHouse in TypeScript with typed event queries, funnel analysis, retention metrics and typed APIs for your analytics stack.',
   },
 };
 
@@ -126,7 +126,7 @@ export default function ClickHouseProductAnalyticsPage() {
       leadPage="/clickhouse-product-analytics"
       eyebrow="ClickHouse Product Analytics"
       title="Build product analytics on ClickHouse with TypeScript"
-      description="Product analytics tables are wide, high-cardinality, and queried in many ways — DAU, funnels, retention, segmentation. hypequery gives TypeScript teams schema-generated types for event tables and a composable query layer for the analytics patterns that matter."
+      description="Product analytics tables are wide, high-cardinality, and queried in many ways (DAU, funnels, retention, segmentation). hypequery gives TypeScript teams schema-generated types for event tables and a composable query layer for the analytics patterns that matter."
       primaryCta={{ href: '/docs/quick-start', label: 'Open quick start' }}
       secondaryCta={{ href: '/clickhouse-analytics', label: 'See the analytics layer overview' }}
       stats={[
@@ -138,7 +138,7 @@ export default function ClickHouseProductAnalyticsPage() {
         {
           title: 'Event tables have wide schemas that drift constantly',
           copy:
-            'Product analytics tables — events, sessions, funnels — have high cardinality and many columns that grow as new event types are added. Hand-written TypeScript interfaces for them are massive, tedious, and inevitably drift from the actual schema.',
+            'Product analytics tables such as events, sessions and funnels have high cardinality and many columns that grow as new event types are added. Hand-written TypeScript interfaces for them are massive, tedious, and inevitably drift from the actual schema.',
         },
         {
           title: 'Funnel and retention queries are hard to make reusable',
@@ -155,10 +155,10 @@ export default function ClickHouseProductAnalyticsPage() {
         eyebrow: 'Event queries',
         title: 'Schema-generated types for events and ClickHouse-native aggregations',
         description:
-          'The bottleneck in product analytics on ClickHouse is rarely query speed — it is the TypeScript layer around the queries. Generating types from the live schema ensures the types reflect reality, not a stale hand-written copy.',
+          'In product analytics on ClickHouse, the bottleneck is usually the TypeScript layer around the queries rather than query speed. Generating types from the live schema keeps them in line with the actual tables.',
         bullets: [
           'Run npx @hypequery/cli generate to introspect your events table and emit TypeScript types',
-          'Use uniq() for distinct user counts — ClickHouse HyperLogLog, not COUNT(DISTINCT)',
+          'Use uniq() for distinct user counts, which uses ClickHouse HyperLogLog instead of COUNT(DISTINCT)',
           'Use windowFunnel() for ordered funnel analysis within a time window',
           'Compose filters (tenant, date range, event type) using typed .where() calls',
           'Reuse the same query definitions across internal and customer-facing surfaces',
@@ -175,16 +175,16 @@ export default function ClickHouseProductAnalyticsPage() {
         eyebrow: 'Analytics API',
         title: 'Serve DAU, retention, and funnel metrics from a shared API layer',
         description:
-          'Once product analytics queries are defined as named contracts, the same definitions can serve an internal analytics dashboard, a customer-facing analytics page, and a scheduled report pipeline — without duplicating query logic.',
+          'Once product analytics queries are defined as named contracts, the same definitions can serve an internal analytics dashboard, a customer-facing analytics page, and a scheduled report pipeline without duplicating query logic.',
         paragraphs: [
-          'The key insight is that context-level tenant isolation — applied once in initServe — means every analytics query is safe to expose over HTTP without re-verifying the tenant filter per endpoint.',
-          'For teams building self-serve product analytics for customers, this is the foundation: one analytics definition, tenant-isolated by default, deliverable to multiple surfaces.',
+          'Tenant isolation is applied once, at the context level in initServe, so every analytics query is safe to expose over HTTP without re-verifying the tenant filter per endpoint.',
+          'For teams building self-serve product analytics for customers, this gives you one analytics definition that is tenant-isolated by default and can be delivered to multiple surfaces.',
         ],
         codePanel: {
           eyebrow: 'Product analytics API',
           title: 'DAU and retention as typed, tenant-isolated endpoints',
           description:
-            'The tenant isolation lives in the context, not in each query. Adding a new metric does not require remembering to add the tenant filter — it is structural.',
+            'The tenant isolation lives in the context, so individual queries do not repeat it. Adding a new metric does not require remembering to add the tenant filter.',
           code: analyticsApiCode,
         },
       }}

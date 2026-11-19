@@ -94,7 +94,7 @@ export default function ClickHouseAnalyticsPage() {
           eyebrow: 'Named query',
           title: 'One shared definition for a metric the product keeps using',
           description:
-            'The page gets much less abstract once you see the unit being shared. It is just a named query with typed input and one obvious place to change it later.',
+            'The unit being shared is a named query with typed input and one obvious place to change it later.',
           code: layerCode,
         },
       }}
@@ -102,16 +102,16 @@ export default function ClickHouseAnalyticsPage() {
         eyebrow: 'What reuse looks like',
         title: 'The query stays the same even when the consumer changes',
         description:
-          'This is the part that makes the architecture useful in practice. A server call, an HTTP endpoint, and a browser hook can all depend on the same query instead of growing their own local version.',
+          'A server call, an HTTP endpoint, and a browser hook can all depend on the same query instead of growing their own local version.',
         paragraphs: [
-          'That is the only claim this page really needs to make. It is not that SQL is hard. It is that reused analytics logic should stop being copied from file to file.',
+          'The claim here is narrow. Analytics logic that gets reused should live in one place instead of being copied from file to file.',
           'If your current pain is runtime types, go to the TypeScript page. If your current pain is tenant-scoped customer analytics, go to the SaaS analytics page.',
         ],
         codePanel: {
           eyebrow: 'Consumers',
           title: 'Three places the same metric can show up',
           description:
-            'Nothing fancy is happening here. The point is that the consumer changes and the definition does not.',
+            'The consumer changes and the definition stays the same.',
           code: consumerCode,
         },
       }}
@@ -124,7 +124,7 @@ export default function ClickHouseAnalyticsPage() {
         {
           title: 'What this is not',
           copy:
-            'This is not a huge BI platform and it is not trying to be. It is a code-first way to stop duplicating analytics logic inside a TypeScript or Python application.',
+            'hypequery is a code-first way to stop duplicating analytics logic inside a TypeScript or Python application. It is not a large BI platform and is not trying to become one.',
         },
         {
           title: 'What teams actually gain',
@@ -151,7 +151,7 @@ export default function ClickHouseAnalyticsPage() {
         {
           href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases',
           title: 'Why real-time data needs typed APIs',
-          description: 'The most direct articulation of the analytics-layer thesis behind these pages.',
+          description: 'The blog post that sets out the analytics-layer argument behind these pages.',
         },
         {
           href: '/clickhouse-typescript',
@@ -178,7 +178,7 @@ export default function ClickHouseAnalyticsPage() {
         eyebrow: 'Next step',
         title: 'Take one repeated metric and give it a single definition',
         description:
-          'Pick a metric that already exists in more than one place, move it into a named query, and wire one consumer to it. That is the fastest way to tell whether this model earns its place in your codebase.',
+          'Pick a metric that already exists in more than one place, move it into a named query, and wire one consumer to it. That is the fastest way to decide whether to adopt this model in your codebase.',
         primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-typescript', label: 'See TypeScript specifics' },
       }}

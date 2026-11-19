@@ -35,11 +35,11 @@ export const metadata: Metadata = {
 };
 
 const vocabulary = [
-  { term: 'Dimensions', copy: 'Attributes you group and filter by: status, country, plan, signup date.' },
+  { term: 'Dimensions', copy: 'Attributes you group and filter by, such as status, country, plan or signup date.' },
   { term: 'Measures', copy: 'Aggregations bound to a column, such as SUM(amount) or COUNT(DISTINCT user_id).' },
-  { term: 'Metrics', copy: 'Named business numbers built from measures: revenue, average order value, retention.' },
+  { term: 'Metrics', copy: 'Named business numbers built from measures, such as revenue, average order value or retention.' },
   { term: 'Entities and joins', copy: 'Which tables relate and how, so a query can group orders by customer country without hand-written joins.' },
-  { term: 'Time grain', copy: 'The agreed time column for each table and the grains it rolls up to: day, week, month.' },
+  { term: 'Time grain', copy: 'The agreed time column for each table and the grains it rolls up to (day, week, month).' },
   { term: 'Governed filters', copy: 'Rules every query gets whether it asks or not, such as excluding test accounts or scoping to one tenant.' },
 ] as const;
 
@@ -450,7 +450,7 @@ export default function SemanticLayerPage() {
           <ul className="list-disc space-y-2 pl-5">
             <li>
               <strong className="text-text">All your data is in Snowflake or Databricks</strong> and the consumers are BI
-              tools and the warehouse&rsquo;s own AI features: start with{' '}
+              tools and the warehouse&rsquo;s own AI features. Start with{' '}
               <Link href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>
                 Snowflake semantic views
               </Link>{' '}
@@ -462,7 +462,7 @@ export default function SemanticLayerPage() {
             </li>
             <li>
               <strong className="text-text">You already model in dbt</strong> and want one set of metrics across several
-              BI tools: the{' '}
+              BI tools. The{' '}
               <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
                 dbt Semantic Layer
               </Link>{' '}
@@ -470,7 +470,7 @@ export default function SemanticLayerPage() {
             </li>
             <li>
               <strong className="text-text">You need a serving layer with caching</strong> and APIs in front of any
-              warehouse: a standalone service such as Cube. If Cube is close but not quite right, the{' '}
+              warehouse. Use a standalone service such as Cube. If Cube is close but not quite right, the{' '}
               <Link href="/cube-js-alternative" className={inlineLink}>
                 Cube alternatives comparison
               </Link>{' '}
@@ -483,7 +483,7 @@ export default function SemanticLayerPage() {
             </li>
             <li>
               <strong className="text-text">The metrics power your own product</strong>, behind your API and in
-              customer-facing dashboards, with one customer&rsquo;s data per request: define them in code, where your
+              customer-facing dashboards, with one customer&rsquo;s data per request. Define them in code, where your
               backend already authenticates users. On ClickHouse, that is what{' '}
               <Link href="/clickhouse-semantic-layer" className={inlineLink}>
                 hypequery datasets

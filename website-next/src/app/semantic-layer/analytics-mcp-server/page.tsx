@@ -171,12 +171,12 @@ const faqItems: FaqItem[] = [
   {
     question: 'Is an analytics MCP server the same as text-to-SQL?',
     answer:
-      'A database MCP server is text-to-SQL with a standard interface: the model writes SQL and the server runs it. A semantic layer MCP server is different: the model chooses a metric, dimensions, filters and a time grain, and the layer writes the SQL. The second gives the same answer every time and cannot reach data outside the model.',
+      'A database MCP server is text-to-SQL with a standard interface. The model writes SQL and the server runs it. A semantic layer MCP server works differently. The model chooses a metric, dimensions, filters and a time grain, and the layer writes the SQL. The second gives the same answer every time and cannot reach data outside the model.',
   },
   {
     question: 'Should I use the ClickHouse MCP server or a semantic layer MCP server?',
     answer:
-      'Use mcp-clickhouse for exploration by people who already have database access: it is read-only by default, quick to set up and can answer questions nobody modelled. Use a semantic layer server, such as hypequery, when the agent is part of your product, serves customers, or must agree with your dashboards. Many teams run both, for different audiences.',
+      'Use mcp-clickhouse for exploration by people who already have database access. It is read-only by default, quick to set up and can answer questions nobody modelled. Use a semantic layer server, such as hypequery, when the agent is part of your product, serves customers, or must agree with your dashboards. Many teams run both, for different audiences.',
   },
   {
     question: 'What should an analytics MCP server expose to an agent?',
@@ -186,7 +186,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'How do permissions work with an analytics MCP server?',
     answer:
-      'For a database server, permissions are the database user’s grants: give it a read-only user that can see only what the agent should. For a semantic layer server, the layer applies tenant and row rules from the caller’s verified credential to every query it builds. Either way, permissions should never depend on the prompt.',
+      'For a database server, permissions are the database user’s grants, so give it a read-only user that can see only what the agent should. For a semantic layer server, the layer applies tenant and row rules from the caller’s verified credential to every query it builds. Either way, permissions should never depend on the prompt.',
   },
   {
     question: 'Can an analytics MCP server be used in a multi-tenant SaaS product?',
@@ -236,8 +236,8 @@ export default function AnalyticsMcpServerPage() {
       updated={UPDATED}
       lead={
         <p>
-          An analytics MCP server lets an AI agent answer data questions. The big choice is what its tools accept:
-          SQL the agent writes, or the names of metrics you defined. This guide covers both kinds, what to check before
+          An analytics MCP server lets an AI agent answer data questions. The big choice is what its tools accept,
+          either SQL the agent writes or the names of metrics you defined. This guide covers both kinds, what to check before
           production, and how the main servers compare.
         </p>
       }
@@ -384,18 +384,18 @@ export default function AnalyticsMcpServerPage() {
         intro={
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              Questions are one-off and the askers are engineers: a database MCP server answers things nobody modelled,
+              Questions are one-off and the askers are engineers. A database MCP server answers things nobody modelled,
               with no setup beyond a read-only user.
             </li>
             <li>
-              Your metrics already live in dbt on a supported warehouse: the dbt MCP server reuses them. Switch off its
+              Your metrics already live in dbt on a supported warehouse. The dbt MCP server reuses them. Switch off its
               SQL and CLI tools for a governed agent.
             </li>
             <li>
-              You want agents to build dashboards and edit the model, not only query: Cube&rsquo;s hosted server
+              You want agents to build dashboards and edit the model as well as query it. Cube&rsquo;s hosted server
               includes model-editing tools.
             </li>
-            <li>Everything is in Snowflake: its managed MCP server keeps tools and privileges inside Snowflake.</li>
+            <li>Everything is in Snowflake. Its managed MCP server keeps tools and privileges inside Snowflake.</li>
           </ul>
         }
       />

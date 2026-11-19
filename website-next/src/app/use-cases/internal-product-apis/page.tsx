@@ -92,7 +92,7 @@ export default function InternalProductApisUseCasePage() {
               Internal product APIs with embedded ClickHouse analytics
             </h1>
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
-              This is the migration path for teams that already have a backend and do not want to split it into a separate analytics service on day one. Keep the existing routes, move the query logic onto a shared path, and expose more only when it earns its place.
+              This is the migration path for teams that already have a backend and do not want to split it into a separate analytics service on day one. Keep the existing routes, move the query logic onto a shared path, and expose more only when you need it.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
@@ -171,14 +171,14 @@ export default function InternalProductApisUseCasePage() {
                 <p className={marketing.eyebrow}>Step 2</p>
                 <h3 className="mt-3 text-lg font-medium tracking-tight text-text">Compose in endpoints</h3>
 	                <p className="mt-3 text-sm leading-6 text-text-muted">
-	                  Pull analytics into existing business responses without turning every route into bespoke query code.
+	                  Pull analytics into existing business responses without turning every route into custom query code.
 	                </p>
               </div>
               <div className={marketing.card}>
                 <p className={marketing.eyebrow}>Step 3</p>
                 <h3 className="mt-3 text-lg font-medium tracking-tight text-text">Reuse query logic</h3>
 	                <p className="mt-3 text-sm leading-6 text-text-muted">
-	                  Keep one typed source of truth whether the query is called directly or exposed under an internal path.
+	                  Keep one typed query definition whether the query is called directly or exposed under an internal path.
 	                </p>
               </div>
             </div>
@@ -208,7 +208,7 @@ export default function InternalProductApisUseCasePage() {
             Define once, reuse everywhere
           </h2>
 	          <p className="mt-3 text-body text-text-muted">
-	            The same definition can back an internal route and an in-process call, which is the whole point of this adoption path.
+	            This adoption path depends on one definition backing both an internal route and an in-process call.
 	          </p>
           <CodeWindow code={defineOnceCode} filename="analytics/api.ts" className="mt-6" />
         </section>

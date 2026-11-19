@@ -73,7 +73,7 @@ export default function ClickHouseApiPage() {
       leadPage="/clickhouse-api"
       eyebrow="ClickHouse API"
       title="Build a ClickHouse API from typed query definitions"
-      description="The hard part of building a ClickHouse API is not opening an HTTP port. It is keeping request validation, auth, response shapes, and query logic from turning into four separate layers of code. hypequery keeps those concerns attached to the same query definition."
+      description="The hard part of building a ClickHouse API is keeping request validation, auth, response shapes, and query logic from turning into four separate layers of code. hypequery keeps those concerns attached to the same query definition."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-openapi', label: 'Generate OpenAPI docs' }}
       stats={[
@@ -159,7 +159,7 @@ export default function ClickHouseApiPage() {
         {
           title: 'ClickHouse API with OpenAPI docs',
           copy:
-            'OpenAPI generation is part of the workflow, not an afterthought. The same contract that defines the query also defines the API docs.',
+            'OpenAPI generation is built into the workflow. The same contract that defines the query also defines the API docs.',
         },
       ]}
       readingLinks={[

@@ -305,7 +305,7 @@ export default function ClickHousePythonPage() {
         eyebrow: 'Comparison',
         title: 'clickhouse-connect vs clickhouse-driver vs clickhouse-sqlalchemy vs hypequery',
         description:
-          'The first three are ways to send SQL to ClickHouse. hypequery is a layer above clickhouse-connect: you declare measures and dimensions, and it writes the SQL.',
+          'The first three are ways to send SQL to ClickHouse. hypequery is a layer above clickhouse-connect. You declare measures and dimensions, and it writes the SQL.',
         columns: [
           { label: 'clickhouse-connect' },
           { label: 'clickhouse-driver' },
@@ -432,8 +432,8 @@ export default function ClickHousePythonPage() {
         description:
           'Each panel computes revenue per country for completed orders on the six-row `orders` table created in the first panel. The comments show what each one printed, wrapped to fit.',
         paragraphs: [
-          'All three return the same rows. The `Decimal(12, 2)` sums differ in form: clickhouse-connect returned `Decimal(\'1119.00\')` with the column\'s scale, while clickhouse-driver, and clickhouse-sqlalchemy on top of it, returned `Decimal(\'1119\')`.',
-          'clickhouse-sqlalchemy\'s ORM works too: `session.query(...)` on a declarative model from `get_declarative_base()` ran the same aggregation through `make_session(engine)`.',
+          'All three return the same rows. The `Decimal(12, 2)` sums differ in form. clickhouse-connect returned `Decimal(\'1119.00\')` with the column\'s scale, while clickhouse-driver, and clickhouse-sqlalchemy on top of it, returned `Decimal(\'1119\')`.',
+          'clickhouse-sqlalchemy\'s ORM works too, and `session.query(...)` on a declarative model from `get_declarative_base()` ran the same aggregation through `make_session(engine)`.',
         ],
         codePanels: [
           {
@@ -539,7 +539,7 @@ export default function ClickHousePythonPage() {
             'Plain `pip install hypequery` installs only pydantic, tzdata, anyio and idna, so dataset definitions import without a database driver. Install `hypequery[clickhouse]`, or `hypequery[clickhouse-async]` for asyncio, to execute queries.',
             'The capture in the panel shows the request: the user agent is `clickhouse-connect/1.12.0`, the body holds the generated SQL with `{p0:String}` and `{p1:String}`, and the values travel as `param_p0` and `param_p1`.',
             'Keep calling clickhouse-connect directly for inserts, DDL and one-off SQL. Use hypequery for the measures several services read, so they share one definition and one tenant rule.',
-            'An existing SQLAlchemy engine works too: `executor_from_engine(engine)` accepted `clickhousedb://` and `clickhouse+http://` engines and refused `clickhouse+native://`, because server-side parameters need the HTTP interface.',
+            'An existing SQLAlchemy engine works too, through `executor_from_engine(engine)`, which accepted `clickhousedb://` and `clickhouse+http://` engines and refused `clickhouse+native://`, because server-side parameters need the HTTP interface.',
           ],
           codePanel: {
             eyebrow: 'On the wire',
@@ -575,7 +575,7 @@ export default function ClickHousePythonPage() {
         {
           title: 'Is clickhouse-driver still maintained?',
           copy:
-            'Yes, as of November 2026: 0.2.11 reached PyPI on 17 July 2026 and the GitHub repository is not archived. It is a community project, separate from ClickHouse\'s own clickhouse-connect.',
+            'Yes, as of November 2026. Version 0.2.11 reached PyPI on 17 July 2026 and the GitHub repository is not archived. It is a community project, separate from ClickHouse\'s own clickhouse-connect.',
         },
         {
           title: 'How do I get ClickHouse results into pandas?',

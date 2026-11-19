@@ -128,7 +128,7 @@ const compareRows = [
   ['Change process', 'CREATE OR REPLACE, or CREATE OR ALTER (preview); Terraform support is planned', 'A pull request, reviewed and deployed with the code that uses it'],
   ['Types', 'Validated by Snowflake when the view is created', 'Checked by the TypeScript compiler from dataset to response row'],
   ['Portability', 'Exports its own YAML and Apache Ossie YAML; exports Tableau data sources (preview)', 'Plain code; no Ossie export today'],
-  ['Price', 'No separate charge is documented: queries use warehouse compute. Cortex Analyst bills per message', 'Apache 2.0, free; runs on your ClickHouse'],
+  ['Price', 'No separate charge is documented, and queries use warehouse compute. Cortex Analyst bills per message', 'Apache 2.0, free; runs on your ClickHouse'],
 ];
 
 const faqItems: FaqItem[] = [
@@ -295,7 +295,7 @@ export default function SnowflakeSemanticViewsPage() {
         intro={
           <p>
             The same tables, join, dimension and metrics as hypequery datasets. Labels and descriptions play the part of
-            synonyms and comments for agents. The difference is the tenant key: instead of a row access policy that
+            synonyms and comments for agents. The difference is the tenant key. Instead of a row access policy that
             depends on which database role runs the query, the backend passes the signed-in customer on every request.
           </p>
         }
@@ -333,7 +333,7 @@ export default function SnowflakeSemanticViewsPage() {
               <li>Your data is in Snowflake, and that is where the metrics should be governed.</li>
               <li>You want Cortex Analyst, Cortex Agents or Snowflake&rsquo;s MCP server to answer questions in plain language.</li>
               <li>Analysts and BI tools are the consumers, and Snowflake roles and policies are already your access model.</li>
-              <li>You want nothing new to run: the view is metadata, and queries use the warehouses you already pay for.</li>
+              <li>You want nothing new to run. The view is metadata, and queries use the warehouses you already pay for.</li>
             </ul>
             <p>
               A code-defined layer fits when the metrics feed your own product rather than internal BI, and when that

@@ -82,7 +82,7 @@ export default function UseCasesPage() {
                 <p className="mt-2 text-2xl font-normal tracking-[-0.03em] text-text">Incremental</p>
               </div>
               <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">
-                <p className="font-mono text-xs text-text-dim">Source of truth</p>
+                <p className="font-mono text-xs text-text-dim">Where metrics are defined</p>
                 <p className="mt-2 text-2xl font-normal tracking-[-0.03em] text-text">Typed queries</p>
               </div>
               <div className="rounded-xl border border-border bg-bg-card p-5 shadow-card">

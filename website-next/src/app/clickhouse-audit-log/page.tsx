@@ -10,16 +10,16 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/clickhouse-audit-log'),
   },
   openGraph: {
-    images: ogImage('ClickHouse Audit Log — TypeScript Query Layer for Event Logs'),
+    images: ogImage('ClickHouse Audit Log: TypeScript Query Layer for Event Logs'),
     type: 'website',
     url: absoluteUrl('/clickhouse-audit-log'),
-    title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs | hypequery',
+    title: 'ClickHouse Audit Log: TypeScript Query Layer for Event Logs | hypequery',
     description:
       'Build audit-log APIs on ClickHouse with typed filters, cursor pagination, and reviewable tenant scoping patterns for append-only event tables.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs | hypequery',
+    title: 'ClickHouse Audit Log: TypeScript Query Layer for Event Logs | hypequery',
     description:
       'Build audit-log APIs on ClickHouse with typed filters, cursor pagination, and reviewable tenant scoping patterns for append-only event tables.',
   },
@@ -184,7 +184,7 @@ export default function ClickHouseAuditLogPage() {
       leadPage="/clickhouse-audit-log"
       eyebrow="ClickHouse Audit Log"
       title="Query ClickHouse audit logs with TypeScript and full type safety"
-      description="ClickHouse is well-suited for append-only audit log storage at scale. The challenge is building the TypeScript query layer around it — typed filters, strict tenant isolation, and paginated HTTP endpoints — without writing it from scratch for every project."
+      description="ClickHouse is well-suited for append-only audit log storage at scale. The challenge is building the TypeScript query layer around it (typed filters, strict tenant isolation, and paginated HTTP endpoints) without writing it from scratch for every project."
       primaryCta={{ href: '/docs/quick-start', label: 'Open quick start' }}
       secondaryCta={{ href: '/clickhouse-multi-tenant-analytics', label: 'See tenant isolation patterns' }}
       stats={[
@@ -199,9 +199,9 @@ export default function ClickHouseAuditLogPage() {
             'Audit log tables tend to grow: actor fields, resource fields, action types, metadata columns. Hand-written TypeScript interfaces for them become stale quickly. Schema-generated types that reflect the live ClickHouse table are the only reliable approach.',
         },
         {
-          title: 'Audit log queries need strict tenant isolation — a leak exposes one customer\'s actions to another',
+          title: 'Audit log queries need strict tenant isolation because a leak exposes one customer\'s actions to another',
           copy:
-            'Tenant isolation in audit logs is a compliance requirement, not just a product feature. A WHERE tenant_id = ? clause in every query is easy to forget. A context-level isolation pattern that applies the filter structurally is much harder to bypass accidentally.',
+            'Tenant isolation in audit logs is a compliance requirement. A WHERE tenant_id = ? clause in every query is easy to forget. A context-level isolation pattern that applies the filter structurally is much harder to bypass accidentally.',
         },
         {
           title: 'Exposing audit logs via API requires filtering, pagination, and sometimes search',
@@ -218,7 +218,7 @@ export default function ClickHouseAuditLogPage() {
           'Run npx @hypequery/cli generate to emit TypeScript types from the audit_log table',
           'DateTime → string, UInt64 → string, Nullable(T) → T | null',
           'Compose filters (actor, action, resource, date range) as typed .where() calls',
-          'Add optional filters conditionally — no string interpolation, no SQL injection risk',
+          'Add optional filters conditionally, with no string interpolation and no SQL injection risk',
           'Use .orderBy("created_at", "DESC") with keyset pagination for stable results on append-only tables',
         ],
         codePanel: {
@@ -265,7 +265,7 @@ export default function ClickHouseAuditLogPage() {
         {
           title: 'ClickHouse tenant audit logs',
           copy:
-            'Tenant isolation for audit logs is best handled at context level — not scattered across individual queries. A structural approach ensures the isolation is never missing from a new endpoint.',
+            'Tenant isolation for audit logs is best handled once at context level instead of in each individual query. A structural approach ensures the isolation is never missing from a new endpoint.',
         },
       ]}
       readingLinks={[

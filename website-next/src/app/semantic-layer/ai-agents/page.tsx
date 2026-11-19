@@ -17,7 +17,7 @@ import { updatedFor } from '@/data/page-dates';
 const PATH = '/semantic-layer/ai-agents';
 const TITLE = 'AI Semantic Layer: Governed Metrics for AI Agents over MCP (2026)';
 const DESCRIPTION =
-  'Why AI agents need a semantic layer, not raw text-to-SQL: what to look for (named metrics, tenant scope, query limits) and how tools expose metrics over MCP.';
+  'Why AI agents need a semantic layer instead of raw text-to-SQL, what to look for (named metrics, tenant scope, query limits) and how tools expose them over MCP.';
 const UPDATED = updatedFor(PATH);
 // Every vendor claim was checked on the vendor's own site, docs or repository on this date. See seo-verification-log.md.
 const VERIFIED_ON = 'November 13, 2026';
@@ -100,7 +100,7 @@ const checklistRows = [
 const optionsRows = [
   [
     'hypequery',
-    '@hypequery/mcp (TypeScript) or the Python package: stdio, or HTTP with your app’s auth',
+    '@hypequery/mcp (TypeScript) or the Python package, over stdio or HTTP with your app’s auth',
     'list_datasets, get_dataset_schema, query_metric, query_dataset',
     'None',
     'Tenant from server config or the caller’s verified credential; tenant filters from the agent are rejected',
@@ -172,12 +172,12 @@ const faqItems: FaqItem[] = [
   {
     question: 'What is agentic analytics?',
     answer:
-      'Analytics where an AI agent answers data questions itself: it picks the metric, runs the query through a tool, and explains the result, instead of a person building a dashboard first. An analytics agent is only as reliable as the definitions it queries, which is why it is usually paired with a semantic layer rather than raw table access.',
+      'Analytics where an AI agent answers data questions itself. It picks the metric, runs the query through a tool, and explains the result, instead of a person building a dashboard first. An analytics agent is only as reliable as the definitions it queries, which is why it is usually paired with a semantic layer rather than raw table access.',
   },
   {
     question: 'Is text-to-SQL enough for an analytics agent?',
     answer:
-      'For an analyst exploring a warehouse they already have access to, often yes. For an agent inside a product, it is risky: the agent can read any table its credentials reach, compute a metric differently from your dashboard, or leave out a tenant filter. Query tools over named metrics remove those choices from the agent.',
+      'For an analyst exploring a warehouse they already have access to, often yes. For an agent inside a product, it is risky. The agent can read any table its credentials reach, compute a metric differently from your dashboard, or leave out a tenant filter. Query tools over named metrics remove those choices from the agent.',
   },
   {
     question: 'What is an MCP server for a semantic layer?',
@@ -266,13 +266,13 @@ export default function SemanticLayerAiAgentsPage() {
             <p>
               It is the same semantic layer your dashboards use, exposed to an agent as tools. Instead of reading table
               schemas and writing SQL, the agent lists the metrics and dimensions you defined, reads their descriptions,
-              and asks for one by name: revenue by country, by month. The layer writes the SQL, applies access rules and
+              and asks for one by name, such as revenue by country, by month. The layer writes the SQL, applies access rules and
               returns rows.
             </p>
             <p>
-              Most agents connect through MCP, the Model Context Protocol. What matters is what the tools allow: query
-              by name only, or also run any SQL; tenant set by the server, or chosen by the agent; bounded results, or
-              whatever the agent asks for.
+              Most agents connect through MCP, the Model Context Protocol. What matters is what the tools allow. Can the agent
+              query by name only, or also run any SQL? Does the server set the tenant, or does the agent choose it? Are
+              results bounded, or does the agent get whatever it asks for?
             </p>
           </>
         ),
@@ -417,20 +417,20 @@ export default function SemanticLayerAiAgentsPage() {
           <>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                Your data is in Snowflake and the agent serves internal users: Snowflake semantic views and Cortex
+                Your data is in Snowflake and the agent serves internal users. Snowflake semantic views and Cortex
                 Analyst keep the model, the data and the permissions in one place.
               </li>
               <li>
-                Your metrics already live in dbt on a supported warehouse: the dbt MCP server reuses them, with the
+                Your metrics already live in dbt on a supported warehouse. The dbt MCP server reuses them, with the
                 Semantic Layer tools on a paid dbt plan. For a governed agent, switch off its SQL and CLI tools.
               </li>
               <li>
-                One model must serve many databases and BI tools as well as agents: Cube covers more sources and more
+                One model must serve many databases and BI tools as well as agents. Cube covers more sources and more
                 client APIs than a library inside one app.
               </li>
             </ul>
             <p>
-              Use hypequery when the data is in ClickHouse and the agent is part of your product: the metric
+              Use hypequery when the data is in ClickHouse and the agent is part of your product. The metric
               definitions, tenant rules and MCP server ship with the application that already knows who each user is.
             </p>
           </>

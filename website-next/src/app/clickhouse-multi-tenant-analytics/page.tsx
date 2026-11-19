@@ -92,7 +92,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           eyebrow: 'Serve config',
           title: 'Configure tenant scoping once',
           description:
-            'This is the important architectural move: tenant enforcement belongs in the runtime layer, not as a repeated code-review checklist item.',
+            'Tenant enforcement belongs in the runtime layer, so it does not depend on reviewers checking every query for the filter.',
           code: tenantCode,
         },
       }}
@@ -107,7 +107,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         ],
         codePanel: {
           eyebrow: 'Query authoring',
-          title: 'Write the query, not the isolation boilerplate',
+          title: 'Write the query without the isolation boilerplate',
           description:
             'The query stays focused on the metric. Tenant filtering is enforced by the surrounding runtime configuration.',
           code: queryCode,
@@ -117,7 +117,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
         {
           title: 'ClickHouse multi-tenant SaaS analytics',
           copy:
-            'If you run one ClickHouse cluster for many customers, your main design problem is governed query access, not just raw SQL performance.',
+            'If you run one ClickHouse cluster for many customers, your main design problem is governed query access.',
         },
         {
           title: 'Tenant isolation in analytics APIs',

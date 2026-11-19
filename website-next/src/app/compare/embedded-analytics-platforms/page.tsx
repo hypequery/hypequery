@@ -380,7 +380,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
         <p>
           Start with who needs to build the dashboard. If it is your engineers, shortlist Cube, Embeddable or hypequery.
           If product teams need a visual builder, look at Luzmo, GoodData or Sisense. If you already have an internal BI
-          tool—or need the lowest-cost route—Metabase, Power BI, Looker or Superset may be a better fit. This guide
+          tool, or need the lowest-cost route, Metabase, Power BI, Looker or Superset may be a better fit. This guide
           compares all 15 by embedding method, tenant isolation, ClickHouse support and price.
         </p>
       }

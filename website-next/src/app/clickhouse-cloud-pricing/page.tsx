@@ -38,7 +38,7 @@ const extLink = 'underline decoration-border-strong underline-offset-4 hover:tex
 const PRICING_URL = 'https://clickhouse.com/pricing';
 
 const planRows = [
-  ['Basic', '$0.2181', '$25.30', 'Up to 1 TB storage, 8–12 GiB total memory, 1 availability zone, daily backups kept 1 day', 'Testing ideas and starter projects'],
+  ['Basic', '$0.2181', '$25.30', 'Up to 1 TB storage, 8 to 12 GiB total memory, 1 availability zone, daily backups kept 1 day', 'Testing ideas and starter projects'],
   ['Scale', '$0.2985', '$25.30', 'Unlimited storage, configurable memory, 2+ availability zones, compute-compute separation, private networking, automatic vertical scaling', 'Production workloads'],
   ['Enterprise', '$0.3903', '$25.30', 'Everything in Scale plus SAML SSO, private regions, CMEK, scheduled upgrades, HIPAA and PCI compliance', 'Very large or regulated workloads'],
 ];
@@ -63,12 +63,12 @@ const faqItems: FaqItem[] = [
   {
     question: 'How much does ClickHouse Cloud cost?',
     answer:
-      'Compute is billed per minute in compute units of 8 GiB RAM and 2 vCPUs: on AWS us-east-1, $0.2181 per unit-hour on Basic, $0.2985 on Scale and $0.3903 on Enterprise. Storage is $25.30 per TB-month of compressed data on every plan. One Basic unit running all month is about $159 of compute. Prices checked on clickhouse.com/pricing on November 14, 2026.',
+      'Compute is billed per minute in compute units of 8 GiB RAM and 2 vCPUs. On AWS us-east-1 the rate is $0.2181 per unit-hour on Basic, $0.2985 on Scale and $0.3903 on Enterprise. Storage is $25.30 per TB-month of compressed data on every plan. One Basic unit running all month is about $159 of compute. Prices checked on clickhouse.com/pricing on November 14, 2026.',
   },
   {
     question: 'Is there a free tier for ClickHouse Cloud?',
     answer:
-      'There is a free trial rather than a free tier: every new organization gets $300 in credits for 30 days, then moves to pay as you go. The open-source ClickHouse distribution is free to self-host.',
+      'There is a free trial rather than a free tier. Every new organization gets $300 in credits for 30 days, then moves to pay as you go. The open-source ClickHouse distribution is free to self-host.',
   },
   {
     question: 'What is a ClickHouse Cloud compute unit?',
@@ -88,12 +88,12 @@ const faqItems: FaqItem[] = [
   {
     question: 'What else appears on a ClickHouse Cloud bill?',
     answer:
-      'Backups, ClickPipes ingestion, and data transfer: public internet egress from $0.1152 per GB and inter-region egress from $0.0312 per GB. Ingress is free.',
+      'Backups, ClickPipes ingestion, and data transfer. Public internet egress starts at $0.1152 per GB and inter-region egress at $0.0312 per GB. Ingress is free.',
   },
   {
     question: 'Is ClickHouse Cloud cheaper than Tinybird?',
     answer:
-      'At the entry level, no: Tinybird has a free plan and a Developer plan from $25 a month (checked November 14, 2026), while one Basic ClickHouse Cloud unit running all month is about $159. A ClickHouse Cloud service that idles much of the day can cost less, and the two bill differently (compute minutes versus a plan sized in vCPUs), so compare on your own workload.',
+      'At the entry level, no. Tinybird has a free plan and a Developer plan from $25 a month (checked November 14, 2026), while one Basic ClickHouse Cloud unit running all month is about $159. A ClickHouse Cloud service that idles much of the day can cost less, and the two bill differently (compute minutes versus a plan sized in vCPUs), so compare on your own workload.',
   },
 ];
 
@@ -154,8 +154,8 @@ export default function ClickHouseCloudPricingPage() {
           rows={planRows}
         />
         <p className="mt-4 text-xs leading-5 text-text-dim">
-          A compute unit is 8 GiB of RAM and 2 vCPUs, metered per minute. Data transfer is extra: public internet egress
-          from $0.1152 per GB and inter-region egress from $0.0312 per GB; ingress is free. ClickPipes ingestion is priced
+          A compute unit is 8 GiB of RAM and 2 vCPUs, metered per minute. Data transfer is extra. Public internet egress
+          starts at $0.1152 per GB and inter-region egress at $0.0312 per GB, and ingress is free. ClickPipes ingestion is priced
           by connector.
         </p>
       </HubSection>
@@ -185,7 +185,7 @@ export default function ClickHouseCloudPricingPage() {
         title="How to keep a ClickHouse Cloud bill down"
         intro={
           <ul className="list-disc space-y-2 pl-5">
-            <li>Let services idle: compute scales to zero after inactivity, so intermittent workloads pay only for active minutes.</li>
+            <li>Let services idle. Compute scales to zero after inactivity, so intermittent workloads pay only for active minutes.</li>
             <li>Set a maximum autoscaling limit so an unexpected query load can’t grow compute without bound.</li>
             <li>Use Basic for development and testing; it is the cheapest rate and has the smallest limits.</li>
             <li>With compute-compute separation (Scale and Enterprise), several services share one copy of the data, so storage is billed once.</li>

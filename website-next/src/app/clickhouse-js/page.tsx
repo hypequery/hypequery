@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse JS — JavaScript & TypeScript Query Builder',
+  title: 'ClickHouse JS: JavaScript & TypeScript Query Builder',
   description:
     'Use ClickHouse from JavaScript without living on raw query strings, hand-written row types, and repeated response parsing.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-js'),
   },
   openGraph: {
-    images: ogImage('ClickHouse JS — JavaScript & TypeScript Query Builder'),
+    images: ogImage('ClickHouse JS: JavaScript & TypeScript Query Builder'),
     type: 'website',
     url: absoluteUrl('/clickhouse-js'),
-    title: 'ClickHouse JS — JavaScript & TypeScript Query Builder | hypequery',
+    title: 'ClickHouse JS: JavaScript & TypeScript Query Builder | hypequery',
     description:
       'The JavaScript and TypeScript query builder built specifically for ClickHouse. Generated schema types, composable queries, HTTP API, and React hooks.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse JS — JavaScript & TypeScript Query Builder | hypequery',
+    title: 'ClickHouse JS: JavaScript & TypeScript Query Builder | hypequery',
     description:
       'Stop writing raw SQL strings for ClickHouse in JavaScript. hypequery gives you schema-generated types, a composable query builder, and typed HTTP APIs.',
   },
@@ -112,10 +112,10 @@ export default function ClickHouseJSPage() {
         eyebrow: 'What changes',
         title: 'Keep the JavaScript runtime, replace the fragile query layer',
         description:
-          'The useful move is not adopting a whole new stack. It is generating a schema file from ClickHouse and using that as the basis for query code, so JavaScript callers stop inventing row types ad hoc.',
+          'You keep your existing stack. Generate a schema file from ClickHouse and use it as the basis for query code, so JavaScript callers stop inventing row types ad hoc.',
         bullets: [
           'Schema types generated from your live ClickHouse database',
-          'Correct JS runtime type mappings — DateTime→string, UInt64→string, Nullable→T|null',
+          'Correct JS runtime type mappings (DateTime→string, UInt64→string, Nullable→T|null)',
           'Composable builder with filters, groupBy, orderBy, and aggregations',
           'Composable builder plus raw SQL escape hatches for ClickHouse-specific clauses',
           'Works across Node.js, Next.js, Bun, and other JavaScript runtimes',
@@ -124,7 +124,7 @@ export default function ClickHouseJSPage() {
           eyebrow: 'Before vs after',
           title: 'From raw client rows to schema-aware query results',
           description:
-            'The important difference is not style. It is that the second version has a real type source instead of leaving every caller to cast the result however it likes.',
+            'The second version has a real type source. The first leaves every caller to cast the result however it likes.',
           code: `${rawClientCode}\n\n// ---\n\n${hypequerCode}`,
         },
       }}
@@ -176,7 +176,7 @@ export default function ClickHouseJSPage() {
         {
           href: '/clickhouse-query-builder',
           title: 'ClickHouse query builders compared',
-          description: 'Every realistic JavaScript and TypeScript option in 2026 — with honest tradeoffs on each.',
+          description: 'Every realistic JavaScript and TypeScript option in 2026, with honest tradeoffs on each.',
         },
         {
           href: '/blog/clickhouse-typescript-type-problem',
@@ -200,7 +200,7 @@ export default function ClickHouseJSPage() {
         eyebrow: 'Next step',
         title: 'Replace one raw query in a JavaScript runtime you already own',
         description:
-          'Pick a query that currently returns untyped rows, generate the schema, and move that query onto the builder. That is enough to see whether the workflow earns its place.',
+          'Pick a query that currently returns untyped rows, generate the schema, and move that query onto the builder. That one query is enough to tell whether generated types save you work.',
         primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/docs/schemas', label: 'Read the schemas guide' },
       }}

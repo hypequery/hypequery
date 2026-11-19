@@ -8,18 +8,18 @@ export const metadata: Metadata = {
     'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },
   openGraph: {
-    images: ogImage('ClickHouse Schema — TypeScript Types Generated from Your Database'),
+    images: ogImage('ClickHouse Schema: TypeScript Types Generated from Your Database'),
     type: 'website',
     url: absoluteUrl('/clickhouse-schema'),
-    title: 'ClickHouse Schema — TypeScript Types from Your Database | hypequery',
+    title: 'ClickHouse Schema: TypeScript Types from Your Database | hypequery',
     description:
-      'Stop hand-writing ClickHouse TypeScript interfaces. hypequery generates correct schema types from your live database — including ClickHouse-specific type mappings.',
+      'Stop hand-writing ClickHouse TypeScript interfaces. hypequery generates correct schema types from your live database, with ClickHouse-specific type mappings.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ClickHouse Schema Generation for TypeScript | hypequery',
     description:
-      'Generate TypeScript types from your live ClickHouse schema. Correct mappings for DateTime, UInt64, Nullable, and Decimal — automatically.',
+      'Generate TypeScript types from your live ClickHouse schema. hypequery maps DateTime, UInt64, Nullable, and Decimal correctly for you.',
   },
 };
 
@@ -57,7 +57,7 @@ export default function ClickHouseSchemaPage() {
       leadPage="/clickhouse-schema"
       eyebrow="ClickHouse Schema"
       title="Generate TypeScript types from your live ClickHouse schema"
-      description="The first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
+      description="The first problem most TypeScript teams hit on ClickHouse is a type mismatch. The database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/docs/schemas', label: 'Read the schemas guide' }}
       stats={[
@@ -79,14 +79,14 @@ export default function ClickHouseSchemaPage() {
         {
           title: 'Raw clients push the typing problem downstream',
           copy:
-            'If the client gives you `any[]`, somebody still has to decide what the rows look like. That usually ends in a cast, which means the most important boundary in the system is left unchecked.',
+            'If the client gives you `any[]`, somebody still has to decide what the rows look like. That usually ends in a cast, which leaves the boundary between the database and your code unchecked.',
         },
       ]}
       solutionSection={{
         eyebrow: 'What generate actually does',
         title: 'Read the live schema and write the TypeScript file you would not maintain by hand',
         description:
-          'The `generate` command introspects the live ClickHouse schema and writes a database interface you can import everywhere else. The value is not that a file appears. The value is that query code now starts from the same source of truth as the database.',
+          'The `generate` command introspects the live ClickHouse schema and writes a database interface you can import everywhere else. From then on, your query code starts from the column types the database itself reports.',
         bullets: [
           'Reads schema from your live ClickHouse information_schema',
           'Correct mappings: DateTime→string, UInt64→string, Nullable(T)→T|null, Decimal→string',
@@ -106,16 +106,16 @@ export default function ClickHouseSchemaPage() {
         eyebrow: 'What you get back',
         title: 'A schema file that reflects runtime reality',
         description:
-          'The generated output matters because it becomes boring infrastructure: import it once, build queries against it, and let TypeScript flag the places that no longer match after a schema change.',
+          'The generated output becomes boring infrastructure. You import it once, build queries against it, and let TypeScript flag the places that no longer match after a schema change.',
         paragraphs: [
           'The mappings follow ClickHouse runtime behavior rather than wishful TypeScript shapes. That is why `UInt64` stays a string and why `DateTime` does not become `Date` automatically.',
-          'Once this file exists, the rest of the tooling gets simpler: autocomplete is better, casts disappear, and query edits stop feeling like blind string manipulation.',
+          'Once this file exists, the rest of the tooling gets simpler. Autocomplete improves, casts disappear, and query edits stop feeling like blind string manipulation.',
         ],
         codePanel: {
           eyebrow: 'Generated schema',
           title: 'The kind of file you import everywhere else',
           description:
-            'This is the useful artifact: a database-shaped interface that matches what ClickHouse actually returns, not what a relational ORM would prefer it to return.',
+            'This file is a database-shaped interface that matches what ClickHouse actually returns.',
           code: outputCode,
         },
       }}
@@ -138,7 +138,7 @@ export default function ClickHouseSchemaPage() {
         {
           title: 'What this page is not about',
           copy:
-            'This is not a migrations page and it is not an ORM page. It is the narrow piece that keeps runtime ClickHouse shapes and TypeScript expectations aligned.',
+            'This page covers one narrow piece: keeping runtime ClickHouse shapes and TypeScript expectations aligned. It does not cover migrations or ORMs.',
         },
         {
           title: 'Where to go after this',
@@ -150,7 +150,7 @@ export default function ClickHouseSchemaPage() {
         {
           href: '/docs/schemas',
           title: 'Schemas guide',
-          description: 'The full reference for schema generation — options, configuration, and the complete type mapping table.',
+          description: 'The full reference for schema generation, covering options, configuration, and the complete type mapping table.',
         },
         {
           href: '/clickhouse-query-builder',

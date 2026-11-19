@@ -40,7 +40,7 @@ const tableRows = [
   ['hypequery', 'Semantic layer (library)', 'ClickHouse only', 'Tenant key per dataset; un-scoped queries fail', 'Open source, free', 'ClickHouse teams who build their own UI'],
   ['Embeddable', 'Your React components plus a no-code builder, on Cube', 'ClickHouse, Postgres, Snowflake, BigQuery and more', 'Security context in a token; filters or access policies', 'Flat subscription, custom pricing (contact sales)', 'Engineers build components, others build dashboards'],
   ['Cube', 'Semantic layer (service)', 'About 26 engines, including ClickHouse', 'JWT security context with queryRewrite', 'Per developer plus hourly infrastructure', 'One model over many databases'],
-  ['Sigma', 'BI with secure embedding', 'ClickHouse in beta', 'JWT claims, row-level security, Sigma Tenants', 'Custom pricing (contact sales)', 'Customers who analyse, not just view'],
+  ['Sigma', 'BI with secure embedding', 'ClickHouse in beta', 'JWT claims, row-level security, Sigma Tenants', 'Custom pricing (contact sales)', 'Customers who analyse data themselves'],
   ['GoodData', 'Embedded BI platform', '23 sources, including ClickHouse', 'A workspace per customer with data filters', 'Platform fee plus per workspace, custom pricing (contact sales)', 'Managed multi-tenant BI'],
   ['Metabase', 'BI with embedding', 'Built-in ClickHouse driver', 'Tenants with SSO, or locked parameters in a guest token', 'Free open source; Pro from $575/month plus $12/user', 'Low cost to start, self-hostable'],
 ];
@@ -129,7 +129,7 @@ export default function LuzmoAlternativesPage() {
       lead={
         <p>
           Choose Embeddable when engineers should own the chart components but other teams need a dashboard builder.
-          Choose Cube—or hypequery on ClickHouse—when you want a headless data layer and will build the UI yourself.
+          Choose Cube, or hypequery on ClickHouse, when you want a headless data layer and will build the UI yourself.
           Choose Sigma, GoodData or Metabase when customers need to explore data like analysts. If price is the reason
           you are leaving Luzmo, start with Metabase, Power BI Embedded or Apache Superset.
         </p>

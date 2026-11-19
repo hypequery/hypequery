@@ -8,18 +8,18 @@ export const metadata: Metadata = {
     'Generate an OpenAPI spec from real ClickHouse query definitions, so docs, request validation and response schemas stay aligned with the code you ship.',
   alternates: { canonical: absoluteUrl('/clickhouse-openapi') },
   openGraph: {
-    images: ogImage('ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions'),
+    images: ogImage('ClickHouse OpenAPI: Auto-Generated Docs from Query Definitions'),
     type: 'website',
     url: absoluteUrl('/clickhouse-openapi'),
-    title: 'ClickHouse OpenAPI — Auto-Generated from Query Definitions | hypequery',
+    title: 'ClickHouse OpenAPI: Auto-Generated from Query Definitions | hypequery',
     description:
       'Define ClickHouse queries. Get OpenAPI docs automatically. hypequery generates the full spec from your input and output types.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse OpenAPI — Auto-Generated Docs | hypequery',
+    title: 'ClickHouse OpenAPI: Auto-Generated Docs | hypequery',
     description:
-      'hypequery automatically generates an OpenAPI spec from your ClickHouse query definitions — typed endpoints, validation, and Swagger UI included.',
+      'hypequery automatically generates an OpenAPI spec from your ClickHouse query definitions, with typed endpoints, validation, and Swagger UI included.',
   },
 };
 
@@ -97,7 +97,7 @@ export default function ClickHouseOpenApiPage() {
       leadPage="/clickhouse-openapi"
       eyebrow="ClickHouse OpenAPI"
       title="Auto-generated OpenAPI docs from ClickHouse query definitions"
-      description="Most internal analytics APIs never get documented properly because the spec is a second thing to maintain. hypequery makes the docs fall out of the query definition, so the request shape, response shape, and served endpoint stay in sync."
+      description="Internal analytics APIs often go undocumented because the spec is a second thing to maintain. hypequery makes the docs fall out of the query definition, so the request shape, response shape, and served endpoint stay in sync."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-api', label: 'See the REST API' }}
       stats={[
@@ -132,11 +132,11 @@ export default function ClickHouseOpenApiPage() {
           'Response schema derived from ClickHouse-generated TypeScript types',
           'Full OpenAPI 3.1 spec available at /openapi.json',
           'Interactive Swagger UI available at /docs',
-          'Spec changes when the query definition changes, not on a separate docs schedule',
+          'Spec updates whenever the query definition changes',
         ],
         codePanel: {
           eyebrow: 'Query definition',
-          title: 'The source of truth is the served query',
+          title: 'The served query defines the spec',
           description:
             'This is the only code you should need to maintain. The spec is derived from the input schema and the inferred query result instead of being copied into OpenAPI YAML.',
           code: queryCode,
@@ -146,7 +146,7 @@ export default function ClickHouseOpenApiPage() {
         eyebrow: 'What the client sees',
         title: 'The generated spec is boring in the right way',
         description:
-          'A good generated spec should look ordinary. That is the point. Consumers get a standard OpenAPI document they can inspect, feed into tooling, or use to generate clients without knowing anything about hypequery.',
+          'A good generated spec should look ordinary. Consumers get a standard OpenAPI document they can inspect, feed into tooling, or use to generate clients without knowing anything about hypequery.',
         paragraphs: [
           'That makes client generation viable again. If you feed this into `openapi-typescript`, the resulting client types are grounded in the same query definitions that serve production traffic.',
           'If your main problem is the endpoint layer itself, go to the REST API page. If the problem is browser consumption, pair this with the React page.',
@@ -155,7 +155,7 @@ export default function ClickHouseOpenApiPage() {
           eyebrow: 'Generated spec',
           title: 'A normal OpenAPI response, not a custom format',
           description:
-            'What matters here is not the JSON itself. It is that the output is plain OpenAPI, which means the rest of your tooling can stay standard.',
+            'The output is plain OpenAPI, so the rest of your tooling can stay standard.',
           code: openApiOutput,
         },
       }}
@@ -205,7 +205,7 @@ export default function ClickHouseOpenApiPage() {
         {
           href: '/clickhouse-schema',
           title: 'ClickHouse schema generation',
-          description: 'How the TypeScript types are generated from your ClickHouse schema — the source of the response schemas.',
+          description: 'How the TypeScript types are generated from your ClickHouse schema, which is where the response schemas come from.',
         },
       ]}
       relatedPillars={[

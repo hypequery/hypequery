@@ -164,7 +164,7 @@ export default function ClickHouseTimeSeriesPage() {
       leadPage="/clickhouse-time-series"
       eyebrow="ClickHouse Time Series"
       title="Typed time-series queries on ClickHouse in TypeScript"
-      description="Time-series queries are the most common ClickHouse use case and the most common source of subtle TypeScript bugs — because ClickHouse DateTime columns return as strings and ClickHouse date functions are specific to ClickHouse SQL. hypequery gives TypeScript teams a composable, type-safe path to time-series analytics."
+      description="Time-series queries are the most common ClickHouse use case, and they are where many subtle TypeScript bugs come from, because ClickHouse DateTime columns return as strings and ClickHouse date functions are specific to ClickHouse SQL. hypequery gives TypeScript teams a composable, type-safe path to time-series analytics."
       primaryCta={{ href: '/docs/quick-start', label: 'Open quick start' }}
       secondaryCta={{ href: '/clickhouse-analytics', label: 'See analytics layer overview' }}
       stats={[
@@ -174,19 +174,19 @@ export default function ClickHouseTimeSeriesPage() {
       ]}
       problems={[
         {
-          title: 'ClickHouse date functions are ClickHouse-specific — generic query builders miss them',
+          title: 'Generic query builders miss ClickHouse-specific date functions',
           copy:
             "Time-series queries in ClickHouse live or die on date bucketing. toStartOfDay, toStartOfHour, and toStartOfWeek are central to the workload, and a TypeScript layer needs to make those patterns readable instead of burying them in repetitive string fragments.",
         },
         {
-          title: 'DateTime columns return as strings — TypeScript that expects Date objects breaks silently',
+          title: 'DateTime columns return as strings, so TypeScript that expects Date objects breaks silently',
           copy:
             "ClickHouse DateTime columns are returned as strings over the HTTP interface. TypeScript code that assigns them to Date properties or passes them to functions expecting Date objects compiles fine but behaves incorrectly at runtime. Schema-generated types map DateTime to string explicitly, making the correct handling visible.",
         },
         {
           title: 'Reusable time-range filters get duplicated across every time-series query',
           copy:
-            'Last 7 days, last 30 days, custom range — every chart in a time-series dashboard needs the same time-range logic. Without a shared, composable pattern, the date arithmetic is copy-pasted across every query and endpoint, making changes fragile.',
+            'Every chart in a time-series dashboard needs the same time-range logic, whether it is the last 7 days, the last 30 days or a custom range. Without a shared, composable pattern, the date arithmetic is copy-pasted across every query and endpoint, making changes fragile.',
         },
       ]}
       solutionSection={{
@@ -195,17 +195,17 @@ export default function ClickHouseTimeSeriesPage() {
         description:
           'The foundation of correct time-series queries in TypeScript on ClickHouse is understanding the DateTime → string mapping and using it intentionally. Schema generation makes this explicit at the type level rather than leaving it as a runtime discovery.',
         bullets: [
-          'Generate schema types — DateTime columns appear as string in the emitted TypeScript',
+          'Generate schema types, and DateTime columns appear as string in the emitted TypeScript',
           'Use toStartOfDay(created_at) as day in .select() for daily bucketing',
           'GroupBy the alias (day) not the expression to avoid repetition',
-          'UInt64 aggregates (count, sum) also return as string — parse at the chart layer with parseInt or parseFloat',
+          'UInt64 aggregates (count, sum) also return as string, so parse them at the chart layer with parseInt or parseFloat',
           'Parse ClickHouse DateTime strings explicitly in the chart layer and be deliberate about timezone handling',
         ],
         codePanel: {
           eyebrow: 'Time-series query',
           title: 'Daily metrics query with toStartOfDay and typed DateTime strings',
           description:
-            'The return type comment makes the string nature of all numeric and date fields explicit. This is what schema generation emits — and what the chart layer must handle correctly.',
+            'The return type comment makes the string nature of all numeric and date fields explicit. This is what schema generation emits, and the chart layer must handle it correctly.',
           code: timeSeriesQueryCode,
         },
       }}
@@ -215,14 +215,14 @@ export default function ClickHouseTimeSeriesPage() {
         description:
           'A reusable time-series query accepts granularity (minute/hour/day/week) and either a preset range or explicit start/end dates. This single definition replaces the per-chart date logic that typically gets duplicated across dashboards.',
         paragraphs: [
-          'The granularityFn map keeps the ClickHouse-specific function names in one place. If the available granularities change, the map is the only thing that needs updating — not every query that uses date bucketing.',
+          'The granularityFn map keeps the ClickHouse-specific function names in one place. If the available granularities change, you update the map. Queries that use date bucketing stay as they are.',
           'Preset time ranges are pre-computed in TypeScript before being passed to ClickHouse. This is simpler than using ClickHouse NOW() minus interval expressions, which are harder to type and test.',
         ],
         codePanel: {
           eyebrow: 'Reusable time-series API',
           title: 'One query definition for all granularities and time-range presets',
           description:
-            'The query handles minute, hour, day, and week granularity through a single parameter. Adding a new granularity means adding one entry to granularityFn — not a new query.',
+            'The query handles minute, hour, day, and week granularity through a single parameter. Adding a new granularity means adding one entry to granularityFn instead of writing a new query.',
           code: reusableTimeRangeCode,
         },
       }}
@@ -240,7 +240,7 @@ export default function ClickHouseTimeSeriesPage() {
         {
           title: 'ClickHouse DateTime TypeScript',
           copy:
-            'ClickHouse DateTime values arrive as strings over HTTP. If that stays implicit, chart code quietly treats them like Date objects and bugs slip through.',
+            'ClickHouse DateTime values arrive as strings over HTTP. If that stays implicit, chart code treats them like Date objects without any error and bugs slip through.',
         },
         {
           title: 'ClickHouse date groupBy TypeScript',
@@ -276,8 +276,8 @@ export default function ClickHouseTimeSeriesPage() {
         },
         {
           href: '/blog/clickhouse-date-functions-typescript',
-          title: 'ClickHouse Date Functions in TypeScript — toStartOfDay, toStartOfQuarter, and More',
-          description: 'Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
+          title: 'ClickHouse Date Functions in TypeScript (toStartOfDay, toStartOfQuarter, and More)',
+          description: 'Practical guide to ClickHouse date bucketing functions in TypeScript, covering toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.',
         },
         {
           href: '/blog/clickhouse-datetime-vs-datetime64-time-zones',

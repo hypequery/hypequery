@@ -71,7 +71,7 @@ export default function CompareIndexPage() {
 	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
 	              <h2 className="text-lg font-medium tracking-tight text-text">Built for real evaluations</h2>
 	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                Each page is written around the actual switch a team might make, not a generic feature checklist.
+	                Each page is written around the actual switch a team might make.
 	              </p>
 	            </div>
 	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">

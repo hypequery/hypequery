@@ -99,7 +99,7 @@ export default function MultiTenantSaasUseCasePage() {
               Multi-tenant SaaS ClickHouse analytics with policy control by default
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
-              This is the path for teams whose analytics already reach customers. The goal is not only faster queries. It is a backend path where tenant scope and role checks stop being easy to forget.
+              This is the path for teams whose analytics already reach customers. Faster queries help, but the main goal is a backend path where tenant scope and role checks stop being easy to forget.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link

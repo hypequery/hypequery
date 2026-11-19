@@ -9,7 +9,7 @@ import { hubs } from '@/data/hubs';
 const PATH = '/clickhouse';
 const TITLE = 'ClickHouse for TypeScript and Python Developers';
 const DESCRIPTION =
-  'Query ClickHouse from application code: TypeScript and Python guides, frameworks, SQL patterns, a function reference, APIs, and MCP for agents.';
+  'Query ClickHouse from application code with TypeScript and Python guides, frameworks, SQL patterns, a function reference, APIs, and MCP for agents.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -53,7 +53,7 @@ const typescriptLane: HubLink[] = [
   {
     href: '/clickhouse-orm',
     title: 'ClickHouse ORM',
-    description: 'An ORM-style workflow for ClickHouse: generated types, then typed queries and APIs.',
+    description: 'An ORM-style workflow for ClickHouse. Generate types, then write typed queries and APIs.',
   },
   {
     href: '/clickhouse-schema',
@@ -272,8 +272,8 @@ export default function ClickHouseHubPage() {
           <>
             <p>
               ClickHouse is an open-source, column-oriented database built for analytical queries over large tables.
-              Calling it from a backend means three jobs on top of the driver: keeping result types in step with the
-              schema, writing queries that suit a columnar engine (sorting keys, PREWHERE, pre-aggregation), and putting
+              Calling it from a backend means three jobs on top of the driver. You keep result types in step with the
+              schema, write queries that suit a columnar engine (sorting keys, PREWHERE, pre-aggregation), and put
               a safe interface in front of it for the dashboards, APIs and agents that consume the numbers.
             </p>
             <p>
@@ -397,7 +397,7 @@ export default function ClickHouseHubPage() {
         title="Building analytics features on ClickHouse"
         intro={
           <p>
-            Two topics come up as soon as ClickHouse powers a product feature: defining metrics once, and showing them to
+            Two topics come up as soon as ClickHouse powers a product feature. You need to define metrics once, and you need to show them to
             customers safely.
           </p>
         }

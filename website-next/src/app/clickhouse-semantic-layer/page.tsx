@@ -247,7 +247,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Should I use Cube or hypequery for a ClickHouse semantic layer?',
     answer:
-      'Use Cube when BI tools need the same metrics through its SQL API, when metrics span several databases, or when you want managed pre-aggregations. Use hypequery when the semantic layer belongs to a TypeScript or Python product: the definitions live in your repo, deploy with your app and need no separate service.',
+      'Use Cube when BI tools need the same metrics through its SQL API, when metrics span several databases, or when you want managed pre-aggregations. Use hypequery when the semantic layer belongs to a TypeScript or Python product, because the definitions live in your repo, deploy with your app and need no separate service.',
   },
   {
     question: 'How does a ClickHouse semantic layer keep tenants apart?',
@@ -271,7 +271,7 @@ const vocabulary = [
   { term: 'Dimensions', copy: 'The attributes you slice by: region, plan, status, signup date. They end up in GROUP BY and WHERE.' },
   { term: 'Measures', copy: 'Aggregations bound to a column, such as sum(total) or count(id), optionally with a filter built in.' },
   { term: 'Metrics', copy: 'Named business quantities built from measures. Average order value is revenue divided by order count.' },
-  { term: 'Grain', copy: 'The time level a result is aggregated to, driven by one agreed time column: daily, weekly, monthly.' },
+  { term: 'Grain', copy: 'The time level a result is aggregated to, such as daily, weekly or monthly, driven by one agreed time column.' },
   { term: 'Governed filters', copy: 'Conditions that always apply, whether or not the caller asks. Tenant isolation is the usual one.' },
 ] as const;
 
@@ -371,7 +371,7 @@ const guideLinks: HubLink[] = [
   {
     href: '/embedded-analytics',
     title: 'Embedded analytics',
-    description: 'Serving tenant-scoped metrics to customers: build vs buy and vendors compared.',
+    description: 'Serving tenant-scoped metrics to customers, with build vs buy and vendors compared.',
   },
 ];
 
@@ -444,7 +444,7 @@ export default function ClickHouseSemanticLayerPage() {
             The ClickHouse semantic layer you define in TypeScript or Python
           </h1>
           <p className={`mt-5 max-w-[700px] text-pretty ${marketing.heroLead}`}>
-            Model your table once — tenant key, time key, typed fields — and every query inherits it, across your APIs, dashboards, and AI agents. No YAML. Run it in your own backend.
+            Model your table once (tenant key, time key, typed fields) and every query inherits it, across your APIs, dashboards, and AI agents. No YAML. Run it in your own backend.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link
@@ -497,7 +497,7 @@ export default function ClickHouseSemanticLayerPage() {
         <section className={`${marketing.container} pb-6 pt-[72px]`}>
           <SectionIntro title="Your semantic layer is a file in your repo.">
             <p>
-              A dataset declares your table, its tenant key, its time key, dimensions, and measures — once. Semantic queries built on it carry tenant and time context automatically when runtime tenancy is active. Change the definition; downstream usage follows the same typed contract.
+              A dataset declares your table, its tenant key, its time key, dimensions, and measures once. Semantic queries built on it carry tenant and time context automatically when runtime tenancy is active. Change the definition; downstream usage follows the same typed contract.
             </p>
           </SectionIntro>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -509,10 +509,10 @@ export default function ClickHouseSemanticLayerPage() {
         <section className={`${marketing.container} pb-6 pt-[96px]`}>
           <SectionIntro title="A semantic layer doesn't have to be a separate platform.">
             <p>
-              The usual answer to “ClickHouse semantic layer” is a separate platform such as Cube — a service modeled outside your application stack and run alongside your code. (dbt’s semantic layer doesn’t support ClickHouse today; see the options below.) That is the right tool when centralized BI metrics for non-engineers is the job.
+              The usual answer to “ClickHouse semantic layer” is a separate platform such as Cube, which is modeled outside your application stack and runs alongside your code. (dbt’s semantic layer doesn’t support ClickHouse today; see the options below.) That is the right tool when centralized BI metrics for non-engineers is the job.
             </p>
             <p>
-              For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase, your types, and your deploys. Datasets put it there: one definition, in TypeScript or Python, governed everywhere. Run it in your own backend; a hosted hypequery cloud is on a waitlist and not live yet.
+              For a team shipping product features, it is often the wrong shape. Your semantic layer should live in your codebase as typed code and ship with your deploys. Datasets put it there, with one definition in TypeScript or Python that is governed everywhere. Run it in your own backend; a hosted hypequery cloud is on a waitlist and not live yet.
             </p>
             <p>
               Serving one set of definitions over APIs to front ends you build yourself is often called{' '}
@@ -547,7 +547,7 @@ export default function ClickHouseSemanticLayerPage() {
         </section>
 
         <section className={`${marketing.container} pb-6 pt-[96px]`}>
-          <SectionIntro title="One definition. Every consumer.">
+          <SectionIntro title="Every consumer reads the same definition.">
             <p>
               Register the dataset once. The same definition feeds server code, a validated HTTP route, a typed React hook, and governed MCP tools, without redefining what revenue means.
             </p>

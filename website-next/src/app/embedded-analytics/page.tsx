@@ -303,7 +303,7 @@ export default function EmbeddedAnalyticsPage() {
         body: (
           <>
             <p>
-              Embedded analytics is reporting that lives inside your own product: charts, dashboards and exports that
+              Embedded analytics is reporting that lives inside your own product. It covers the charts, dashboards and exports that
               your customers see in your app, each scoped to their own data. A usage page in a developer tool, a sales
               report in a store admin and a spend chart in a billing portal are all embedded analytics.
             </p>
@@ -331,7 +331,7 @@ export default function EmbeddedAnalyticsPage() {
             <p>
               <strong className="text-text">Building</strong> means your backend serves the numbers through an API and
               your frontend draws them with the components you already use. A code-first layer such as hypequery covers
-              the backend half: metric definitions, tenant scoping, typed endpoints and React hooks. The charts are
+              the backend half (metric definitions, tenant scoping, typed endpoints and React hooks). The charts are
               yours.
             </p>
             <p>
@@ -360,7 +360,7 @@ export default function EmbeddedAnalyticsPage() {
             <p>
               The bug that matters in embedded analytics is a missing tenant filter. If each query adds{' '}
               <code className="font-mono text-[0.92em] text-text">WHERE tenant_id = ?</code> by hand, the one that
-              forgets it shows a customer someone else’s data. The fix is the same whichever route you take: read the
+              forgets it shows a customer someone else’s data. The fix is the same whichever route you take. Read the
               tenant from the authenticated session on the server, apply it centrally, and reject queries that arrive
               without it.
             </p>
@@ -459,7 +459,7 @@ export default function EmbeddedAnalyticsPage() {
         title="Three kinds of embedded analytics tool"
         intro={
           <p>
-            Vendors fall into three groups, and the group matters more than the vendor: it decides who draws the charts
+            Vendors fall into three groups, and the group matters more than the vendor, because it decides who draws the charts
             and where your metrics live. The{' '}
             <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
               embedded analytics platforms comparison
@@ -493,7 +493,7 @@ export default function EmbeddedAnalyticsPage() {
             </p>
             <ul className="list-disc space-y-2 pl-5">
               <li>You need many dashboards soon and have no frontend engineers to build them.</li>
-              <li>Customers expect to explore data themselves: build their own charts, drill down, or write queries.</li>
+              <li>Customers expect to explore data themselves, by building their own charts, drilling down or writing queries.</li>
               <li>Non-engineers on your team should be able to create and change customer dashboards without a deploy.</li>
               <li>Analytics is a reporting add-on rather than part of the product’s core experience.</li>
               <li>You already run that BI tool internally and the same models can serve customers.</li>
