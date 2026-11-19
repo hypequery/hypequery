@@ -286,3 +286,18 @@ tests were run and pass. The TypeScript snippets in A2–A4 type-check.
 
 Cut: timbr.ai (ranks #3 for "clickhouse semantic layer") was left out of the options table because its site could not be
 reached from the sandbox on 2026-11-15, so its ClickHouse claims are unverified.
+
+## /compare/clickhouse-cloud-vs-tinybird: re-verified 2026-11-18
+
+Every price and product claim on the page and its seed post (`content/blog/2026-08-22-clickhouse-cloud-vs-tinybird.md`) was re-read live. Nothing had changed; only the "checked on" dates moved from 9 to 18 November 2026.
+
+| Claim | Source | Checked |
+|---|---|---|
+| Tinybird Free: 0.25 vCPU, 1,000 requests a day, 10 GB, no credit card | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird Developer "Starting at $25/month"; the 0.5 vCPU size is $49/month with 25 GB included | https://www.tinybird.co/pricing | 2026-11-18 |
+| Tinybird SaaS and Enterprise: credit-based billing with a 12-month commitment | https://www.tinybird.co/docs/forward/pricing | 2026-11-18 |
+| Tinybird's ClickHouse interface is read-only | https://www.tinybird.co/docs/forward/work-with-data/publish-data/clickhouse-interface | 2026-11-18 |
+| Tinybird self-managed regions are in beta, for development environments only | https://www.tinybird.co/docs/forward/install-tinybird/self-managed | 2026-11-18 |
+| ClickHouse Cloud: $300 of credits for 30 days; storage $25.30 per TB-month; compute $0.2181 (Basic), $0.2985 (Scale), $0.3903 (Enterprise) per unit-hour | https://clickhouse.com/pricing | 2026-11-18 |
+| ClickHouse Cloud Basic running 24 hours a day: $159.66/month compute; 6 hours a day: $66.52/month total (ClickHouse's own worked example) | https://clickhouse.com/docs/cloud/manage/billing/overview | 2026-11-18 |
+| ClickHouse BYOC on AWS, GCP and Azure | https://clickhouse.com/cloud/bring-your-own-cloud | 2026-11-18 |
