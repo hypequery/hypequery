@@ -214,6 +214,10 @@ export default function LuzmoAlternativesPage() {
                 <strong className="text-text">Trade-off:</strong> still a hosted platform, priced by quote. See{' '}
                 <Link href="/compare/hypequery-vs-embeddable" className={inlineLink}>
                   hypequery vs Embeddable
+                </Link>{' '}
+                and{' '}
+                <Link href="/compare/embeddable-alternatives" className={inlineLink}>
+                  Embeddable alternatives
                 </Link>
                 .
               </p>

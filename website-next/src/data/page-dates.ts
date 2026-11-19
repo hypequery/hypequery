@@ -13,6 +13,7 @@ const pageUpdated: Record<string, string> = {
   '/compare/luzmo-alternatives': '2026-11-12',
   '/compare/hypequery-vs-embeddable': '2026-11-12',
   '/compare/hypequery-vs-luzmo': '2026-11-18',
+  '/compare/embeddable-alternatives': '2026-11-18',
   '/cube-js-alternative': '2026-11-12',
   '/clickhouse-saas-analytics': '2026-11-12',
   '/clickhouse-cloud-pricing': '2026-11-14',

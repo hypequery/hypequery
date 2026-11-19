@@ -343,3 +343,56 @@ of the multi-tenant guide (second code block), not from a summary.
 - **Homepage "white-label MCP server", Agent API and Analyst agent**: marketing copy with no docs page read; left out.
 - **Luzmo SSO and iframe embedding**: still not stated on the pages read (as for P1).
 - **ACK (Analytics Component Kit)**: seen only in docs navigation; not read, left out.
+
+# SEO verification log: /compare/embeddable-alternatives (2026-11-18)
+
+Every claim below was re-fetched from the vendor's own site on 2026-11-18; the Nov 12 entries above were not reused.
+hypequery claims were checked against this repository: `tenantKey` fail-closed behaviour in
+`docs/(typescript)/(datasets)/datasets/multi-tenancy.mdx` and the `packages/datasets` tests ("requires runtime tenant
+scoping", "Cannot filter on tenant field"), the Apache 2.0 licence in `LICENSE` and package manifests, and the cloud
+early-access wording in `src/components/home/Hero.tsx`.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| /compare/embeddable-alternatives | Embeddable publishes no price; flat monthly subscription, unlimited usage, every feature; "No usage-based pricing"; priced primarily on project scope, not MAU; "Fully white-labelled by default"; custom quote | https://embeddable.com/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | "Under the hood, Embeddable uses a popular data modeling language called Cube"; `*.cube.yml` files; built-in Cube by default | https://docs.embeddable.com/data-modeling/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | Can connect to an external Cube Cloud or Cube Core deployment | https://docs.embeddable.com/data/bring-your-own-cube | 2026-11-18 |
+| /compare/embeddable-alternatives | 14 connection types listed, including ClickHouse and Postgres | https://docs.embeddable.com/data/credentials | 2026-11-18 |
+| /compare/embeddable-alternatives | React components; drag-and-drop no-code builder; Dashboards as Code in YAML in your repo; Custom Canvas for end users on your templates | https://docs.embeddable.com/dashboards/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | `<em-beddable>` web component with a security token; no iframe | https://docs.embeddable.com/deployment/embedding | 2026-11-18 |
+| /compare/embeddable-alternatives | Security context in a token; security filters, SQL-based security, access policies | https://docs.embeddable.com/data-modeling/row-level-security/access-policies | 2026-11-18 |
+| /compare/embeddable-alternatives | Hosted in US and EU regions; self-hosting the platform not mentioned | https://docs.embeddable.com/deployment/deployment-regions | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube Free plan; Starter $40 and Premium $80 per developer/month; Premium viewer seat $20/user/month; dedicated deployment billed hourly; embedded dashboards and analytics chat on Premium | https://cube.dev/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube Core Apache 2.0 backend; SQL, REST and GraphQL interfaces | https://github.com/cube-js/cube | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube lists ClickHouse among data sources | https://docs.cube.dev/admin/connect-to-data/data-sources | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube embedded dashboards and Analytics Chat by iframe; REST, GraphQL and SQL APIs for your own front end | https://cube.dev/embedded-analytics | 2026-11-18 |
+| /compare/embeddable-alternatives | Cube security context from JWT; `queryRewrite` for row-level tenancy | https://github.com/cube-js/cube/blob/master/docs-mintlify/embedding/multitenancy.mdx | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo: one plan, Embedded Everywhere, from €1,995/month billed annually; white-label included | https://www.luzmo.com/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo: 19 database integrations, including ClickHouse | https://www.luzmo.com/connect | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo embedded editor lets customers "create and alter dashboards straight from within your application" | https://developer.luzmo.com/guide/dashboard-embedding--embedded-dashboard-editor | 2026-11-18 |
+| /compare/embeddable-alternatives | Luzmo `parameter_overrides` and `account_overrides` for tenants | https://developer.luzmo.com/guide/dashboard-embedding--handling-multi-tenant-data | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData: Professional and Enterprise, "Contact us", no amounts; Professional is platform fee plus per workspace; embedding (iFrame, Web Components, React SDK), white-labelling and SSO on both plans | https://www.gooddata.ai/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData child workspaces narrowed by workspace data filters | https://www.gooddata.ai/docs/cloud/workspaces/workspace-data-filters/ | 2026-11-18 |
+| /compare/embeddable-alternatives | GoodData ClickHouse data source | https://www.gooddata.ai/docs/cloud/connect-data/create-data-sources/clickhouse/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase: Open Source free; Pro $575/month with 10 users, then $12/user/month; guest embeds on all plans, viewers not counted as users; "Powered by Metabase" badge on Open Source and Starter guest embeds | https://www.metabase.com/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase guest embeds view-only; SSO modular embedding (Pro/Enterprise) gives drill-through, query builder, SQL editor, AI chat; Tenants | https://www.metabase.com/docs/latest/embedding/introduction | 2026-11-18 |
+| /compare/embeddable-alternatives | Metabase built-in ClickHouse driver (v54.1+) | https://www.metabase.com/docs/latest/databases/connections/clickhouse | 2026-11-18 |
+| /compare/embeddable-alternatives | Superset Apache 2.0; ClickHouse listed among databases | https://superset.apache.org/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Superset embedded SDK inserts an iframe; guest token from your backend; guest tokens carry RLS rules; `EMBEDDED_SUPERSET` feature flag | https://github.com/apache/superset/tree/master/superset-embedded-sdk | 2026-11-18 |
+| /compare/embeddable-alternatives | Preset: "Embedded dashboard viewer licenses ($500/mo for 50 Viewers)", Professional and Enterprise; above 50 via sales | https://preset.io/pricing/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird: managed ClickHouse, hosted ingestion, SQL published as low-latency APIs; user-facing analytics | https://www.tinybird.co/ | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird free plan, no credit card | https://www.tinybird.co/pricing | 2026-11-18 |
+| /compare/embeddable-alternatives | Tinybird JWT `fixed_params` set by your backend cannot be overridden by the user | https://www.tinybird.co/docs/forward/administration/tokens/jwt | 2026-11-18 |
+| /compare/embeddable-alternatives | Omni announced acquiring Explo on October 22, 2025, moving customers over 12 months; explo.co shows "Explo is joining Omni!" | https://omni.co/blog/omni-acquires-explo/ ; https://www.explo.co/ | 2026-11-18 |
+
+## Cut from /compare/embeddable-alternatives
+
+- **Tinybird Developer plan price**: the pricing page shows both "$49/month" and "Starting at $25/month" for Developer on
+  2026-11-18, so no figure is given; the page says only "Free plan; paid plans plus usage".
+- **Cube data source count** ("about 26" on older pages): the data sources page lists 29 entries, several routed to one
+  page, so the page says "many SQL sources, including ClickHouse".
+- **GoodData source count**: not re-verified today; the page says "many sources, including ClickHouse".
+- **Embeddable Remarkable Pro and `defineComponent`**: not described on the dashboards page fetched today; left out.
+- **Superset embedded SDK on npm**: npmjs.com returned 403; the README in the Superset GitHub repo was used instead.
+- **Explo**: left out as an alternative because it is moving its customers to Omni.
+- **Sigma, ThoughtSpot and Omni**: not checked today, so not included.
