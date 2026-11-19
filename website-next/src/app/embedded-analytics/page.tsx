@@ -10,14 +10,14 @@ import { hubs } from '@/data/hubs';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/embedded-analytics';
-const TITLE = 'Embedded Analytics for Developers: Build vs Buy';
+const TITLE = 'Embedded Analytics for Developers: Architecture and Tools';
 const DESCRIPTION =
-  'What embedded analytics is, when to embed a BI tool and when to build, how to isolate tenants on ClickHouse, and which kind of tool fits.';
+  'What embedded analytics is, how to scope every query to one tenant on ClickHouse, how to keep dashboards fast, and which of the three kinds of tool fits.';
 // The date the vendor claims on this page were checked against each vendor's own site.
 const VERIFIED_ON = 'November 12, 2026';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: { absolute: TITLE },
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl(PATH) },
   openGraph: {
@@ -186,6 +186,11 @@ const faqItems: FaqItem[] = [
 
 const guides: HubLink[] = [
   {
+    href: '/compare/build-vs-buy-embedded-analytics',
+    title: 'Build vs buy embedded analytics',
+    description: 'What each part costs in-house or from a vendor, when each choice wins, and the middle path.',
+  },
+  {
     href: '/compare/embedded-analytics-typescript',
     title: "Embedded analytics buyer's guide for TypeScript teams",
     description: 'A governance and metric-consistency checklist, with proof to request from every option.',
@@ -284,15 +289,15 @@ export default function EmbeddedAnalyticsPage() {
       path={PATH}
       breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Embedded analytics' }]}
       eyebrow="Embedded analytics"
-      title="Embedded analytics for developers: build or buy"
+      title="Embedded analytics for developers"
       lead={
         <p>
-          How to put customer-facing dashboards into your product: when embedding a BI tool is the right call, when to
-          build on a code-first layer, how to keep tenants apart, and which kind of tool fits.
+          How to put customer-facing dashboards into your product: the architecture behind them, how to keep tenants
+          apart, how to keep queries fast, and which kind of tool fits.
         </p>
       }
-      primaryCta={{ href: '#build-vs-buy', label: 'Build vs buy', target: 'embedded_build_vs_buy' }}
-      secondaryCta={{ href: '#vendors', label: 'Tool types', target: 'embedded_vendors' }}
+      primaryCta={{ href: '#vendors', label: 'Tool types', target: 'embedded_vendors' }}
+      secondaryCta={{ href: '#build-vs-buy', label: 'Embed or build', target: 'embedded_build_vs_buy' }}
       definition={{
         term: 'What is embedded analytics?',
         body: (
@@ -328,6 +333,13 @@ export default function EmbeddedAnalyticsPage() {
               your frontend draws them with the components you already use. A code-first layer such as hypequery covers
               the backend half: metric definitions, tenant scoping, typed endpoints and React hooks. The charts are
               yours.
+            </p>
+            <p>
+              For what each part costs, the risks on both sides and the middle path, read{' '}
+              <Link href="/compare/build-vs-buy-embedded-analytics" className={inlineLink}>
+                build vs buy embedded analytics
+              </Link>
+              .
             </p>
           </>
         }

@@ -30,7 +30,7 @@ export const hubs: Record<HubKey, Hub> = {
   embeddedAnalytics: {
     href: '/embedded-analytics',
     label: 'Embedded analytics',
-    description: 'Customer-facing dashboards: build vs buy, tenancy and vendors.',
+    description: 'Customer-facing dashboards: architecture, tenancy and tool types.',
   },
 };
 
