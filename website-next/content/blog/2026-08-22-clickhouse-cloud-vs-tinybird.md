@@ -4,7 +4,7 @@ description: "Not at the entry level: Tinybird starts at $25/month, while the sm
 seoTitle: "Is Tinybird More Expensive Than ClickHouse Cloud? (2026)"
 seoDescription: "Not at the entry level: Tinybird starts at $25/month; an always-on ClickHouse Cloud Basic service is about $160/month. Pricing table and when each wins."
 pubDate: 2026-08-22
-updatedAt: 2026-11-09
+updatedAt: 2026-11-18
 heroImage: ""
 slug: clickhouse-cloud-vs-tinybird
 status: published
@@ -25,7 +25,7 @@ Not at the entry level. Tinybird's Developer plan starts at $25/month, and its 0
 | API hosting | Included: endpoints are the product | Query API endpoints for saved queries, or your own API service, paid separately |
 | Larger plans | SaaS and Enterprise, custom-priced on credits with a 12-month commitment | Scale and Enterprise tiers, pay-as-you-go or committed spend |
 
-Prices come from [Tinybird's pricing page](https://www.tinybird.co/pricing), the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing) and the worked examples in [ClickHouse's billing docs](https://clickhouse.com/docs/cloud/manage/billing/overview), checked on 9 November 2026. Rates vary by cloud and region.
+Prices come from [Tinybird's pricing page](https://www.tinybird.co/pricing), the [ClickHouse Cloud pricing page](https://clickhouse.com/pricing) and the worked examples in [ClickHouse's billing docs](https://clickhouse.com/docs/cloud/manage/billing/overview), checked on 18 November 2026. Rates vary by cloud and region.
 
 ClickHouse Cloud is the managed ClickHouse database run by ClickHouse, Inc.: a service with full SQL access over HTTPS, the native protocol and the MySQL wire protocol. Tinybird is a data platform from a separate company that runs ClickHouse underneath and adds ingestion connectors, SQL-to-REST API endpoints, access tokens and a branch-based development workflow. Pick Tinybird when what you want is hosted analytics APIs with as little backend work as possible; pick ClickHouse Cloud when your own services, jobs and BI tools need to read and write a ClickHouse database directly.
 

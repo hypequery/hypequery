@@ -199,6 +199,13 @@ const nextConfig: NextConfig = {
         destination: '/changelog',
         permanent: true,
       },
+      // The changelog moved out of /docs to /changelog. Google still had /docs/changelog
+      // indexed and returning 404 (URL Inspection, 2026-11-18).
+      {
+        source: '/docs/changelog',
+        destination: '/changelog',
+        permanent: true,
+      },
       {
         source: '/docs/installation',
         destination: '/docs/quick-start',
