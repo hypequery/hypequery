@@ -1,0 +1,181 @@
+{
+  "$id": "https://hypequery.com/schemas/recipe.schema.json",
+  "title": "hypequery recipe manifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "typescript",
+        "python"
+      ]
+    },
+    "stack": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "useCases": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "packages": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(@hypequery\\/[a-z0-9-]+|hypequery)$"
+      }
+    },
+    "keyFile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "env": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "required"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "install": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dev": {
+          "type": "string",
+          "minLength": 1
+        },
+        "test": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "install",
+        "dev",
+        "test"
+      ],
+      "additionalProperties": false
+    },
+    "exampleRequest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "related": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "leadPages": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\/[a-z0-9-]+(\\/[a-z0-9-]+)*$"
+      }
+    },
+    "functionPages": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "keywords": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "minVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "kind": {
+      "type": "string",
+      "const": "recipe"
+    },
+    "datasetFile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expectedSqlFile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "outputFile": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "slug",
+    "title",
+    "outcome",
+    "language",
+    "stack",
+    "useCases",
+    "packages",
+    "keyFile",
+    "env",
+    "run",
+    "keywords",
+    "minVersion",
+    "kind",
+    "datasetFile",
+    "expectedSqlFile",
+    "outputFile"
+  ],
+  "additionalProperties": false
+}
