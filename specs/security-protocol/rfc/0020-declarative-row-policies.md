@@ -247,8 +247,9 @@ decision 3.
 
 ## Decisions
 
-The four questions this RFC left open are settled below (2026-11-19). The
-RFC stays Proposed until both maintainers accept them.
+The four questions this RFC left open are settled below. Luke accepted all
+four on 2026-11-19. The RFC itself stays Proposed until the phase 2
+conformance fixtures land.
 
 1. **Bypass semantics: per attribute, and only with an audit hook.**
    - The bypass is `attributes: { <name>: { scope: 'all' } }`. It lifts every
