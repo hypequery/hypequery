@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/ttl-data-retention",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Per-plan data retention in ClickHouse with table TTL, TTL WHERE and column TTL, applied with MATERIALIZE TTL and tested deterministically against a frozen seed",
   "type": "module",

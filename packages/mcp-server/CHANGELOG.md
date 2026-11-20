@@ -1,5 +1,13 @@
 # @hypequery/mcp
 
+## 0.15.1
+
+### Patch Changes
+
+- Updated dependencies [60eb711]
+  - @hypequery/protocol@0.28.0
+  - @hypequery/datasets@0.33.0
+
 ## 0.15.0
 
 ### Minor Changes
