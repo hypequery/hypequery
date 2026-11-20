@@ -59,3 +59,13 @@ scoped.execute(orders, DatasetQuery(dimensions=("country",), measures=("revenue"
 
 A tenant-bound client only has `execute`, `validate`, and `to_sql`, and every query runs as the bound tenant.
 Binding requires exactly one tenant: `tenants()` with multiple identifiers and `all_tenants()` are refused.
+
+## Narrowing within a tenant
+
+Keep the customer in `tenant_key`, and don't fold finer rules into it, such as a user's workspace or a manager's
+regions. The TypeScript SDK supports these as enforced constraints (`runtime.constraints`), which the planner
+applies and caches per value. See [Narrowing within a tenant](/docs/datasets/multi-tenancy#narrowing-within-a-tenant).
+
+The Python SDK doesn't support enforced constraints yet. Until it does, add the narrowing filter in your server
+code to every query you run for that user. The planner doesn't enforce it, so it's only as safe as the code path
+that adds it. Don't accept it from request input.
