@@ -1,5 +1,15 @@
 # @hypequery-examples/nextjs-dashboard
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [60eb711]
+  - @hypequery/datasets@0.33.0
+  - @hypequery/serve@0.26.2
+  - @hypequery/clickhouse@2.15.1
+  - @hypequery/react@0.9.0
+
 ## 0.1.2
 
 ### Patch Changes

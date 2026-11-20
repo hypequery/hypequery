@@ -1,5 +1,13 @@
 # @hypequery-recipes/projection-for-dataset-queries
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [60eb711]
+  - @hypequery/datasets@0.33.0
+  - @hypequery/clickhouse@2.15.1
+
 ## 0.1.2
 
 ### Patch Changes
