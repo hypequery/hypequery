@@ -214,12 +214,17 @@ const faqItems: FaqItem[] = [
   {
     question: 'What is the difference between a semantic layer and a data warehouse?',
     answer:
-      'The warehouse stores and computes the data. The semantic layer stores the meaning: which column is revenue, how tables join, which filters always apply. Some warehouses now include one, such as Snowflake semantic views and Databricks metric views, but the two jobs are still separate.',
+      'The warehouse stores and computes the data. The semantic layer stores the meaning, including which column is revenue, how tables join and which filters always apply. Some warehouses now include one, such as Snowflake semantic views and Databricks metric views, but the two jobs are still separate.',
   },
   {
     question: 'Is a metrics layer the same as a semantic layer?',
     answer:
       'Mostly. "Metrics layer" usually means the metric definitions alone. "Semantic layer" also covers entities, joins and dimensions, which a metric needs before it can be sliced.',
+  },
+  {
+    question: 'What is a good semantic layer for ClickHouse?',
+    answer:
+      'Cube supports ClickHouse as a standalone service with its own APIs and caching. The dbt Semantic Layer does not run on ClickHouse today, because MetricFlow support is experimental and unreleased. hypequery datasets are ClickHouse-only and live as TypeScript or Python in your application repo, which suits a team that wants the metrics inside its own backend with no extra service to run.',
   },
   {
     question: 'Do AI agents need a semantic layer?',
@@ -300,8 +305,9 @@ export default function SemanticLayerPage() {
       title="What is a semantic layer?"
       lead={
         <p>
-          What a semantic layer does, the parts every one shares, the five places one can live, and how dbt MetricFlow,
-          Snowflake semantic views, Databricks metric views, Cube and a layer defined in code compare today.
+          A semantic layer defines your metrics once so every dashboard, API and AI agent returns the same number. This
+          guide covers the parts every one has, the five places one can live, and how dbt MetricFlow, Snowflake semantic
+          views, Databricks metric views, Cube and hypequery compare today.
         </p>
       }
       primaryCta={{ href: '#example', label: 'See an example', target: 'semantic_layer_example' }}
@@ -311,15 +317,15 @@ export default function SemanticLayerPage() {
         body: (
           <>
             <p>
-              A semantic layer is a shared definition of your business metrics, dimensions and joins that sits between
-              raw tables and everything that queries them. A dashboard, an API or an AI agent asks for
-              &ldquo;revenue by country&rdquo;, and the layer decides which column, aggregate, joins and filters that
-              means, then writes the SQL.
+              A semantic layer is a shared definition of business metrics, dimensions and joins that sits between raw
+              tables and the tools that query them. A dashboard, an API or an AI agent asks for &ldquo;revenue by
+              country&rdquo;. The layer works out which column, aggregate, joins and filters that means and writes the
+              SQL.
             </p>
             <p>
-              Without one, each dashboard and query defines revenue again, and the numbers drift apart. With one, a
-              metric changes in one place and every consumer picks up the change, and a filter that must always apply,
-              such as one customer&rsquo;s data only, cannot be skipped.
+              Without one, every dashboard defines revenue again and the numbers drift apart. With one, a metric changes
+              in a single place and every consumer picks it up. A filter that must always apply, such as one
+              customer&rsquo;s data only, cannot be skipped.
             </p>
           </>
         ),
@@ -380,8 +386,8 @@ export default function SemanticLayerPage() {
         title="Five places a semantic layer can live"
         intro={
           <p>
-            The choice that matters most is not the syntax but the location. It decides which tools can reuse the
-            definitions, whose permissions apply, and what you have to run.
+            Where the definitions live matters more than the syntax. The location decides which tools can reuse them,
+            whose permissions apply, and what you have to run.
           </p>
         }
       >
@@ -431,8 +437,8 @@ export default function SemanticLayerPage() {
             </p>
             <p>
               Snowflake semantic views already import and export Ossie YAML, dbt v1.12 reads Ossie files, and a
-              separate converters repository covers dbt, Databricks, Power BI and others. Ossie describes models; it is
-              not a query engine. The{' '}
+              separate converters repository covers dbt, Databricks, Power BI and others. Ossie describes
+              models and does not run queries. The{' '}
               <Link href="/semantic-layer/open-semantic-interchange" className={inlineLink}>
                 Open Semantic Interchange guide
               </Link>{' '}
@@ -449,7 +455,7 @@ export default function SemanticLayerPage() {
         intro={
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong className="text-text">All your data is in Snowflake or Databricks</strong> and the consumers are BI
+              <strong className="text-text">All your data is in Snowflake or Databricks</strong>, and the consumers are BI
               tools and the warehouse&rsquo;s own AI features. Start with{' '}
               <Link href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>
                 Snowflake semantic views
@@ -458,7 +464,7 @@ export default function SemanticLayerPage() {
               <Link href="/semantic-layer/databricks-metric-views" className={inlineLink}>
                 Databricks metric views
               </Link>
-              . There is nothing extra to run.
+              . Neither needs anything extra to run.
             </li>
             <li>
               <strong className="text-text">You already model in dbt</strong> and want one set of metrics across several
