@@ -243,6 +243,10 @@
             "create",
             "schema",
             "onboard",
+            "mcp:install",
+            "start",
+            "doctor",
+            "next",
             "cloud-operation",
             "unknown"
           ]
@@ -295,6 +299,14 @@
             "--cloud-url",
             "--device",
             "--capabilities",
+            "--no-wait",
+            "--agent",
+            "--scope",
+            "--hosted",
+            "--dry-run",
+            "--remove",
+            "--no-mcp",
+            "--no-skills",
             "--bundle-output",
             "--release-output",
             "--no-source",
@@ -304,8 +316,6 @@
             "--draft",
             "--client",
             "--release",
-            "--agent",
-            "--scope",
             "--kind",
             "--yes",
             "--dir",
@@ -1070,6 +1080,10 @@
         "skill": {},
         "schema": {},
         "onboard": {},
+        "mcp:install": {},
+        "start": {},
+        "doctor": {},
+        "next": {},
         "cloud-operation": {},
         "unknown": {
           "suggested_command": {
@@ -1103,6 +1117,10 @@
               "create",
               "schema",
               "onboard",
+              "mcp:install",
+              "start",
+              "doctor",
+              "next",
               "cloud-operation"
             ],
             "optional": true
@@ -1141,6 +1159,10 @@
               "create",
               "schema",
               "onboard",
+              "mcp:install",
+              "start",
+              "doctor",
+              "next",
               "cloud-operation",
               "unknown"
             ],
@@ -1671,6 +1693,10 @@
             "create",
             "schema",
             "onboard",
+            "mcp:install",
+            "start",
+            "doctor",
+            "next",
             "cloud-operation",
             "unknown"
           ]
@@ -1807,8 +1833,29 @@
       "--environment",
       "--device",
       "--project",
-      "--capabilities"
+      "--capabilities",
+      "--no-wait"
     ],
+    "mcp:install": [
+      "--agent",
+      "--scope",
+      "--hosted",
+      "--force",
+      "--dry-run",
+      "--remove",
+      "--tenant"
+    ],
+    "start": [
+      "--hosted",
+      "--agent",
+      "--scope",
+      "--no-mcp",
+      "--no-skills",
+      "--dry-run",
+      "--tenant"
+    ],
+    "doctor": [],
+    "next": [],
     "logout": [],
     "deploy": [
       "--bundle-output",

@@ -15,6 +15,8 @@ import { settleTelemetrySettings } from '../utils/telemetry/config-store.js';
 import { requestedCommand, suggestedCommand } from '../utils/telemetry/requested-command.js';
 import { DEFAULT_COMMAND, isInteractiveTerminal, withDefaultCommand } from '../utils/default-command.js';
 import { cloudOperationOf, cloudOperationValueFlags, isCloudOperationGroup } from '../commands/cloud-operations.js';
+import { isSupportedNode, unsupportedNodeMessage } from '../utils/node-version.js';
+import { requestedProjectDirectory } from '../utils/project-directory.js';
 
 /** Commander errors must reach the handler below at every depth (`hypequery releases rollback`). */
 function overrideExits(command: Command): void {
@@ -23,6 +25,10 @@ function overrideExits(command: Command): void {
 }
 
 async function loadEnv() {
+  // An agent's MCP entry names the project to run in; change into it before
+  // anything reads the working directory.
+  const projectDirectory = requestedProjectDirectory();
+  if (projectDirectory) process.chdir(projectDirectory);
   // Before any file is read: credential resolution must know which Cloud
   // URLs came from the shell and which from a project .env.
   recordShellEnvironment();
@@ -32,7 +38,19 @@ async function loadEnv() {
 }
 
 async function main() {
-  await loadEnv();
+  if (!isSupportedNode()) {
+    // Fail loudly: an old Node would otherwise break in a confusing place.
+    console.error(unsupportedNodeMessage());
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    await loadEnv();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
   const rawArgs = process.argv.slice(2);
   const args = withDefaultCommand(rawArgs, { interactive: isInteractiveTerminal() });
   if (args.length !== rawArgs.length) {

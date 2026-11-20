@@ -29,7 +29,7 @@ Every command below is the TypeScript CLI, run as `npx --no-install hypequery â€
 after step 1 installs `@hypequery/cli` in the project. `--no-install` matters:
 the unscoped npm name `hypequery` is not this CLI, and without a terminal npx
 would download whatever has that name instead of failing. Python projects run
-the CLI through npx with the analysis engine alongside it (Node.js 20+), naming
+the CLI through npx with the analysis engine alongside it (Node.js 22.12+), naming
 both packages so npx can't fall back to the unscoped name:
 
 ```bash
@@ -42,6 +42,11 @@ logs on stderr. Exit code 1 means something to correct (the `hint` says what),
 4 means retry. The commands never prompt under `--json`.
 
 ## 1. Check setup
+
+In a TypeScript project, `npx --no-install hypequery next --json` reads the
+project and says which step below is due, with the commands for it;
+`npx --no-install hypequery doctor --json` lists every problem with its fix.
+Run `next` again after each step.
 
 - ClickHouse settings: `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`,
   `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` in the environment or `.env`.
@@ -190,9 +195,10 @@ When a hint doesn't fix a failure, tell the user what you tried; don't loop.
 
 Only when the user wants hypequery Cloud:
 
-1. `npx --no-install hypequery login`: the user approves sign-in in their
-   browser. It needs a person; run it in their terminal, or use
-   `HYPEQUERY_API_TOKEN` with `--endpoint` in CI.
+1. `npx --no-install hypequery login --device --no-wait`: it prints a link
+   and code and exits. Show the link to the user, wait until they say they
+   approved it, then run the same command again to finish. Never sign in for
+   them. In CI use `HYPEQUERY_API_TOKEN` with `--endpoint`.
 2. TypeScript: export a publication and deploy it. Ask which roles and scopes
    may query it.
 
@@ -213,6 +219,10 @@ Only when the user wants hypequery Cloud:
    and `npx -y -p @hypequery/cli hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json`.
 3. `npx --no-install hypequery deployment:status --mcp-config` prints the
    hosted MCP URL and the client configuration to give the user.
+
+For the local server instead, `npx --no-install hypequery mcp:install` adds
+`hypequery mcp` for this project to the agents on the machine (credentials
+stay in `.env`); the user restarts the agent to load it.
 
 Docs: https://hypequery.com/docs/reference/api/cli (all commands, exit codes and
 error codes) and https://hypequery.com/llms.txt.

@@ -45,11 +45,15 @@ describe('compiled CLI machine output (--json, exit codes, no TTY)', { timeout: 
       HYPEQUERY_TELEMETRY_DISABLED: '1',
       HYPEQUERY_CONFIG_DIR: config,
       HYPEQUERY_EXAMPLES_INDEX: examplesIndex,
+      // Commands that write user-wide (skills, agents' MCP config) must never reach the real home.
+      HOME: path.join(config, 'home'),
+      USERPROFILE: path.join(config, 'home'),
       ...options.env,
     };
     for (const key of [
       'VITEST', 'CI', 'CLICKHOUSE_URL', 'CLICKHOUSE_HOST', 'CLICKHOUSE_DATABASE', 'CLICKHOUSE_USERNAME',
       'CLICKHOUSE_USER', 'CLICKHOUSE_PASSWORD', 'HYPEQUERY_API_TOKEN', 'HYPEQUERY_DEPLOYMENT_ENDPOINT', 'HYPEQUERY_API_KEY',
+      'HYPEQUERY_PROJECT_DIR',
     ]) {
       if (!options.env || !(key in options.env)) delete env[key];
     }
@@ -130,18 +134,30 @@ describe('compiled CLI machine output (--json, exit codes, no TTY)', { timeout: 
 
   it('skill', async () => {
     const cwd = await mkdtemp(path.join(directory, 'skill-'));
-    const installed = await runJson(['skill', 'install', '--agent', 'claude'], { cwd });
+    const installed = await runJson(['skill', 'install', '--agent', 'claude', '--scope', 'project'], { cwd });
     expect(installed.code).toBe(0);
     expect(installed.document).toMatchObject({ upToDate: true });
     expect(installed.document.files.length).toBeGreaterThan(0);
-    const fresh = await runJson(['skill', 'install', '--agent', 'claude', '--check'], { cwd });
+    const fresh = await runJson(['skill', 'install', '--agent', 'claude', '--scope', 'project', '--check'], { cwd });
     expect(fresh.document).toMatchObject({ upToDate: true, installed: [], files: [] });
     await writeFile(installed.document.files[0], 'edited\n');
-    const stale = await runJson(['skill', 'install', '--agent', 'claude', '--check'], { cwd });
+    const stale = await runJson(['skill', 'install', '--agent', 'claude', '--scope', 'project', '--check'], { cwd });
     expect(stale.code).toBe(1);
     expect(stale.document.error).toMatchObject({ code: 'OUT_OF_DATE', category: 'stale_contract', correctable: false, issues: [{ path: installed.document.files[0], message: 'out of date' }] });
-    const conflict = await runJson(['skill', 'install', '--agent', 'claude'], { cwd });
+    const conflict = await runJson(['skill', 'install', '--agent', 'claude', '--scope', 'project'], { cwd });
     expect(conflict.document.error).toMatchObject({ code: 'OUTPUT_EXISTS', issues: [{ path: installed.document.files[0] }] });
+    // The default is the user's home, never the folder it runs in.
+    const user = await runJson(['skill', 'install', '--agent', 'claude'], { cwd });
+    expect(user.code).toBe(0);
+    expect(user.document.paths[0]).toContain(path.join(config, 'home', '.claude', 'skills'));
+  });
+
+  it.each([['next'], ['doctor'], ['start', '--dry-run']])('%s answers without a TTY and never waits for input', async (...args) => {
+    const cwd = await mkdtemp(path.join(directory, 'onboarding-'));
+    const result = await run([...args, '--json'], { cwd });
+    const document = JSON.parse(result.stdout);
+    expect(document.error).toBeUndefined();
+    expect(JSON.stringify(document)).not.toMatch(/"(password|token)":/i);
   });
 
   it('login and logout', async () => {

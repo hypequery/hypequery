@@ -20,6 +20,7 @@ Use the CLI commands for different jobs:
 | `hypequery generate` | You already have a project and need fresh schema types | Connects to ClickHouse and regenerates your TypeScript schema file |
 | `hypequery init` | You want the CLI to scaffold an `analytics/` folder for you | Writes starter files like `client.ts`, `schema.ts`, and `queries.ts` |
 | `hypequery dev` | You already have queries and want a local runtime server | Runs the local `@hypequery/serve` dev server with docs and hot reload |
+| `hypequery start` | You're setting up hypequery from a coding agent's chat | Installs the agent skills, adds the MCP server to your agents, and prints the next step |
 
 The most common confusion is between `init` and `generate`:
 
@@ -66,6 +67,10 @@ npx hypequery dev
 
 | Command | Purpose |
 | --- | --- |
+| `hypequery start` | Set up hypequery for coding agents in one step: skills, MCP server, then the next step; never prompts |
+| `hypequery next` | Show the one onboarding step that is due, with instructions for a coding agent |
+| `hypequery doctor` | Check Node, the ClickHouse connection, `.env`, datasets, Cloud sign-in, agents' MCP entries and skills |
+| `hypequery mcp:install` | Add hypequery's MCP server to Claude Code, Cursor, Codex or Claude Desktop |
 | `hypequery init` | Scaffold the `analytics/` folder, configure the selected database driver, and optionally create an example query or dataset |
 | `hypequery dev [file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
@@ -89,6 +94,123 @@ npx hypequery dev
 | `hypequery telemetry [status\|enable\|disable]` | Inspect or change anonymous usage telemetry preferences |
 
 The sections below expand on the supported options and expected behavior for each command.
+
+## `hypequery start`
+
+One command for setting hypequery up from a coding agent's chat. It installs the
+[agent skills](#hypequery-skill-install) for your user (`~/.claude/skills` and
+`~/.agents/skills`), adds the [MCP server](#hypequery-mcpinstall) to the agents it finds on this machine, and prints
+[the next step](#hypequery-next).
+
+```bash
+npx -y @hypequery/cli start
+npx -y @hypequery/cli start --hosted --agent claude-code
+npx -y @hypequery/cli start --dry-run --json
+```
+
+Name the scoped package when the project doesn't have the CLI yet: the unscoped npm name `hypequery` is an
+unrelated package, so `npx hypequery start` would download and run that instead. Once `@hypequery/cli` is
+installed in the project, `npx --no-install hypequery …` runs that copy.
+
+`start` never prompts, so it behaves the same in a terminal, under an agent, in a
+hidden terminal tab or in CI. Whatever only a person can do comes back in `needs`
+instead of a question it waits on: above all the ClickHouse password, which the
+person puts in `.env` themselves (or types into `npx -y @hypequery/cli init` in their own
+terminal), never into a chat. Nothing is skipped silently. The local MCP server
+is added once the project has a Serve API for it to serve; before that, the step
+reports `deferred` and `hypequery next` adds it at the right time.
+
+| Option | Description |
+| --- | --- |
+| `--hosted` | Add the hosted hypequery app connector (OAuth) instead of the local server |
+| `--agent <agents>` | Agents for the MCP server (default: the ones found on this machine); see `mcp:install` |
+| `--scope <scope>` | `project` or `user`; see `mcp:install` |
+| `--no-mcp` | Leave agents' MCP configuration alone |
+| `--no-skills` | Leave the skills alone |
+| `--tenant <id>` | Trusted tenant for tenant-scoped datasets; see `mcp:install` |
+| `--dry-run` | Report what would change without writing |
+
+## `hypequery next`
+
+Reads the project and prints the one onboarding step that is due, in order:
+upgrade Node, add the CLI to the project, connect ClickHouse, fix the
+connection, model the datasets, add a Serve API, connect the agent, install the
+skills, then ask questions. Each step says what to run, what to ask the person,
+and what never to do: for example, ask for the URL, database and user name, but
+never for the password; and show the dataset plan to the person before writing
+any datasets. With `--json` the result is `{ step, title, instructions, commands, progress }`.
+It changes nothing, so an agent can run it after every step.
+
+```bash
+npx --no-install hypequery next --json
+```
+
+Its commands use `npx --no-install hypequery` once the project depends on `@hypequery/cli`, and
+`npx -y @hypequery/cli` before that.
+
+## `hypequery doctor`
+
+Checks everything onboarding depends on, and names the fix for each problem:
+the Node version, whether the project depends on `@hypequery/cli`, the
+ClickHouse connection (it runs `SELECT getSetting('readonly')`, and warns when
+the user can write), whether git ignores `.env` and whether other users can read
+it, the datasets and Serve API files, Cloud sign-in, each agent's hypequery MCP
+entry (including entries whose Node or CLI path no longer exists), and the
+skills. It exits `1` when a check fails. It never prints a password or token.
+
+```bash
+npx --no-install hypequery doctor
+npx --no-install hypequery doctor --json
+```
+
+## `hypequery mcp:install`
+
+Adds hypequery's MCP server to coding agents, so you don't need to edit any config
+by hand:
+
+| Agent | Where it goes |
+| --- | --- |
+| Claude Code | `~/.claude.json`: this project only (`--scope project`, Claude Code's local scope) or every project (`--scope user`) |
+| Cursor | `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` with `--scope user` |
+| Codex | through `codex mcp add` (Codex keeps its config in TOML) |
+| Claude Desktop | `claude_desktop_config.json` (local server only; add the hosted connector under Settings → Connectors) |
+
+```bash
+npx --no-install hypequery mcp:install                          # the agents found on this machine
+npx --no-install hypequery mcp:install --agent claude-code,cursor
+npx --no-install hypequery mcp:install --tenant acme            # datasets with a tenantKey
+npx --no-install hypequery mcp:install --hosted                 # the hypequery app connector
+npx --no-install hypequery mcp:install --dry-run --json
+```
+
+The local server, named `hypequery`, runs `hypequery mcp` in this project. Its
+entry names Node by absolute path, because agents start servers without your
+shell's `PATH` (so nvm, fnm and Volta work). It uses the project's own
+`@hypequery/cli` when there is one, so upgrades don't break it, and it sets
+`HYPEQUERY_PROJECT_DIR`, so the CLI changes into the project before it reads
+`.env`. The ClickHouse credentials stay in `.env`: the agent's config never
+holds a password. `--hosted` adds `hypequery-cloud`, pointing at
+`https://mcp.hypequery.com/mcp`, which signs in with OAuth.
+
+Datasets with a `tenantKey` need a trusted tenant: `hypequery mcp` won't serve them without `--tenant`, so
+`mcp:install` refuses (`TENANT_REQUIRED`) until you pass `--tenant <id>`, which goes into the saved command. Use a
+tenant the agent may see, such as your own test tenant.
+
+The command only changes entries it wrote. A server of the same name that you
+wrote yourself is left alone unless you pass `--force`. A config with comments
+or invalid JSON is never rewritten. Each change holds a lock on the file while it reads and writes, so
+installs for two projects can't drop each other's entry, and the previous file is kept as
+`<file>.hypequery-backup`. On Windows, Codex's `.cmd` shim runs through `cmd.exe` with each argument quoted. Restart the agent, or open a new chat, to load the change.
+
+| Option | Description |
+| --- | --- |
+| `--agent <agents>` | `claude-code`, `cursor`, `codex`, `claude-desktop`, a comma-separated list, or `all` (default: the agents found on this machine) |
+| `--scope <scope>` | `project` (default for the local server) or `user` (default for `--hosted`) |
+| `--hosted` | Add the hosted connector instead of the local server |
+| `--force` | Replace a server of the same name that hypequery did not write |
+| `--dry-run` | Report what would change without writing |
+| `--remove` | Remove the server this command added |
+| `--tenant <id>` | Trusted tenant for tenant-scoped datasets, saved as `hypequery mcp --tenant <id>` |
 
 ## `hypequery telemetry`
 
@@ -530,13 +652,22 @@ only when a person is at the terminal and `--no-input` is not set.
 npx hypequery login
 npx hypequery login --device
 npx hypequery login --device --project shop --capabilities workspace:view,deployment:publish
+npx hypequery login --device --no-wait   # for coding agents: print the link, exit, run again to finish
 ```
+
+A coding agent can't watch a command that waits minutes for a person. With
+`--no-wait`, `login --device` prints the link and code and exits with
+`"status": "pending"` and a `resumeCommand`. The agent shows the link in the chat, and once the person
+has approved it, runs `resumeCommand` (the same command, with any `--cloud-url`, `--project` and
+`--capabilities`) to finish. The pending sign-in is
+kept in an owner-only file in the CLI's config directory until then.
 
 | Option | Description |
 | --- | --- |
 | `--device` | Sign in by approving a code in any browser (RFC 8628 device sign-in) |
 | `--project <slug>` | With `--device`: limit the token to one Cloud project |
 | `--capabilities <list>` | With `--device`: cap the token below your role, comma-separated |
+| `--no-wait` | With `--device`: print the link and code and exit; run again after approving to finish |
 | `--cloud-url <url>` | Cloud origin (or `HYPEQUERY_CLOUD_URL`) |
 | `--environment <environment>` | Browser sign-in only: the deployment target to save |
 
@@ -682,17 +813,20 @@ datasets and query them without guessing the API:
   clean, then optionally deploying and printing the MCP configuration.
 
 ```bash
-npx hypequery skill install
+npx hypequery skill install                  # for your user, in every project
+npx hypequery skill install --scope project  # this project only
 ```
 
 | Option | Description |
 | --- | --- |
 | `--agent <agent>` | `claude` (`.claude/skills/`), `cursor` or `codex` (both read `.agents/skills/`), or `all` (default) |
-| `--scope <scope>` | `project` (default, the current directory) or `user` (your home directory, for every project) |
+| `--scope <scope>` | `user` (default: your home directory, for every project) or `project` (the current directory) |
 | `--check` | Exit 1 if a skill is missing or out of date, without writing; useful in CI |
 | `--force` | Replace skills that were edited or are out of date |
 
-Re-running is safe: up-to-date skills are left alone, and an edited skill is never replaced without `--force`. The
+Since 1.33 the default scope is `user`, so skills no longer land in whatever folder
+the agent happened to be in; pass `--scope project` for the old behaviour. The result lists every skill file by
+absolute path. Re-running is safe: up-to-date skills are left alone, and an edited skill is never replaced without `--force`. The
 Python CLI has the same command: `hypequery skill install`. To get the same skills in Claude Code for every project,
 together with the hypequery app connector, install the [Claude Code plugin](/docs/mcp/claude-code-plugin) instead.
 

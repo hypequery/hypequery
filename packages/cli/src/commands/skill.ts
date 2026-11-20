@@ -38,9 +38,14 @@ function selectedAgents(agent = 'all'): Agent[] {
   throw new Error(`Unknown --agent ${agent}; use ${AGENTS.join(', ')} or all.`);
 }
 
+/**
+ * User scope is the default: agents load `~/.claude/skills` and
+ * `~/.agents/skills` in every project, and an install meant for the person
+ * should not land in whatever folder the agent happened to be in.
+ */
 function base(scope: string | undefined, dependencies: SkillDependencies): string {
-  if (scope === undefined || scope === 'project') return dependencies.cwd ?? process.cwd();
-  if (scope === 'user') return dependencies.home ?? os.homedir();
+  if (scope === undefined || scope === 'user') return dependencies.home ?? os.homedir();
+  if (scope === 'project') return dependencies.cwd ?? process.cwd();
   throw new Error(`Unknown --scope ${scope}; use project or user.`);
 }
 
@@ -60,7 +65,7 @@ export async function skillCommand(
   options: SkillOptions = {},
   dependencies: SkillDependencies = {},
 ): Promise<void> {
-  if (action !== 'install') throw new CliError('USAGE', 'Usage: hypequery skill install [--agent claude|cursor|codex|all] [--scope project|user]');
+  if (action !== 'install') throw new CliError('USAGE', 'Usage: hypequery skill install [--agent claude|cursor|codex|all] [--scope user|project]');
   if (options.force && options.check) throw new CliError('USAGE', '--force cannot be combined with --check.');
   const targets = skillTargets(options, dependencies);
   const stale: string[] = [];
@@ -90,6 +95,14 @@ export async function skillCommand(
   if (conflicts.length > 0) {
     throw outputConflictError(`Refusing to overwrite edited skills: ${conflicts.join(', ')}. Use --force to replace them.`, conflicts);
   }
-  logger.success(options.check ? 'hypequery skills are up to date.' : 'hypequery skills are installed.');
-  emitResult({ installed, upToDate: true, files: written });
+  const directory = base(options.scope, dependencies);
+  logger.success(options.check ? 'hypequery skills are up to date.' : `hypequery skills are installed in ${directory}.`);
+  emitResult({
+    installed,
+    upToDate: true,
+    files: written,
+    scope: options.scope ?? 'user',
+    // Every skill file, written now or already current, as absolute paths.
+    paths: targets.map(target => target.file),
+  });
 }
