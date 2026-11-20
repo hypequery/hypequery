@@ -11,10 +11,10 @@
     "test": "npm run build && vitest run"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.6",
+    "@hono/node-server": "^2.1.9",
     "@hypequery/clickhouse": "workspace:*",
     "@hypequery/serve": "workspace:*",
-    "hono": "^4.13.16",
+    "hono": "^4.13.19",
     "zod": "^4.6.6"
   },
   "devDependencies": {
