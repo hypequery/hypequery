@@ -5,7 +5,7 @@ import { absoluteUrl, ogImage } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse MCP Server for Claude, Cursor and Codex',
   description:
-    'A governed ClickHouse MCP server: agents query named datasets and metrics, never raw SQL. Connect Claude, Cursor or Codex to your own ClickHouse in five minutes, from TypeScript or Python.',
+    'A ClickHouse MCP server with tenant-scoped dataset tools in place of a SQL tool. Setup for Claude Desktop, Claude Code, Cursor and Codex.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
@@ -94,8 +94,8 @@ export default function ClickHouseMcpPage() {
     <ClickhousePillarPage
       leadPage="/clickhouse-mcp"
       eyebrow="ClickHouse MCP"
-      title="A ClickHouse MCP server that gives agents trusted analytics, not a database console"
-      description="@hypequery/mcp turns the datasets you define in TypeScript or Python into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve, while SQL and ClickHouse credentials stay inside your server."
+      title="A ClickHouse MCP server with tenant-scoped dataset tools"
+      description="The official ClickHouse MCP servers give an agent a read-only SQL tool. @hypequery/mcp gives it four tools over the datasets you define in TypeScript or Python: it picks dimensions and measures, the server writes the SQL, and every query is held to one tenant. Claude, Cursor, Codex and other MCP clients connect over stdio or HTTP, and ClickHouse credentials stay in your server."
       primaryCta={{ href: '/docs/mcp/quickstart', label: 'Start with MCP' }}
       secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}
       quickstart={{
@@ -154,6 +154,49 @@ claude mcp list`,
         footnote:
           'Using Python? The same four steps with `hypequery mcp app:api` are in the MCP quickstart. Add `--http` to serve it over HTTP for your team.',
       }}
+      comparisonMatrix={{
+        eyebrow: 'Which ClickHouse MCP server',
+        title: 'Official ClickHouse MCP servers and hypequery compared',
+        description:
+          'ClickHouse maintains two MCP servers. Both hand the agent SQL. hypequery hands it named datasets and metrics instead, so the questions it can answer are the ones you defined, for one tenant at a time.',
+        columns: [
+          { label: 'mcp-clickhouse (open source)' },
+          { label: 'ClickHouse Cloud remote MCP' },
+          { label: 'hypequery MCP', highlight: true },
+        ],
+        rows: [
+          {
+            label: 'What the agent sends',
+            cells: ['SQL through run_query', 'SELECT statements through run_select_query', 'Dataset, dimensions, measures and filters; no SQL tool'],
+          },
+          {
+            label: 'Tools',
+            cells: [
+              'run_query, list_databases, list_tables, run_chdb_select_query',
+              'run_select_query, list_databases, list_tables, plus organization and service tools',
+              'list_datasets, get_dataset_schema, query_metric, query_dataset',
+            ],
+          },
+          {
+            label: 'Writes',
+            cells: ['Read-only by default; writes and drops can be switched on', 'All queries read-only', 'Read-only: queries come from dataset definitions'],
+          },
+          {
+            label: 'Tenant scope',
+            cells: ['The ClickHouse user’s grants', 'The ClickHouse user’s grants', 'Tenant key per dataset; unscoped queries are refused'],
+          },
+          {
+            label: 'Where it runs',
+            cells: ['Your machine or server (Python)', 'Hosted by ClickHouse Cloud', 'Your backend (TypeScript or Python), stdio or HTTP'],
+          },
+          {
+            label: 'Best for',
+            cells: ['Exploring a database you own', 'Exploring a ClickHouse Cloud service', 'Agents that answer business questions, including for your customers'],
+          },
+        ],
+        footnote:
+          'ClickHouse columns checked on 2026-11-18 against the mcp-clickhouse README and the ClickHouse Cloud remote MCP guide, both linked in the sources below.',
+      }}
       stats={[
         { label: 'Agent surface', value: 'Datasets and measures' },
         { label: 'Database access', value: 'No raw SQL' },
@@ -200,7 +243,7 @@ claude mcp list`,
         eyebrow: 'MCP server',
         title: 'Serve your datasets, then expose them over MCP',
         description:
-          '@hypequery/mcp exposes list_datasets, get_dataset_schema, and query_dataset tools over stdio or HTTP. The agent never writes or receives SQL.',
+          '@hypequery/mcp exposes four tools over stdio or HTTP: list_datasets, get_dataset_schema, query_metric and query_dataset. The agent never writes or receives SQL.',
         paragraphs: [
           'hypequery mcp serves the datasets your Serve API already registers, and hypequery mcp app:api does the same for a Python API. Add --http to serve them at a URL, behind a shared key, your app\'s auth or OAuth.',
           'Because MCP queries go through the same dataset definitions as the rest of your application, validation and the meaning of each measure do not fork into an agent-only implementation.',
@@ -213,11 +256,75 @@ claude mcp list`,
           code: mcpCode,
         },
       }}
+      additionalSections={[
+        {
+          eyebrow: 'Client setup',
+          title: 'Connect Claude Desktop, Claude Code, Cursor or Codex',
+          description:
+            'Each client launches the same command, `npx hypequery mcp`, from your project folder. Add `--tenant <id>` if any dataset is tenant-scoped. Run `npx hypequery mcp --self-test` first to check which datasets it will serve.',
+          paragraphs: [
+            'Desktop clients start servers from their own working directory, so every entry changes into your project first and uses an absolute path. For a Python API, run `hypequery mcp app:api --print-config` and paste the entry it prints. The clients guide in the docs covers Windows and the config-file server.',
+          ],
+          codePanels: [
+            {
+              eyebrow: 'Claude Code',
+              title: 'Add it from your project folder',
+              description: 'The shell expands $PWD, so Claude Code stores an absolute path.',
+              code: `claude mcp add hypequery -- sh -c "cd '$PWD' && npx hypequery mcp"
+claude mcp list`,
+              filename: 'terminal',
+              language: 'bash',
+            },
+            {
+              eyebrow: 'Claude Desktop',
+              title: 'Edit claude_desktop_config.json',
+              description:
+                'Settings → Developer → Edit Config. On macOS the file is ~/Library/Application Support/Claude/claude_desktop_config.json. Quit and reopen Claude afterwards.',
+              code: `{
+  "mcpServers": {
+    "hypequery": {
+      "command": "sh",
+      "args": ["-c", "cd /absolute/path/to/your-project && npx hypequery mcp"]
+    }
+  }
+}`,
+              filename: 'claude_desktop_config.json',
+              language: 'json',
+            },
+            {
+              eyebrow: 'Cursor',
+              title: 'Add .cursor/mcp.json to the project',
+              description: 'Cursor fills in ${workspaceFolder} with the folder you opened.',
+              code: `{
+  "mcpServers": {
+    "hypequery": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "cd '\${workspaceFolder}' && npx hypequery mcp"]
+    }
+  }
+}`,
+              filename: '.cursor/mcp.json',
+              language: 'json',
+            },
+            {
+              eyebrow: 'Codex',
+              title: 'Register it with codex mcp add',
+              description:
+                'Run it from your project folder. Codex writes the entry to ~/.codex/config.toml, which the CLI, the IDE extension and the ChatGPT desktop app share.',
+              code: `codex mcp add hypequery -- sh -c "cd '$PWD' && npx hypequery mcp"
+codex mcp list`,
+              filename: 'terminal',
+              language: 'bash',
+            },
+          ],
+        },
+      ]}
       searchIntentCards={[
         {
           title: 'Is there an official ClickHouse MCP server?',
           copy:
-            'Yes. ClickHouse maintains mcp-clickhouse, which gives agents a read-only SQL tool, and ClickHouse Cloud offers a remote MCP server. A governed server like this one is the alternative when agents should call named datasets and metrics instead of writing SQL.',
+            'Yes, two. ClickHouse maintains mcp-clickhouse, an open-source Python server with a run_query tool that is read-only by default, and ClickHouse Cloud hosts a remote MCP server at mcp.clickhouse.cloud with a SELECT-only run_select_query tool. hypequery is the option for agents that should call named datasets and metrics, scoped to one tenant, instead of writing SQL.',
         },
         {
           title: 'Semantic layer for AI agents',
@@ -235,7 +342,19 @@ claude mcp list`,
             'Yes, through an MCP server. With this one, Claude, Cursor, Codex and other MCP clients discover approved datasets and measures without learning your schema or credentials.',
         },
       ]}
+      sources={[
+        { href: 'https://github.com/ClickHouse/mcp-clickhouse', label: 'mcp-clickhouse README (ClickHouse, checked 2026-11-18)' },
+        {
+          href: 'https://clickhouse.com/docs/products/cloud/features/ai-ml/mcp/remote-mcp',
+          label: 'ClickHouse Cloud remote MCP server guide (checked 2026-11-18)',
+        },
+      ]}
       readingLinks={[
+        {
+          href: '/docs/mcp/clients',
+          title: 'MCP client setup',
+          description: 'Claude Code, Claude Desktop, Cursor and Python entries, Windows paths and the config-file server.',
+        },
         {
           href: '/blog/clickhouse-mcp-servers-compared',
           title: 'Official ClickHouse MCP vs governed MCP',

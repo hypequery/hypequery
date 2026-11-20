@@ -436,3 +436,16 @@ page snippet, type-checked against @hypequery/datasets 0.30.0 and @hypequery/ser
   Microsoft's docs.
 - **Luzmo, ThoughtSpot, Polar Analytics and InetSoft positions on headless BI**: seen only in search results, not
   checked on their sites.
+
+## /clickhouse-mcp: ClickHouse MCP servers (checked 2026-11-18)
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| /clickhouse-mcp | mcp-clickhouse is ClickHouse's open-source Python MCP server with `run_query`, `list_databases`, `list_tables` and `run_chdb_select_query` | https://github.com/ClickHouse/mcp-clickhouse (README) | 2026-11-18 |
+| /clickhouse-mcp | mcp-clickhouse queries are read-only by default (`CLICKHOUSE_ALLOW_WRITE_ACCESS=false`); writes and destructive operations can be enabled with `CLICKHOUSE_ALLOW_WRITE_ACCESS` and `CLICKHOUSE_ALLOW_DROP` | https://github.com/ClickHouse/mcp-clickhouse (README) | 2026-11-18 |
+| /clickhouse-mcp | mcp-clickhouse's security boundary is the ClickHouse user's grants | https://github.com/ClickHouse/mcp-clickhouse (README, "Destructive Operation Protection") | 2026-11-18 |
+| /clickhouse-mcp | ClickHouse Cloud hosts a remote MCP server at `https://mcp.clickhouse.cloud/mcp`, authenticated with OAuth or a Cloud API key | https://clickhouse.com/docs/products/cloud/features/ai-ml/mcp/remote-mcp | 2026-11-18 |
+| /clickhouse-mcp | The remote server's queries are all read-only; `run_select_query` permits only SELECT; it also has `list_databases`, `list_tables` and organization/service tools such as `get_organizations` | https://clickhouse.com/docs/products/cloud/features/ai-ml/mcp/remote-mcp | 2026-11-18 |
+| /clickhouse-mcp | `codex mcp add <name> -- <command>` writes an `[mcp_servers.<name>]` entry to `~/.codex/config.toml` | Run locally with codex-cli 0.166.0 against a temporary `CODEX_HOME` | 2026-11-18 |
+
+Not claimed: per-tenant scoping in either ClickHouse server beyond ClickHouse user grants (neither page describes one).
