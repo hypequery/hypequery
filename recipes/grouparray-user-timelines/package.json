@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/grouparray-user-timelines",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Ordered per-user event timelines in ClickHouse with groupArray: why the order is not guaranteed, and arraySort over tuples or groupArraySorted to fix it, pinned on the seed",
   "type": "module",
