@@ -14,17 +14,17 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",
-    "@hono/node-server": "^2.0.5",
+    "@hono/node-server": "^2.1.9",
     "@hypequery/clickhouse": "workspace:*",
     "@hypequery/datasets": "workspace:*",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.1",
+    "hono": "^4.13.19",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
     "@types/pg": "^8.15.6",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.1"
   }
 }
