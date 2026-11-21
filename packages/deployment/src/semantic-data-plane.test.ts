@@ -438,6 +438,51 @@ describe('semantic data plane', () => {
     expect(await call('segment')).toBe('input-invalid');
   });
 
+  it('gives implied filters the executor\'s field restrictions and default operators', async () => {
+    const base = deployment();
+    const restricted = {
+      ...base,
+      datasets: base.datasets.map(dataset => {
+        if (dataset.name === 'orders') {
+          return {
+            ...dataset,
+            filters: dataset.filters.map(filter => filter.name === 'status'
+              ? { ...filter, name: 'status_filter', operators: ['eq'] }
+              : filter),
+          };
+        }
+        if (dataset.name === 'customers') {
+          return {
+            ...dataset,
+            filters: [{ name: 'country_filter', field: 'country', operators: ['eq'] }],
+          };
+        }
+        return dataset;
+      }),
+    };
+    const { plane: dataPlane } = plane({ deployment: restricted as never });
+    const filter = (dataset: string, field: string, operator: string) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({
+        kind: 'dataset', dataset, dimensions: dataset === 'orders' ? ['status'] : ['country'],
+        filters: [{
+          kind: 'comparison', operator,
+          left: { kind: 'reference', name: field },
+          ...((operator === 'isNull' || operator === 'isNotNull')
+            ? {}
+            : { right: { kind: 'literal', value: 'x' } }),
+        }],
+      }),
+      credentials: 'token',
+    }));
+
+    expect(await filter('orders', 'status', 'eq')).toBe('accepted');
+    expect(await filter('orders', 'status', 'like')).toBe('input-invalid');
+    expect(await filter('orders', 'status', 'isNull')).toBe('input-invalid');
+    expect(await filter('orders', 'customer.country', 'eq')).toBe('accepted');
+    expect(await filter('orders', 'customer.country', 'like')).toBe('input-invalid');
+    expect(await filter('customers', 'email', 'isNull')).toBe('input-invalid');
+  });
+
   it('accepts a listed null check, which has no compared value (RFC 0023)', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({
