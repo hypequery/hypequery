@@ -33,6 +33,10 @@ export interface SemanticOperationLimits {
 
 /** Invocation 1 refuses `minute` and `hour` before they reach this check (RFC 0015). */
 const ALL_GRAINS: readonly ProtocolQueryTimeGrain[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'];
+const ALL_FILTER_OPERATORS = new Set([
+  'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
+  'isNull', 'isNotNull',
+]);
 
 interface Resolved {
   /** Dimensions the caller may group by, including one-hop qualified names. */
@@ -62,12 +66,17 @@ function resolveDataset(
 
   for (const dimension of dataset.dimensions) {
     if (dimension.groupable) groupable.add(String(dimension.name));
+    if (dimension.filterable) {
+      filters.set(String(dimension.name), ALL_FILTER_OPERATORS);
+    }
   }
   // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
   const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
     ? dataset.allowedFilters
     : (dataset as ProtocolDeploymentDataset).filters;
   for (const filter of allowList) {
+    // A named filter intentionally replaces the implied dimension capability:
+    // it may map to another field and may narrow the operators callers can use.
     filters.set(String(filter.name), new Set(filter.operators));
   }
   for (const relationship of dataset.relationships) {
@@ -82,9 +91,7 @@ function resolveDataset(
       if (dimension.filterable) {
         // A joined field has no named filter in the contract, so it accepts the
         // full operator set the protocol allows rather than a narrowed list.
-        filters.set(qualified, new Set([
-          'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
-        ]));
+        filters.set(qualified, ALL_FILTER_OPERATORS);
       }
     }
   }

@@ -1,4 +1,8 @@
-import type { ProtocolSemanticInvocationFailure, ProtocolSemanticInvocationFailureCategory } from '@hypequery/protocol';
+import {
+  PROTOCOL_SEMANTIC_FAILURE_MESSAGES,
+  type ProtocolSemanticInvocationFailure,
+  type ProtocolSemanticInvocationFailureCategory,
+} from '@hypequery/protocol';
 
 /** A failure that already carries the public category a caller should see. */
 export class DeploymentSemanticInvocationError extends Error {
@@ -46,8 +50,9 @@ export function fail(
 /**
  * Projects a failure onto the portable record.
  *
- * The message is deliberately the one this module produced. A cause is never
- * unwrapped into it, so a provider exception cannot reach a caller.
+ * Public messages are fixed by the protocol. The internal error message is
+ * still useful to the deployment's private logs, but copying it into this
+ * record would make an otherwise valid failure fail protocol validation.
  */
 export function toProtocolSemanticInvocationFailure(
   error: unknown,
@@ -59,7 +64,9 @@ export function toProtocolSemanticInvocationFailure(
     version: 1,
     category: known ? error.category : 'executor-failed',
     code: known ? error.code : 'HQ_SEMANTIC_EXECUTION_FAILED',
-    message: known ? error.message : 'Semantic invocation failed.',
+    message: PROTOCOL_SEMANTIC_FAILURE_MESSAGES[
+      known ? error.category : 'executor-failed'
+    ],
     ...(known && error.path !== undefined ? { path: error.path } : {}),
     retryable: known ? error.retryable : false,
     relist: known ? error.relist : false,

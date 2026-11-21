@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { validateProtocolSemanticInvocationFailure } from '@hypequery/protocol';
 import {
   createDeploymentSemanticDataPlane,
   DeploymentSemanticInvocationError,
@@ -418,6 +419,25 @@ describe('semantic data plane', () => {
     expect(await filter('like')).toBe('input-invalid');
   });
 
+  it('accepts local filterable dimensions without requiring a duplicate named filter', async () => {
+    const { plane: dataPlane } = plane();
+    const call = (name: string, operator = 'eq') => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({
+        kind: 'dataset', dataset: 'customers', dimensions: ['country'],
+        filters: [{
+          kind: 'comparison', operator,
+          left: { kind: 'reference', name },
+          right: { kind: 'literal', value: 'x' },
+        }],
+      }),
+      credentials: 'token',
+    }));
+
+    expect(await call('country')).toBe('accepted');
+    expect(await call('email', 'like')).toBe('accepted');
+    expect(await call('segment')).toBe('input-invalid');
+  });
+
   it('accepts a listed null check, which has no compared value (RFC 0023)', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({
@@ -802,5 +822,20 @@ describe('semantic data plane', () => {
       activationRevision: REVISION,
     });
     expect(JSON.stringify(failure)).not.toContain('secret detail');
+  });
+
+  it('projects internal diagnostics as a protocol-valid public failure', () => {
+    const internal = new DeploymentSemanticInvocationError(
+      'input-invalid',
+      'HQ_SEMANTIC_INPUT_INVALID',
+      'Unknown or unfilterable field "currency".',
+      { path: '$.operation.filters[0]' },
+    );
+
+    const failure = toProtocolSemanticInvocationFailure(internal, REVISION);
+
+    expect(failure.message).toBe('The semantic query is invalid.');
+    expect(failure.path).toBe('$.operation.filters[0]');
+    expect(() => validateProtocolSemanticInvocationFailure(failure)).not.toThrow();
   });
 });
