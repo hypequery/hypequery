@@ -147,6 +147,22 @@ describe('field visibility in the data plane', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a visible dimension\'s implied filter without exposing hidden filters', async () => {
+    const { plane: dataPlane, execute } = plane();
+    const comparison = (name: string) => ({
+      kind: 'comparison', operator: 'eq',
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value: 'x' },
+    });
+    expect(await refusal(dataPlane, {
+      dataset: 'shipments', measures: ['shipments'], filters: [comparison('carrier')],
+    })).toBeNull();
+    expect(await refusal(dataPlane, {
+      dataset: 'shipments', measures: ['shipments'], filters: [comparison('accountId')],
+    })).toMatchObject({ category: 'input-invalid', message: 'Unknown or unfilterable field "accountId".' });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it('spells out only visible base measures when the caller omits measures', async () => {
     const { plane: dataPlane, execute } = plane();
     expect(await refusal(dataPlane, { dataset: 'shipments', dimensions: ['carrier'] })).toBeNull();
@@ -374,7 +390,7 @@ describe('field visibility in discovery', () => {
       .map(dimension => dimension.name);
     expect(exposed).toEqual(['carrier', 'region']);
     expect(shipments.measures.map(measure => measure.name)).toEqual(['shipments']);
-    expect(shipments.filters.map(filter => filter.name)).toEqual(['region']);
+    expect(shipments.filters?.map(filter => filter.name)).toEqual(['region']);
     expect(shipments.timeField).toBeUndefined();
     expect(shipments.defaults).toEqual({ dimensions: ['carrier'] });
     const concealed = shipments.dimensions.find(dimension => dimension.name === 'accountId')!;

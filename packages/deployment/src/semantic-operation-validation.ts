@@ -8,7 +8,6 @@
  */
 
 import type {
-  ProtocolDeploymentDataset,
   ProtocolDeploymentDatasetAnyVersion,
   ProtocolDeploymentDatasetV3,
   ProtocolExpression,
@@ -16,6 +15,7 @@ import type {
   ProtocolSemanticQuery,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
+import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -33,12 +33,13 @@ export interface SemanticOperationLimits {
 
 /** Invocation 1 refuses `minute` and `hour` before they reach this check (RFC 0015). */
 const ALL_GRAINS: readonly ProtocolQueryTimeGrain[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'];
-
 interface Resolved {
   /** Dimensions the caller may group by, including one-hop qualified names. */
   readonly groupable: ReadonlySet<string>;
   /** Filter name -> allowed operators. */
   readonly filters: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Filter keys implied by visible dimensions rather than declared aliases. */
+  readonly impliedFilters: ReadonlySet<string>;
   readonly measures: ReadonlySet<string>;
   readonly grains: ReadonlySet<string>;
   /** Contract 3 segment names a caller may select. */
@@ -59,32 +60,37 @@ function resolveDataset(
 ): Resolved {
   const groupable = new Set<string>();
   const filters = new Map<string, ReadonlySet<string>>();
+  const impliedFilters = new Set<string>();
+  const local = protocolFilterCapabilities(dataset);
 
   for (const dimension of dataset.dimensions) {
     if (dimension.groupable) groupable.add(String(dimension.name));
   }
-  // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
-  const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
-    ? dataset.allowedFilters
-    : (dataset as ProtocolDeploymentDataset).filters;
-  for (const filter of allowList) {
-    filters.set(String(filter.name), new Set(filter.operators));
+  for (const [name, operators] of local.dimensions) {
+    filters.set(name, operators);
+    impliedFilters.add(name);
+  }
+  for (const [name, filter] of local.named) {
+    // A named filter keeps its alias. When its name matches a dimension it
+    // replaces that key, exactly as datasets' effectiveFilters does.
+    filters.set(name, new Set(filter.operators));
+    impliedFilters.delete(name);
   }
   for (const relationship of dataset.relationships) {
     if (!relationship.queryable) continue;
     const target = datasets.get(String(relationship.target));
+    if (!target) continue;
+    const targetFilters = protocolFilterCapabilities(target);
     for (const dimension of target?.dimensions ?? []) {
       const qualified = `${String(relationship.name)}.${String(dimension.name)}`;
       // The two capabilities are declared separately and travel separately
       // across a join. Coupling them would both hide a filterable field that
       // cannot be grouped and expose one the target declared unfilterable.
       if (dimension.groupable) groupable.add(qualified);
-      if (dimension.filterable) {
-        // A joined field has no named filter in the contract, so it accepts the
-        // full operator set the protocol allows rather than a narrowed list.
-        filters.set(qualified, new Set([
-          'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
-        ]));
+      const operators = targetFilters.dimensions.get(String(dimension.name));
+      if (operators) {
+        filters.set(qualified, operators);
+        impliedFilters.add(qualified);
       }
     }
   }
@@ -92,6 +98,7 @@ function resolveDataset(
   return {
     groupable,
     filters,
+    impliedFilters,
     measures: new Set((dataset.measures as readonly { readonly name: string }[]).map(measure => String(measure.name))),
     grains: new Set(dataset.timeField === undefined ? [] : ALL_GRAINS),
     segments: new Set(((dataset as ProtocolDeploymentDatasetV3).segments ?? []).map(segment => String(segment.name))),
@@ -108,8 +115,10 @@ function narrowResolvedToVisible(allowed: Resolved, visible: ProtocolVisibleData
   return {
     groupable: new Set([...allowed.groupable].filter(name => visible.dimensions.has(name))),
     filters: new Map([...allowed.filters].filter(([name]) => (
-      visible.filters.has(name) || (name.includes('.') && visible.dimensions.has(name))
+      visible.filters.has(name)
+      || (allowed.impliedFilters.has(name) && visible.dimensions.has(name))
     ))),
+    impliedFilters: new Set([...allowed.impliedFilters].filter(name => visible.dimensions.has(name))),
     measures: new Set([...allowed.measures].filter(name => visible.measures.has(name))),
     grains: visible.timeField ? allowed.grains : new Set(),
     segments: visible.segments === undefined
