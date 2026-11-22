@@ -70,7 +70,8 @@ in the dataset must name one: column-backed dimensions (whose declared type must
 equal the column's), `tenantKey`, `timeKey`/`timeKeys` that aren't dimensions,
 filter fields that aren't dimensions, measure `field`/`argField` that aren't
 dimensions, relationship `from` keys, row-policy fields, and raw-SQL field
-`dependencies`. A reference may be bare or qualified with the alias
+`dependencies`. Column-backed references are bare column names; raw-SQL
+`dependencies` (and the SQL itself) may also qualify a column with the alias
 (`activity.step`). Fields qualified with a relationship name belong to its
 target.
 
