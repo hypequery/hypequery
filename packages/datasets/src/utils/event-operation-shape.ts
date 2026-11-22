@@ -3,7 +3,7 @@ import {
   PROTOCOL_FUNNEL_COLUMNS,
   PROTOCOL_RETENTION_COLUMNS,
 } from '@hypequery/protocol';
-import type { EventOperationSpec } from './event-operation-spec.js';
+import type { EventOperationSpec, FunnelSpec, RetentionSpec } from './event-operation-spec.js';
 
 const COHORT_GRAINS = new Set(['day', 'week', 'month']);
 
@@ -25,28 +25,46 @@ export function eventOperationShapeErrors(spec: EventOperationSpec): string[] {
   if (!Number.isSafeInteger(spec.breakdownLimit) || spec.breakdownLimit < 1 || spec.breakdownLimit > LIMITS.maxBreakdownLimit) {
     errors.push(`breakdownLimit must be an integer from 1 to ${LIMITS.maxBreakdownLimit}.`);
   }
-  const conditions = (name: string, where: readonly unknown[]) => {
-    if (where.length < 1 || where.length > LIMITS.maxConditions) {
-      errors.push(`${name} needs 1 to ${LIMITS.maxConditions} conditions.`);
-    }
-  };
-  if (spec.kind === 'retention') {
-    conditions('The start condition', spec.start);
-    conditions('The return condition', spec.return);
-    if (!Number.isSafeInteger(spec.periods) || spec.periods < 1 || spec.periods > LIMITS.maxPeriods) {
-      errors.push(`periods must be an integer from 1 to ${LIMITS.maxPeriods}.`);
-    }
-    if (!COHORT_GRAINS.has(spec.grain)) errors.push(`Cohort grain "${spec.grain}" is not day, week or month.`);
-    return errors;
+  // Each kind checks only its own fields, so a new kind can't read another's.
+  switch (spec.kind) {
+    case 'funnel':
+      errors.push(...funnelShapeErrors(spec));
+      break;
+    case 'retention':
+      errors.push(...retentionShapeErrors(spec));
+      break;
   }
+  return errors;
+}
+
+function conditionErrors(name: string, where: readonly unknown[]): string[] {
+  return where.length < 1 || where.length > LIMITS.maxConditions
+    ? [`${name} needs 1 to ${LIMITS.maxConditions} conditions.`]
+    : [];
+}
+
+function funnelShapeErrors(spec: FunnelSpec): string[] {
+  const errors: string[] = [];
   if (spec.steps.length < LIMITS.minSteps || spec.steps.length > LIMITS.maxSteps) {
     errors.push(`A funnel has ${LIMITS.minSteps} to ${LIMITS.maxSteps} steps.`);
   }
   if (new Set(spec.steps.map(step => step.name)).size !== spec.steps.length) errors.push('Step names must be unique.');
-  for (const step of spec.steps) conditions(`Step "${step.name}"`, step.where);
+  for (const step of spec.steps) errors.push(...conditionErrors(`Step "${step.name}"`, step.where));
   if (!Number.isSafeInteger(spec.windowMs) || spec.windowMs < 1 || spec.windowMs > LIMITS.maxWindowMilliseconds) {
     errors.push('The funnel window must be a whole number of milliseconds, at most 365 days.');
   }
   if (spec.by !== undefined && !COHORT_GRAINS.has(spec.by)) errors.push(`Cohort grain "${spec.by}" is not day, week or month.`);
+  return errors;
+}
+
+function retentionShapeErrors(spec: RetentionSpec): string[] {
+  const errors = [
+    ...conditionErrors('The start condition', spec.start),
+    ...conditionErrors('The return condition', spec.return),
+  ];
+  if (!Number.isSafeInteger(spec.periods) || spec.periods < 1 || spec.periods > LIMITS.maxPeriods) {
+    errors.push(`periods must be an integer from 1 to ${LIMITS.maxPeriods}.`);
+  }
+  if (!COHORT_GRAINS.has(spec.grain)) errors.push(`Cohort grain "${spec.grain}" is not day, week or month.`);
   return errors;
 }
