@@ -110,8 +110,9 @@ with the same message, so the tree doesn't reveal that it exists.
 A window or shift query (RFC 0015), and a filled query (§3), needs exactly one
 bounded range on its time axis. Only top-level comparisons, including those
 inside a top-level `and`, count toward that range. A comparison on the time
-axis inside an `or` or `not` filters rows but bounds nothing, and such a query
-fails with `input-invalid`, as a query with no range does today.
+axis inside an `or` or `not` can't bound the series, so a window, shift or
+filled query that has one fails with `input-invalid`, as a query with no
+range does today. Any other query may compare its time axis anywhere.
 
 ### Cache preimage (RFC 0009)
 
