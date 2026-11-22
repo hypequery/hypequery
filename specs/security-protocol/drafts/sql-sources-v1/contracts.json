@@ -3972,6 +3972,125 @@
       },
       "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
       "path": "$.datasets[0].relationships[0].from"
+    },
+    {
+      "name": "measure errors name the contract's index, after a derived measure",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "alias": "activity",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "kind": "derived",
+                "name": "double_users",
+                "uses": [
+                  {
+                    "alias": "u",
+                    "measure": "users"
+                  }
+                ],
+                "expression": {
+                  "kind": "binary",
+                  "operator": "multiply",
+                  "left": {
+                    "kind": "reference",
+                    "name": "u"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": 2
+                  }
+                }
+              },
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              },
+              {
+                "name": "amount",
+                "aggregation": "sum",
+                "field": "amount",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].measures[2].field"
     }
   ]
 }

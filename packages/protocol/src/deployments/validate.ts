@@ -949,7 +949,7 @@ function validateDataset(
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
   }
   if (isProtocolSqlSource(result.source)) {
-    validateSqlSourceReferences(value, result, path, filtersKey, issues);
+    validateSqlSourceReferences(value, result, path, filtersKey, measureIndices, issues);
   }
   field(() => optionalText(value.description, 'description', result, path, limits));
   field(() => optionalText(value.owner, 'owner', result, path, limits));
@@ -979,6 +979,7 @@ function validateSqlSourceReferences(
   result: Record<string, unknown>,
   path: string,
   filtersKey: string,
+  measureIndices: readonly number[] | undefined,
   issues?: DeploymentErrorCollector,
 ): void {
   const source = result.source as ProtocolSqlSource;
@@ -1020,7 +1021,8 @@ function validateSqlSourceReferences(
   }
   if (typeof result.timeField === 'string') fieldOrColumn(result.timeField, `${path}.timeField`);
   for (const [index, measure] of ((result.measures ?? []) as readonly ProtocolDatasetMeasure[]).entries()) {
-    const at = `${path}.measures[${index}]`;
+    // Base measures are checked apart from composite ones; report the contract's index.
+    const at = `${path}.measures[${measureIndices?.[index] ?? index}]`;
     if (measure.sql !== undefined) {
       dependencies(measure.sql, `${at}.sql`);
       continue;

@@ -160,6 +160,8 @@ interface Frame {
   fromCall: boolean;
   clause: string | undefined;
   ctes: Set<string>;
+  /** The CTE whose body this frame is; it becomes visible only once the body closes. */
+  defines?: string;
 }
 
 const isPunct = (token: Token | undefined, text: string) => token?.kind === 'punct' && token.text === text;
@@ -197,6 +199,7 @@ export function analyzeProtocolSqlSource(
   const frames: Frame[] = [{ fromCall: false, clause: undefined, ctes: new Set() }];
   const tables: string[] = [];
   let readsFinal = false;
+  let pendingCte: { name: string; at: number } | undefined;
   const resolvesToCte = (name: string) => frames.some(frame => frame.ctes.has(name));
 
   /** Reads a table reference at `index`; returns the index after it, or a refusal. */
@@ -237,10 +240,17 @@ export function analyzeProtocolSqlSource(
         const inner = tokens[index + 1];
         if (inner?.kind === 'word' && STATEMENT_WORDS.has(inner.upper)) return refuse('not-select', inner.upper);
         const previous = tokens[index - 1];
-        frames.push({ fromCall: previous?.kind === 'word' && FROM_SYNTAX_FUNCTIONS.has(previous.upper), clause: undefined, ctes: new Set() });
+        frames.push({
+          fromCall: previous?.kind === 'word' && FROM_SYNTAX_FUNCTIONS.has(previous.upper),
+          clause: undefined,
+          ctes: new Set(),
+          ...(pendingCte?.at === index ? { defines: pendingCte.name } : {}),
+        });
       } else if (token.text === ')') {
         if (frames.length === 1) return refuse('unbalanced-parentheses');
-        frames.pop();
+        const closed = frames.pop()!;
+        // ClickHouse hides a CTE from its own body, where the name reads the physical table.
+        if (closed.defines !== undefined) frames[frames.length - 1]!.ctes.add(closed.defines);
       } else if (token.text === ',' && frame.clause !== undefined && TABLE_LIST_CLAUSES.has(frame.clause)) {
         const after = readTable(index + 1);
         if (typeof after !== 'number') return after;
@@ -278,7 +288,7 @@ export function analyzeProtocolSqlSource(
     if (frame.fromCall) continue;
     // `name AS (…)` inside WITH defines a CTE visible here and in nested frames.
     if (frame.clause === 'WITH' && isWord(tokens[index + 1], 'AS') && isPunct(tokens[index + 2], '(')) {
-      frame.ctes.add(token.text);
+      pendingCte = { name: token.text, at: index + 2 };
       continue;
     }
     if (CLAUSE_WORDS.has(upper)) frame.clause = upper;
