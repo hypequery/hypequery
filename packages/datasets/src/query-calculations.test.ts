@@ -181,6 +181,7 @@ describe('RFC 0026 calculations in the dataset client', () => {
     ['other on a non-string dimension', { dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 2, measure: 'revenue' } }, /groups a string dimension/],
     ['other ranked by an unknown measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'nope' } }, /ranks by unknown measure "nope"/],
     ['other beside a relationship field', { dimensions: ['country'], measures: ['revenue'], filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }], other: { dimension: 'country', n: 2, measure: 'revenue' } }, /cannot be combined with relationship fields/],
+    ['other beside a relationship field inside a filter group', { dimensions: ['country'], measures: ['revenue'], filters: [{ or: [...WEB, { not: { field: 'customer.tier', operator: 'eq', value: 'gold' } }] }], other: { dimension: 'country', n: 2, measure: 'revenue' } }, /cannot be combined with relationship fields/],
     ['a rank of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 'r', rank: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
     ['a share of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 's', share: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
     ['other ranked by a window measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenueRunning' } }, /depends on a shift or window/],
@@ -335,6 +336,21 @@ describe('RFC 0026 calculations in the dataset client', () => {
       expect(compilation.describe().plan).toBe('time');
       expect(compilation.sql).toContain('`_hq_calc_0_0_change_pct` AS `revenue_change_pct`');
       expect(compilation.parameters).toEqual(expect.arrayContaining(['2026-01-01']));
+    });
+
+    it('fills a series bucketed by other, with the top-N CTE in both statements', () => {
+      const compilation = clockClient().compileDataset(Orders, {
+        dimensions: ['country'], measures: ['revenue', 'users'], by: 'day', fill: true, filters: [january],
+        other: { dimension: 'country', n: 2, measure: 'revenue' },
+        // An additive share, and a non-additive one with a joined denominator.
+        calculations: [{ name: 's', share: { measure: 'revenue', of: ['period'] } }, { name: 'u', share: { measure: 'users', of: ['period'] } }],
+      }, TENANT);
+      expect(compilation.sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total`');
+      expect(compilation.describe().plan).toBe('time');
+      expect(compilation.sql).toContain('_hq_series');
+      for (const statement of [compilation, ...compilation.preflightStatements]) {
+        expect(statement.sql).toMatch(/^WITH `_hq_other_top` AS /);
+      }
     });
 
     it('counts filter-group comparisons, not groups, toward the predicate budget', () => {

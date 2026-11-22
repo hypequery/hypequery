@@ -27,7 +27,7 @@ import { validateShiftMeasures } from './shift-measure-validation.js';
 import { validateWindowMeasures } from './window-measure-validation.js';
 import { queryFilterErrors } from './query-filter-errors.js';
 import { effectiveFilters } from './effective-filters.js';
-import { filterLeafCount } from './filter-tree.js';
+import { filterLeafCount, filterLeaves } from './filter-tree.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import { formulaMeasure, formulaReferences } from './query-calculation-formula.js';
@@ -355,7 +355,9 @@ class CalculationPlanner {
         + 'so its total at a coarser grain cannot be computed exactly.');
       return;
     }
-    const { calculations: _c, limitBy: _l, other: _o, having: _h, orderBy: _ob, limit: _li, offset: _of, by: _by, dimensions: _d, ...rest } = this.query;
+    // The denominator reads the same rows, but is never a filled series: a
+    // filled period has no source rows to total, and is joined as NULL.
+    const { calculations: _c, limitBy: _l, other: _o, having: _h, orderBy: _ob, limit: _li, offset: _of, by: _by, dimensions: _d, fill: _fill, ...rest } = this.query;
     // `period` is the time bucket only when `by` makes one; otherwise it is an
     // ordinary dimension and the denominator groups by it like any other.
     const bucketed = this.query.by !== undefined && of.includes('period');
@@ -378,7 +380,8 @@ class CalculationPlanner {
     const label = '"other"';
     const fields = [
       ...(this.query.dimensions ?? []), ...(this.query.measures ?? []),
-      ...(this.query.filters ?? []).map(filter => filter.field), ...(this.query.orderBy ?? []).map(order => order.field),
+      // Every comparison of a filter tree (RFC 0029), however deeply grouped.
+      ...filterLeaves(this.query.filters).map(filter => filter.field), ...(this.query.orderBy ?? []).map(order => order.field),
     ];
     if (fields.some(field => field.includes('.'))) {
       this.errors.push(`${label} cannot be combined with relationship fields; it regroups a local dimension.`);
@@ -399,7 +402,8 @@ class CalculationPlanner {
       this.errors.push(`${label} cannot rank by "${other.measure}", which depends on a shift or window.`);
       return undefined;
     }
-    const { calculations: _c, limitBy: _l, other: _o, having: _h, orderBy: _ob, limit: _li, offset: _of, by: _by, dimensions: _d, measures: _m, ...rest } = this.query;
+    // The ranking spans the whole range, unbucketed and unfilled.
+    const { calculations: _c, limitBy: _l, other: _o, having: _h, orderBy: _ob, limit: _li, offset: _of, by: _by, dimensions: _d, measures: _m, fill: _fill, ...rest } = this.query;
     return {
       dimension: other.dimension,
       n: other.n,

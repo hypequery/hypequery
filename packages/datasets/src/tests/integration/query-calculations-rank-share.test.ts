@@ -261,6 +261,24 @@ describe('RFC 0026 rank, share, limitBy and other against brute-force SQL', () =
     }
   });
 
+  it('other and a non-additive share over a filled series (RFC 0029): the unfilled rows plus empty periods', async () => {
+    const query: DatasetQuery = {
+      by: 'month', dimensions: ['country'], measures: ['revenue', 'users'], filters: range,
+      other: { dimension: 'country', n: 1, measure: 'revenue' },
+      calculations: [{ name: 'user_share', share: { measure: 'users', of: ['period'] } }],
+    };
+    const plain = await execute(query);
+    const filled = await execute({ ...query, fill: true });
+    const values = (row: Record<string, unknown>) => [num(row.revenue), num(row.users), num(row.user_share)];
+    const byKey = new Map(filled.data.map(row => [key(row), row]));
+    for (const row of plain.data) expect(values(byKey.get(key(row))!)).toEqual(values(row));
+    const added = filled.data.filter(row => !plain.data.some(other => key(other) === key(row)));
+    // The draft rows leave February empty: only filled periods are new.
+    expect(added.length).toBeGreaterThan(0);
+    expect(new Set(added.map(row => month(row.period)))).toEqual(new Set(['2026-02']));
+    for (const row of added) expect(num(row.revenue) ?? 0).toBe(0);
+  });
+
   it('rank and share over time-measure calculations', async () => {
     const result = await execute({
       by: 'month', dimensions: ['country'], measures: ['revenue'], filters: range,
