@@ -26,15 +26,11 @@ import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { buildCalculationStageSql } from './calculation-stage-sql.js';
 import { planQueryCalculations, publicCalculationErrors, type QueryCalculationPlan } from './query-calculation-plan.js';
+import { assertStageSupported, otherRankingSql, withOtherBucket } from './other-bucket-sql.js';
 import type { PreparedDatasetQuery, DatasetQueryMode } from './compile-dataset-query.js';
 
-/** Thrown when a calculation names a kind or field this executor cannot run yet. */
-export class UnsupportedQueryCalculationError extends Error {
-  constructor(readonly reasons: readonly string[]) {
-    super(reasons.join('; '));
-    this.name = 'UnsupportedQueryCalculationError';
-  }
-}
+export { UnsupportedQueryCalculationError } from './query-calculation-errors.js';
+import { UnsupportedQueryCalculationError } from './query-calculation-errors.js';
 
 /**
  * Every reason a calculated query cannot run, with the caller's names. The
@@ -76,8 +72,9 @@ export function prepareCalculatedDatasetQuery(
   mode: DatasetQueryMode,
 ): PreparedDatasetQuery {
   const plan = planOrThrow(dataset, query, options.context);
-  const view = plan.dataset;
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  assertStageSupported(plan, dialect);
+  const view = plan.other === undefined ? plan.dataset : withOtherBucket(plan.dataset, plan.other, dialect);
   const executionLimit = mode === 'execution' ? overfetchLimit(query.limit) : query.limit;
   const innerOptions: DatasetQueryExecutionOptions = { ...options, executionLimit: undefined };
   const readsFinal = queryReadsFinal(
@@ -96,7 +93,18 @@ export function prepareCalculatedDatasetQuery(
     innerPlan = 'derived';
     planned = buildDerivedDatasetSql(view, plan.inner, innerOptions, buildDatasetQueryBuilder);
   }
-  const outer = buildCalculationStageSql(query, plan, planned, dialect, executionLimit);
+  // Each statement the stage embeds is planned and rendered on its own, with
+  // the same tenancy, filters and segments as the inner one.
+  const denominators = new Map(plan.shares.flatMap(share => (share.denominator === undefined ? [] : [[
+    share.internal,
+    renderStatement(buildDerivedDatasetSql(view, share.denominator, innerOptions, buildDatasetQueryBuilder)),
+  ] as const])));
+  const otherTop = plan.other === undefined
+    ? undefined
+    : renderStatement(otherRankingSql(plan.dataset, plan.other, innerOptions, dialect));
+  const outer = buildCalculationStageSql(query, plan, planned, dialect, executionLimit, {
+    denominators, ...(otherTop === undefined ? {} : { otherTop }),
+  });
   const statement = withFinalSafety(readsFinal, renderStatement(outer));
   const preflightStatements: DatasetCompiledStatement[] = preflight === undefined
     ? []

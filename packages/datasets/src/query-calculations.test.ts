@@ -106,6 +106,46 @@ describe('RFC 0026 calculations in the dataset client', () => {
     expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
   });
 
+  it('ranks and shares over the grouped rows before having, and bounds Top-N per group', () => {
+    const sql = recordingClient().client.toSQL({ ...Orders, limits: undefined }, {
+      by: 'month', dimensions: ['country'], measures: ['revenue', 'users'], filters: RANGE,
+      calculations: [
+        { name: 'r', rank: { measure: 'revenue', within: ['period'] } },
+        { name: 's', share: { measure: 'revenue', of: ['period'] } },
+        { name: 'u', share: { measure: 'users', of: ['period'] } },
+      ],
+      having: [{ measure: 'r', operator: 'lte', value: 3 }],
+      orderBy: [{ field: 'revenue', direction: 'desc' }],
+      limitBy: { n: 2, by: ['period'] },
+    }, TENANT);
+    expect(sql).toContain('rank() OVER (PARTITION BY `_hq_calc`.`period` ORDER BY `_hq_calc`.`revenue` DESC NULLS LAST) AS `_hq_calc_0`');
+    expect(sql).toContain('`_hq_calc`.`revenue` / NULLIF(sum(`_hq_calc`.`revenue`) OVER (PARTITION BY `_hq_calc`.`period`), 0) AS `_hq_calc_1`');
+    // countDistinct is re-aggregated at the coarser grain and joined, NULL keys matching.
+    expect(sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total`');
+    expect(sql).toContain('isNotDistinctFrom(`_hq_calc`.`period`, `_hq_share__hq_calc_2`.`period`)');
+    expect(sql).toMatch(/WHERE `_hq_calc_0` <= \? ORDER BY `revenue` DESC LIMIT 2 BY `period`$/);
+  });
+
+  it('regroups other from source rows through a top-N CTE, leaving filters on source values', () => {
+    const sql = recordingClient().client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['users'],
+      filters: [{ field: 'country', operator: 'neq', value: 'ES' }],
+      other: { dimension: 'country', n: 3, measure: 'revenue', label: "Rest o'world" },
+    }, TENANT);
+    expect(sql).toMatch(/^WITH `_hq_other_top` AS \(SELECT `country` FROM .+ WHERE `country` IS NOT NULL ORDER BY `revenue` DESC, `country` ASC LIMIT 3\)/);
+    expect(sql).toContain("if(orders.country IN (SELECT `country` FROM `_hq_other_top`), orders.country, 'Rest o''world') AS `country`");
+    expect(sql).toContain('orders.country != ?');
+  });
+
+  it.each([
+    ['other on a non-string dimension', { dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 2, measure: 'revenue' } }, /groups a string dimension/],
+    ['other ranked by a window measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenueRunning' } }, /depends on a shift or window/],
+    ['a non-additive share of a time measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }, { name: 's', share: { measure: 'revenue_change_pct' } }] }, /not additive and depends on a shift or window/],
+    ['limitBy without orderBy', { dimensions: ['country'], measures: ['revenue'], limitBy: { n: 2, by: ['country'] } }, /limitBy requires a non-empty orderBy/],
+  ] as const)('refuses %s by name', (_name, query, message) => {
+    expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
+  });
+
   it('runs uncached and refuses the backend path', async () => {
     const query: DatasetQuery = { measures: ['revenue'], calculations: [{ name: 'x', filter: { measure: 'revenue', where: WEB } }] };
     expect(datasetCacheKey({ secret: new Uint8Array(32), namespace: 'test' } as never, Orders, query, TENANT, undefined)).toBeUndefined();
