@@ -12,6 +12,7 @@
  * byte-identical SQL claim mitigated by construction rather than by review.
  */
 
+import { alternateTimeKeys } from './utils/protocol-rehydrate-time-keys.js';
 import type {
   ProtocolDatasetContract,
   ProtocolDeploymentContractAnyVersion,
@@ -507,6 +508,8 @@ export function rehydrateProtocolDatasets(
       ...(contract.timeField !== undefined
         ? { timeKey: String(contract.timeField), timeGrains: PUBLISHED_TIME_GRAINS }
         : {}),
+      // RFC 0029: contract 3 alternate axes are the dataset's `timeKeys`.
+      ...alternateTimeKeys(contract),
       dimensions: rehydrateDimensions(contract),
       measures: Object.fromEntries([
         ...contract.measures.map(measure => [

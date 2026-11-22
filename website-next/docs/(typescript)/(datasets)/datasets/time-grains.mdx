@@ -148,4 +148,4 @@ The selected axis drives everything time-based in the query:
 
 `timeGrains` applies to every axis. The catalog and contract list the alternates as `timeKeys`. Serve endpoints accept `timeKey` on datasets that declare alternates and reject any axis the dataset does not declare.
 
-Alternate time keys need the `queryBuilder` execution path. They are not yet carried by the deployment protocol, the MCP query tools, or the Python SDK.
+Deploying a dataset with `timeKeys` publishes them as contract 3 `alternateTimeFields`, and a deployed query selects one with `timeKey` (RFC 0029). Alternate time keys need the `queryBuilder` execution path. The MCP query tools and the Python SDK don't carry them yet.

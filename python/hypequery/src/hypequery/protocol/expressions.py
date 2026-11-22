@@ -447,6 +447,7 @@ def validate_protocol_semantic_query(
             "limit",
             "offset",
             "by",
+            "timeKey",
             "timezone",
             *(() if metric else ("fill",)),
             "includeMeta",
@@ -483,6 +484,8 @@ def validate_protocol_semantic_query(
             if raw_grain not in (_GRAINS_V2 if v2 else _GRAINS):
                 expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.by")
             grain = cast(ProtocolQueryTimeGrain, raw_grain)
+        # RFC 0029: which time axis; the data plane checks it against the contract.
+        time_key = _simple_identifier(value["timeKey"], "$.timeKey") if "timeKey" in value else None
         timezone: str | None = None
         if "timezone" in value:
             timezone = _string(value["timezone"], "$.timezone")
@@ -516,6 +519,7 @@ def validate_protocol_semantic_query(
                 include_meta=include_meta,
                 segments=segments,
                 timezone=timezone,
+                time_key=time_key,
             )
         return ProtocolDatasetQuery(
             dataset=dataset,
@@ -531,6 +535,7 @@ def validate_protocol_semantic_query(
             having=having,
             timezone=timezone,
             fill=fill,
+            time_key=time_key,
         )
     finally:
         state.active.remove(id(value))

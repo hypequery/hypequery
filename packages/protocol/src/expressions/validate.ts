@@ -353,7 +353,7 @@ export function validateProtocolSemanticQuery(
         'filters',
         ...(v2 ? ['segments'] : []),
         ...(metric ? [] : ['having']),
-        'orderBy', 'limit', 'offset', 'by', 'timezone',
+        'orderBy', 'limit', 'offset', 'by', 'timeKey', 'timezone',
         ...(metric ? [] : ['fill']),
         'includeMeta',
       ],
@@ -394,6 +394,8 @@ export function validateProtocolSemanticQuery(
       if (!(v2 ? GRAINS_V2 : GRAINS_V1).has(grain)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.by');
       result.by = grain;
     }
+    // RFC 0029: which time axis; the data plane checks it against the contract.
+    if (value.timeKey !== undefined) result.timeKey = identifier(value.timeKey, '$.timeKey', false);
     if (value.timezone !== undefined) {
       const timezone = stringValue(value.timezone, '$.timezone');
       // RFC 0018's pinned registry, so every implementation accepts the same

@@ -338,7 +338,8 @@ The normalized query is a closed object. Every field is always present, and
 `timezone` other than `UTC`, has no preimage and fails with
 `HQ_CACHE_PREIMAGE_INVALID_QUERY`; `timezone: "UTC"` normalizes as if absent
 (RFC 0025). So does a query with an `inDateRange` comparison anywhere in its
-filters, or `fill: true`; `fill: false` normalizes as if absent (RFC 0029).
+filters, `fill: true`, or a `timeKey`; `fill: false` normalizes as if absent
+(RFC 0029).
 The reasons for each rule:
 
 - **Column and row order are part of the result.** So `dimensions`, `measures`

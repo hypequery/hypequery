@@ -468,6 +468,51 @@ describe('semantic data plane', () => {
       .toBe('input-invalid');
   });
 
+  it('selects a published alternate time key (RFC 0029)', async () => {
+    const base = orders() as Record<string, unknown> & { dimensions: unknown[]; filters: unknown[] };
+    const { filters, ...rest } = base;
+    const v3 = {
+      kind: 'hypequery-deployment',
+      version: 3,
+      datasets: [
+        { ...(() => { const { filters: allowed, ...c } = customers() as Record<string, unknown>; return { ...c, allowedFilters: allowed }; })() },
+        {
+          ...rest,
+          allowedFilters: filters,
+          alternateTimeFields: ['shippedAt'],
+          dimensions: [...base.dimensions, {
+            name: 'shippedAt', type: 'timestamp', source: { kind: 'column', column: 'shipped_at' },
+            filterable: true, groupable: true,
+          }],
+        },
+      ],
+    };
+    const { plane: dataPlane, execute } = plane({ deployment: v3 as never });
+    const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, ...operation }),
+      credentials: 'token',
+    }));
+    const range = (name: string) => ({
+      kind: 'comparison', operator: 'inDateRange',
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value: 'this quarter' },
+    });
+
+    expect(await reject({ by: 'week', timeKey: 'shippedAt' })).toBe('accepted');
+    expect(execute.mock.calls.at(-1)![0].operation).toMatchObject({ by: 'week', timeKey: 'shippedAt' });
+    expect(await reject({ by: 'week', timeKey: 'createdAt' })).toBe('accepted');
+    expect(await reject({ filters: [range('shippedAt')] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, timeKey: 'shippedAt', filters: [range('shippedAt')] })).toBe('accepted');
+    // The range must be on the selected axis.
+    expect(await reject({ by: 'day', fill: true, timeKey: 'shippedAt', filters: [range('createdAt')] })).toBe('input-invalid');
+    expect(await reject({ by: 'week', timeKey: 'status' })).toBe('input-invalid');
+    // A contract without alternates accepts only its time field.
+    const { plane: v2Plane } = plane();
+    expect(await categoryOf(() => v2Plane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, by: 'week', timeKey: 'shippedAt' }), credentials: 'token',
+    }))).toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

@@ -253,15 +253,38 @@ export function validateSemanticOperation(
     if (comparison === null) return undefined;
     return String(namedFilters.get(comparison.field)?.field ?? comparison.field);
   };
-  const timeAxis = dataset.timeField === undefined || allowed.grains.size === 0
-    ? undefined : String(dataset.timeField);
+  // RFC 0029: the time axes a caller may use, in contract order. A hidden
+  // alternate reads exactly like an undeclared one.
+  const axes = dataset.timeField === undefined || allowed.grains.size === 0
+    ? []
+    : [
+        String(dataset.timeField),
+        ...((dataset as ProtocolDeploymentDatasetV3).alternateTimeFields ?? [])
+          .map(String)
+          .filter(name => visible === undefined || visible.dimensions.has(name)),
+      ];
+  let timeAxis: string | undefined = axes[0];
+  if (operation.timeKey !== undefined) {
+    if (axes.includes(String(operation.timeKey))) {
+      timeAxis = String(operation.timeKey);
+    } else {
+      timeAxis = undefined;
+      fail(
+        axes.length === 0
+          ? 'This dataset has no time field, so a timeKey does not apply.'
+          : `Unknown time key "${String(operation.timeKey)}". Available: ${axes.join(', ')}.`,
+        '$.operation.timeKey',
+      );
+    }
+  }
   filters.forEach(leaf => {
     if (comparisonField(leaf.expression)?.operator !== 'inDateRange') return;
-    if (timeAxis === undefined || fieldOf(leaf) !== timeAxis) {
+    const field = fieldOf(leaf);
+    if (field === undefined || !axes.includes(field)) {
       fail(
-        timeAxis === undefined
+        axes.length === 0
           ? 'This dataset has no time field, so "inDateRange" does not apply.'
-          : `"inDateRange" applies only to the time field "${timeAxis}".`,
+          : `"inDateRange" applies only to a time axis: ${axes.join(', ')}.`,
         leaf.path,
       );
     }

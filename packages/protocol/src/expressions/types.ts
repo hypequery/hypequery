@@ -122,6 +122,12 @@ interface ProtocolQueryCommon {
   readonly offset?: number;
   readonly by?: ProtocolQueryTimeGrain;
   /**
+   * The time axis for `by`, `fill`, window and shift measures: the dataset's
+   * `timeField` or one of its contract 3 `alternateTimeFields`. Absent means
+   * `timeField`. RFC 0029.
+   */
+  readonly timeKey?: ProtocolIdentifier;
+  /**
    * IANA zone for time-grain buckets and time-key filter bounds, from RFC
    * 0018's pinned registry. Absent means UTC. RFC 0025.
    */

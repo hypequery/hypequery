@@ -39,6 +39,8 @@ export function contract3Features(dataset: AnyDatasetInstance): string[] {
       ? ['approxCountDistinct'] : []),
     ...(dataset.defaults?.timeGrain !== undefined && isSubDayTimeGrain(dataset.defaults.timeGrain)
       ? ['a sub-day default grain'] : []),
+    // RFC 0029: published as `alternateTimeFields`, never silently dropped.
+    ...((dataset.timeKeys?.length ?? 0) > 0 ? ['alternate time keys'] : []),
   ];
 }
 

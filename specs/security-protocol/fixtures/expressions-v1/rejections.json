@@ -62,5 +62,7 @@
   { "id": "in-date-range-in-having", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "having": [{ "measure": "revenue", "operator": "inDateRange", "value": 1 }] }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
   { "id": "fill-without-by", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "fill": true }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
   { "id": "fill-not-boolean", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "day", "fill": "true" }, "error": "HQ_EXPRESSION_TYPE" },
-  { "id": "fill-on-metric", "mode": "query", "value": { "kind": "metric", "dataset": "orders", "metric": "revenue", "by": "day", "fill": true }, "error": "HQ_EXPRESSION_UNKNOWN_FIELD" }
+  { "id": "fill-on-metric", "mode": "query", "value": { "kind": "metric", "dataset": "orders", "metric": "revenue", "by": "day", "fill": true }, "error": "HQ_EXPRESSION_UNKNOWN_FIELD" },
+  { "id": "time-key-qualified", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "timeKey": "customer.created_at" }, "error": "HQ_EXPRESSION_INVALID_IDENTIFIER" },
+  { "id": "time-key-not-string", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "timeKey": 1 }, "error": "HQ_EXPRESSION_INVALID_IDENTIFIER" }
 ]

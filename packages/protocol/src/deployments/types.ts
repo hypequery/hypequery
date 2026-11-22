@@ -294,6 +294,11 @@ export interface ProtocolDeploymentDatasetV3
   readonly measures: readonly ProtocolDeploymentMeasureV3[];
   readonly allowedFilters: readonly ProtocolDatasetFilter[];
   readonly segments?: readonly ProtocolDatasetSegment[];
+  /**
+   * Further time axes a query may select with `timeKey` (RFC 0029): distinct,
+   * never `timeField`, and only beside one.
+   */
+  readonly alternateTimeFields?: readonly ProtocolIdentifier[];
   readonly defaults?: {
     readonly dimensions?: readonly ProtocolIdentifier[];
     readonly timeGrain?: ProtocolQueryTimeGrain;
