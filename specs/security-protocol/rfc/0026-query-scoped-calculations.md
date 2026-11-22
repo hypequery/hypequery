@@ -39,7 +39,16 @@ A **dataset** query validated under **expression extension 2** may contain
 `calculations`, `limitBy` and `other`. They sit after `having` in document
 order. Under extension 1, and on a metric query, each fails with
 `HQ_EXPRESSION_UNKNOWN_FIELD`, exactly as an unknown member does, so a peer
-that predates this RFC refuses rather than ignores them.
+that predates this RFC refuses rather than ignores them. A semantic invocation
+2 record whose operation carries a non-empty `calculations`, a `limitBy` or an
+`other` uses extension 2 (RFC 0015's "an invocation 2 record must use an
+extension 2 feature" rule), so a calculated query is always an invocation 2.
+
+Validation order: `calculations` is validated after `segments` and before
+`having` (which may name its outputs); `limitBy` and `other` are validated
+last, after `timezone`. Within `calculations`, every entry's kind and output
+names are checked before any entry's references, so a reference to a later
+entry is reported as a forward reference.
 
 ```json
 {
@@ -78,7 +87,8 @@ and one **kind** member (`filter`, `shift`, `window`, `formula`, `compare`,
 `HQ_EXPRESSION_UNKNOWN_FIELD`. A kind outside this list is an unknown member,
 so a future kind is refused by a peer that predates it.
 
-`name` is a simple identifier (RFC 0002). Every entry produces one or more
+`name` is a simple identifier (RFC 0002), unique among the entries. Every
+entry produces one or more
 **output columns**; the names of all output columns must be unique across
 `dimensions`, `measures`, `period` (when `by` is present) and every other
 output column, or the query fails with `HQ_EXPRESSION_INVALID_QUERY` at the
@@ -116,9 +126,12 @@ already declares model filters ANDs both.
   `HQ_EXPRESSION_INVALID_QUERY`.
 - Execution checks each comparison exactly as a query filter: the field is one
   the caller may filter on, the operator is allowed on it, and the value has
-  the field's type. Only local (unqualified) fields are accepted. Each
-  comparison counts toward the dataset's `maxFilters`, with `filters` and
-  `having`.
+  the field's type. Only local (unqualified) fields are accepted, and time
+  fields are refused: bound time with the query's `filters`, which the
+  time-measure planner reads. Each comparison counts toward the dataset's
+  `maxFilters`, with `filters` and `having`. Values are rendered by the
+  dialect's measure-filter literal (escaped, never concatenated), as
+  model-level filtered measures are.
 
 #### `shift` — the same measure, an earlier bucket
 
@@ -149,7 +162,8 @@ grain other than `minute`; `trailing` takes `{ amount, unit }` as `shift` does.
 
 These inherit every contract 3 constraint, checked at execution:
 
-1. `by` is present.
+1. `by` is present. The validator checks this for `shift`, `window` and
+   `compare`, failing with `HQ_EXPRESSION_INVALID_QUERY` at the kind member.
 2. `filters` contains exactly one bounded range on the dataset's time field:
    one `between`, or one `gt`/`gte` with one `lt`/`lte`, with ISO timestamps.
 3. The interval spans whole `by` buckets (`trailing: 7 day` at `by: week`
@@ -320,7 +334,9 @@ A result for a query with at least one calculation carries
   `formula`).
 - `measure`: the input it varies, for `filter`, `shift`, `window`, `rank` and
   `share`.
-- `type`: `number` or `integer`. Values are JSON numbers or `null`.
+- `type`: `number` or `integer`. Cell values are serialized exactly as
+  measure values are — a decimal string, or `null` (non-finite results are
+  `null`) — so a calculation column reads like any other measure column.
 - `format`: `ratio` for `share`, `percentChange` roots and `<m>_change_pct`.
 
 Without calculations `meta` is unchanged, so no existing result moves. A
@@ -395,13 +411,24 @@ validator, so no release gate silently drops it. Outline:
   (`HQ_EXPRESSION_UNKNOWN_FIELD`). Every extension 1 implementation already
   refuses them through the closed envelope, so these pin compatibility without
   new code.
-- **Execution** (draft `drafts/query-calculations-v1/rows.json`): a small
+- **Execution** (`drafts/query-calculations-v1/rows.json`): a small
   orders table with NULL dimension values, repeated users across groups and an
   empty month, with expected rows for each kind, pinned against brute-force SQL
   over the same rows, including `share` and `other` over `countDistinct`.
 
 `cache-preimages-v1/rejections.json` gains `query-calculations-uncacheable`,
 `query-limit-by-uncacheable` and `query-other-uncacheable`.
+
+## Implementation status
+
+- TypeScript lands in two stacked pull requests: the envelope, result
+  metadata, data plane checks, and `filter`/`shift`/`window`/`formula`/`compare`
+  planning first (`rank`, `share`, `limitBy` and `other` are refused with
+  `unsupported-capability` until the second); then `rank`, `share`, `limitBy`
+  and `other`.
+- Python: not yet implemented. The `query-calculations-v1` family is absent
+  from its `--expect-families` list, and its closed envelope refuses the
+  fields, so Python callers get an error rather than a wrong answer.
 
 ## Compatibility
 
