@@ -1,3 +1,4 @@
+import { rewriteSelectedDimension } from './utils/dimension-selection-overrides.js';
 import { semanticOrderDirection } from './utils/semantic-query-syntax.js';
 import { queryTimeSql } from './utils/query-timezone.js';
 import { assertNoRawSqlUnderJoins } from './utils/sql-under-joins.js';
@@ -76,7 +77,8 @@ export function buildDimensionSelectionPlan(
   }
 
   for (const dimensionName of dimensions) {
-    const expression = resolveDimensionExpression(ds, dimensionName, joinCtx);
+    // RFC 0026 `other` regroups a selected dimension; nothing else reads the rewrite.
+    const expression = rewriteSelectedDimension(ds, dimensionName, resolveDimensionExpression(ds, dimensionName, joinCtx));
 
     // Every generated alias is quoted: reserved words and engines that fold
     // unquoted case (Postgres) must keep the semantic name. With joins in

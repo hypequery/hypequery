@@ -1,3 +1,4 @@
+import { rewriteSelectedDimension } from './dimension-selection-overrides.js';
 import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
@@ -58,7 +59,10 @@ export function buildTimeMeasureSourceSql(
   });
   const dims = (query.dimensions ?? []).map((name, i) => ({ name, alias: `_hq_d${i}` }));
   const sourceParts = [resolveDimensionExpression(ds, ds.timeKey!, joinCtx)];
-  for (const dimension of dims) sourceParts.push(resolveDimensionExpression(ds, dimension.name, joinCtx));
+  for (const dimension of dims) {
+    // RFC 0026 `other` regroups a selected dimension; nothing else reads the rewrite.
+    sourceParts.push(rewriteSelectedDimension(ds, dimension.name, resolveDimensionExpression(ds, dimension.name, joinCtx)));
+  }
   for (const name of baseNames) {
     const related = name.includes('.') ? resolveRelationshipMeasure(ds, name) : undefined;
     const definition = related?.definition ?? getBaseMeasure(ds.measures, name);

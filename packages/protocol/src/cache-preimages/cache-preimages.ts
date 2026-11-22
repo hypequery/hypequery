@@ -92,6 +92,10 @@ function normalizeQuery(source: unknown): Record<string, unknown> {
   // definition identity by the caller, and UTC (the default) folds nothing.
   if (query.kind === 'dataset' && (query.having?.length ?? 0) > 0) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   if (query.timezone !== undefined && query.timezone !== 'UTC') fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  // RFC 0026: calculations, limitBy and other have no portable key either.
+  if (query.kind === 'dataset' && (
+    (query.calculations?.length ?? 0) > 0 || query.limitBy !== undefined || query.other !== undefined
+  )) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   // RFC 0029: a relative range means a different query every day, and a
   // filled series has rows the preimage can't describe. Neither has a
   // portable key; `fill: false` is the default and is dropped below.

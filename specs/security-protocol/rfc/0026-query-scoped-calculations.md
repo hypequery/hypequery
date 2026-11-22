@@ -421,11 +421,11 @@ validator, so no release gate silently drops it. Outline:
 
 ## Implementation status
 
-- TypeScript lands in two stacked pull requests: the envelope, result
-  metadata, data plane checks, and `filter`/`shift`/`window`/`formula`/`compare`
-  planning first (`rank`, `share`, `limitBy` and `other` are refused with
-  `unsupported-capability` until the second); then `rank`, `share`, `limitBy`
-  and `other`.
+- TypeScript implements every kind and field. `limitBy`, `other` and a
+  non-additive `share` (a joined, re-aggregated denominator) need ClickHouse;
+  the datasets client refuses them by name on other dialects, and the
+  portable executor as `unsupported-capability` with reason
+  `HQ_PORTABLE_QUERY_CALCULATION_DIALECT`.
 - Python: not yet implemented. The `query-calculations-v1` family is absent
   from its `--expect-families` list, and its closed envelope refuses the
   fields, so Python callers get an error rather than a wrong answer.
