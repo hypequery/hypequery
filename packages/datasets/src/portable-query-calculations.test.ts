@@ -122,6 +122,22 @@ describe('RFC 0026 calculations through the portable runtime', () => {
     expect(compilation.sql).toContain('`_hq_calc_0_0_change_pct` AS `revenue_change_pct`');
   });
 
+  it('resolves a relative range before checking a calculated query', async () => {
+    const { factory, sql } = recordingFactory();
+    const runtime = createPortableSemanticRuntime({ queryBuilder: factory, now: () => new Date('2026-11-22T10:00:00Z') });
+    const thisYear = {
+      kind: 'comparison', operator: 'inDateRange',
+      left: { kind: 'reference', name: 'createdAt' }, right: { kind: 'literal', value: 'this year' },
+    };
+    const operation = {
+      measures: ['revenue'], by: 'month', filters: [thisYear],
+      calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+    };
+    await runtime.execute(input(operation));
+    expect(sql.length).toBeGreaterThan(0);
+    expect(runtime.compile(input(operation)).parameters).toEqual(expect.arrayContaining(['2026-01-01', '2027-01-01']));
+  });
+
   it('claims input-invalid for what the dataset cannot satisfy', () => {
     const runtime = createPortableSemanticRuntime({ queryBuilder: recordingFactory().factory });
     expect(() => runtime.compile(input({
