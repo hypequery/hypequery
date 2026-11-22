@@ -28,9 +28,11 @@ export function analyzeTimeMeasureAxis(
   query: DatasetQuery,
 ): { axis?: TimeMeasureAxis; errors: string[] } {
   const timeMeasures = selectedTimeMeasures(dataset, query);
-  if (timeMeasures.size === 0) return { errors: [] };
+  if (timeMeasures.size === 0 && query.fill !== true) return { errors: [] };
   const errors: string[] = [];
-  const subjects = [...timeMeasures.values()].some(isShiftMeasure) ? 'Window and shift measures' : 'Window measures';
+  const subjects = timeMeasures.size === 0
+    ? 'Filled queries'
+    : [...timeMeasures.values()].some(isShiftMeasure) ? 'Window and shift measures' : 'Window measures';
   if (!isSupportedTimeGrain(query.by)) return { errors: [`${subjects} require a supported "by" grain.`] };
   const grain = query.by;
   for (const [name, window] of timeMeasures) {

@@ -16,7 +16,8 @@ import type {
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
-import { effectiveFilterOperators, protocolFilterLeaves } from './utils/filter-leaves.js';
+import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
+import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -244,6 +245,38 @@ export function validateSemanticOperation(
       );
     }
   });
+
+  // RFC 0029: a relative range filters a time axis; the executor resolves it.
+  const namedFilters = protocolFilterCapabilities(dataset).named;
+  const fieldOf = (leaf: ProtocolFilterLeaf) => {
+    const comparison = comparisonField(leaf.expression);
+    if (comparison === null) return undefined;
+    return String(namedFilters.get(comparison.field)?.field ?? comparison.field);
+  };
+  const timeAxis = dataset.timeField === undefined || allowed.grains.size === 0
+    ? undefined : String(dataset.timeField);
+  filters.forEach(leaf => {
+    if (comparisonField(leaf.expression)?.operator !== 'inDateRange') return;
+    if (timeAxis === undefined || fieldOf(leaf) !== timeAxis) {
+      fail(
+        timeAxis === undefined
+          ? 'This dataset has no time field, so "inDateRange" does not apply.'
+          : `"inDateRange" applies only to the time field "${timeAxis}".`,
+        leaf.path,
+      );
+    }
+  });
+  // A filled series, like a window or shift measure, needs a bounded range.
+  const timeMeasures = new Set((dataset.measures as readonly { name: string; kind?: string }[])
+    .filter(measure => measure.kind === 'window' || measure.kind === 'shift')
+    .map(measure => String(measure.name)));
+  const series = operation.fill === true
+    ? 'Filled queries'
+    : measures.some(name => timeMeasures.has(String(name))) ? 'Window and shift measures' : undefined;
+  if (series !== undefined && timeAxis !== undefined) {
+    const violation = timeSeriesRangeViolation(filters, fieldOf, timeAxis, series);
+    if (violation) fail(violation.message, violation.path);
+  }
 
   // RFC 0015: an unknown segment is refused like an unknown dimension, and a
   // hidden one reads exactly like an unknown one.

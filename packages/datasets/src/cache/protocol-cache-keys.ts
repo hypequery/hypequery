@@ -274,6 +274,9 @@ export function datasetCacheKey(
       ...sharedQueryFields(query, context),
       ...(query.measures !== undefined ? { measures: [...query.measures] } : {}),
       ...(query.by !== undefined ? { by: query.by } : {}),
+      // RFC 0029: a filled series has no portable key, so the preimage
+      // refuses it and the call runs uncached rather than sharing a key.
+      ...(query.fill === true ? { fill: true } : {}),
     };
     return deriveKey(settings, wire, definitionFor(settings, ds, scope, query), context, query.limit);
   } catch {

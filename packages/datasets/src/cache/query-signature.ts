@@ -163,6 +163,8 @@ export function buildDatasetQuerySignature(
     orderBy: orderBySignature(query.orderBy),
     by: query.by ?? null,
     ...(query.timezone === undefined ? {} : { timezone: query.timezone }),
+    // Omitted unless set, so unfilled queries keep their keys (RFC 0029).
+    ...(query.fill === true ? { fill: true } : {}),
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ds, query, context),

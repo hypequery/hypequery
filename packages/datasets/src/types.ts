@@ -397,7 +397,13 @@ export type DatasetFilterGroup<TFilter = MetricFilter> =
 export type DatasetFilterNode<TFilter = MetricFilter> = TFilter | DatasetFilterGroup<TFilter>;
 
 /** Operators that compare a field with a value. */
-export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like'
+  /**
+   * A relative date range on a time axis, such as `'last 30 days'` (RFC 0029).
+   * Query filters only; the client resolves it to `gte`/`lt` bounds in the
+   * query timezone. Measure filters, segments and constraints refuse it.
+   */
+  | 'inDateRange';
 
 /** Operators that test a field for NULL and take no value (RFC 0023). */
 export type MetricNullCheckOperator = 'isNull' | 'isNotNull';
@@ -405,7 +411,7 @@ export type MetricNullCheckOperator = 'isNull' | 'isNotNull';
 export type MetricFilterOperator = MetricValueFilterOperator | MetricNullCheckOperator;
 
 /** Operators a `having` condition may apply to an aggregated measure value. */
-export type DatasetHavingOperator = Exclude<MetricValueFilterOperator, 'like'>;
+export type DatasetHavingOperator = Exclude<MetricValueFilterOperator, 'like' | 'inDateRange'>;
 
 /**
  * A condition on an aggregated measure value, applied after grouping (SQL
@@ -472,6 +478,12 @@ export interface DatasetQuery {
   timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
+  /**
+   * Return every `by` period of the query's bounded time range, empty ones
+   * included (RFC 0029): count measures read 0 and the rest null, as in a
+   * window query. Requires `by` and a top-level time range.
+   */
+  fill?: boolean;
 }
 
 export interface MetricResultMeta {
@@ -924,6 +936,8 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
+  /** Return every `by` period of the bounded time range (RFC 0029). */
+  fill?: boolean;
   includeMeta?: boolean;
 }
 

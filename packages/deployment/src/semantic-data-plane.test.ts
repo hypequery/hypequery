@@ -432,6 +432,42 @@ describe('semantic data plane', () => {
       .toBe('input-invalid');
   });
 
+  it('accepts inDateRange on the time field and fill with a bounded range (RFC 0029)', async () => {
+    const { plane: dataPlane, execute } = plane();
+    const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, ...operation }),
+      credentials: 'token',
+    }));
+    const on = (name: string, operator: string, value: unknown) => ({
+      kind: 'comparison', operator,
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value },
+    });
+    const range = on('createdAt', 'inDateRange', 'last 30 days');
+
+    expect(await reject({ filters: [range] })).toBe('accepted');
+    expect(execute.mock.calls.at(-1)![0].operation.filters).toEqual([range]);
+    expect(await reject({ filters: [{ kind: 'logical', operator: 'not', operand: range }] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, filters: [range] })).toBe('accepted');
+    expect(execute.mock.calls.at(-1)![0].operation).toMatchObject({ by: 'day', fill: true });
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'gte', '2026-01-01'), on('createdAt', 'lt', '2026-02-01')] }))
+      .toBe('accepted');
+
+    // Not a time axis, or a field whose allowlist lacks gte and lt.
+    expect(await reject({ filters: [on('customerId', 'inDateRange', 'today')] })).toBe('input-invalid');
+    expect(await reject({ filters: [on('status', 'inDateRange', 'today')] })).toBe('input-invalid');
+    // A filled series needs exactly one top-level bounded range.
+    expect(await reject({ by: 'day', fill: true })).toBe('input-invalid');
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'gte', '2026-01-01')] })).toBe('input-invalid');
+    expect(await reject({
+      by: 'day', fill: true,
+      filters: [range, { kind: 'logical', operator: 'or', operands: [on('createdAt', 'lt', '2026-01-01'), on('status', 'eq', 'paid')] }],
+    })).toBe('input-invalid');
+    // `customers` has no time field.
+    expect(await reject({ dataset: 'customers', dimensions: ['country'], measures: [], filters: [on('country', 'inDateRange', 'today')] }))
+      .toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

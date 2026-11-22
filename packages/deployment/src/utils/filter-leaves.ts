@@ -6,6 +6,8 @@ export interface ProtocolFilterLeaf {
   readonly path: string;
   /** True under an odd number of `not`s. */
   readonly negated: boolean;
+  /** True under any `or` or `not`: such a comparison filters rows but bounds nothing. */
+  readonly nested: boolean;
 }
 
 /**
@@ -14,18 +16,19 @@ export interface ProtocolFilterLeaf {
  */
 export function protocolFilterLeaves(expression: ProtocolExpression, path: string): ProtocolFilterLeaf[] {
   const leaves: ProtocolFilterLeaf[] = [];
-  const visit = (node: ProtocolExpression, at: string, negated: boolean): void => {
+  const visit = (node: ProtocolExpression, at: string, negated: boolean, nested: boolean): void => {
     if (node.kind !== 'logical') {
-      leaves.push({ expression: node, path: at, negated });
+      leaves.push({ expression: node, path: at, negated, nested });
       return;
     }
     if (node.operator === 'not') {
-      visit(node.operand, `${at}.operand`, !negated);
+      visit(node.operand, `${at}.operand`, !negated, true);
       return;
     }
-    node.operands.forEach((operand, index) => visit(operand, `${at}.operands[${index}]`, negated));
+    const inner = nested || node.operator === 'or';
+    node.operands.forEach((operand, index) => visit(operand, `${at}.operands[${index}]`, negated, inner));
   };
-  visit(expression, path, false);
+  visit(expression, path, false, false);
   return leaves;
 }
 
@@ -37,6 +40,9 @@ const NEGATED: Readonly<Record<string, readonly string[]>> = {
   between: ['lt', 'gt'],
   // No portable notLike: a filter that allows pattern matching allows its negation.
   like: ['like'],
+  // RFC 0029: a relative range resolves to `gte start AND lt end`, and its
+  // negation to `lt start OR gte end`: the same pair either way.
+  inDateRange: ['gte', 'lt'],
 };
 
 /**
@@ -45,5 +51,6 @@ const NEGATED: Readonly<Record<string, readonly string[]>> = {
  * dataset narrowed away.
  */
 export function effectiveFilterOperators(operator: string, negated: boolean): readonly string[] {
+  if (operator === 'inDateRange') return NEGATED.inDateRange!;
   return negated ? NEGATED[operator] ?? [operator] : [operator];
 }

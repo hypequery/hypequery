@@ -258,6 +258,7 @@ export function buildDatasetPlan(
 ): PlanNode {
   rejectFinalOnBackend(ds);
   rejectConstraintsOnBackend(context);
+  if (query.fill === true) throw new Error('"fill" requires the queryBuilder execution path.');
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   if (selectsAlternateTimeKey(ds, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');

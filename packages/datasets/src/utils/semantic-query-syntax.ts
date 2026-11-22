@@ -7,6 +7,8 @@ export function semanticQuerySyntaxErrors(query: DatasetQuery | MetricQuery): st
   const errors: string[] = filterTreeErrors(query.filters);
   if (errors.length > 0) return errors;
   for (const filter of filterLeaves(query.filters)) {
+    // RFC 0029: validation reports an unresolved relative range with its reason.
+    if (filter.operator === 'inDateRange') continue;
     if (!isSemanticFilterOperator(filter.operator)) {
       errors.push(`Unsupported semantic filter operator "${String(filter.operator)}".`);
     }

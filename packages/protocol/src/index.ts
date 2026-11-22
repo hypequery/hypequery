@@ -55,6 +55,8 @@ export {
   PROTOCOL_NULL_CHECK_OPERATORS,
   ProtocolExpressionError,
   isProtocolNullCheckOperator,
+  isProtocolRelativeDateRange,
+  parseProtocolRelativeDateRange,
   validateProtocolExpression,
   validateProtocolSemanticQuery,
 } from './expressions/index.js';
@@ -98,6 +100,8 @@ export type {
   ProtocolOrderBy,
   ProtocolSemanticQuery,
   ProtocolQueryTimeGrain,
+  ProtocolRelativeDateRange,
+  ProtocolRelativeDateUnit,
   ProtocolTimeGrain,
   ProtocolValueComparisonOperator,
 } from './expressions/index.js';

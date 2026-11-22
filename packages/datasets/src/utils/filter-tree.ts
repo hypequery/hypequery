@@ -73,6 +73,7 @@ export function negatedFilterOperators(operator: MetricFilterOperator): readonly
     case 'isNotNull': return ['isNull'];
     case 'between': return ['lt', 'gt'];
     case 'like': return ['like'];
+    case 'inDateRange': return ['lt', 'gte'];
     default: return [operator];
   }
 }

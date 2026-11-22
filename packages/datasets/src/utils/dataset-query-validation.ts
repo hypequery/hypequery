@@ -1,3 +1,4 @@
+import { relativeDateFilterError } from './relative-date-filters.js';
 import { notGroupableError } from './groupable.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
@@ -111,6 +112,12 @@ export function validateDatasetQueryInput(
   const filterLeavesValid = filterTreeErrors(query.filters).length === 0;
   if (query.filters && filterLeavesValid) {
     for (const { filter, operators } of effectiveFilterLeaves(query.filters)) {
+      // The client resolves every valid relative range first (RFC 0029); one
+      // still here could not be resolved, and says why.
+      if (filter.operator === 'inDateRange') {
+        errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
+        continue;
+      }
       if (isQualifiedField(filter.field)) {
         const filterError = validateQualifiedFilter(ds, filter, context, operators);
         if (filterError) {
@@ -178,6 +185,12 @@ export function validateDatasetQueryInput(
     if (invalid.length > 0) {
       errors.push(`Unknown orderBy fields: ${invalid.join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
     }
+  }
+
+  if (query.fill !== undefined && typeof query.fill !== 'boolean') {
+    errors.push('Invalid fill: expected true or false.');
+  } else if (query.fill === true && !query.by) {
+    errors.push('"fill" needs a "by" grain: it fills the periods of the time series.');
   }
 
   if (query.by && !ds.timeKey) {

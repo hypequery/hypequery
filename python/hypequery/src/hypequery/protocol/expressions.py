@@ -41,6 +41,7 @@ from .identifiers import (
     parse_protocol_identifier,
     parse_protocol_qualified_identifier,
 )
+from .relative_dates import is_protocol_relative_date_range
 from .values import validate_canonical_value
 
 _BINARY = frozenset(("add", "subtract", "multiply", "divide"))
@@ -58,6 +59,7 @@ _COMPARISONS = frozenset(
         "like",
         "isNull",
         "isNotNull",
+        "inDateRange",
     )
 )
 _NULL_CHECKS = frozenset(("isNull", "isNotNull"))
@@ -96,6 +98,8 @@ class _State:
     active: set[int]
     extension: ProtocolExpressionExtension = 1
     nodes: int = 0
+    #: True only while validating a semantic query's ``filters`` (RFC 0029).
+    relative_dates: bool = False
 
 
 def _new_state(limits: ProtocolExpressionLimits, extension: ProtocolExpressionExtension) -> _State:
@@ -248,6 +252,9 @@ def _validate_comparison(
     operator = _string(value["operator"], f"{path}.operator")
     if operator not in _COMPARISONS:
         expression_error("HQ_EXPRESSION_INVALID_OPERATOR", f"{path}.operator")
+    # RFC 0029: stored definitions must not change meaning with the calendar.
+    if operator == "inDateRange" and not state.relative_dates:
+        expression_error("HQ_EXPRESSION_INVALID_OPERATOR", f"{path}.operator")
     if null_check:
         return ProtocolComparisonExpression(
             operator=cast(ProtocolComparisonOperator, operator),
@@ -288,6 +295,12 @@ def _validate_logical(
 
 
 def _validate_comparison_operands(operator: str, right: ProtocolExpression, path: str) -> None:
+    if operator == "inDateRange":
+        if not isinstance(right, ProtocolLiteralExpression) or not is_protocol_relative_date_range(
+            right.value
+        ):
+            expression_error("HQ_EXPRESSION_INVALID_VALUE", path)
+        return
     if operator == "like":
         if not isinstance(right, ProtocolLiteralExpression) or type(right.value) is not str:
             expression_error("HQ_EXPRESSION_INVALID_VALUE", path)
@@ -335,18 +348,24 @@ def _validate_aggregate(
         if not math.isfinite(level) or not 0 <= level <= 1:
             expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", f"{path}.level")
     filters: tuple[ProtocolExpression, ...] | None = None
-    if "filters" in value:
-        with _array_items(value["filters"], f"{path}.filters", state) as items:
-            filters = tuple(
-                _validate_predicate(
-                    item,
-                    f"{path}.filters[{index}]",
-                    depth + 1,
-                    state,
-                    aggregate=True,
+    # An aggregate's filters are a measure definition, never a relative range (RFC 0029).
+    relative_dates = state.relative_dates
+    state.relative_dates = False
+    try:
+        if "filters" in value:
+            with _array_items(value["filters"], f"{path}.filters", state) as items:
+                filters = tuple(
+                    _validate_predicate(
+                        item,
+                        f"{path}.filters[{index}]",
+                        depth + 1,
+                        state,
+                        aggregate=True,
+                    )
+                    for index, item in enumerate(items)
                 )
-                for index, item in enumerate(items)
-            )
+    finally:
+        state.relative_dates = relative_dates
     return ProtocolAggregateExpression(
         aggregation=cast(ProtocolAggregation, aggregation),
         field=_qualified_identifier(value["field"], f"{path}.field"),
@@ -429,6 +448,7 @@ def validate_protocol_semantic_query(
             "offset",
             "by",
             "timezone",
+            *(() if metric else ("fill",)),
             "includeMeta",
         )
         _exact_fields(
@@ -470,6 +490,14 @@ def validate_protocol_semantic_query(
             # same names regardless of the host's zoneinfo build (RFC 0025).
             if timezone not in CLIENT_TIMEZONE_NAMES:
                 expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.timezone")
+        fill: bool | None = None
+        if "fill" in value:
+            if type(value["fill"]) is not bool:
+                expression_error("HQ_EXPRESSION_TYPE", "$.fill")
+            # RFC 0029: periods to fill exist only under a grain.
+            if "by" not in value:
+                expression_error("HQ_EXPRESSION_INVALID_QUERY", "$.fill")
+            fill = value["fill"] is True
         include_meta: bool | None = None
         if "includeMeta" in value:
             if type(value["includeMeta"]) is not bool:
@@ -502,6 +530,7 @@ def validate_protocol_semantic_query(
             segments=segments,
             having=having,
             timezone=timezone,
+            fill=fill,
         )
     finally:
         state.active.remove(id(value))
@@ -528,10 +557,14 @@ def _predicate_array(
     if "filters" not in source:
         return None
     with _array_items(source["filters"], "$.filters", state) as items:
-        return tuple(
-            _validate_predicate(item, f"$.filters[{index}]", 1, state, aggregate=False)
-            for index, item in enumerate(items)
-        )
+        state.relative_dates = True
+        try:
+            return tuple(
+                _validate_predicate(item, f"$.filters[{index}]", 1, state, aggregate=False)
+                for index, item in enumerate(items)
+            )
+        finally:
+            state.relative_dates = False
 
 
 def _segment_array(

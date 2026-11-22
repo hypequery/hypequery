@@ -1,3 +1,4 @@
+import { relativeDateFilterError } from './relative-date-filters.js';
 import { effectiveFilterLeaves, filterLeafCount, filterTreeErrors } from './filter-tree.js';
 import { notGroupableError } from './groupable.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
@@ -75,6 +76,12 @@ export function validateMetricQueryInput(
   // Validate filters
   const filterEntries = filterTreeErrors(query.filters).length === 0 ? effectiveFilterLeaves(query.filters) : [];
   for (const { filter, operators } of filterEntries) {
+    // The client resolves every valid relative range first (RFC 0029); one
+    // still here could not be resolved, and says why.
+    if (filter.operator === 'inDateRange') {
+      errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
+      continue;
+    }
     if (isQualifiedField(filter.field)) {
       const filterError = validateQualifiedFilter(ds, filter, context, operators);
       if (filterError) {

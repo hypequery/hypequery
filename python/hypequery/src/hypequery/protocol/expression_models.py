@@ -14,7 +14,20 @@ from .values import CanonicalValue
 ProtocolBinaryOperator: TypeAlias = Literal["add", "subtract", "multiply", "divide"]
 ProtocolFunctionName: TypeAlias = Literal["nullIfZero", "coalesce", "round", "floor", "ceil"]
 ProtocolComparisonOperator: TypeAlias = Literal[
-    "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like", "isNull", "isNotNull"
+    "eq",
+    "neq",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "in",
+    "notIn",
+    "between",
+    "like",
+    "isNull",
+    "isNotNull",
+    # A relative date range; query filters only (RFC 0029).
+    "inDateRange",
 ]
 #: Comparison operators that test ``left`` for NULL and take no ``right`` (RFC 0023).
 ProtocolNullCheckOperator: TypeAlias = Literal["isNull", "isNotNull"]
@@ -177,6 +190,8 @@ class ProtocolDatasetQuery:
     having: tuple[ProtocolHavingCondition, ...] | None = None
     #: RFC 0018 registry zone for grains and time-key bounds; absent means UTC (RFC 0025).
     timezone: str | None = None
+    #: Return every ``by`` period of the bounded time range (RFC 0029).
+    fill: bool | None = None
     kind: Literal["dataset"] = dataclass_field(init=False, default="dataset")
 
 
@@ -306,6 +321,8 @@ def semantic_query_to_data(query: ProtocolSemanticQuery) -> dict[str, object]:
         value = getattr(query, key)
         if value is not None:
             result[key] = value
+    if isinstance(query, ProtocolDatasetQuery) and query.fill is not None:
+        result["fill"] = query.fill
     if query.include_meta is not None:
         result["includeMeta"] = query.include_meta
     return result
