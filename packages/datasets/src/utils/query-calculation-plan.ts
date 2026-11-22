@@ -355,14 +355,17 @@ class CalculationPlanner {
       return;
     }
     const { calculations: _c, limitBy: _l, other: _o, having: _h, orderBy: _ob, limit: _li, offset: _of, by: _by, dimensions: _d, ...rest } = this.query;
+    // `period` is the time bucket only when `by` makes one; otherwise it is an
+    // ordinary dimension and the denominator groups by it like any other.
+    const bucketed = this.query.by !== undefined && of.includes('period');
     this.shares.push({
       internal,
       column: input.internal,
       of,
       denominator: {
         ...rest,
-        dimensions: of.filter(name => name !== 'period'),
-        ...(of.includes('period') && this.query.by !== undefined ? { by: this.query.by } : {}),
+        dimensions: bucketed ? of.filter(name => name !== 'period') : of,
+        ...(bucketed ? { by: this.query.by } : {}),
         measures: [input.internal],
       },
     });

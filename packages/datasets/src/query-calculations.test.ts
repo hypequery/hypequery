@@ -249,6 +249,21 @@ describe('RFC 0026 calculations in the dataset client', () => {
     expect(definition.formula({ a: 'a', b: 'b' } as never).toSQL()).toBe('ROUND(((a) - (NULLIF(b, 0))) / (NULLIF(NULLIF(b, 0), 0)), 2)');
   });
 
+  it('keeps an ordinary period dimension in a non-additive share\'s denominator', () => {
+    const Sessions = dataset('sessions', {
+      source: 'sessions', tenantKey: 'tenant_id',
+      dimensions: { period: dimension.string(), country: dimension.string(), userId: dimension.string({ column: 'user_id' }) },
+      measures: { users: measure.countDistinct('userId') },
+    });
+    const sql = recordingClient().client.toSQL(Sessions, {
+      dimensions: ['period', 'country'], measures: ['users'],
+      calculations: [{ name: 's', share: { measure: 'users', of: ['period'] } }],
+    }, TENANT);
+    expect(sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total` FROM (');
+    expect(sql).toContain('ON isNotDistinctFrom(`_hq_calc`.`period`, `_hq_share__hq_calc_0`.`period`)');
+    expect(sql).toContain('sessions.period AS `period`, COUNT(DISTINCT sessions.user_id) AS `users` FROM sessions WHERE sessions.tenant_id = ? GROUP BY `period`)');
+  });
+
   it('gives the time planner\'s axis preflight the same top-N CTE as the main statement', () => {
     const compilation = recordingClient().client.compileDataset(Orders, {
       by: 'month', dimensions: ['country'], measures: ['revenue'], filters: RANGE,
