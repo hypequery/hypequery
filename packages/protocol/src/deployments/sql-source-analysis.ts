@@ -262,6 +262,11 @@ export function analyzeProtocolSqlSource(
     if (isPunct(tokens[index + 1], '(') && isForbiddenFunction(token.text)) {
       return refuse('forbidden-function', token.text);
     }
+    // `name AS (…)` inside WITH defines a CTE, quoted or not; see `defines`.
+    if (!frame.fromCall && frame.clause === 'WITH' && isWord(tokens[index + 1], 'AS') && isPunct(tokens[index + 2], '(')) {
+      pendingCte = { name: token.text, at: index + 2 };
+      continue;
+    }
     if (token.kind !== 'word') continue;
     const upper = token.upper;
     if (FORBIDDEN_WORDS.has(upper) || (STATEMENT_WORDS.has(upper) && upper !== 'DESC')) return refuse('forbidden-clause', upper);
@@ -286,11 +291,6 @@ export function analyzeProtocolSqlSource(
       continue;
     }
     if (frame.fromCall) continue;
-    // `name AS (…)` inside WITH defines a CTE visible here and in nested frames.
-    if (frame.clause === 'WITH' && isWord(tokens[index + 1], 'AS') && isPunct(tokens[index + 2], '(')) {
-      pendingCte = { name: token.text, at: index + 2 };
-      continue;
-    }
     if (CLAUSE_WORDS.has(upper)) frame.clause = upper;
   }
   if (frames.length !== 1) return refuse('unbalanced-parentheses');

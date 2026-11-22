@@ -971,7 +971,8 @@ function validateDataset(
 /**
  * RFC 0028: a SQL source's declared columns are the only addressable ones,
  * and FINAL belongs inside its SQL rather than on the dataset. Column
- * references may be bare or qualified with the source's alias; measure
+ * references are bare; SQL-expression dependencies may also qualify with the
+ * source's alias. Measure
  * filters are expressions and are left to the runtime's definition checks.
  */
 function validateSqlSourceReferences(
@@ -993,8 +994,11 @@ function validateSqlSourceReferences(
     const bare = reference.startsWith(`${source.alias}.`) ? reference.slice(source.alias.length + 1) : reference;
     return source.columns.find(item => item.name === bare);
   };
-  const requireColumn = (reference: string, at: string) => {
-    if (column(reference) === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', at);
+  // Column-backed references are bare, as code-first datasets write them; only
+  // SQL-expression dependencies may qualify a column with the alias.
+  const requireColumn = (reference: string, at: string, qualified = false) => {
+    const found = qualified ? column(reference) : source.columns.find(item => item.name === reference);
+    if (found === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', at);
   };
   // A field names a dimension, a relationship's field, or a source column.
   const fieldOrColumn = (reference: string, at: string) => {
@@ -1005,7 +1009,7 @@ function validateSqlSourceReferences(
   };
   const dependencies = (expression: { readonly dependencies: readonly string[] } | undefined, at: string) => {
     for (const [index, dependency] of (expression?.dependencies ?? []).entries()) {
-      requireColumn(dependency, `${at}.dependencies[${index}]`);
+      requireColumn(dependency, `${at}.dependencies[${index}]`, true);
     }
   };
 
@@ -1015,7 +1019,7 @@ function validateSqlSourceReferences(
     const at = `${path}.dimensions[${index}].source`;
     if (dimension.source.kind !== 'column') {
       dependencies(dimension.source, at);
-    } else if (column(dimension.source.column)?.type !== dimension.type) {
+    } else if (source.columns.find(item => item.name === (dimension.source as { column: string }).column)?.type !== dimension.type) {
       fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${at}.column`);
     }
   }

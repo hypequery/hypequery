@@ -46,6 +46,7 @@ describe('RFC 0028 SQL source analysis', () => {
     ['CTEs are not tables, in scope', 'WITH r AS (SELECT * FROM a) SELECT * FROM r JOIN (SELECT * FROM r) AS s ON 1', ['a']],
     ['IN reads a table, even in a function argument', 'SELECT countIf(x IN blocked) AS n FROM a', ['blocked', 'a']],
     ['a quoted column may use a refused word', 'SELECT `format`, "settings" FROM a', ['a']],
+    ['quoted CTE names', 'WITH `recent` AS (SELECT x FROM app.events) SELECT x FROM `recent`', ['app.events']],
     ['FROM-first queries in a subquery', 'SELECT * FROM (FROM a SELECT x)', ['a']],
     ['lowercase keywords', 'select a from t where b in (select b from u)', ['t', 'u']],
   ])('%s', (_name, sql, tables) => {
