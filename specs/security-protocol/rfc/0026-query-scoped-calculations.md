@@ -51,7 +51,8 @@ that predates this RFC refuses rather than ignores them.
   "filters": [
     { "kind": "comparison", "operator": "between",
       "left": { "kind": "reference", "name": "created_at" },
-      "right": { "kind": "literal", "value": ["2026-01-01T00:00:00Z", "2026-07-01T00:00:00Z"] } }
+      "right": { "kind": "literal", "value": { "$hypequery": { "type": "array", "version": 1,
+        "values": ["2026-01-01T00:00:00Z", "2026-07-01T00:00:00Z"] } } } }
   ],
   "calculations": [
     { "name": "us_revenue", "filter": { "measure": "revenue", "where": [

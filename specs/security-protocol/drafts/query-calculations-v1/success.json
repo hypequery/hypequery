@@ -9,7 +9,7 @@
     { "id": "filter-null-check-and-in", "value": { "kind": "dataset", "dataset": "orders", "measures": ["users"], "calculations": [
       { "name": "known_users", "filter": { "measure": "users", "where": [
         { "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "country" } },
-        { "kind": "comparison", "operator": "in", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": ["web", "store"] } }
+        { "kind": "comparison", "operator": "in", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": { "$hypequery": { "type": "array", "version": 1, "values": ["web", "store"] } } } }
       ] } }
     ] } },
     { "id": "filter-unselected-measure", "value": { "kind": "dataset", "dataset": "orders", "measures": ["orders"], "calculations": [
