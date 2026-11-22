@@ -258,6 +258,7 @@ export default function TinybirdAlternativePage() {
         { href: '/compare/hypequery-vs-moose', label: 'MooseStack alternative' },
         { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/compare/clickhouse-cloud-vs-tinybird', label: 'ClickHouse Cloud vs Tinybird' },
+        { href: '/blog/managed-clickhouse-services-compared', label: 'Managed ClickHouse services compared' },
         { href: '/compare/cube-vs-tinybird-vs-hypequery', label: 'Cube vs Tinybird vs hypequery' },
       ]}
       nextStep={{

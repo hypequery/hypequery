@@ -369,7 +369,7 @@ export default function ClickHouseTypeScriptPage() {
               ))}
             </div>
             <p className="mt-8 text-sm leading-6 text-text-muted">
-              Deciding between ClickHouse Cloud and a hosted API platform? Read <Link href="/compare/clickhouse-cloud-vs-tinybird" className="text-accent hover:opacity-70">ClickHouse Cloud vs Tinybird</Link>. Weighing the raw client? Read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-accent hover:opacity-70">hypequery vs @clickhouse/client</Link>.
+              Deciding between ClickHouse Cloud and a hosted API platform? Read <Link href="/compare/clickhouse-cloud-vs-tinybird" className="text-accent hover:opacity-70">ClickHouse Cloud vs Tinybird</Link>. Weighing the raw client? Read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-accent hover:opacity-70">hypequery vs @clickhouse/client</Link>. Sizing a service? See <Link href="/clickhouse-cloud-pricing" className="text-accent hover:opacity-70">ClickHouse Cloud pricing</Link>, or compare it with other hosts in <Link href="/blog/managed-clickhouse-services-compared" className="text-accent hover:opacity-70">managed ClickHouse services compared</Link>.
             </p>
           </div>
         </section>

@@ -45,7 +45,7 @@ chDB. It packages the ClickHouse engine as a library for Python and other langua
 | Concurrent users | Built for many clients at once | One process by default; Quack adds multi-client access |
 | Writes | High-volume inserts into MergeTree tables | Transactions on a local file; with Quack, "a few thousand writes per second" on an 8-CPU, 32 GB server, per DuckDB's FAQ |
 | SQL dialect | ClickHouse SQL and its function library | "Based on PostgreSQL" ([DuckDB docs](https://duckdb.org/docs/stable/sql/dialect/overview)) |
-| Managed service | ClickHouse Cloud and others | MotherDuck (with its own protocol, not Quack) |
+| Managed service | ClickHouse Cloud and [other managed ClickHouse services](/blog/managed-clickhouse-services-compared) | MotherDuck (with its own protocol, not Quack) |
 | In-process option | chDB | DuckDB itself |
 | Licence | Apache 2.0 | MIT |
 
