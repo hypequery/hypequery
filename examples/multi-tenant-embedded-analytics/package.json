@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/multi-tenant-embedded-analytics",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Embedded, tenant-scoped ClickHouse analytics: short-lived analytics tokens, fail-closed tenant isolation on datasets, and an embeddable widget",
   "type": "module",

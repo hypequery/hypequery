@@ -1,5 +1,21 @@
 # @hypequery-examples/usage-based-billing
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [45c9ca6]
+- Updated dependencies [4293abd]
+- Updated dependencies [ed06db9]
+- Updated dependencies [2a14baa]
+- Updated dependencies [a1408f9]
+- Updated dependencies [b7a8b87]
+- Updated dependencies [d524117]
+- Updated dependencies [b1cd3ce]
+  - @hypequery/datasets@0.34.0
+  - @hypequery/clickhouse@2.15.2
+  - @hypequery/serve@0.26.3
+
 ## 0.1.3
 
 ### Patch Changes
