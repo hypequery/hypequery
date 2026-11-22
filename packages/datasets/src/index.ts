@@ -119,6 +119,7 @@ export { buildProtocolDeploymentContract } from './protocol-deployment-adapter.j
 export { assertDeployable } from './utils/deployable-formulas.js';
 export type { BuildProtocolDeploymentContractOptions } from './protocol-deployment-adapter.js';
 export { rehydrateProtocolDeploymentContract } from './protocol-rehydrate.js';
+export { toProtocolDatasetQuery } from './utils/protocol-dataset-query.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 export { publishToCloud } from './cloud-publishing.js';
 export { defineBusinessContext, defineCloudPublication } from './cloud-publication.js';
