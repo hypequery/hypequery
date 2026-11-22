@@ -33,6 +33,8 @@ export interface SemanticEventOperationLimits {
   readonly maxRows: number;
   /** Filters plus every condition, after enforced constraints are counted. */
   readonly maxFilters: number;
+  /** Grouping fields: the entity plus each breakdown dimension. */
+  readonly maxDimensions: number;
 }
 
 function isTimeDimension(dataset: ProtocolDeploymentDatasetAnyVersion, name: string): boolean {
@@ -123,6 +125,14 @@ export function validateSemanticEventOperation(
   if (!groupable(entity)) {
     fail(`Unknown or non-groupable entity "${entity}".`, operation.entity === undefined ? '$.operation.dataset' : '$.operation.entity');
   }
+  // The executor groups by the entity and every breakdown dimension, so they
+  // share the dataset's dimension ceiling as a dataset query's would.
+  if (1 + (operation.breakdown?.length ?? 0) > limits.maxDimensions) {
+    fail(
+      `At most ${limits.maxDimensions} grouping fields (the entity and breakdown dimensions) may be used.`,
+      operation.breakdown === undefined ? '$.operation' : '$.operation.breakdown',
+    );
+  }
   (operation.breakdown ?? []).forEach((name, index) => {
     if (!groupable(String(name))) {
       fail(`Unknown or non-groupable dimension "${String(name)}".`, `$.operation.breakdown[${index}]`);
@@ -151,7 +161,7 @@ export function validateSemanticEventOperation(
 
   const range = timeField === undefined
     ? undefined
-    : eventTimeRange(operation.filters, name => filterTarget(dataset, name) === timeField);
+    : eventTimeRange(operation.filters, name => filterTarget(dataset, name) === timeField, operation.timezone ?? 'UTC');
   if (range === undefined) {
     fail(
       `A ${operation.kind} requires exactly one bounded time range on "${timeField ?? 'the time field'}": `

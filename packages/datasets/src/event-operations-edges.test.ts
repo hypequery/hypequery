@@ -102,7 +102,7 @@ describe('event condition SQL', () => {
     const text = eventConditionFlagSql([
       { field: 'x', operator: 'eq', value: 'a' },
       { field: 'y', operator: 'isNotNull' },
-    ], field => `_c_${field}`, statement);
+    ], condition => [{ expression: `_c_${condition.field}`, operator: condition.operator, value: condition.value }], statement);
     expect(statement.render(text).sql).toBe('toUInt8(ifNull((_c_x = ?) AND (_c_y IS NOT NULL), 0))');
   });
 });

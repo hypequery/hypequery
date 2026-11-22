@@ -20,6 +20,7 @@ import { buildRetentionSql } from './utils/retention-sql.js';
 import { retentionResultRows } from './utils/retention-rows.js';
 import { eventOperationConditions, type EventOperationSpec } from './utils/event-operation-spec.js';
 import type { EventResultRow } from './utils/event-result-values.js';
+import { eventOperationShapeErrors } from './utils/event-operation-shape.js';
 
 export type { EventOperationSpec, FunnelSpec, RetentionSpec } from './utils/event-operation-spec.js';
 export type { EventResultRow, EventResultValue } from './utils/event-result-values.js';
@@ -40,6 +41,8 @@ export function eventOperationErrors(
   context?: ExecutionContext,
 ): string[] {
   if (!ds.events) return [`Dataset "${ds.name}" does not declare events.`];
+  const shape = eventOperationShapeErrors(spec);
+  if (shape.length > 0) return shape;
   const conditions = eventOperationConditions(spec);
   const errors = [...validateDatasetQueryInput(ds, {
     dimensions: [spec.entity, ...spec.breakdown],

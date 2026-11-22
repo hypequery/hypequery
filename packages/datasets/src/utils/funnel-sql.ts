@@ -82,7 +82,7 @@ export function buildFunnelSql(
   }, options, statement);
   const breakdown = source.breakdown;
   const steps = spec.steps.length;
-  const flags = spec.steps.map(step => eventConditionFlagSql(step.where, source.conditionColumn, statement));
+  const flags = spec.steps.map(step => eventConditionFlagSql(step.where, source.conditionPredicates, statement));
   const partition = ['_hq_entity', ...breakdown].join(', ');
   // Only events that satisfy some step can move an entity through the funnel.
   const flagged = `_hq_flagged AS (SELECT _hq_time, ${partition}, [${flags.join(', ')}] AS _hq_steps `

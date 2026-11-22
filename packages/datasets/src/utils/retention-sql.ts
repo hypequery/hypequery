@@ -44,8 +44,8 @@ export function buildRetentionSql(
   }, options, statement);
   const breakdown = source.breakdown;
   const partition = ['_hq_entity', ...breakdown].join(', ');
-  const start = eventConditionFlagSql(spec.start, source.conditionColumn, statement);
-  const returning = eventConditionFlagSql(spec.return, source.conditionColumn, statement);
+  const start = eventConditionFlagSql(spec.start, source.conditionPredicates, statement);
+  const returning = eventConditionFlagSql(spec.return, source.conditionPredicates, statement);
   const bucket = dialect.truncateTime('_hq_time', spec.grain);
   const flagged = `_hq_flagged AS (SELECT _hq_time, ${partition}, ${start} AS _hq_start, ${returning} AS _hq_return `
     + 'FROM _hq_events WHERE _hq_start = 1 OR _hq_return = 1)';

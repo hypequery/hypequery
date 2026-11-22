@@ -1,4 +1,5 @@
 import type { AnyDatasetInstance, MetricFilter } from '../types.js';
+import type { QueryTimePredicate } from './query-timezone.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField } from '../query-planner.js';
 import { buildRelationshipBuilderContext, type RelationshipBuilderContext } from './relationship-builder-plan.js';
@@ -24,6 +25,8 @@ export interface EventSourceSql {
   readonly breakdown: readonly string[];
   /** Condition field name -> its projected alias. */
   readonly conditionColumn: (field: string) => string;
+  /** One condition as predicates over its projected alias, as a caller filter on that field. */
+  readonly conditionPredicates: (condition: MetricFilter) => readonly QueryTimePredicate[];
   readonly joinCtx: RelationshipBuilderContext | undefined;
 }
 
@@ -86,6 +89,11 @@ export function buildEventSourceSql(
       `${element(3 + breakdown.length + index)} AS ${conditionAliases.get(name)!}`
     )),
   ];
+  const conditionColumn = (field: string) => {
+    const alias = conditionAliases.get(field);
+    if (!alias) throw new Error(`Condition field "${field}" was not projected.`);
+    return alias;
+  };
   return {
     ctes: [
       `_hq_raw AS (${statement.embedBuilder(raw)})`,
@@ -93,11 +101,10 @@ export function buildEventSourceSql(
       `_hq_events AS (SELECT ${columns.join(', ')} FROM _hq_raw WHERE ${dialect.isNotNull(element(1))} AND ${dialect.isNotNull(element(2))})`,
     ],
     breakdown,
-    conditionColumn: field => {
-      const alias = conditionAliases.get(field);
-      if (!alias) throw new Error(`Condition field "${field}" was not projected.`);
-      return alias;
-    },
+    conditionColumn,
+    conditionPredicates: condition => queryTimeFilter(
+      dialect, ds, condition, conditionColumn(condition.field), request.timezone,
+    ),
     joinCtx,
   };
 }

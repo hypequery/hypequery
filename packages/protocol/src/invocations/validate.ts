@@ -263,7 +263,12 @@ function validateInvocation(
 }
 
 function semanticQuery(input: unknown, path: string, version: 1 | 2) {
-  const kind = typeof input === 'object' && input !== null ? (input as { kind?: unknown }).kind : undefined;
+  // Read `kind` from its descriptor so dispatch never runs a getter; the
+  // chosen validator then rejects an accessor-bearing object as unsafe.
+  const descriptor = typeof input === 'object' && input !== null
+    ? Object.getOwnPropertyDescriptor(input, 'kind')
+    : undefined;
+  const kind = descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
   // RFC 0027 operations use no extension 2 feature, so under the
   // lowest-version rule they are invocation 1 only.
   if (isProtocolEventOperationKind(kind) && version === 2) {

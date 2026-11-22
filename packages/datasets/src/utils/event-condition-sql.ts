@@ -1,4 +1,5 @@
 import type { MetricFilter } from '../types.js';
+import type { QueryTimePredicate } from './query-timezone.js';
 import type { StatementParameters } from './statement-parameters.js';
 
 /**
@@ -37,12 +38,19 @@ export function eventConditionSql(column: string, filter: MetricFilter, statemen
 /**
  * AND-combined conditions as a non-null 0/1 flag: a NULL comparison is a
  * non-match, so array and aggregate functions never see a Nullable flag.
+ *
+ * `predicatesFor` turns one condition into the predicates that test it, the
+ * way a caller filter on the same field is applied: a timestamp instant is
+ * compared in UTC, and a mixed range splits into one predicate per kind.
  */
 export function eventConditionFlagSql(
   conditions: readonly MetricFilter[],
-  columnFor: (field: string) => string,
+  predicatesFor: (condition: MetricFilter) => readonly QueryTimePredicate[],
   statement: StatementParameters,
 ): string {
-  const parts = conditions.map(condition => `(${eventConditionSql(columnFor(condition.field), condition, statement)})`);
+  const parts = conditions.flatMap(condition => predicatesFor(condition).map(predicate => {
+    const filter = { field: condition.field, operator: predicate.operator, value: predicate.value } as MetricFilter;
+    return `(${eventConditionSql(predicate.expression, filter, statement)})`;
+  }));
   return `toUInt8(ifNull(${parts.join(' AND ')}, 0))`;
 }

@@ -126,10 +126,63 @@ describe('funnel invocations (RFC 0027)', () => {
     expect(calls[0]!.budget.maxRows).toBe(500);
   });
 
-  it('ANDs enforced constraints onto the operation filters', async () => {
+  it('passes enforced constraints apart from the caller filters', async () => {
     const { instance, calls } = plane({ resolveConstraints: async () => [eq('region', 'eu')] });
     await instance.invoke({ invocation: invocation(funnel()) });
-    expect(calls[0]!.operation.filters).toEqual([RANGE, eq('region', 'eu')]);
+    expect(calls[0]!.operation.filters).toEqual([RANGE]);
+    expect(calls[0]!.constraints).toEqual([eq('region', 'eu')]);
+  });
+
+  it('accepts a trusted time cutoff beside the caller range', async () => {
+    const cutoff = { ...eq('occurredAt', '2026-10-15'), operator: 'gte' };
+    const { instance, calls } = plane({ resolveConstraints: async () => [cutoff] });
+    await instance.invoke({ invocation: invocation(funnel()) });
+    expect(calls[0]!.operation.filters).toEqual([RANGE]);
+    expect(calls[0]!.constraints).toEqual([cutoff]);
+  });
+
+  it('reads offset-free bounds in the query zone', async () => {
+    // 12:00 in Tokyo is 03:00 UTC, before the 04:00 UTC end.
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(funnel({
+      timezone: 'Asia/Tokyo',
+      filters: [between('occurredAt', '2026-10-01T12:00:00', '2026-10-01T04:00:00Z')],
+    })) });
+    expect(calls).toHaveLength(1);
+    const reversed = await failure(plane().instance.invoke({ invocation: invocation(funnel({
+      filters: [between('occurredAt', '2026-10-01T12:00:00', '2026-10-01T04:00:00Z')],
+    })) }));
+    expect(reversed.message).toMatch(/exactly one bounded time range/);
+  });
+
+  it('counts monthly cohorts in the query zone', async () => {
+    // One UTC day that spans 30 September and 1 October in Los Angeles: two
+    // monthly cohorts × two steps is four rows, over a budget of three.
+    const operation = funnel({ by: 'month', filters: [between('occurredAt', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z')] });
+    const budget = { maxRows: 3 };
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: { ...invocation(operation), budget } });
+    expect(calls).toHaveLength(1);
+    const error = await failure(plane().instance.invoke({
+      invocation: { ...invocation({ ...operation, timezone: 'America/Los_Angeles' }), budget },
+    }));
+    expect(error.message).toMatch(/could return 4 rows; the limit is 3/);
+  });
+
+  it('applies the dimension ceiling to the entity and breakdown', async () => {
+    const provider = await failure(plane({ limits: { maxDimensions: 1 } }).instance.invoke({
+      invocation: invocation(funnel({ breakdown: ['plan'] })),
+    }));
+    expect(provider).toMatchObject({ category: 'input-invalid', path: '$.operation.breakdown' });
+    expect(provider.message).toMatch(/At most 1 grouping fields/);
+    const narrow = contract({ limits: { maxFilters: 8, maxDimensions: 2 } });
+    const declared = await failure(plane({}, narrow).instance.invoke({
+      invocation: invocation(funnel({ breakdown: ['plan', 'region'] })),
+    }));
+    expect(declared.message).toMatch(/At most 2 grouping fields/);
+    const { instance, calls } = plane({}, narrow);
+    await instance.invoke({ invocation: invocation(funnel({ breakdown: ['plan'] })) });
+    expect(calls).toHaveLength(1);
   });
 
   it('refuses event operations when no event executor is wired', async () => {
@@ -229,7 +282,11 @@ describe('funnel invocations end to end with the portable executor', () => {
       },
     };
     const runtime = createPortableSemanticRuntime({ queryBuilder: factory });
-    const { instance } = plane({ execute: runtime.execute as never, executeEventOperation: runtime.executeEventOperation as never });
+    const { instance } = plane({
+      execute: runtime.execute as never,
+      executeEventOperation: runtime.executeEventOperation as never,
+      resolveConstraints: async () => [{ ...eq('occurredAt', '2026-10-15'), operator: 'gte' }, eq('region', 'eu')],
+    });
     const result = await instance.invoke({ invocation: invocation(funnel()) });
     expect(result.data).toEqual([
       { step: 'signed_up', step_index: 1, entities: 12, conversion_from_previous: 1, conversion_from_first: 1, dropoff: 0 },
@@ -238,6 +295,9 @@ describe('funnel invocations end to end with the portable executor', () => {
     expect(statements).toHaveLength(1);
     expect(statements[0]!.sql).toContain("windowFunnel(1814400000, 'strict_increase')");
     expect(statements[0]!.sql).toContain('where(analytics.activity.tenant_id,eq,acme)');
+    // The trusted cutoff and region scope the scan without counting as a caller range.
+    expect(statements[0]!.sql).toContain("where(toDateTime64(analytics.activity.occurredAt, 9, 'UTC'),gte,2026-10-15)");
+    expect(statements[0]!.sql).toContain('where(analytics.activity.region,eq,eu)');
     expect(statements[0]!.parameters).toEqual(['signup', 'query_run']);
   });
 });
@@ -256,11 +316,25 @@ function retention(overrides: Record<string, unknown> = {}) {
 }
 
 describe('retention invocations (RFC 0027)', () => {
-  it('runs through the event executor with constraints ANDed on', async () => {
-    const { instance, calls, datasetCalls } = plane({ resolveConstraints: async () => [eq('region', 'eu')] });
+  it('runs through the event executor with constraints passed apart', async () => {
+    const cutoff = { ...eq('occurredAt', '2026-10-15'), operator: 'gte' };
+    const { instance, calls, datasetCalls } = plane({ resolveConstraints: async () => [eq('region', 'eu'), cutoff] });
     await instance.invoke({ invocation: invocation(retention()) });
     expect(datasetCalls).toHaveLength(0);
-    expect(calls[0]!.operation).toMatchObject({ kind: 'retention', filters: [RANGE, eq('region', 'eu')] });
+    expect(calls[0]!.operation).toMatchObject({ kind: 'retention', filters: [RANGE] });
+    expect(calls[0]!.constraints).toEqual([eq('region', 'eu'), cutoff]);
+  });
+
+  it('applies the dimension ceiling and query-zone months to retention', async () => {
+    const error = await failure(plane({ limits: { maxDimensions: 2 } }).instance.invoke({
+      invocation: invocation(retention({ breakdown: ['plan', 'region'] })),
+    }));
+    expect(error.message).toMatch(/At most 2 grouping fields/);
+    // One UTC day, two Los Angeles months: 2 cohorts × 2 periods = 4 rows > 3.
+    const operation = retention({ grain: 'month', periods: 2, timezone: 'America/Los_Angeles',
+      filters: [between('occurredAt', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z')] });
+    const months = await failure(plane().instance.invoke({ invocation: { ...invocation(operation), budget: { maxRows: 3 } } }));
+    expect(months.message).toMatch(/could return 4 rows; the limit is 3/);
   });
 
   it.each([

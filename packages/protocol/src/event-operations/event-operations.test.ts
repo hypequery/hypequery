@@ -177,3 +177,30 @@ describe('event operations in semantic invocations', () => {
     }
   });
 });
+
+describe('invocation dispatch on operation kind', () => {
+  it('never runs a getter on the operation before rejecting it', () => {
+    let reads = 0;
+    const operation = { ...funnel() } as Record<string, unknown>;
+    delete operation.kind;
+    Object.defineProperty(operation, 'kind', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        throw new Error('getter ran');
+      },
+    });
+    let thrown: unknown;
+    try {
+      validateProtocolSemanticInvocation({
+        kind: 'hypequery-semantic-invocation', version: 1,
+        target: { project: 'acme', environment: 'production' }, operation,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(ProtocolSemanticInvocationError);
+    expect((thrown as ProtocolSemanticInvocationError).code).toBe('HQ_INVOCATION_INVALID_VALUE');
+    expect(reads).toBe(0);
+  });
+});
