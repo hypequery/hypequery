@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
@@ -399,12 +402,18 @@ export default function EmbeddedAnalyticsPlatformsPage() {
             <p>
               Platforms differ mainly in how many of those parts they own. An embedded BI platform owns all four. A
               code-first or headless platform owns the data layer and access control and leaves the charts to you. A
-              general BI tool with embedding was built for internal reporting and adds the embed as a feature.
+              general BI tool with embedding was built for internal reporting and adds the embed as a feature. For the
+              architecture behind each choice, see{' '}
+              <Link href="/embedded-analytics" className={inlineLink}>
+                embedded analytics
+              </Link>{' '}
+              for developers.
             </p>
           </>
         ),
       }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         itemListJsonLd(
           'Embedded analytics platforms, grouped by approach',
@@ -623,7 +632,7 @@ export default function EmbeddedAnalyticsPlatformsPage() {
                 </strong>{' '}
                 hypequery. See{' '}
                 <Link href="/clickhouse-saas-analytics" className={inlineLink}>
-                  embedded analytics for SaaS on ClickHouse
+                  ClickHouse embedded analytics
                 </Link>
                 .
               </li>
@@ -646,6 +655,8 @@ export default function EmbeddedAnalyticsPlatformsPage() {
       <HubSection eyebrow="Questions" title="Embedded analytics platforms FAQ">
         <HubFaq items={faqItems} />
       </HubSection>
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={`${VERIFIED_ON}, and ${ADDED_VERIFIED_ON} for Qrvey, Databrain and Reveal`} sources={sources} />
     </HubShell>

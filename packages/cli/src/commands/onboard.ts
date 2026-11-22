@@ -356,7 +356,11 @@ async function onboardCheck(source: string | undefined, options: OnboardOptions,
   const { contract } = loaded;
 
   const known = new Set(schema.tables.map(table => table.name));
-  const missingSources = [...new Set(contract.datasets.map(dataset => dataset.source))].filter(table => !known.has(table));
+  // A SQL source (RFC 0028) reads its declared dependencies rather than one table.
+  const sourceTables = contract.datasets.flatMap(dataset => (
+    typeof dataset.source === 'string' ? [dataset.source] : dataset.source.dependencies.map(String)
+  ));
+  const missingSources = [...new Set(sourceTables)].filter(table => !known.has(table));
 
   const measureChecks: MeasureCheck[] = missingSources.length
     ? []

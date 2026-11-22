@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
@@ -177,6 +180,7 @@ export default function EmbeddableAlternativesPage() {
       primaryCta={{ href: '#compared', label: 'Compare options', target: 'embeddable_alt_table' }}
       secondaryCta={{ href: '/compare/hypequery-vs-embeddable', label: 'hypequery vs Embeddable', target: 'embeddable_alt_vs' }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -412,7 +416,12 @@ export default function EmbeddableAlternativesPage() {
           <Link href="/compare/embedded-analytics-platforms" className={extLink}>
             the best embedded analytics platforms
           </Link>
-          .
+          .{' '}
+          If you are new to the category, start with{' '}
+          <Link href="/embedded-analytics" className={inlineLink}>
+            embedded analytics
+          </Link>{' '}
+          for developers: architecture, tenancy and the three kinds of tool.
         </p>
       </HubSection>
 
@@ -486,6 +495,8 @@ export default function EmbeddableAlternativesPage() {
           </div>
         </div>
       </section>
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={VERIFIED_ON} sources={sources} />
     </HubShell>

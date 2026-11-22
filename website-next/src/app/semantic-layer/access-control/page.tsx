@@ -269,7 +269,7 @@ export default function SemanticLayerAccessControlPage() {
         body: (
           <>
             <p>
-              A semantic layer writes SQL on behalf of whoever asks: a dashboard, your API, a customer&rsquo;s embedded
+              A <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> writes SQL on behalf of whoever asks: a dashboard, your API, a customer&rsquo;s embedded
               report, an agent. Access control is the set of rules it adds to that SQL. Tenant isolation limits each
               customer to their rows. Row-level rules narrow further by role or attribute. Column-level rules hide
               fields. Endpoint rules decide who may query a dataset at all.

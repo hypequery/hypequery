@@ -4,12 +4,15 @@ import { marketing } from '@/components/ui/marketing';
 import PageWrapper from '@/components/PageWrapper';
 import { comparePages } from '@/data/compare-pages';
 import { embeddedAnalyticsComparePages } from '@/data/embedded-analytics-compare';
+import { compareHubNote } from '@/data/compare-hub';
+import { RelatedPages } from '@/components/related-pages';
+import { semanticLayerHub } from '@/data/semantic-layer-pages';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'hypequery vs Cube, Tinybird, Drizzle and More',
   description:
-    'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
+    'Compare hypequery with Cube, Metabase, Luzmo, Embeddable, QueryPanel, Tinybird and the ClickHouse clients: who each tool suits and when hypequery fits.',
   alternates: {
     canonical: absoluteUrl('/compare'),
   },
@@ -19,7 +22,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/compare'),
     title: 'hypequery vs Cube, Tinybird, Drizzle and More | hypequery',
     description:
-      'Compare hypequery with Cube, Tinybird, Drizzle, Prisma, dbt, Metabase and the ClickHouse clients for TypeScript and Python, and see when each fits.',
+      'Compare hypequery with Cube, Metabase, Luzmo, Embeddable, QueryPanel, Tinybird and the ClickHouse clients: who each tool suits and when hypequery fits.',
   },
 };
 
@@ -44,10 +47,13 @@ export default function CompareIndexPage() {
           <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
             <p className="font-mono text-xs text-accent">Compare</p>
             <h1 className={`mt-5 max-w-[980px] ${marketing.heroTitle}`}>
-              Compare hypequery against the main ClickHouse TypeScript options
+              Compare hypequery with embedded analytics tools and ClickHouse clients
             </h1>
             <p className={`mt-5 max-w-[700px] ${marketing.heroLead}`}>
-              These pages are for teams trying to decide what to keep and what to replace. Start with the comparison that matches the tool or pattern you already use, then move into implementation only if the tradeoff is actually clear.
+              Each card says who the other tool suits and when hypequery is the better pick. The embedded analytics
+              comparisons cover hosted platforms such as Luzmo, Embeddable, Metabase and QueryPanel; the developer
+              comparisons cover ClickHouse clients, query builders and API platforms. Every page lists where the other
+              tool is the better choice.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl border border-border bg-bg-card shadow-card p-5">
@@ -66,55 +72,7 @@ export default function CompareIndexPage() {
           </div>
         </section>
 
-        <section className={`${marketing.container} py-14 sm:py-20`}>
-          <div className="mb-10 grid gap-6 md:grid-cols-3">
-	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
-	              <h2 className="text-lg font-medium tracking-tight text-text">Built for real evaluations</h2>
-	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                Each page is written around the actual switch a team might make.
-	              </p>
-	            </div>
-	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
-	              <h2 className="text-lg font-medium tracking-tight text-text">Linked to implementation</h2>
-	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                If a comparison is useful, it should get you into the docs quickly rather than trapping you in more comparison content.
-	              </p>
-	            </div>
-	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
-	              <h2 className="text-lg font-medium tracking-tight text-text">Opinionated about fit</h2>
-	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                The goal is to clarify where hypequery fits and where the other tool should remain the right choice.
-	              </p>
-	            </div>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            {comparePages.map((page) => (
-              <Link
-                key={page.slug}
-                href={page.href}
-                className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
-              >
-                <h2 className="text-2xl font-normal tracking-[-0.03em] text-text">{page.title}</h2>
-                <p className="mt-4 text-sm leading-6 text-text-muted">{page.verdict}</p>
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {page.rows.map((row) => (
-                    <span
-                      key={`${page.slug}-${row.label}`}
-                      className="border border-border px-3 py-1 font-mono text-[11px] text-text-muted"
-                    >
-                      {row.label}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">
-                  Open comparison
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className={`${marketing.container} pb-14 sm:pb-20`}>
+        <section className={`${marketing.container} pt-14 sm:pt-20`}>
           <p className="font-mono text-xs text-accent">Customer-facing dashboards</p>
           <h2 className={`mt-3 ${marketing.sectionTitle}`}>Embedded analytics</h2>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-text-muted">
@@ -135,6 +93,7 @@ export default function CompareIndexPage() {
               >
                 <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">{page.title}</h3>
                 <p className="mt-4 text-sm leading-6 text-text-muted">{page.description}</p>
+                <HubNote href={page.href} />
                 <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">Open comparison</p>
               </Link>
             ))}
@@ -142,12 +101,53 @@ export default function CompareIndexPage() {
               href="/clickhouse-saas-analytics"
               className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
             >
-              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">Embedded analytics for SaaS</h3>
+              <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">ClickHouse embedded analytics</h3>
               <p className="mt-4 text-sm leading-6 text-text-muted">
                 How hypequery serves in-app dashboards, customer APIs and AI agents from one tenant-scoped model on ClickHouse.
               </p>
               <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">Open page</p>
             </Link>
+          </div>
+        </section>
+
+        <section className={`${marketing.container} py-14 sm:py-20`}>
+          <p className="font-mono text-xs text-accent">Developer tools</p>
+          <h2 className={`mt-3 mb-8 ${marketing.sectionTitle}`}>ClickHouse clients, query builders and API layers</h2>
+          <div className="mb-10 grid gap-6 md:grid-cols-3">
+	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
+	              <h3 className="text-lg font-medium tracking-tight text-text">Built for real evaluations</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
+	                Each page is written around the actual switch a team might make.
+	              </p>
+	            </div>
+	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
+	              <h3 className="text-lg font-medium tracking-tight text-text">Linked to implementation</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
+	                If a comparison is useful, it should get you into the docs quickly rather than trapping you in more comparison content.
+	              </p>
+	            </div>
+	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
+	              <h3 className="text-lg font-medium tracking-tight text-text">Opinionated about fit</h3>
+	              <p className="mt-3 text-sm leading-6 text-text-muted">
+	                The goal is to clarify where hypequery fits and where the other tool should remain the right choice.
+	              </p>
+	            </div>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {comparePages.map((page) => (
+              <Link
+                key={page.slug}
+                href={page.href}
+                className="group rounded-xl border border-border bg-bg-card p-8 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card"
+              >
+                <h3 className="text-2xl font-normal tracking-[-0.03em] text-text">{page.title}</h3>
+                <p className="mt-4 text-sm leading-6 text-text-muted">{page.verdict}</p>
+                <HubNote href={page.href} />
+                <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">
+                  Open comparison
+                </p>
+              </Link>
+            ))}
           </div>
         </section>
 
@@ -166,6 +166,7 @@ export default function CompareIndexPage() {
               <p className="mt-4 text-sm leading-6 text-text-muted">
                 Keep your data in your own ClickHouse and build the typed API layer in TypeScript or Python, with no ingestion into a third-party platform and no second platform plan to pay for.
               </p>
+              <HubNote href="/tinybird-alternative" />
               <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">
                 Open guide
               </p>
@@ -178,6 +179,7 @@ export default function CompareIndexPage() {
               <p className="mt-4 text-sm leading-6 text-text-muted">
                 MooseStack is end of life. Move its typed ClickHouse query and API layer while separating schema, streaming, and workflow responsibilities.
               </p>
+              <HubNote href="/compare/hypequery-vs-moose" />
               <p className="mt-6 font-mono text-xs text-accent group-hover:opacity-70">
                 Open guide
               </p>
@@ -185,7 +187,26 @@ export default function CompareIndexPage() {
           </div>
         </section>
 
-        <section className={`${marketing.container} pb-20`}>
+        <RelatedPages
+          band
+          eyebrow="Background"
+          title="Start from the concepts"
+          pages={[
+            {
+              href: '/embedded-analytics',
+              title: 'Embedded analytics for developers',
+              description: 'Embed a BI tool or build with your own components, tenant isolation, and the three kinds of tool.',
+            },
+            { href: semanticLayerHub.href, title: semanticLayerHub.label, description: semanticLayerHub.description },
+            {
+              href: '/clickhouse-saas-analytics',
+              title: 'ClickHouse embedded analytics',
+              description: 'Architectures, tenant isolation, query limits and caching for customer-facing analytics on ClickHouse.',
+            },
+          ]}
+        />
+
+        <section className={`${marketing.container} py-20`}>
           <div className="rounded-xl border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="font-mono text-xs text-accent">Next step</p>
@@ -216,5 +237,23 @@ export default function CompareIndexPage() {
           </div>
         </section>
     </PageWrapper>
+  );
+}
+
+/** The "best fit" and "choose hypequery when" lines on a comparison card. */
+function HubNote({ href }: { href: string }) {
+  const note = compareHubNote(href);
+  if (!note) return null;
+  return (
+    <dl className="mt-5 space-y-3 border-t border-border pt-4 text-[13px] leading-5">
+      <div>
+        <dt className="font-mono text-[11px] text-text-dim">Best fit for</dt>
+        <dd className="mt-1 text-text-muted">{note.bestFitFor}</dd>
+      </div>
+      <div>
+        <dt className="font-mono text-[11px] text-accent">Choose hypequery when</dt>
+        <dd className="mt-1 text-text-muted">{note.chooseHypequeryWhen}</dd>
+      </div>
+    </dl>
   );
 }

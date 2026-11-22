@@ -276,6 +276,9 @@ export type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolRowResolution,
+  ProtocolDatasetSource,
+  ProtocolSqlSource,
+  ProtocolSqlSourceColumn,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -344,6 +347,14 @@ export type {
 } from './visibility/index.js';
 
 export { validateProtocolRowResolution } from './deployments/row-resolution.js';
+export { isProtocolSqlSource, validateProtocolSqlSource } from './deployments/sql-source.js';
+export {
+  PROTOCOL_SQL_SOURCE_MAX_BYTES,
+  PROTOCOL_SQL_SOURCE_MAX_DEPENDENCIES,
+  analyzeProtocolSqlSource,
+  type ProtocolSqlSourceAnalysis,
+  type ProtocolSqlSourceRefusal,
+} from './deployments/sql-source-analysis.js';
 export {
   PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
   PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,

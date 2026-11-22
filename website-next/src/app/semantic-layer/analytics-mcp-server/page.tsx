@@ -253,7 +253,7 @@ export default function AnalyticsMcpServerPage() {
               a tool, fills in the arguments and gets rows back.
             </p>
             <p>
-              A database MCP server&rsquo;s query tool takes SQL. A semantic layer MCP server&rsquo;s query tool takes
+              A database MCP server&rsquo;s query tool takes SQL. A <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> MCP server&rsquo;s query tool takes
               a metric, dimensions, filters and a time grain, and the layer writes the SQL. That one difference decides
               how consistent the answers are and how far the agent can reach.
             </p>
