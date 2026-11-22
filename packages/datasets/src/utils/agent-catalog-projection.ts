@@ -10,6 +10,7 @@ import { windowCatalogMetadata, type WindowCatalogMetadata } from './window-cata
  * of which source produced it.
  */
 
+import { datasetAllowedFilters, datasetSegments } from '@hypequery/protocol';
 import type {
   ProtocolDatasetContract,
   ProtocolDatasetFilter,
@@ -250,12 +251,8 @@ export function protocolDatasetToAgentDataset(
   dataset: ProtocolDatasetContract | ProtocolDeploymentDatasetAnyVersion,
   datasets: ReadonlyMap<string, ProtocolDatasetContract | ProtocolDeploymentDatasetAnyVersion>,
 ): AgentCatalogDataset {
-  // Contract 3 renames the filter allow-list to `allowedFilters`.
-  const allowedFilters: readonly ProtocolDatasetFilter[] =
-    'allowedFilters' in dataset && dataset.allowedFilters !== undefined
-      ? dataset.allowedFilters
-      : (dataset as { filters?: readonly ProtocolDatasetFilter[] }).filters ?? [];
-  const segments = 'segments' in dataset && Array.isArray(dataset.segments) ? dataset.segments : [];
+  const allowedFilters: readonly ProtocolDatasetFilter[] = datasetAllowedFilters(dataset);
+  const segments = datasetSegments(dataset);
   // A derived measure that uses a window or shift measure, directly or through
   // another derived measure, also needs a grain and a bounded time range. The
   // contract records that only on the window and shift measures themselves.

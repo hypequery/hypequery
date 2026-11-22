@@ -1,8 +1,5 @@
-import type {
-  ProtocolDatasetFilter,
-  ProtocolDeploymentDataset,
-  ProtocolDeploymentDatasetAnyVersion,
-} from '@hypequery/protocol';
+import { datasetAllowedFilters } from '@hypequery/protocol';
+import type { ProtocolDatasetFilter, ProtocolDeploymentDatasetAnyVersion } from '@hypequery/protocol';
 
 /** The dataset layer's default caller-filter operators; null checks are opt-in. */
 export const DEFAULT_SEMANTIC_FILTER_OPERATORS: ReadonlySet<string> = new Set([
@@ -30,9 +27,7 @@ export interface ProtocolFilterCapabilities {
 export function protocolFilterCapabilities(
   dataset: ProtocolDeploymentDatasetAnyVersion,
 ): ProtocolFilterCapabilities {
-  const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
-    ? dataset.allowedFilters
-    : (dataset as ProtocolDeploymentDataset).filters;
+  const allowList = datasetAllowedFilters(dataset);
   const named = new Map(allowList.map(filter => [String(filter.name), filter]));
   const dimensions = new Map<string, ReadonlySet<string>>();
 

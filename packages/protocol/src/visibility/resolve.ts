@@ -1,4 +1,5 @@
-import type { ProtocolDeploymentDataset, ProtocolDeploymentDatasetAnyVersion, ProtocolDeploymentDatasetV3 } from '../deployments/index.js';
+import type { ProtocolDeploymentDataset, ProtocolDeploymentDatasetAnyVersion } from '../deployments/index.js';
+import { datasetAllowedFilters, datasetSegments } from '../deployments/readers.js';
 import { expressionReferences } from '../deployments/segments.js';
 import type {
   ProtocolFieldVisibility,
@@ -101,10 +102,7 @@ export function resolveProtocolVisibleDatasetFields(
     for (const name of visible) dimensions.add(`${String(relationship.name)}.${name}`);
   }
 
-  // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
-  const allowList = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined
-    ? dataset.allowedFilters
-    : (dataset as ProtocolDeploymentDataset).filters;
+  const allowList = datasetAllowedFilters(dataset);
   const filters = new Set(
     allowList
       .filter(filter => dimensions.has(String(filter.field)))
@@ -129,7 +127,7 @@ export function resolveProtocolVisibleDatasetFields(
   };
   const measures = new Set([...byName.keys()].filter(name => isVisible(name, new Set())));
 
-  const segments = new Set(((dataset as ProtocolDeploymentDatasetV3).segments ?? [])
+  const segments = new Set(datasetSegments(dataset)
     .filter(segment => expressionReferences(segment.predicate).every(name => local.has(String(name))))
     .map(segment => String(segment.name)));
 

@@ -1,3 +1,4 @@
+import { datasetAllowedFilters, withDatasetAllowedFilters } from '@hypequery/protocol';
 import type {
   ProtocolDeploymentDataset,
   ProtocolDeploymentDatasetAnyVersion,
@@ -54,7 +55,7 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
       : { dimensions: defaultDimensions }),
     ...(defaults?.timeGrain === undefined || !visible.timeField ? {} : { timeGrain: defaults.timeGrain }),
   };
-  return {
+  return withDatasetAllowedFilters({
     ...withoutAlternates,
     ...(visible.timeField && timeField !== undefined ? { timeField } : {}),
     ...(visibleAlternates === undefined || visibleAlternates.length === 0 ? {} : { alternateTimeFields: visibleAlternates }),
@@ -65,11 +66,6 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     )),
     measures: (dataset.measures as readonly { readonly name: unknown }[])
       .filter(measure => visible.measures.has(String(measure.name))),
-    // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
-    ...('allowedFilters' in dataset && dataset.allowedFilters !== undefined
-      ? { allowedFilters: dataset.allowedFilters.filter(filter => visible.filters.has(String(filter.name))) }
-      : { filters: (dataset as ProtocolDeploymentDataset).filters
-        .filter(filter => visible.filters.has(String(filter.name))) }),
     ...((dataset as ProtocolDeploymentDatasetV3).segments === undefined ? {} : {
       segments: (dataset as ProtocolDeploymentDatasetV3).segments!
         .filter(segment => visible.segments?.has(String(segment.name)) ?? true),
@@ -77,5 +73,5 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     relationships: dataset.relationships.filter(relationship => (
       visible.relationships.has(String(relationship.name))
     )),
-  } as unknown as TDataset;
+  } as unknown as TDataset, datasetAllowedFilters(dataset).filter(filter => visible.filters.has(String(filter.name))));
 }

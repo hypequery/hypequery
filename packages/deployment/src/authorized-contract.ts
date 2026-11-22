@@ -24,6 +24,7 @@ import {
   resolveProtocolVisibleDatasetFields,
   validateProtocolDeploymentContractAtLowestVersion,
   validateProtocolFieldVisibility,
+  withDatasetAllowedFilters,
 } from '@hypequery/protocol';
 import type { DeploymentDataPlanePrincipal } from './principal.js';
 import { missing } from './utils/required-access.js';
@@ -79,14 +80,13 @@ function narrowToJoin(
   // `defaults` describes how to query the dataset directly, which is exactly
   // what this principal may not do. Segments select rows of a direct query too.
   const { defaults: _defaults, endpoint: _endpoint, ...rest } = dataset;
-  const contract3 = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined;
   // Alternate time axes, like segments, only shape a direct query.
   const { segments: _segments, alternateTimeFields: _alternates, ...withoutSegments } = rest as typeof rest & {
     segments?: unknown;
     alternateTimeFields?: unknown;
   };
   const timeField = dataset.timeField === undefined ? undefined : String(dataset.timeField);
-  return {
+  return withDatasetAllowedFilters({
     ...withoutSegments,
     dimensions: reachable
       ? dataset.dimensions.map(dimension => (
@@ -96,8 +96,7 @@ function narrowToJoin(
         ))
       : dataset.dimensions.filter(dimension => String(dimension.name) === timeField),
     measures: [],
-    ...(contract3 ? { allowedFilters: [] } : { filters: [] }),
-  } as unknown as ProtocolDeploymentDatasetAnyVersion;
+  } as unknown as ProtocolDeploymentDatasetAnyVersion, []);
 }
 
 export interface AuthorizedDeploymentProjection {

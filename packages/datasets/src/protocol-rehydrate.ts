@@ -27,7 +27,7 @@ import type {
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
+import { datasetAllowedFilters, datasetSegments, isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -458,16 +458,13 @@ export function rehydrateProtocolDatasets(
     const timed = measures.filter(
       (measure): measure is ProtocolTimeMeasure => 'kind' in measure && measure.kind !== 'derived',
     );
-    // Contract 3 renames the filter allow-list `allowedFilters` (RFC 0015).
-    const v3 = contract as { readonly allowedFilters?: ProtocolDatasetContract['filters'];
-      readonly segments?: readonly ProtocolDatasetSegment[] };
     const base = {
       ...contract,
       measures: measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
-      filters: v3.allowedFilters ?? (contract as ProtocolDatasetContract).filters,
+      filters: datasetAllowedFilters(contract),
       metrics: (contract as ProtocolDatasetContract).metrics ?? [],
     } as ProtocolDatasetContract;
-    return { base, derived, timed, segments: v3.segments };
+    return { base, derived, timed, segments: datasetSegments(contract) };
   });
   const instances = new Map<string, AnyDatasetInstance>();
   const registry = new Map<string, RehydratedDataset>();
