@@ -62,6 +62,7 @@ const START_HERE = [
   '/docs/agents/quickstart',
   '/docs/why-hypequery',
   '/docs/core-concepts',
+  '/docs/self-hosting',
   '/docs/introduction',
   '/docs/python',
   '/docs/datasets/overview',

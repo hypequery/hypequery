@@ -1,5 +1,5 @@
 {
-  "title": "Serve",
+  "title": "TypeScript Serve",
   "pages": [
     "embedded-runtime",
     "---Security---",
@@ -11,9 +11,6 @@
     "runtime-features",
     "http-openapi",
     "observability",
-    "---Clients---",
-    "[React hooks](/docs/react/getting-started)",
-    "[MCP for agents](/docs/mcp/overview)",
     "---Framework setup---",
     "vite",
     "nextjs",

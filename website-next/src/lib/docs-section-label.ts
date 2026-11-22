@@ -1,6 +1,6 @@
 /**
  * Section shown after a docs page's title, by the page's file path under `docs/`. The file path is used rather
- * than the URL because route groups like `(typescript)/(serve)` publish at the docs root, where the URL carries no
+ * than the URL because route groups like `(self-host)/(serve)` publish at the docs root, where the URL carries no
  * section. First match wins, so the more specific prefixes come first.
  */
 const SECTION_LABELS: [pathPrefix: string, label: string][] = [
@@ -9,13 +9,14 @@ const SECTION_LABELS: [pathPrefix: string, label: string][] = [
   ['python/reference/', 'Python reference'],
   ['python/', 'Python'],
   ['cloud/', 'Cloud'],
+  ['(getting-started)/cloud/', 'Cloud'],
   ['(typescript)/(get-started)/', 'TypeScript SDK'],
   ['(typescript)/(datasets)/', 'Datasets'],
   ['(typescript)/(query-builder)/', 'Query builder'],
-  ['(typescript)/(serve)/', 'Serve'],
+  ['(self-host)/(serve)/', 'Serve'],
   ['(typescript)/(reference)/', 'Reference'],
-  ['(connect)/mcp/', 'MCP'],
-  ['(connect)/react/', 'React'],
+  ['(self-host)/mcp/', 'MCP'],
+  ['(self-host)/react/', 'React'],
 ];
 
 export function docsSectionLabel(path: string): string | null {

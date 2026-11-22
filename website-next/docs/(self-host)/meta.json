@@ -1,0 +1,18 @@
+{
+  "title": "Self-hosting",
+  "pages": [
+    "self-hosting",
+    "---Quick starts---",
+    "quick-start/index",
+    "quick-start/api-and-dashboard",
+    "[Connect via MCP](/docs/mcp/quickstart)",
+    "[Add AI chat to your app](/docs/agents/quickstart)",
+    "---Serve your datasets---",
+    "(serve)",
+    "[Python Serve](/docs/python/serving)",
+    "---Clients---",
+    "mcp",
+    "agents",
+    "react"
+  ]
+}

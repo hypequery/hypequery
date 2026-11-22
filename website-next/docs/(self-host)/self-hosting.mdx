@@ -1,0 +1,56 @@
+---
+title: Overview
+seoTitle: 'Self-hosting hypequery: the open-source SDKs'
+description: Run hypequery in your own backend with the open-source TypeScript and Python SDKs. What you operate yourself, how each cloud feature maps to a self-hosted package, and how to move between the two.
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Everything hypequery cloud serves is built on open-source, Apache 2.0 SDKs. You can run them yourself, inside the
+application that already talks to your ClickHouse: no hypequery service sits between your code and your data.
+
+Self-host when you want the semantic layer in-process, need to run in your own network or on-premises, or want to
+extend the HTTP layer with your own middleware. Choose [cloud](/docs/cloud) when you'd rather not run, secure, and
+scale that HTTP layer yourself.
+
+## What you run
+
+When you self-host, your backend does the work cloud would otherwise do:
+
+1. **Define datasets** in TypeScript or Python, exactly as you would for cloud.
+2. **Query them in-process** with a dataset client, from jobs, reports, notebooks, and your own routes.
+3. **Serve them over HTTP** with Serve, mounted in the framework you already run, when another consumer needs them.
+4. **Connect clients** to your endpoints: typed React hooks for dashboards, and the MCP server or agent tools for AI.
+
+You also own authentication, tenant resolution, rate limits, deploys, and observability for that endpoint.
+
+## Cloud and self-hosted, side by side
+
+| You need | In cloud | Self-hosted |
+| --- | --- | --- |
+| Dataset definitions | [AI authoring](/docs/cloud/ai-authoring), or code from the SDKs | [TypeScript](/docs/datasets/overview) or [Python](/docs/python/datasets/overview) datasets |
+| HTTP endpoints | [REST API](/docs/cloud/rest-api), served per release | Serve for [TypeScript](/docs/embedded-runtime) or [Python](/docs/python/serving) |
+| Agents over MCP | [Hosted MCP endpoint](/docs/cloud/mcp), with sign-in | [`@hypequery/mcp` or `hypequery mcp`](/docs/mcp/overview), run yourself |
+| An agent in your product | [AI SDK](/docs/cloud/ai-sdk), [in-app agents](/docs/cloud/in-app-agents), [chat embed](/docs/cloud/chat-embed) | [`@hypequery/agent` tools](/docs/agents/tools) in your backend |
+| React dashboards | [React on cloud](/docs/cloud/react) | [React hooks](/docs/react/getting-started) against your Serve API |
+| Auth and tenants | [API keys & tenants](/docs/cloud/api-keys) | [Authentication](/docs/authentication) and [multi-tenancy](/docs/multi-tenancy) in Serve |
+| Request limits | [Built in](/docs/cloud/security#limits): body size, deadlines, bounded concurrency | [Rate limiting](/docs/rate-limiting) in Serve |
+| Releases and rollback | [Immutable releases](/docs/cloud/releases) | Your own deploy pipeline |
+| Logs and usage | [Logs & usage](/docs/cloud/logs-usage) | [Observability](/docs/observability) in Serve and the query builder |
+| Teams and roles | [Teams](/docs/cloud/teams) | Your own identity provider |
+
+## Moving between them
+
+Code-defined datasets aren't tied to either. The same definitions run in-process with the SDKs and publish to cloud
+with [`publishToCloud`](/docs/cloud/deploy-typescript) or a [Python deployment bundle](/docs/cloud/deploy-python),
+because both produce the same language-neutral deployment contract. You can start self-hosted and deploy to cloud
+later, or keep some consumers on your own Serve API while others use cloud.
+
+## Start here
+
+<Cards>
+  <Card title="Model your data" href="/docs/quick-start" description="Install the SDK, connect ClickHouse, and define and query your first dataset in TypeScript or Python." />
+  <Card title="Serve an API and a dashboard" href="/docs/quick-start/api-and-dashboard" description="Serve the dataset as an authenticated endpoint with OpenAPI, then chart it in React." />
+  <Card title="Connect via MCP" href="/docs/mcp/quickstart" description="Give Claude or Cursor governed tools over your datasets instead of raw SQL." />
+  <Card title="Add AI chat to your app" href="/docs/agents/quickstart" description="AI SDK tools for a chat in your product, scoped to each customer." />
+</Cards>

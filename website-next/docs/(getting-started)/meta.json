@@ -4,12 +4,10 @@
   "pages": [
     "[Overview](/docs)",
     "what-is-hypequery",
-    "why-hypequery",
     "core-concepts",
-    "---Quick start---",
-    "quick-start/index",
-    "quick-start/api-and-dashboard",
-    "[Connect via MCP](/docs/mcp/quickstart)",
-    "[Add AI chat to your app](/docs/agents/quickstart)"
+    "why-hypequery",
+    "---Start here---",
+    "cloud/quick-start",
+    "[Self-host quick start](/docs/quick-start)"
   ]
 }

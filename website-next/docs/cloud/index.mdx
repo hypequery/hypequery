@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: The planned hosted service for your ClickHouse semantic layer, serving REST and MCP endpoints. Not live yet.
+description: The hosted home for your ClickHouse semantic layer. Model datasets with AI or in code, and serve them as REST and MCP endpoints with no server to run. Not live yet.
 ---
 
 import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
@@ -12,8 +12,8 @@ describes how it will work. You define datasets once: the dimensions people can 
 aggregate, the relationships between tables, and who is allowed to query them. Cloud then serves those datasets to
 your dashboards, applications, and AI agents, without a server for you to run.
 
-Until cloud launches, serve the same datasets yourself with the open-source SDKs: see the
-[TypeScript](/docs/quick-start) and [Python](/docs/quick-start#python) quick starts.
+Until cloud launches, serve the same datasets yourself with the open-source SDKs: see
+[Self-hosting](/docs/self-hosting) and the [self-host quick start](/docs/quick-start).
 
 ## Author datasets your way
 
@@ -44,5 +44,6 @@ each request runs as, and releases can be [rolled back](/docs/cloud/releases) in
 
 - [Quick start](/docs/cloud/quick-start): from sign-up to a live endpoint
 - [How it works](/docs/cloud/how-it-works): from dataset definitions to a live release
-- [Deploy from TypeScript](/docs/cloud/deploy-typescript)
-- [Deploy from Python](/docs/cloud/deploy-python)
+- [Deploy from TypeScript](/docs/cloud/deploy-typescript) or [from Python](/docs/cloud/deploy-python)
+- [Limits](/docs/cloud/limits): every request, key and tenant limit on one page
+- [Cloud or self-hosted?](/docs/self-hosting#cloud-and-self-hosted-side-by-side): how each cloud feature maps to the open-source SDKs

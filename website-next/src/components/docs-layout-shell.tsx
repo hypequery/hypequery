@@ -5,7 +5,7 @@ import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
 import type { Folder, Node, Root } from 'fumadocs-core/page-tree';
 import { HypequeryMascotIcon } from './HypequeryMascotIcon';
 import { PersistedFolderLabel } from './docs-sidebar-folder-state';
-import { Plug, Rocket } from 'lucide-react';
+import { Rocket, Server } from 'lucide-react';
 import { SiPython, SiTypescript } from 'react-icons/si';
 import { baseOptions } from '@/lib/layout.shared';
 
@@ -15,15 +15,15 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   'Getting started': <Rocket className="text-fd-primary" />,
   'TypeScript SDK': <SiTypescript color="#3178C6" />,
   'Python SDK': <SiPython color="#3776AB" />,
-  Connect: <Plug className="text-fd-primary" />,
   Cloud: <HypequeryMascotIcon className="size-4 scale-125 text-fd-primary" />,
+  'Self-hosting': <Server className="text-fd-primary" />,
 };
 
 /**
- * One sidebar for every section: Getting started first, then each SDK and
- * product, each a collapsible folder. Only Getting started opens by default
- * (its meta.json sets defaultOpen), and each folder remembers whether it is
- * open for the browser session.
+ * One sidebar for every section, cloud-first: Getting started, then Cloud,
+ * then the SDKs, then Self-hosting, each a collapsible folder. Getting started
+ * and Cloud open by default (their meta.json sets defaultOpen), and each folder
+ * remembers whether it is open for the browser session.
  */
 function withSections(nodes: Node[], depth = 0): Node[] {
   return nodes.map((node) => {

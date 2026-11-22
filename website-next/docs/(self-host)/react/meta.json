@@ -1,0 +1,8 @@
+{
+  "title": "React hooks",
+  "pages": [
+    "getting-started",
+    "using-queries",
+    "advanced-patterns"
+  ]
+}

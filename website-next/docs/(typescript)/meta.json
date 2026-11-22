@@ -2,9 +2,9 @@
   "title": "TypeScript SDK",
   "pages": [
     "(get-started)",
-    "(query-builder)",
     "(datasets)",
-    "(serve)",
+    "(query-builder)",
+    "[Serve (self-hosted)](/docs/embedded-runtime)",
     "(reference)"
   ]
 }

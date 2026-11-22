@@ -1,0 +1,270 @@
+---
+title: Quick start
+seoTitle: 'Quick start: hypequery cloud'
+description: From sign-up to a live hypequery cloud endpoint. Connect ClickHouse, model a dataset with AI or in code, deploy it, and query it over REST and MCP.
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+This page takes you from sign-up to a dataset that your apps and AI agents can query. You need a ClickHouse server
+cloud can reach and, for the code path, Node.js 20+ or Python 3.11+.
+
+By the end you will have:
+
+- an `orders` dataset, written by cloud's AI or by you in TypeScript or Python;
+- a live release serving it as a REST endpoint and an MCP endpoint;
+- a runtime API key, and a first query against the endpoint.
+
+Prefer to run everything in your own backend? See [Self-hosting](/docs/self-hosting).
+
+<Steps>
+  <Step>
+    ### Create a project
+
+    Sign in with Google or an email link, and create your organisation. Then create a project. Each project starts
+    with a protected production environment.
+  </Step>
+
+  <Step>
+    ### Connect ClickHouse
+
+    Enter the database your datasets will query. Cloud tests the connection before saving it and stores the
+    credentials encrypted.
+
+    Connect with a dedicated read-only user. [ClickHouse users](/docs/cloud/clickhouse-users) has the settings
+    profile cloud expects; setup tells you if your user's profile is missing anything and generates the SQL to fix it.
+  </Step>
+
+  <Step>
+    ### Model your data
+
+    A **dataset** describes one ClickHouse table as the dimensions people group and filter by and the measures they
+    ask for. Write it whichever way suits your team: both paths produce the same deployment contract, so cloud serves
+    them the same way.
+
+    <Tabs groupId="cloud-authoring" items={['With AI', 'TypeScript', 'Python']} persist>
+      <Tab value="With AI">
+        Cloud's AI reads your schema, asks how your business works (how you count revenue, who your customers are,
+        how data is split by tenant) and drafts datasets with dimensions, measures, relationships and tenant keys.
+        Accept, edit or reject each one. See [AI authoring](/docs/cloud/ai-authoring).
+      </Tab>
+
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npm install @hypequery/datasets @hypequery/clickhouse
+          npm install -D @hypequery/cli
+          ```
+        </CodeBlock>
+
+        Define the dataset, then declare what cloud publishes and who may query it:
+
+        <CodeBlock>
+          ```typescript
+          // analytics/datasets.ts
+          import { dataset, dimension, measure } from '@hypequery/datasets';
+
+          export const Orders = dataset('orders', {
+            source: 'orders',
+            tenantKey: 'tenant_id',
+            timeKey: 'created_at',
+            dimensions: {
+              status: dimension.string(),
+              country: dimension.string(),
+              createdAt: dimension.timestamp({ column: 'created_at' }),
+            },
+            measures: {
+              revenue: measure.sum('amount'),
+              orderCount: measure.count('id'),
+            },
+          });
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```typescript
+          // analytics/cloud.ts
+          import { publishToCloud } from '@hypequery/datasets';
+          import { Orders } from './datasets';
+
+          export const cloud = publishToCloud({
+            datasets: { orders: Orders },
+            access: { roles: ['analyst'], scopes: [] },
+          });
+          ```
+        </CodeBlock>
+
+        `npx hypequery generate:datasets` writes a starting dataset for every table in your schema. See
+        [Defining datasets](/docs/datasets/defining-datasets) for the full modeling guide.
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          pip install "hypequery[clickhouse]==0.1.0b4"
+          ```
+        </CodeBlock>
+
+        Define the dataset, then write a deployment bundle that publishes it:
+
+        <CodeBlock>
+          ```python
+          # analytics/orders.py
+          from hypequery.datasets import dataset, dimension, measure
+
+          orders = dataset(
+              "orders",
+              source="orders",
+              tenant_key="tenant_id",
+              time_key="created_at",
+              dimensions={
+                  "status": dimension.string(),
+                  "country": dimension.string(),
+                  "createdAt": dimension.timestamp(column="created_at"),
+              },
+              measures={
+                  "revenue": measure.sum("amount"),
+                  "orderCount": measure.count("id"),
+              },
+          )
+          ```
+        </CodeBlock>
+
+        <CodeBlock>
+          ```python
+          # analytics/cloud.py
+          from hypequery.datasets import create_dataset_registry, write_dataset_bundle
+
+          from .orders import orders
+
+          write_dataset_bundle(
+              "analytics/hypequery-deployment",
+              create_dataset_registry(orders),
+              endpoints={
+                  "orders": {
+                      "access": {"kind": "authenticated", "roles": ["analyst"], "scopes": []},
+                      "tenant": {"kind": "required", "mode": "auto-inject", "column": "tenant_id"},
+                      "path": "/api/analytics/datasets/orders/query",
+                  },
+              },
+          )
+          ```
+        </CodeBlock>
+
+        See [Python datasets](/docs/python/datasets/defining-datasets) for the full modeling guide.
+      </Tab>
+    </Tabs>
+
+    `tenantKey` makes the dataset fail closed: every query runs as exactly one customer tenant. Leave it out if your
+    table isn't multi-tenant.
+  </Step>
+
+  <Step>
+    ### Deploy
+
+    <Tabs groupId="cloud-authoring" items={['With AI', 'TypeScript', 'Python']} persist>
+      <Tab value="With AI">
+        Accepted datasets go live as a release. Onboarding waits for the first release and confirms when it is live.
+      </Tab>
+
+      <Tab value="TypeScript">
+        <CodeBlock>
+          ```bash
+          npx hypequery login
+          npx hypequery deploy analytics/cloud.ts
+          ```
+        </CodeBlock>
+      </Tab>
+
+      <Tab value="Python">
+        <CodeBlock>
+          ```bash
+          python -m analytics.cloud
+          npx hypequery login
+          npx hypequery deployment:release analytics/hypequery-deployment
+          npx hypequery deployment:submit analytics/hypequery-deployment \
+            --release analytics/hypequery-deployment.release.json
+          ```
+        </CodeBlock>
+
+        Python bundles are released with the Node.js `hypequery` CLI. See
+        [Deploy from Python](/docs/cloud/deploy-python).
+      </Tab>
+    </Tabs>
+
+    `hypequery login` authorizes your machine and saves a default project and environment. Once cloud accepts the
+    release, the CLI prints where the datasets are served:
+
+    <CodeBlock>
+      ```text
+      Hosted endpoints
+        REST  https://<environment-slug>.hypequery.app
+          orders  POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query
+        MCP   https://<environment-slug>.hypequery.app/mcp
+      ```
+    </CodeBlock>
+
+    Every deploy is an immutable [release](/docs/cloud/releases) you can roll back. To deploy on every push, see
+    [Deploy from CI](/docs/cloud/deploy-ci).
+  </Step>
+
+  <Step>
+    ### Create an API key
+
+    On the **Keys** page under **Runtime**, create a runtime API key with the `analyst` role. Because `orders` is
+    tenant-scoped, give the key a tenant: bind it to one tenant ID, or make it a trusted backend key that names the
+    tenant on each request. See [API keys & tenants](/docs/cloud/api-keys).
+
+    Keep runtime keys on your server or in your secret manager; never ship them to a browser.
+  </Step>
+
+  <Step>
+    ### Query your data
+
+    <Tabs groupId="cloud-consumer" items={['REST', 'MCP']} persist>
+      <Tab value="REST">
+        <CodeBlock>
+          ```bash
+          curl -X POST https://<environment-slug>.hypequery.app/api/analytics/datasets/orders/query \
+            -H "Authorization: Bearer $HYPEQUERY_API_KEY" \
+            -H "x-hypequery-tenant-id: customer-42" \
+            -H "Content-Type: application/json" \
+            -d '{"dimensions": ["country"], "measures": ["revenue"], "limit": 10}'
+          ```
+        </CodeBlock>
+
+        The **APIs** page lists every endpoint in the live release and lets you run requests from the browser. See
+        [REST API](/docs/cloud/rest-api).
+      </Tab>
+
+      <Tab value="MCP">
+        Copy the MCP server URL from **Connect** (**Endpoints › MCP server**) and add it to your client. In Claude
+        Code:
+
+        <CodeBlock>
+          ```bash
+          claude mcp add --transport http hypequery <your MCP URL>
+          ```
+        </CodeBlock>
+
+        Then run `/mcp`, choose `hypequery` and sign in with your hypequery account. Ask it for revenue by country.
+        See [MCP](/docs/cloud/mcp) for Claude, Cursor, VS Code and API-key access.
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Next steps
+
+<Cards>
+  <Card title="Build a dashboard" href="/docs/cloud/react" description="Typed React hooks on your published datasets, each customer seeing only their own rows." />
+  <Card title="Add an agent to your app" href="/docs/cloud/ai-sdk" description="Use cloud's MCP server as tools for a Vercel AI SDK agent." />
+  <Card title="Embed chat" href="/docs/cloud/chat-embed" description="Give each of your users cloud's assistant, answering from their own rows." />
+  <Card title="Model more of your data" href="/docs/datasets/overview" description="Measures, metrics, relationships, time grains and segments." />
+</Cards>

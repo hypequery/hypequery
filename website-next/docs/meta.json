@@ -1,9 +1,11 @@
 {
   "pages": [
     "(getting-started)",
+    "cloud",
+    "---Build with the SDKs---",
     "(typescript)",
     "python",
-    "(connect)",
-    "cloud"
+    "---Run it yourself---",
+    "(self-host)"
   ]
 }

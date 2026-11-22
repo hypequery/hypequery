@@ -1,0 +1,46 @@
+---
+title: Limits
+seoTitle: 'hypequery cloud limits and quotas'
+description: Every hypequery cloud limit on one page, for requests, MCP, query results, API keys, tenants, CLI sign-in and chat embed.
+---
+
+import { CloudWaitlistNotice } from '@/components/docs/cloud-waitlist-notice';
+
+<CloudWaitlistNotice />
+
+Every request to cloud is bounded, so one caller cannot exhaust cloud or your ClickHouse. This page collects the
+limits documented across the cloud pages; each row links to the page that explains it.
+
+## Requests
+
+| Limit | Value | Details |
+| --- | --- | --- |
+| Dataset request body | 128 KiB | [REST API](/docs/cloud/rest-api) |
+| MCP request and response size | 1 MiB each | [Security](/docs/cloud/security#limits) |
+| MCP request deadline | 30 seconds | [Security](/docs/cloud/security#limits) |
+| Concurrent execution | Bounded; excess load is refused rather than queued | [Security](/docs/cloud/security#limits) |
+| Rows per published dataset query | `limits.maxResultSize` on the dataset, else 1,000, unless the endpoint policy sets no cap | [Deploy from TypeScript](/docs/cloud/deploy-typescript) |
+
+## ClickHouse
+
+Limits on your ClickHouse user come from its settings profile. The profile cloud recommends sets a 25-second
+execution time, 8 threads, 4 GiB of memory and 20,000 result rows per query. Stricter limits are fine, but keep
+`max_result_rows` at 10,001 or more, or full pages of results are refused. See
+[ClickHouse users](/docs/cloud/clickhouse-users).
+
+## Keys and tenants
+
+| Limit | Value | Details |
+| --- | --- | --- |
+| Runtime and deployment key lifetime | 90 days by default; rotate or revoke at any time | [API keys & tenants](/docs/cloud/api-keys) |
+| Tenants bound to one API key | 1 to 32 | [API keys & tenants](/docs/cloud/api-keys#tenant-authority) |
+| Tenants one OAuth MCP client may query | 1 to 32, chosen when an owner or admin approves it | [MCP](/docs/cloud/mcp#sign-in-with-oauth) |
+| CLI device sign-in code | Expires after 10 minutes | [CLI commands](/docs/cloud/cli#signing-in) |
+
+## Chat embed
+
+| Limit | Value | Details |
+| --- | --- | --- |
+| Messages and tokens | Per user, per customer and per organisation; over a limit returns `429` with `Retry-After` | [Chat embed](/docs/cloud/chat-embed#usage-limits) |
+| Turns per thread | One at a time; a second message returns `409` | [Chat embed](/docs/cloud/chat-embed) |
+| Thread lifetime | 90 days after the last activity | [Chat embed](/docs/cloud/chat-embed) |

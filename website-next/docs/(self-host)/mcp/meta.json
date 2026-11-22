@@ -1,0 +1,14 @@
+{
+  "title": "MCP server",
+  "pages": [
+    "overview",
+    "quickstart",
+    "clients",
+    "claude-code-plugin",
+    "remote",
+    "tools",
+    "safety",
+    "configuration",
+    "programmatic"
+  ]
+}
