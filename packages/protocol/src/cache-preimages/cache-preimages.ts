@@ -83,6 +83,10 @@ function normalizeQuery(source: unknown): Record<string, unknown> {
   // definition identity by the caller, and UTC (the default) folds nothing.
   if (query.kind === 'dataset' && (query.having?.length ?? 0) > 0) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   if (query.timezone !== undefined && query.timezone !== 'UTC') fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  // RFC 0026: calculations, limitBy and other have no portable key either.
+  if (query.kind === 'dataset' && (
+    (query.calculations?.length ?? 0) > 0 || query.limitBy !== undefined || query.other !== undefined
+  )) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   // AND-combined, so order cannot change rows; identical filters collapse.
   const filters = new Map<string, unknown>();
   for (const filter of query.filters ?? []) filters.set(serializeJcs(filter), filter);

@@ -1,5 +1,6 @@
 import type { ProtocolIdentifier, ProtocolQualifiedIdentifier } from '../identifiers/index.js';
 import type { CanonicalValue } from '../values/index.js';
+import type { ProtocolLimitBy, ProtocolOtherBucket, ProtocolQueryCalculation } from './calculations.js';
 
 export type ProtocolBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
 export type ProtocolFunctionName = 'nullIfZero' | 'coalesce' | 'round' | 'floor' | 'ceil';
@@ -136,6 +137,12 @@ export interface ProtocolDatasetQuery extends ProtocolQueryCommon {
    * Each condition requires its measure in `measures`. RFC 0025.
    */
   readonly having?: readonly ProtocolHavingCondition[];
+  /** Query-scoped calculations. Extension 2 only. RFC 0026. */
+  readonly calculations?: readonly ProtocolQueryCalculation[];
+  /** Top-N per group (`LIMIT n BY`). Extension 2 only. RFC 0026. */
+  readonly limitBy?: ProtocolLimitBy;
+  /** Top-N of one dimension plus a remainder bucket. Extension 2 only. RFC 0026. */
+  readonly other?: ProtocolOtherBucket;
 }
 
 export interface ProtocolMetricQuery extends ProtocolQueryCommon {

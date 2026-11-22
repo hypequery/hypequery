@@ -53,6 +53,7 @@ export {
 export {
   DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
   PROTOCOL_NULL_CHECK_OPERATORS,
+  PROTOCOL_CALCULATION_KINDS,
   ProtocolExpressionError,
   isProtocolNullCheckOperator,
   validateProtocolExpression,
@@ -100,6 +101,21 @@ export type {
   ProtocolQueryTimeGrain,
   ProtocolTimeGrain,
   ProtocolValueComparisonOperator,
+  ProtocolCalculationColumn,
+  ProtocolCalculationInterval,
+  ProtocolCalculationKind,
+  ProtocolCompareCalculation,
+  ProtocolFilterCalculation,
+  ProtocolFormulaArgument,
+  ProtocolFormulaNode,
+  ProtocolFormulaOperator,
+  ProtocolLimitBy,
+  ProtocolOtherBucket,
+  ProtocolQueryCalculation,
+  ProtocolRankCalculation,
+  ProtocolShareCalculation,
+  ProtocolShiftCalculation,
+  ProtocolWindowCalculation,
 } from './expressions/index.js';
 
 export type {
