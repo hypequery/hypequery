@@ -99,6 +99,11 @@ jobs:
         run: pnpm lint
       - name: Build all hypequery packages
         run: pnpm turbo run build --filter='@hypequery/*'
+      # Fails when the public types of protocol, datasets or deployment change
+      # without an updated packages/<pkg>/api-report/*.api.md. Fix locally with
+      # `pnpm api:report`; see CLAUDE.md ("Public API reports").
+      - name: Check public API reports
+        run: pnpm api:check
       - name: Verify bin.js file exists
         run: |
           if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
@@ -150,17 +155,43 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
         run: pnpm smoke:consumers
+  # Unit tests for the release scripts, and on PRs the rule that a changed
+  # API report comes with a changeset declaring `Consumer-breaking:`.
+  release-tooling:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      - name: Test release and API report scripts
+        run: node --test "scripts/release/**/*.test.mjs" "scripts/utils/api-report-entry-points.test.mjs"
+      - name: Require Consumer-breaking declarations for public API changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/release/check-api-changesets.mjs --base "origin/$BASE_REF"
+
   python-clients:
     uses: ./.github/workflows/python-clients.yml
     with:
       ref: ${{ github.sha }}
 
+  # npm publishing uses trusted publishing (OIDC): no npm token. Each package
+  # trusts hypequery/hypequery + ci.yml on npmjs.com; setup steps and failure
+  # runbook are in release-commands.md ("Release guardrails").
   canary-release:
     needs: [build, python-clients]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
+      id-token: write # npm trusted publishing and provenance
+      issues: write # release-failure issue on failure
 
     steps:
       - uses: actions/checkout@v7
@@ -174,8 +205,12 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.
+      # `pnpm publish` (used by `changeset publish`) hands off to this npm.
+      - name: Install an npm that supports trusted publishing
+        run: |
+          npm install --global npm@^11.5.1
+          echo "npm $(npm --version)"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build all hypequery packages
@@ -230,13 +265,24 @@ jobs:
           trap cleanup EXIT
 
           pnpm changeset version --snapshot canary
+          # Record what this run publishes before the trap restores package.json:
+          # the verify and failure-report steps read it.
+          node scripts/release/list-publishable.mjs --prerelease canary --out "$RUNNER_TEMP/publish-expected.json"
           # No rebuild here: a package that bakes its own version into dist
           # regenerates it in `prepack`, which runs per package at publish time.
           # The stable release job has no equivalent step, so the hook has to
           # live in the package rather than in one workflow.
           pnpm changeset publish --tag canary
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+      - name: Verify canaries resolve on npm
+        run: node scripts/release/verify-npm-publish.mjs --packages-file "$RUNNER_TEMP/publish-expected.json"
+      - name: Open or update the release-failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/release/report-release-failure.mjs --job canary-release --expected-file "$RUNNER_TEMP/publish-expected.json"
   release:
     needs: [build, python-clients]
     runs-on: ubuntu-latest
@@ -244,6 +290,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # npm trusted publishing and provenance
+      issues: write # release-failure issue on failure
     outputs:
       # publishedPackages is a JSON list of { name, version } for this run.
       mcp_published: ${{ steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '"@hypequery/mcp"') }}
@@ -260,12 +308,22 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.
+      # `pnpm publish` (used by `changeset publish`) hands off to this npm.
+      - name: Install an npm that supports trusted publishing
+        run: |
+          npm install --global npm@^11.5.1
+          echo "npm $(npm --version)"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build all hypequery packages
         run: pnpm turbo run build --filter='@hypequery/*'
+      # Versions on main that npm lacks: what `changeset publish` will attempt,
+      # or what an earlier failed publish left behind. changesets/action does
+      # not retry those while other changesets are queued, so they are
+      # verified below either way.
+      - name: Record unpublished versions
+        run: node scripts/release/list-publishable.mjs --unpublished --out "$RUNNER_TEMP/publish-expected.json"
       - name: Create release PR or publish packages
         id: changesets
         uses: changesets/action@v1
@@ -276,7 +334,20 @@ jobs:
           title: "chore: release"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN: without it changesets/action writes no .npmrc token
+          # and npm authenticates with OIDC.
+          NPM_CONFIG_PROVENANCE: 'true'
+      - name: Verify published packages resolve on npm
+        env:
+          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+        run: node scripts/release/verify-npm-publish.mjs --packages-file "$RUNNER_TEMP/publish-expected.json" --packages-json "$PUBLISHED"
+      - name: Open or update the release-failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+        run: node scripts/release/report-release-failure.mjs --job release --expected-file "$RUNNER_TEMP/publish-expected.json" --packages-json "$PUBLISHED"
 
   # A stable @hypequery/mcp release is also listed in the official MCP Registry.
   mcp-registry:
