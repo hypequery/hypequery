@@ -1,3 +1,4 @@
+import { relativeDateFilterError } from './relative-date-filters.js';
 import { notGroupableError } from './groupable.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
@@ -30,6 +31,7 @@ import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { effectiveFilters } from './effective-filters.js';
+import { effectiveFilterLeaves, filterLeafCount, filterTreeErrors } from './filter-tree.js';
 
 export function validateDatasetQueryInput(
   dataset: AnyDatasetInstance,
@@ -69,7 +71,7 @@ export function validateDatasetQueryInput(
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
-  errors.push(...enforcedConstraintErrors(ds, context, query.filters?.length ?? 0));
+  errors.push(...enforcedConstraintErrors(ds, context, filterLeafCount(query.filters)));
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);
@@ -107,10 +109,17 @@ export function validateDatasetQueryInput(
     }
   }
 
-  if (query.filters) {
-    for (const filter of query.filters) {
+  const filterLeavesValid = filterTreeErrors(query.filters).length === 0;
+  if (query.filters && filterLeavesValid) {
+    for (const { filter, operators } of effectiveFilterLeaves(query.filters)) {
+      // The client resolves every valid relative range first (RFC 0029); one
+      // still here could not be resolved, and says why.
+      if (filter.operator === 'inDateRange') {
+        errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
+        continue;
+      }
       if (isQualifiedField(filter.field)) {
-        const filterError = validateQualifiedFilter(ds, filter, context);
+        const filterError = validateQualifiedFilter(ds, filter, context, operators);
         if (filterError) {
           errors.push(filterError);
         }
@@ -123,9 +132,10 @@ export function validateDatasetQueryInput(
       }
 
       const filterDefinition = filters[filter.field];
-      if (!filterAllowsOperator(filterDefinition, filter.operator)) {
+      const refused = operators.find(operator => !filterAllowsOperator(filterDefinition, operator));
+      if (refused) {
         errors.push(
-          `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
+          `Filter "${filter.field}" does not allow operator "${refused}"${refused === filter.operator ? '' : ` (the negation of "${filter.operator}")`}. Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
         );
         continue;
       }
@@ -177,6 +187,12 @@ export function validateDatasetQueryInput(
     }
   }
 
+  if (query.fill !== undefined && typeof query.fill !== 'boolean') {
+    errors.push('Invalid fill: expected true or false.');
+  } else if (query.fill === true && !query.by) {
+    errors.push('"fill" needs a "by" grain: it fills the periods of the time series.');
+  }
+
   if (query.by && !ds.timeKey) {
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
@@ -208,8 +224,10 @@ export function validateDatasetQueryInput(
 
   errors.push(...datasetHavingErrors(ds, query, selectedMeasures));
 
-  if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
-    errors.push(`Too many filters: ${query.filters.length} (max ${ds.limits.maxFilters})`);
+  // RFC 0029: the budget counts comparisons; and/or/not groups cost nothing.
+  const filterCount = filterLeafCount(query.filters);
+  if (ds.limits?.maxFilters && filterCount > ds.limits.maxFilters) {
+    errors.push(`Too many filters: ${filterCount} (max ${ds.limits.maxFilters})`);
   }
 
   if (ds.limits?.maxResultSize && query.limit != null && query.limit > ds.limits.maxResultSize) {

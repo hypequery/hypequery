@@ -2,7 +2,8 @@ import { scopedDatasetSource } from './scoped-dataset-source.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { relationshipMeasureExpressions } from './relationship-measure-sql.js';
 import { queryTimeFilter, queryTimeSql } from './query-timezone.js';
-import type { AnyDatasetInstance, DatasetQuery, MeasureDefinition, MetricFilter } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, DatasetQuery, MeasureDefinition } from '../types.js';
+import { applyFilterTree } from './filter-predicate-tree.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField } from '../query-planner.js';
 import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
@@ -43,7 +44,7 @@ export function buildTimeMeasureSourceSql(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   baseNames: Iterable<string>,
-  filters: readonly MetricFilter[],
+  filters: readonly DatasetFilterNode[],
   options: DatasetQueryExecutionOptions,
   statement: StatementParameters,
 ): TimeMeasureSqlSource {
@@ -85,12 +86,9 @@ export function buildTimeMeasureSourceSql(
   raw = raw.select([`${dialect.packRow(sourceParts)} AS ${rowAlias}`]);
   // The time axis already consumed every time-key bound, so these are the
   // remaining caller filters.
-  for (const filter of filters) {
-    const predicates = queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone);
-    for (const predicate of predicates) {
-      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
-    }
-  }
+  raw = applyFilterTree(raw, filters, filter => (
+    queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone)
+  ));
   for (const filter of segmentFilters(ds, query.segments)) {
     const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {

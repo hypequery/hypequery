@@ -152,7 +152,7 @@ describe('funnel invocations (RFC 0027)', () => {
     const reversed = await failure(plane().instance.invoke({ invocation: invocation(funnel({
       filters: [between('occurredAt', '2026-10-01T12:00:00', '2026-10-01T04:00:00Z')],
     })) }));
-    expect(reversed.message).toMatch(/exactly one bounded time range/);
+    expect(reversed.message).toMatch(/exactly one bounded (time )?range/);
   });
 
   it('counts monthly cohorts in the query zone', async () => {
@@ -204,8 +204,8 @@ describe('funnel invocations (RFC 0027)', () => {
   it.each([
     ['an unknown step field', funnel({ steps: [{ name: 'a', where: [eq('nope', 1)] }, { name: 'b', where: [eq('eventName', 'x')] }] }), '$.operation.steps[0].where[0]', /Unknown or unfilterable field "nope"/],
     ['a step on the time field', funnel({ steps: [{ name: 'a', where: [between('occurredAt', '2026-10-01', '2026-10-02')] }, { name: 'b', where: [eq('eventName', 'x')] }] }), '$.operation.steps[0].where[0]', /put the time range in filters/],
-    ['no time range', funnel({ filters: [eq('plan', 'pro')] }), '$.operation.filters', /exactly one bounded time range/],
-    ['a half-open range', funnel({ filters: [{ ...eq('occurredAt', '2026-10-01'), operator: 'gte' }] }), '$.operation.filters', /exactly one bounded time range/],
+    ['no time range', funnel({ filters: [eq('plan', 'pro')] }), '$.operation.filters', /exactly one bounded (time )?range/],
+    ['a half-open range', funnel({ filters: [{ ...eq('occurredAt', '2026-10-01'), operator: 'gte' }] }), '$.operation.filters', /exactly one bounded (time )?range/],
     ['a range over 731 days', funnel({ filters: [between('occurredAt', '2024-01-01', '2026-11-01')] }), '$.operation.filters', /at most 731 days/],
     ['a time-typed entity', funnel({ entity: 'occurredAt' }), '$.operation.entity', /non-groupable entity/],
     ['an unknown breakdown', funnel({ breakdown: ['country'] }), '$.operation.breakdown[0]', /non-groupable dimension "country"/],
@@ -254,6 +254,72 @@ describe('funnel invocations (RFC 0027)', () => {
     });
     const error = await failure(instance.invoke({ invocation: invocation(funnel()) }));
     expect(error.category).toBe('budget-exceeded');
+  });
+});
+
+describe('funnel filters and conditions under RFC 0029', () => {
+  const or = (...operands: unknown[]) => ({ kind: 'logical', operator: 'or', operands });
+  const not = (operand: unknown) => ({ kind: 'logical', operator: 'not', operand });
+  const relative = (value: string) => ({
+    kind: 'comparison', operator: 'inDateRange', left: { kind: 'reference', name: 'occurredAt' }, right: { kind: 'literal', value },
+  });
+  const narrowed = contract({
+    filters: [{ name: 'plan', field: 'plan', operators: ['eq'] }],
+  });
+
+  it('accepts and/or/not groups in filters and step conditions', async () => {
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(funnel({
+      steps: [
+        { name: 'signed_up', where: [or(eq('eventName', 'signup'), eq('eventName', 'sso_signup'))] },
+        { name: 'first_query', where: [not(eq('plan', 'free')), eq('eventName', 'query_run')] },
+      ],
+      filters: [RANGE, or(eq('region', 'eu'), eq('region', 'us'))],
+    })) });
+    expect(calls).toHaveLength(1);
+  });
+
+  it('checks each leaf with the operator it applies after "not"', async () => {
+    const error = await failure(plane({}, narrowed).instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, not(eq('plan', 'pro'))],
+    })) }));
+    expect(error).toMatchObject({ category: 'input-invalid', path: '$.operation.filters[1].operand.operator' });
+    expect(error.message).toBe('Operator "neq" (the negation of "eq") is not allowed on "plan".');
+    const inStep = await failure(plane().instance.invoke({ invocation: invocation(funnel({
+      steps: [{ name: 'a', where: [or(eq('eventName', 'x'), eq('nope', 1))] }, { name: 'b', where: [eq('eventName', 'y')] }],
+    })) }));
+    expect(inStep).toMatchObject({ path: '$.operation.steps[0].where[0].operands[1]' });
+    expect(inStep.message).toBe('Unknown or unfilterable field "nope".');
+  });
+
+  it('counts leaves against the filter budget', async () => {
+    const error = await failure(plane().instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, or(eq('plan', 'a'), eq('plan', 'b'), eq('plan', 'c'), eq('plan', 'd'), eq('plan', 'e'), eq('plan', 'f'))],
+    })) }));
+    expect(error.message).toMatch(/At most 8 filters and conditions/);
+  });
+
+  it('needs the time range at the top level', async () => {
+    const error = await failure(plane().instance.invoke({ invocation: invocation(funnel({
+      filters: [or(RANGE, eq('plan', 'pro'))],
+    })) }));
+    expect(error.message).toMatch(/need their time range as top-level filters/);
+    expect(error.path).toBe('$.operation.filters[0].operands[0]');
+  });
+
+  it('accepts a top-level relative range and bounds its span without a clock', async () => {
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(funnel({ filters: [relative('last 30 days')], by: 'day' })) });
+    expect(calls[0]!.operation.filters).toEqual([relative('last 30 days')]);
+    const long = await failure(plane().instance.invoke({ invocation: invocation(funnel({ filters: [relative('last 3 years')] })) }));
+    expect(long.message).toMatch(/at most 731 days/);
+    // 'last 12 months' spans at most 372 days: 373 day cohorts × 2 steps > 500.
+    const rows = await failure(plane().instance.invoke({ invocation: invocation(funnel({ filters: [relative('last 12 months')], by: 'day' })) }));
+    expect(rows.message).toMatch(/could return 746 rows; the limit is 500/);
+    const offAxis = await failure(plane().instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, { ...relative('today'), left: { kind: 'reference', name: 'plan' } }],
+    })) }));
+    expect(offAxis.message).toMatch(/"inDateRange" applies only to the time field "occurredAt"/);
   });
 });
 
@@ -316,6 +382,24 @@ function retention(overrides: Record<string, unknown> = {}) {
 }
 
 describe('retention invocations (RFC 0027)', () => {
+  it('accepts RFC 0029 groups in start and return conditions and a relative range', async () => {
+    const or = (...operands: unknown[]) => ({ kind: 'logical', operator: 'or', operands });
+    const relative = { kind: 'comparison', operator: 'inDateRange', left: { kind: 'reference', name: 'occurredAt' }, right: { kind: 'literal', value: 'last 8 weeks' } };
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(retention({
+      start: { where: [or(eq('eventName', 'signup'), eq('eventName', 'sso_signup'))] },
+      return: { where: [{ kind: 'logical', operator: 'not', operand: eq('eventName', 'signup') }] },
+      filters: [relative],
+    })) });
+    expect(calls).toHaveLength(1);
+    // 'last 52 weeks' spans 364 days: 53 week cohorts × 52 periods = 2756 rows.
+    const error = await failure(plane().instance.invoke({ invocation: invocation(retention({
+      periods: 52,
+      filters: [{ ...relative, right: { kind: 'literal', value: 'last 52 weeks' } }],
+    })) }));
+    expect(error.message).toMatch(/could return 2756 rows; the limit is 500/);
+  });
+
   it('runs through the event executor with constraints passed apart', async () => {
     const cutoff = { ...eq('occurredAt', '2026-10-15'), operator: 'gte' };
     const { instance, calls, datasetCalls } = plane({ resolveConstraints: async () => [eq('region', 'eu'), cutoff] });
@@ -340,7 +424,7 @@ describe('retention invocations (RFC 0027)', () => {
   it.each([
     ['a start condition on an unknown field', retention({ start: { where: [eq('nope', 1)] } }), '$.operation.start.where[0]', /Unknown or unfilterable field "nope"/],
     ['a return condition on the time field', retention({ return: { where: [between('occurredAt', '2026-10-01', '2026-10-02')] } }), '$.operation.return.where[0]', /put the time range in filters/],
-    ['no time range', retention({ filters: [eq('plan', 'pro')] }), '$.operation.filters', /A retention requires exactly one bounded time range/],
+    ['no time range', retention({ filters: [eq('plan', 'pro')] }), '$.operation.filters', /Retention operations require exactly one bounded range/],
     ['too many rows for the budget', retention({ grain: 'day', periods: 52 }), '$.operation', /could return 1664 rows; the limit is 500/],
     ['a hidden-or-unknown breakdown', retention({ breakdown: ['country'] }), '$.operation.breakdown[0]', /non-groupable dimension "country"/],
   ])('refuses %s', async (_name, operation, path, message) => {

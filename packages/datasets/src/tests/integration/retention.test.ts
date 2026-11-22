@@ -83,6 +83,9 @@ interface Scenario {
   entity?: 'accountId';
   /** Use gte/lt instead of between, so the end is exclusive. */
   exclusiveEnd?: boolean;
+  /** RFC 0029: the return condition as an `or` group, the range as `inDateRange` ("last 90 days"). */
+  booleanReturn?: boolean;
+  relativeRange?: boolean;
 }
 
 function localDate(at: number, timezone: string): Date {
@@ -130,7 +133,7 @@ function expectedRows(scenario: Scenario): Record<string, unknown>[] {
   const start = wallClock(RANGE_START, timezone);
   const end = wallClock(RANGE_END, timezone);
   const inRange = EVENTS.filter(event => event.tenant === 'a' && event.at >= start
-    && (scenario.exclusiveEnd ? event.at < end : event.at <= end));
+    && (scenario.exclusiveEnd || scenario.relativeRange ? event.at < end : event.at <= end));
   const partitions = new Map<string, { key: unknown; events: Event[] }>();
   for (const event of inRange) {
     const entity = scenario.entity === 'accountId' ? String(event.account) : event.user;
@@ -185,13 +188,20 @@ function operation(scenario: Scenario): ProtocolEventOperation {
     dataset: 'activity',
     ...(scenario.entity ? { entity: scenario.entity } : {}),
     start: { where: [{ kind: 'comparison', operator: 'eq', left: reference('eventName'), right: { kind: 'literal', value: 'signup' } }] },
-    return: { where: [{
-      kind: 'comparison', operator: 'in', left: reference('eventName'),
-      right: { kind: 'literal', value: { $hypequery: { type: 'array', version: 1, values: [...scenario.returnKinds] } } },
-    }] },
+    return: { where: [scenario.booleanReturn && scenario.returnKinds.length > 1
+      ? {
+          kind: 'logical', operator: 'or',
+          operands: scenario.returnKinds.map(kind => ({ kind: 'comparison', operator: 'eq', left: reference('eventName'), right: { kind: 'literal', value: kind } })),
+        }
+      : {
+          kind: 'comparison', operator: 'in', left: reference('eventName'),
+          right: { kind: 'literal', value: { $hypequery: { type: 'array', version: 1, values: [...scenario.returnKinds] } } },
+        }] },
     grain: scenario.grain,
     periods: scenario.periods,
-    filters: scenario.exclusiveEnd
+    filters: scenario.relativeRange
+      ? [{ kind: 'comparison', operator: 'inDateRange', left: reference('occurredAt'), right: { kind: 'literal', value: 'last 90 days' } }]
+      : scenario.exclusiveEnd
       ? [bound('gte', RANGE_START), bound('lt', RANGE_END)]
       : [{
           kind: 'comparison', operator: 'between', left: reference('occurredAt'),
@@ -203,7 +213,8 @@ function operation(scenario: Scenario): ProtocolEventOperation {
   });
 }
 
-const runtime = createPortableSemanticRuntime({ queryBuilder: db });
+// "last 90 days" from 1 April 2026 is [1 January, 1 April): the scenarios' range.
+const runtime = createPortableSemanticRuntime({ queryBuilder: db, now: () => new Date('2026-04-01T12:00:00Z') });
 const deployment = buildProtocolDeploymentContract([Activity], {
   endpoints: { activity: { access: { kind: 'public' }, tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant' } } },
 });
@@ -241,6 +252,7 @@ describe('RFC 0027 retention matches directly computed cohorts on ClickHouse', (
     ['weekly cohorts in a non-UTC zone', { grain: 'week', periods: 6, returnKinds: ['query_run'], timezone: 'Asia/Tokyo' }],
     ['daily cohorts across a DST change', { grain: 'day', periods: 10, returnKinds: ['query_run'], timezone: 'America/New_York' }],
     ['an exclusive range end', { grain: 'month', periods: 3, returnKinds: ['query_run'], exclusiveEnd: true }],
+    ['an or-group return and a relative range (RFC 0029)', { grain: 'week', periods: 6, returnKinds: ['query_run', 'other'], booleanReturn: true, relativeRange: true }],
     ['accounts as the entity', { grain: 'week', periods: 6, returnKinds: ['query_run'], entity: 'accountId' }],
   ];
 

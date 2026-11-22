@@ -4,6 +4,7 @@ import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { StatementParameters } from './statement-parameters.js';
 import { buildEventSourceSql } from './event-source-sql.js';
+import { filterLeaves } from './filter-tree.js';
 import { eventConditionFlagSql } from './event-condition-sql.js';
 import { rankedBreakdownSql } from './event-breakdown-sql.js';
 import { resolveTimeAxisRange } from './time-axis-bounds.js';
@@ -34,7 +35,7 @@ export function buildRetentionSql(
   const range = resolveTimeAxisRange(ds, [...spec.filters]);
   if (!range) throw new Error('Retention requires exactly one bounded time range.');
   const statement = new StatementParameters(dialect);
-  const conditionFields = [...new Set([...spec.start, ...spec.return].map(condition => condition.field))];
+  const conditionFields = [...new Set(filterLeaves([...spec.start, ...spec.return]).map(condition => condition.field))];
   const source = buildEventSourceSql(ds, {
     entity: spec.entity,
     breakdown: spec.breakdown,

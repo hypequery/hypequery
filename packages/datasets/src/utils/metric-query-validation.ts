@@ -1,3 +1,5 @@
+import { relativeDateFilterError } from './relative-date-filters.js';
+import { effectiveFilterLeaves, filterLeafCount, filterTreeErrors } from './filter-tree.js';
 import { notGroupableError } from './groupable.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 /** Semantic metric validation; independent of SQL compilation and execution. */
@@ -45,7 +47,7 @@ export function validateMetricQueryInput(
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
-  errors.push(...enforcedConstraintErrors(ds, context, query.filters?.length ?? 0));
+  errors.push(...enforcedConstraintErrors(ds, context, filterLeafCount(query.filters)));
 
   if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {
     errors.push(
@@ -72,9 +74,16 @@ export function validateMetricQueryInput(
   }
 
   // Validate filters
-  for (const filter of query.filters ?? []) {
+  const filterEntries = filterTreeErrors(query.filters).length === 0 ? effectiveFilterLeaves(query.filters) : [];
+  for (const { filter, operators } of filterEntries) {
+    // The client resolves every valid relative range first (RFC 0029); one
+    // still here could not be resolved, and says why.
+    if (filter.operator === 'inDateRange') {
+      errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
+      continue;
+    }
     if (isQualifiedField(filter.field)) {
-      const filterError = validateQualifiedFilter(ds, filter, context);
+      const filterError = validateQualifiedFilter(ds, filter, context, operators);
       if (filterError) {
         errors.push(filterError);
       }
@@ -86,9 +95,10 @@ export function validateMetricQueryInput(
     }
 
     const filterDefinition = filters[filter.field];
-    if (!filterAllowsOperator(filterDefinition, filter.operator)) {
+    const refused = operators.find(operator => !filterAllowsOperator(filterDefinition, operator));
+    if (refused) {
       errors.push(
-        `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
+        `Filter "${filter.field}" does not allow operator "${refused}"${refused === filter.operator ? '' : ` (the negation of "${filter.operator}")`}. Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
       );
       continue;
     }
@@ -148,8 +158,9 @@ export function validateMetricQueryInput(
     if (ds.limits.maxMeasures && 1 > ds.limits.maxMeasures) {
       errors.push(`Too many measures (1). Max: ${ds.limits.maxMeasures}`);
     }
-    if (ds.limits.maxFilters && (query.filters?.length ?? 0) > ds.limits.maxFilters) {
-      errors.push(`Too many filters (${query.filters?.length}). Max: ${ds.limits.maxFilters}`);
+    const filterCount = filterLeafCount(query.filters);
+    if (ds.limits.maxFilters && filterCount > ds.limits.maxFilters) {
+      errors.push(`Too many filters (${filterCount}). Max: ${ds.limits.maxFilters}`);
     }
     if (ds.limits.maxResultSize && query.limit != null && query.limit > ds.limits.maxResultSize) {
       errors.push(`Too many results requested (${query.limit}). Max: ${ds.limits.maxResultSize}`);

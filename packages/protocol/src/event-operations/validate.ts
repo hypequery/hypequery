@@ -1,5 +1,9 @@
 import { CLIENT_TIMEZONE_NAMES } from '../client-contract/timezone-names.js';
-import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
+import {
+  ProtocolExpressionError,
+  validateProtocolExpression,
+  validateProtocolSemanticQuery,
+} from '../expressions/index.js';
 import { expressionError } from '../expressions/errors.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import { ProtocolIdentifierError, parseProtocolIdentifier } from '../identifiers/index.js';
@@ -57,10 +61,33 @@ function predicate(input: unknown, path: string): ProtocolExpression {
   return expression;
 }
 
-function predicates(input: unknown, path: string, minimum: number, maximum: number): readonly ProtocolExpression[] {
+/**
+ * A caller filter, validated exactly as a semantic query's `filters` entry is
+ * (RFC 0029): and/or/not trees, and `inDateRange`, which only query filters
+ * may carry. Failures are reported at its place in the operation.
+ */
+function queryFilter(input: unknown, path: string): ProtocolExpression {
+  try {
+    return validateProtocolSemanticQuery({ kind: 'dataset', dataset: 'event_operation', filters: [input] }).filters![0]!;
+  } catch (error) {
+    if (error instanceof ProtocolExpressionError) {
+      const at = error.path.startsWith('$.filters[0]') ? `${path}${error.path.slice('$.filters[0]'.length)}` : path;
+      expressionError(error.code, at);
+    }
+    throw error;
+  }
+}
+
+function predicates(
+  input: unknown,
+  path: string,
+  minimum: number,
+  maximum: number,
+  validate: (item: unknown, at: string) => ProtocolExpression = predicate,
+): readonly ProtocolExpression[] {
   const values = requireArray(input, path, maximum);
   if (values.length < minimum) expressionError('HQ_EXPRESSION_INVALID_QUERY', path);
-  return Object.freeze(values.map((item, index) => predicate(item, `${path}[${index}]`)));
+  return Object.freeze(values.map((item, index) => validate(item, `${path}[${index}]`)));
 }
 
 /** A `{ where }` condition list: 1–10 AND-combined predicates. */
@@ -72,7 +99,7 @@ function common(value: DataRecord, result: DataRecord, reserved: ReadonlySet<str
   result.dataset = identifier(value.dataset, '$.dataset');
   if (value.entity !== undefined) result.entity = identifier(value.entity, '$.entity');
   // Every operation needs a time range, so `filters` can never be empty.
-  result.filters = predicates(value.filters, '$.filters', 1, MAX_FILTERS);
+  result.filters = predicates(value.filters, '$.filters', 1, MAX_FILTERS, queryFilter);
   if (value.breakdown !== undefined) {
     const names = requireArray(value.breakdown, '$.breakdown', LIMITS.maxBreakdown);
     if (names.length === 0) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.breakdown');

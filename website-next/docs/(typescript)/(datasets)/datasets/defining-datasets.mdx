@@ -78,6 +78,43 @@ A dataset with `rowResolution` needs the query-builder execution path. Semantic 
 
 `final: true` is the deprecated spelling of `rowResolution: { kind: 'final' }`. It still works, reads the same way and logs a one-time warning.
 
+## SQL sources
+
+When a dataset isn't one table, `source` can be a single `SELECT` (proposed in RFC 0028). A common case is an activity stream built from several tables:
+
+<CodeBlock>
+```typescript
+const Activity = dataset('activity', {
+  source: {
+    sql: `
+      SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups
+      UNION ALL
+      SELECT tenant_id, user_id, name AS step, timestamp AS occurred_at FROM app.events
+      UNION ALL
+      SELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL`,
+    dependencies: ['app.signups', 'app.events', 'app.subscriptions'],
+    columns: { tenant_id: 'string', user_id: 'string', step: 'string', occurred_at: 'timestamp' },
+  },
+  tenantKey: 'tenant_id',
+  timeKey: 'occurred_at',
+  dimensions: { user_id: dimension.string(), step: dimension.string(), occurred_at: dimension.timestamp() },
+  measures: { users: measure.countDistinct('user_id') },
+});
+```
+</CodeBlock>
+
+Queries read it as `(SELECT <columns> FROM (<sql>)) AS activity`. Tenant scoping, caller filters and joins apply to that derived table exactly as they would to a table. The SQL is checked when the dataset is defined:
+
+- It must be exactly one `SELECT` or `WITH … SELECT`. No `;`, comments, `?`, `{param}` or `$$` strings.
+- `SETTINGS`, `FORMAT` and `INTO OUTFILE` are refused. So are table functions such as `url()`, `remote()`, `file()` and `numbers()`, dictionary, file and sleep functions, and `system` tables. A column whose name is one of those words needs quoting.
+- `dependencies` must list exactly the tables the SQL reads, spelled the way the SQL spells them.
+- `columns` are the only columns the dataset can reference. Dimensions must match their column's type.
+- Field SQL may qualify columns with the source's alias (`activity.step`). The alias defaults to the dataset name; set `source.alias` to choose another.
+
+Every branch must project each row's real tenant. The planner applies the tenant filter outside the SQL, so it can't detect a branch that labels rows with the wrong tenant.
+
+`rowResolution` doesn't apply to a SQL source; write `FROM t FINAL` inside the SQL instead. If the SQL contains `FINAL`, queries send `optimize_move_to_prewhere_if_final = 0`. A SQL-sourced dataset can declare relationships to other datasets but can't yet be a relationship target. It needs the ClickHouse query-builder execution path.
+
 ## Module pattern
 
 Define datasets at the module level and export them from dedicated files.

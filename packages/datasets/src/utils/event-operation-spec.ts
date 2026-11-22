@@ -1,6 +1,6 @@
 import type { ProtocolEventOperation, ProtocolExpression } from '@hypequery/protocol';
 import { PROTOCOL_EVENT_OPERATION_LIMITS, parseProtocolEventWindow } from '@hypequery/protocol';
-import type { AnyDatasetInstance, MetricFilter } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, MetricFilter } from '../types.js';
 import { PortableExecutionUnsupportedError } from '../portable-execution-errors.js';
 import { rehydrateMeasureFilter } from './protocol-rehydrate-filters.js';
 import { UNSUPPORTED_CONTRACT_REASONS } from './unsupported-contract-reasons.js';
@@ -11,10 +11,12 @@ export type EventCohortGrain = 'day' | 'week' | 'month';
 export interface FunnelSpec {
   readonly kind: 'funnel';
   readonly entity: string;
-  readonly steps: readonly { readonly name: string; readonly where: readonly MetricFilter[] }[];
+  /** Each step's conditions: comparisons or and/or/not groups (RFC 0029), ANDed. */
+  readonly steps: readonly { readonly name: string; readonly where: readonly DatasetFilterNode[] }[];
   readonly windowMs: number;
   readonly order: 'strict' | 'any';
-  readonly filters: readonly MetricFilter[];
+  /** Caller filters, ANDed; groups and `inDateRange` as a dataset query takes them. */
+  readonly filters: readonly DatasetFilterNode[];
   readonly breakdown: readonly string[];
   readonly breakdownLimit: number;
   readonly by?: EventCohortGrain;
@@ -25,11 +27,12 @@ export interface FunnelSpec {
 export interface RetentionSpec {
   readonly kind: 'retention';
   readonly entity: string;
-  readonly start: readonly MetricFilter[];
-  readonly return: readonly MetricFilter[];
+  /** What starts a cohort and what counts as a return: comparisons or groups (RFC 0029), ANDed. */
+  readonly start: readonly DatasetFilterNode[];
+  readonly return: readonly DatasetFilterNode[];
   readonly grain: EventCohortGrain;
   readonly periods: number;
-  readonly filters: readonly MetricFilter[];
+  readonly filters: readonly DatasetFilterNode[];
   readonly breakdown: readonly string[];
   readonly breakdownLimit: number;
   readonly timezone?: string;
@@ -38,23 +41,35 @@ export interface RetentionSpec {
 export type EventOperationSpec = FunnelSpec | RetentionSpec;
 
 /** Every condition list the operation tests events against. */
-export function eventOperationConditions(spec: EventOperationSpec): readonly MetricFilter[] {
+export function eventOperationConditions(spec: EventOperationSpec): readonly DatasetFilterNode[] {
   return spec.kind === 'retention' ? [...spec.start, ...spec.return] : spec.steps.flatMap(step => step.where);
 }
 
-function filters(expressions: readonly ProtocolExpression[], path: string): MetricFilter[] {
-  return expressions.map((expression, index) => rehydrateMeasureFilter(
+function comparison(expression: ProtocolExpression, path: string): MetricFilter {
+  return rehydrateMeasureFilter(
     expression,
     () => new PortableExecutionUnsupportedError(
-      `${path}[${index}] is not a field/operator/value comparison, so it cannot be planned.`,
+      `${path} is not a field/operator/value comparison, so it cannot be planned.`,
       { reason: UNSUPPORTED_CONTRACT_REASONS.queryFilterNotComparison },
     ),
-  ));
+  );
 }
 
-/** Enforced constraints (RFC 0019) as the dataset layer's trusted filters. */
+/** A predicate as a filter node: `logical` becomes an and/or/not group (RFC 0029). */
+function filterNode(expression: ProtocolExpression, path: string): DatasetFilterNode {
+  if (expression.kind !== 'logical') return comparison(expression, path);
+  if (expression.operator === 'not') return { not: filterNode(expression.operand, `${path}.operand`) };
+  const items = expression.operands.map((operand, index) => filterNode(operand, `${path}.operands[${index}]`));
+  return expression.operator === 'and' ? { and: items } : { or: items };
+}
+
+function filters(expressions: readonly ProtocolExpression[], path: string): DatasetFilterNode[] {
+  return expressions.map((expression, index) => filterNode(expression, `${path}[${index}]`));
+}
+
+/** Enforced constraints (RFC 0019) as the dataset layer's trusted filters: comparisons only. */
 export function eventConstraintFilters(expressions: readonly ProtocolExpression[]): MetricFilter[] {
-  return filters(expressions, 'constraints');
+  return expressions.map((expression, index) => comparison(expression, `constraints[${index}]`));
 }
 
 /** Resolve a validated protocol operation against the dataset that serves it. */

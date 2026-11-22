@@ -226,7 +226,8 @@ export default function DatabricksMetricViewsPage() {
             <p>
               Databricks calls metric views the core of Unity Catalog business semantics. Dashboards, Genie and SQL
               users read the same definitions, governed by Unity Catalog privileges. The core implementation is now
-              part of Apache Spark 4.2.
+              part of Apache Spark 4.2. In effect, it is a <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link>
+              that lives in the lakehouse.
             </p>
           </>
         ),

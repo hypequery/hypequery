@@ -207,7 +207,7 @@ export default function DbtSemanticLayerAlternativesPage() {
               is open source, while the hosted APIs are part of the paid dbt platform.
             </p>
             <p>
-              An alternative replaces the metric definitions and the serving layer, and keeps dbt itself.
+              An alternative is another <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link>: it replaces the metric definitions and the serving layer, and keeps dbt itself.
               Every option below can read tables that dbt builds.
             </p>
           </>

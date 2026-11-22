@@ -103,7 +103,7 @@ describe('event condition SQL', () => {
       { field: 'x', operator: 'eq', value: 'a' },
       { field: 'y', operator: 'isNotNull' },
     ], condition => [{ expression: `_c_${condition.field}`, operator: condition.operator, value: condition.value }], statement);
-    expect(statement.render(text).sql).toBe('toUInt8(ifNull((_c_x = ?) AND (_c_y IS NOT NULL), 0))');
+    expect(statement.render(text).sql).toBe('toUInt8(ifNull(((_c_x = ?)) AND ((_c_y IS NOT NULL)), 0))');
   });
 });
 
@@ -141,11 +141,12 @@ describe('event operation refusals', () => {
     expect(() => eventOperationSpec(operation, Plain)).toThrow(/does not declare events/);
     expect(() => eventOperationSpec({ ...operation, dataset: 'activity', window: '7 days' } as never, Activity))
       .toThrow(/Invalid funnel window "7 days"/);
+    // RFC 0029 groups are planned, but every leaf must still compare a field with a value.
     const logical = {
       kind: 'logical', operator: 'or',
       operands: [
         { kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'plan' }, right: { kind: 'literal', value: 'a' } },
-        { kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'plan' }, right: { kind: 'literal', value: 'b' } },
+        { kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'plan' }, right: { kind: 'reference', name: 'eventName' } },
       ],
     };
     expect(() => eventOperationSpec({ ...operation, dataset: 'activity', filters: [logical] } as never, Activity))

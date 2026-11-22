@@ -183,10 +183,34 @@ export interface ProtocolDatasetEvents {
   readonly event?: ProtocolIdentifier;
 }
 
+/** RFC 0028: one read-only ClickHouse SELECT, read as a derived table. */
+export interface ProtocolSqlSource {
+  readonly kind: 'sql';
+  readonly dialect: 'clickhouse';
+  readonly sql: string;
+  /**
+   * The derived table's alias: what field SQL qualifies its columns with. The
+   * dataset's code-first name, kept when it is published under another name.
+   */
+  readonly alias: ProtocolIdentifier;
+  /** Every table the SQL reads, exactly as written in it. */
+  readonly dependencies: readonly ProtocolQualifiedIdentifier[];
+  /** The derived table's only addressable columns, in projection order. */
+  readonly columns: readonly ProtocolSqlSourceColumn[];
+}
+
+export interface ProtocolSqlSourceColumn {
+  readonly name: ProtocolIdentifier;
+  readonly type: ProtocolDatasetFieldType;
+}
+
+/** A physical table name, or (RFC 0028) a SQL source. */
+export type ProtocolDatasetSource = string | ProtocolSqlSource;
+
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly description?: string;
-  readonly source: string;
+  readonly source: ProtocolDatasetSource;
   readonly rowResolution?: ProtocolRowResolution;
   readonly freshness?: ProtocolDatasetFreshness;
   readonly owner?: string;
@@ -305,6 +329,11 @@ export interface ProtocolDeploymentDatasetV3
   readonly measures: readonly ProtocolDeploymentMeasureV3[];
   readonly allowedFilters: readonly ProtocolDatasetFilter[];
   readonly segments?: readonly ProtocolDatasetSegment[];
+  /**
+   * Further time axes a query may select with `timeKey` (RFC 0029): distinct,
+   * never `timeField`, and only beside one.
+   */
+  readonly alternateTimeFields?: readonly ProtocolIdentifier[];
   readonly defaults?: {
     readonly dimensions?: readonly ProtocolIdentifier[];
     readonly timeGrain?: ProtocolQueryTimeGrain;

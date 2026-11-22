@@ -1,0 +1,84 @@
+{
+  "queries": [
+    { "id": "calculations-empty", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "calculations": [] } },
+    { "id": "filter-eq", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue"], "calculations": [
+      { "name": "web_revenue", "filter": { "measure": "revenue", "where": [
+        { "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": "web" } }
+      ] } }
+    ] } },
+    { "id": "filter-null-check-and-in", "value": { "kind": "dataset", "dataset": "orders", "measures": ["users"], "calculations": [
+      { "name": "known_users", "filter": { "measure": "users", "where": [
+        { "kind": "comparison", "operator": "isNotNull", "left": { "kind": "reference", "name": "country" } },
+        { "kind": "comparison", "operator": "in", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": { "$hypequery": { "type": "array", "version": 1, "values": ["web", "store"] } } } }
+      ] } }
+    ] } },
+    { "id": "filter-unselected-measure", "value": { "kind": "dataset", "dataset": "orders", "measures": ["orders"], "calculations": [
+      { "name": "web_revenue", "filter": { "measure": "revenue", "where": [
+        { "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": "web" } }
+      ] } }
+    ] } },
+    { "id": "shift", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "revenue_last_year", "shift": { "measure": "revenue", "amount": 1, "unit": "year" } }
+    ] } },
+    { "id": "window-trailing", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "day", "calculations": [
+      { "name": "revenue_7d", "window": { "measure": "revenue", "trailing": { "amount": 7, "unit": "day" } } }
+    ] } },
+    { "id": "window-to-date", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "revenue_ytd", "window": { "measure": "revenue", "toDate": "year" } }
+    ] } },
+    { "id": "window-cumulative", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "revenue_running", "window": { "measure": "revenue", "cumulative": true } }
+    ] } },
+    { "id": "window-over-filter", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "web_revenue", "filter": { "measure": "revenue", "where": [
+        { "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "channel" }, "right": { "kind": "literal", "value": "web" } }
+      ] } },
+      { "name": "web_running", "window": { "measure": "web_revenue", "cumulative": true } }
+    ] } },
+    { "id": "formula-every-op", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue", "orders"], "calculations": [
+      { "name": "f", "formula": { "op": "round", "args": [
+        { "op": "coalesce", "args": [
+          { "op": "divide", "args": [
+            { "op": "add", "args": [{ "op": "floor", "args": ["revenue"] }, { "op": "ceil", "args": ["orders"] }] },
+            { "op": "nullIfZero", "args": [{ "op": "subtract", "args": [{ "op": "multiply", "args": ["orders", 2] }, 1] }] }
+          ] },
+          0
+        ] },
+        2
+      ] } }
+    ] } },
+    { "id": "formula-percent-change", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "revenue_prev", "shift": { "measure": "revenue", "amount": 1, "unit": "month" } },
+      { "name": "growth", "formula": { "op": "percentChange", "args": ["revenue", "revenue_prev"] } }
+    ] } },
+    { "id": "formula-references-earlier-formula", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue", "orders"], "calculations": [
+      { "name": "aov", "formula": { "op": "divide", "args": ["revenue", { "op": "nullIfZero", "args": ["orders"] }] } },
+      { "name": "aov_x100", "formula": { "op": "multiply", "args": ["aov", 100] } }
+    ] } },
+    { "id": "compare-previous-period", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue", "orders"], "by": "month", "calculations": [
+      { "name": "vs_prior", "compare": { "to": "previousPeriod", "measures": ["revenue", "orders"] } }
+    ], "having": [{ "measure": "revenue_change_pct", "operator": "gt", "value": 0.1 }], "orderBy": [{ "field": "revenue_change", "direction": "desc" }] } },
+    { "id": "compare-previous-year", "value": { "kind": "dataset", "dataset": "orders", "measures": ["revenue"], "by": "quarter", "calculations": [
+      { "name": "yoy", "compare": { "to": "previousYear", "measures": ["revenue"] } }
+    ] } },
+    { "id": "rank-default", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue"], "calculations": [
+      { "name": "revenue_rank", "rank": { "measure": "revenue" } }
+    ] } },
+    { "id": "rank-within-period-asc", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country", "channel"], "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "r", "rank": { "measure": "revenue", "within": ["period", "channel"], "direction": "asc" } }
+    ], "having": [{ "measure": "r", "operator": "lte", "value": 3 }] } },
+    { "id": "share-grand-total", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["users"], "calculations": [
+      { "name": "user_share", "share": { "measure": "users" } }
+    ] } },
+    { "id": "share-of-period", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue"], "by": "month", "calculations": [
+      { "name": "revenue_share", "share": { "measure": "revenue", "of": ["period"] } }
+    ] } },
+    { "id": "rank-of-formula", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue", "orders"], "calculations": [
+      { "name": "aov", "formula": { "op": "divide", "args": ["revenue", { "op": "nullIfZero", "args": ["orders"] }] } },
+      { "name": "aov_rank", "rank": { "measure": "aov", "direction": "desc" } }
+    ], "orderBy": [{ "field": "aov_rank", "direction": "asc" }] } },
+    { "id": "limit-by", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue"], "by": "month", "orderBy": [{ "field": "revenue", "direction": "desc" }], "limitBy": { "n": 3, "by": ["period"] } } },
+    { "id": "other-default-label", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country"], "measures": ["revenue", "users"], "other": { "dimension": "country", "n": 5, "measure": "revenue" } } },
+    { "id": "other-label", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["country", "channel"], "measures": ["revenue"], "by": "month", "other": { "dimension": "country", "n": 2, "measure": "users", "label": "Rest of world" } } }
+  ]
+}

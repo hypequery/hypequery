@@ -363,3 +363,49 @@ describe('retention review regressions (RFC 0027)', () => {
     expect(parameters).toContain('2026-10-20 00:00:00');
   });
 });
+
+describe('RFC 0029 filters in funnels', () => {
+  it('renders and/or/not step conditions as written, with bound values', () => {
+    const { factory } = capturingFactory();
+    const { sql, parameters } = prepareEventOperation(Activity, spec({
+      steps: [
+        { name: 'signed_up', where: [{ or: [
+          { field: 'eventName', operator: 'eq', value: 'signup' },
+          { field: 'eventName', operator: 'eq', value: 'sso' },
+        ] }] },
+        { name: 'queried', where: [{ not: { field: 'plan', operator: 'eq', value: 'free' } }] },
+      ],
+    }), { builderFactory: factory, context }).statement;
+    expect(sql).toContain('toUInt8(ifNull((((_hq_f0 = ?)) OR ((_hq_f0 = ?))), 0))');
+    expect(sql).toContain('toUInt8(ifNull((NOT ((_hq_f1 = ?))), 0))');
+    expect(parameters).toEqual(expect.arrayContaining(['signup', 'sso', 'free']));
+  });
+
+  it('applies filter groups to the scan', () => {
+    const { factory } = capturingFactory();
+    const { sql } = prepareEventOperation(Activity, spec({
+      filters: [RANGE, { or: [
+        { field: 'plan', operator: 'eq', value: 'pro' },
+        { field: 'plan', operator: 'eq', value: 'team' },
+      ] }],
+    }), { builderFactory: factory, context }).statement;
+    expect(sql).toMatch(/\(analytics\.activity\.plan = \? OR analytics\.activity\.plan = \?\)/);
+  });
+
+  it('resolves a relative range against the clock and the operation zone', () => {
+    const { factory } = capturingFactory();
+    const now = () => new Date('2026-11-20T03:00:00Z');
+    const { parameters } = prepareEventOperation(Activity, spec({
+      filters: [{ field: 'occurredAt', operator: 'inDateRange', value: 'last 7 days' }],
+      timezone: 'America/Los_Angeles',
+    }), { builderFactory: factory, context, now }).statement;
+    // 03:00 UTC on 20 November is still 19 November in Los Angeles.
+    expect(parameters).toEqual(expect.arrayContaining(['2026-11-12', '2026-11-19']));
+  });
+
+  it('refuses a time range that only appears under "or"', () => {
+    expect(eventOperationErrors(Activity, spec({
+      filters: [{ or: [RANGE, { field: 'plan', operator: 'eq', value: 'pro' }] }],
+    }), context).join(' ')).toMatch(/bounded time range on "occurredAt" as top-level filters/);
+  });
+});

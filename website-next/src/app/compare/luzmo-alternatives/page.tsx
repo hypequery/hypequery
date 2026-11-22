@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
@@ -137,6 +140,7 @@ export default function LuzmoAlternativesPage() {
       primaryCta={{ href: '#compared', label: 'Compare options', target: 'luzmo_alt_table' }}
       secondaryCta={{ href: '/compare/embedded-analytics-pricing', label: 'Pricing compared', target: 'luzmo_alt_pricing' }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -147,7 +151,11 @@ export default function LuzmoAlternativesPage() {
         intro={
           <>
             <p>
-              Luzmo is an embedded analytics platform. You connect a database (its{' '}
+              Luzmo is an{' '}
+              <Link href="/embedded-analytics" className={inlineLink}>
+                embedded analytics
+              </Link>{' '}
+              platform. You connect a database (its{' '}
               <a href="https://www.luzmo.com/connect" rel="noopener nofollow" className={extLink}>
                 connect page
               </a>{' '}
@@ -360,7 +368,7 @@ export default function LuzmoAlternativesPage() {
               own reports, or if your data lives in Postgres, BigQuery or Snowflake today. In those cases one of the
               options above will serve you better. See{' '}
               <Link href="/clickhouse-saas-analytics" className={inlineLink}>
-                embedded analytics for SaaS on ClickHouse
+                ClickHouse embedded analytics
               </Link>{' '}
               for how it works.
             </p>
@@ -388,6 +396,8 @@ export default function LuzmoAlternativesPage() {
       <HubSection band eyebrow="Questions" title="Luzmo alternatives FAQ">
         <HubFaq items={faqItems} />
       </HubSection>
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={VERIFIED_ON} sources={sources} />
     </HubShell>

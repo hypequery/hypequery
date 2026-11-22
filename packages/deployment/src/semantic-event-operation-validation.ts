@@ -9,6 +9,7 @@
 
 import {
   PROTOCOL_EVENT_OPERATION_LIMITS,
+  parseProtocolRelativeDateRange,
   type ProtocolDeploymentDatasetAnyVersion,
   type ProtocolEventOperation,
   type ProtocolExpression,
@@ -21,6 +22,8 @@ import {
   type SemanticOperationViolation,
 } from './semantic-operation-validation.js';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
+import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
+import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 import {
   estimateEventBuckets,
   eventRangeDays,
@@ -47,26 +50,52 @@ function filterTarget(dataset: ProtocolDeploymentDatasetAnyVersion, name: string
   return declared === undefined ? name : String(declared.field);
 }
 
-function checkPredicate(
-  expression: ProtocolExpression,
-  path: string,
+/**
+ * One comparison leaf of a filter or condition tree (RFC 0029), checked as a
+ * dataset query's is: a plain `field <operator> literal`, on a field the
+ * caller may filter, with the operator it applies once `not` is pushed down.
+ */
+function checkLeaf(
+  leaf: ProtocolFilterLeaf,
   allowed: SemanticAllowedFields,
   fail: (message: string, path: string) => void,
-): string | undefined {
-  const comparison = semanticComparisonField(expression);
+): { field: string; operator: string } | undefined {
+  const comparison = semanticComparisonField(leaf.expression);
   if (comparison === null) {
-    fail('Only a field/operator/value comparison may be filtered on.', path);
+    fail('Only a field/operator/value comparison may be filtered on.', leaf.path);
     return undefined;
   }
   const operators = allowed.filters.get(comparison.field);
   if (operators === undefined) {
-    fail(`Unknown or unfilterable field "${comparison.field}".`, path);
+    fail(`Unknown or unfilterable field "${comparison.field}".`, leaf.path);
     return undefined;
   }
-  if (!operators.has(comparison.operator)) {
-    fail(`Operator "${comparison.operator}" is not allowed on "${comparison.field}".`, `${path}.operator`);
+  const refused = effectiveFilterOperators(comparison.operator, leaf.negated).find(operator => !operators.has(operator));
+  if (refused !== undefined) {
+    fail(
+      refused === comparison.operator
+        ? `Operator "${comparison.operator}" is not allowed on "${comparison.field}".`
+        : `Operator "${refused}" (the negation of "${comparison.operator}") is not allowed on "${comparison.field}".`,
+      `${leaf.path}.operator`,
+    );
   }
-  return comparison.field;
+  return comparison;
+}
+
+/** Where a relative range's worst-case span is placed to count its buckets: a month start. */
+const RELATIVE_ANCHOR_MS = Date.UTC(2001, 0, 1);
+
+const UNIT_MAX_DAYS = { day: 1, week: 7, month: 31, quarter: 92, year: 366 } as const;
+
+/**
+ * The longest span a relative range (RFC 0029) can cover, without a clock:
+ * the executor resolves it against its own, so the data plane bounds it.
+ */
+function relativeRangeDays(value: unknown): number | undefined {
+  const range = parseProtocolRelativeDateRange(value);
+  if (range === undefined) return undefined;
+  if (range.kind === 'today' || range.kind === 'yesterday') return 1;
+  return (range.kind === 'last' ? range.count : 1) * UNIT_MAX_DAYS[range.unit];
 }
 
 /** The condition lists an operation tests events against. */
@@ -140,33 +169,63 @@ export function validateSemanticEventOperation(
   });
 
   // Conditions select which events count as a step; the time range belongs
-  // in `filters`, so a condition on the time field is refused.
-  let conditions = 0;
+  // in `filters`, so a condition on the time field is refused. Conditions and
+  // filters may be and/or/not trees (RFC 0029); the budget counts leaves.
+  let leaves = 0;
   for (const list of conditionLists(operation)) {
-    conditions += list.where.length;
     list.where.forEach((expression, index) => {
-      const path = `${list.path}[${index}]`;
-      const field = checkPredicate(expression, path, allowed, fail);
-      if (field !== undefined && (field.includes('.') || filterTarget(dataset, field) === timeField)) {
-        fail(`Conditions may not use "${field}"; put the time range in filters.`, path);
+      for (const leaf of protocolFilterLeaves(expression, `${list.path}[${index}]`)) {
+        leaves += 1;
+        const comparison = checkLeaf(leaf, allowed, fail);
+        if (comparison !== undefined
+          && (comparison.field.includes('.') || filterTarget(dataset, comparison.field) === timeField)) {
+          fail(`Conditions may not use "${comparison.field}"; put the time range in filters.`, leaf.path);
+        }
       }
     });
   }
-  operation.filters.forEach((expression, index) => {
-    checkPredicate(expression, `$.operation.filters[${index}]`, allowed, fail);
-  });
-  if (operation.filters.length + conditions > limits.maxFilters) {
+  const isOnAxis = (leaf: ProtocolFilterLeaf) => {
+    const comparison = semanticComparisonField(leaf.expression);
+    return comparison !== null && timeField !== undefined && filterTarget(dataset, comparison.field) === timeField;
+  };
+  const filterLeaves = operation.filters.flatMap((expression, index) => (
+    protocolFilterLeaves(expression, `$.operation.filters[${index}]`)
+  ));
+  for (const leaf of filterLeaves) {
+    leaves += 1;
+    const comparison = checkLeaf(leaf, allowed, fail);
+    if (comparison?.operator === 'inDateRange' && !isOnAxis(leaf)) {
+      fail(`"inDateRange" applies only to the time field "${timeField ?? ''}".`, leaf.path);
+    }
+  }
+  if (leaves > limits.maxFilters) {
     fail(`At most ${limits.maxFilters} filters and conditions may be applied together.`, '$.operation');
   }
 
-  const range = timeField === undefined
+  // The bounded range must be top-level comparisons on the time field, as a
+  // window or filled query's must (RFC 0029): one under "or"/"not" filters
+  // events but bounds nothing. A relative range resolves at the executor, so
+  // its span is bounded here without a clock.
+  const subject = operation.kind === 'funnel' ? 'Funnels' : 'Retention operations';
+  const shape = timeField === undefined
+    ? { message: `${subject} require a time field.`, path: '$.operation.filters' }
+    : timeSeriesRangeViolation(filterLeaves, isOnAxis, timeField, subject);
+  const topLevel = filterLeaves.filter(leaf => !leaf.nested && isOnAxis(leaf));
+  const relative = topLevel.length === 1 && semanticComparisonField(topLevel[0]!.expression)?.operator === 'inDateRange'
+    ? relativeRangeDays((topLevel[0]!.expression as { right?: { value?: unknown } }).right?.value)
+    : undefined;
+  const timezone = operation.timezone ?? 'UTC';
+  const range = shape !== undefined
     ? undefined
-    : eventTimeRange(operation.filters, name => filterTarget(dataset, name) === timeField, operation.timezone ?? 'UTC');
+    : relative !== undefined
+      ? { startMs: RELATIVE_ANCHOR_MS, endMs: RELATIVE_ANCHOR_MS + relative * 86_400_000, timezone }
+      : eventTimeRange(topLevel.map(leaf => leaf.expression), () => true, timezone);
   if (range === undefined) {
     fail(
-      `A ${operation.kind} requires exactly one bounded time range on "${timeField ?? 'the time field'}": `
-      + 'between, or gt/gte with lt/lte, using ISO timestamps.',
-      '$.operation.filters',
+      shape?.message
+        ?? `A ${operation.kind} requires exactly one bounded time range on "${timeField}": `
+          + 'between, inDateRange, or gt/gte with lt/lte, using ISO timestamps.',
+      shape?.path ?? '$.operation.filters',
     );
     return violations;
   }

@@ -1,4 +1,5 @@
-import type { AnyDatasetInstance, MetricFilter } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, MetricFilter } from '../types.js';
+import { isFilterGroup, topLevelFilterNodes } from './filter-tree.js';
 
 export interface ParsedTimeBound {
   /** Preserve the authored text: SQL interprets local bounds in the query timezone. */
@@ -15,7 +16,8 @@ export interface TimeAxisRange {
   end: ParsedTimeBound;
   lowerInclusive: boolean;
   upperInclusive: boolean;
-  filters: MetricFilter[];
+  /** Every other caller filter, groups included, still to apply to rows. */
+  filters: DatasetFilterNode[];
 }
 
 const ISO_TIME_BOUND = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/;
@@ -50,12 +52,22 @@ function timeColumn(dataset: AnyDatasetInstance, name: string): string {
   return dataset.dimensions[name]?.column ?? name;
 }
 
-/** Extract exactly one bounded time range, retaining all non-time predicates. */
-export function resolveTimeAxisRange(dataset: AnyDatasetInstance, filters: MetricFilter[]): TimeAxisRange | undefined {
-  const timeFilters = filters.filter(filter => {
-    const field = dataset.filters[filter.field]?.field ?? filter.field;
-    return !field.includes('.') && timeColumn(dataset, field) === timeColumn(dataset, dataset.timeKey ?? '');
-  });
+/** True when a comparison reads the dataset's current time axis. */
+export function isTimeAxisFilter(dataset: AnyDatasetInstance, filter: MetricFilter): boolean {
+  const field = dataset.filters[filter.field]?.field ?? filter.field;
+  return !field.includes('.') && timeColumn(dataset, field) === timeColumn(dataset, dataset.timeKey ?? '');
+}
+
+/**
+ * Extract exactly one bounded time range, retaining all non-time predicates.
+ * Only top-level comparisons bound the axis (RFC 0029); the caller rejects a
+ * time-axis comparison nested under `or` or `not`.
+ */
+export function resolveTimeAxisRange(dataset: AnyDatasetInstance, nodes: readonly DatasetFilterNode[]): TimeAxisRange | undefined {
+  const filters = topLevelFilterNodes(nodes);
+  const timeFilters = filters.filter((node): node is MetricFilter => (
+    !isFilterGroup(node) && isTimeAxisFilter(dataset, node)
+  ));
   let lower: unknown;
   let upper: unknown;
   let lowerInclusive = true;
@@ -76,7 +88,7 @@ export function resolveTimeAxisRange(dataset: AnyDatasetInstance, filters: Metri
   if (!start || !end) return undefined;
   return {
     start, end, lowerInclusive, upperInclusive,
-    filters: filters.filter(filter => !timeFilters.includes(filter)),
+    filters: filters.filter(filter => !timeFilters.includes(filter as MetricFilter)),
   };
 }
 

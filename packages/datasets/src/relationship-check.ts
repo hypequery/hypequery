@@ -18,6 +18,7 @@
  */
 
 import { datasetSourceBuilder } from './utils/dataset-source.js';
+import { assertTableSource } from './utils/sql-dataset-source.js';
 import type { AnyDatasetInstance, ExecutionContext } from './types.js';
 import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import { joinsWithinTenant, validateTenantRuntime } from './utils/tenant-runtime.js';
@@ -81,6 +82,7 @@ export async function checkRelationships(
     const distinctColumns = joinsWithinTenant(ds, entry.target, options.context)
       ? [...(entry.columns ?? [entry.column]), entry.target.tenantKey as string]
       : entry.columns;
+    assertTableSource(entry.target, 'a relationship target');
     let qb = datasetSourceBuilder(factory, entry.target)
       .count(entry.column, ROWS_ALIAS)
       .countDistinct(distinctColumns ? dialect.packRow(distinctColumns) : entry.column, KEYS_ALIAS);

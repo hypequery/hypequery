@@ -1,6 +1,7 @@
 import type { AnyDatasetInstance } from '../types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
+import { sqlSourceRelation } from './sql-dataset-source.js';
 
 /**
  * The dataset's source table as a builder, read with `FINAL` when the dataset
@@ -9,8 +10,13 @@ import type { RelationshipBuilderContext } from './relationship-builder-plan.js'
  */
 export function datasetSourceBuilder(
   builderFactory: Pick<QueryBuilderFactoryLike, 'table'>,
-  ds: Pick<AnyDatasetInstance, 'name' | 'source' | 'rowResolution'>,
+  ds: Pick<AnyDatasetInstance, 'name' | 'source' | 'rowResolution' | 'sqlSource'>,
 ): QueryBuilderLike {
+  // RFC 0028: a SQL source is a derived table; FINAL, if any, is inside it.
+  if (ds.sqlSource) {
+    const derived = builderFactory.table(sqlSourceRelation(ds));
+    return ds.sqlSource.readsFinal && derived.settings ? derived.settings(FINAL_SAFETY_SETTINGS) : derived;
+  }
   const qb = builderFactory.table(ds.source);
   if (!ds.rowResolution) {
     return qb;
@@ -42,10 +48,11 @@ export const FINAL_SAFETY_SETTINGS = { optimize_move_to_prewhere_if_final: 0 } a
  * a plain query never carries the pin.
  */
 export function queryReadsFinal(
-  ds: Pick<AnyDatasetInstance, 'rowResolution'>,
+  ds: Pick<AnyDatasetInstance, 'rowResolution' | 'sqlSource'>,
   joinCtx: Pick<RelationshipBuilderContext, 'joins'> | undefined,
 ): boolean {
-  return Boolean(ds.rowResolution) || Boolean(joinCtx?.joins.some(join => join.final));
+  return Boolean(ds.rowResolution) || Boolean(ds.sqlSource?.readsFinal)
+    || Boolean(joinCtx?.joins.some(join => join.final));
 }
 
 /**

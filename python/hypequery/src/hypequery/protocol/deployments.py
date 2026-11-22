@@ -292,7 +292,7 @@ def _dataset(
             "metrics",
             "relationships",
         ),
-        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
+        (*_DATASET_OPTIONAL, *(("segments", "alternateTimeFields") if version == 3 else ())),
         path,
     )
     result: dict[str, object] = {
@@ -364,6 +364,13 @@ def _dataset(
             cast(list[dict[str, object]], result["dimensions"]),
             result.get("timeField"),
         )
+    if version == 3 and "alternateTimeFields" in node:
+        result["alternateTimeFields"] = _alternate_time_fields(
+            node["alternateTimeFields"],
+            f"{path}.alternateTimeFields",
+            node.get("timeField"),
+            limits,
+        )
     optional_text(node, "description", result, path, limits)
     optional_text(node, "owner", result, path, limits)
     semantic_metadata(node, result, path, limits)
@@ -405,7 +412,7 @@ def _deployment_dataset(
             "allowedFilters" if version == 3 else "filters",
             "relationships",
         ),
-        (*_DATASET_OPTIONAL, *(("segments",) if version == 3 else ())),
+        (*_DATASET_OPTIONAL, *(("segments", "alternateTimeFields") if version == 3 else ())),
         path,
     )
     measures = [
@@ -563,11 +570,33 @@ def validate_protocol_deployment_contract(
     return {"kind": "hypequery-deployment", "version": 2, "datasets": datasets}
 
 
+def _alternate_time_fields(
+    value: object, path: str, time_field: object, limits: ProtocolDeploymentLimits
+) -> list[str]:
+    """Contract 3 alternate time axes (RFC 0029): non-empty, distinct, never ``timeField``."""
+
+    items = array(value, path, limits.max_dataset_items)
+    if not items:
+        deployment_error("HQ_DEPLOYMENT_INVALID_VALUE", path)
+    if time_field is None:
+        deployment_error("HQ_DEPLOYMENT_INVALID_REFERENCE", path)
+    seen: set[str] = set()
+    result: list[str] = []
+    for index, item in enumerate(items):
+        name = identifier(item, f"{path}[{index}]")
+        if name == time_field or name in seen:
+            deployment_error("HQ_DEPLOYMENT_INVALID_REFERENCE", f"{path}[{index}]")
+        seen.add(name)
+        result.append(name)
+    return result
+
+
 def _uses_contract_3_feature(dataset: dict[str, object]) -> bool:
     measures = cast(list[dict[str, object]], dataset["measures"])
     grain = cast(dict[str, object], dataset.get("defaults") or {}).get("timeGrain")
     return (
         bool(dataset.get("segments"))
+        or bool(dataset.get("alternateTimeFields"))
         or any(
             item.get("aggregation") in APPROXIMATE_AGGREGATIONS
             or item.get("kind") in ("window", "shift")

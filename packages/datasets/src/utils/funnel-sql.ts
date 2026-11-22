@@ -4,6 +4,7 @@ import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { buildEventSourceSql } from './event-source-sql.js';
+import { filterLeaves } from './filter-tree.js';
 import { eventConditionFlagSql } from './event-condition-sql.js';
 import { rankedBreakdownSql } from './event-breakdown-sql.js';
 import type { FunnelSpec } from './event-operation-spec.js';
@@ -72,7 +73,7 @@ export function buildFunnelSql(
   }
   assertRawSqlForDialect(ds, dialect);
   const statement = new StatementParameters(dialect);
-  const conditionFields = [...new Set(spec.steps.flatMap(step => step.where.map(condition => condition.field)))];
+  const conditionFields = [...new Set(spec.steps.flatMap(step => filterLeaves(step.where).map(condition => condition.field)))];
   const source = buildEventSourceSql(ds, {
     entity: spec.entity,
     breakdown: spec.breakdown,

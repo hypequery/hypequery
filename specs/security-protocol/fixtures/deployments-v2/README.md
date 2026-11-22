@@ -20,3 +20,5 @@ success and identity cases, and the `relationship-keys-*` rejections.
 RFC 0023 added null checks: the `null-checks` success and identity cases (measure
 filters and filter operator lists), and rejections for a null check with a
 `right` operand, a value comparison without one, and an unknown operator.
+
+RFC 0029: `alternate-time-fields-under-version-2` pins that contract 2 has no `alternateTimeFields`.
