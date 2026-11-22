@@ -73,12 +73,12 @@ Validation (`HQ_DEPLOYMENT_*`):
 - `entity` and `event` are simple identifiers naming dimensions of the same
   dataset. A name the dataset doesn't have fails with
   `HQ_DEPLOYMENT_INVALID_REFERENCE`.
-- `entity` must be groupable and not of type `date` or `timestamp`. `event`
-  must be filterable and of type `string`. Both fail with
+- `entity` must be a groupable dimension of type `string` or `number`.
+  `event` must be a filterable dimension of type `string`. Both fail with
   `HQ_DEPLOYMENT_INVALID_VALUE` otherwise.
-- A dataset with `events` and no `timeField` fails with
-  `HQ_DEPLOYMENT_INVALID_REFERENCE` at `events`. The time field must be a
-  `date` or `timestamp` dimension.
+- `timeField` must name one of the dataset's own `timestamp` dimensions. A
+  dataset with `events` and no such time field fails with
+  `HQ_DEPLOYMENT_INVALID_REFERENCE` at `events`.
 
 `events` takes part in canonical bytes and deployment identity like any other
 field. A peer that predates this RFC refuses a contract carrying it, because
@@ -127,9 +127,8 @@ predicates, AND-combined. It follows the same grammar as `filters`.
 dataset's `timeField`: either one `between`, or one `gt`/`gte` together with
 one `lt`/`lte`. The bounds are ISO 8601 date or timestamp strings. This is the
 rule window measures already follow, and an RFC 0029 relative range resolves
-to the same shape. A missing, half-open or doubled range fails with
-`HQ_EXPRESSION_INVALID_QUERY` at the data plane. The span may be at most 731
-days. Every event outside the range is ignored, including later steps and
+to the same shape. The data plane refuses a missing, half-open or doubled
+range with `input-invalid`. The span may be at most 731 days. Every event outside the range is ignored, including later steps and
 returns, so a call never scans an unbounded table.
 
 ### Funnel
@@ -295,8 +294,10 @@ refuses with `input-invalid` when:
 - the dataset declares no `events`;
 - `entity` or a breakdown dimension isn't groupable, isn't visible to the
   caller (RFC 0019), or is a time dimension;
-- a step, start or return condition names a field that isn't a filterable,
-  visible field of the dataset, or names the time field (the range belongs in
+- a step, start or return condition, or a filter, is not a plain
+  `field <operator> literal` comparison on a filterable, visible field of the
+  dataset with an operator that field allows (the rule dataset-query filters
+  follow), or a condition names the time field (the range belongs in
   `filters`). A relationship-qualified field is refused;
 - the time range rule above is broken;
 - `filters`, every condition in every `where`, and the enforced constraints
@@ -313,7 +314,11 @@ computation, so an entity is reconstructed only from rows the caller may read.
 An executor binds every caller value as a parameter and never inlines one.
 
 An executor that can't run an operation kind refuses it with
-`unsupported-capability`. It never approximates one with dataset queries.
+`unsupported-capability`. It never approximates one with dataset queries. The
+TypeScript data plane takes a separate, optional `executeEventOperation`
+executor, so an executor written for dataset queries never receives a funnel.
+Without one, the data plane refuses event operations with
+`unsupported-capability` (`HQ_SEMANTIC_UNSUPPORTED_OPERATION`).
 
 ## Result (RFC 0014)
 
