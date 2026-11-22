@@ -220,7 +220,11 @@ function usesExtension2(operation: ProtocolSemanticQuery): boolean {
   return (operation.segments?.length ?? 0) > 0
     || operation.by === 'minute'
     || operation.by === 'hour'
-    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')));
+    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')))
+    // RFC 0026: query-scoped calculations are extension 2 only.
+    || (operation.kind === 'dataset' && (
+      (operation.calculations?.length ?? 0) > 0 || operation.limitBy !== undefined || operation.other !== undefined
+    ));
 }
 
 function validateInvocation(

@@ -16,6 +16,8 @@ import { selectedTimeMeasures } from './time-query-measures.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { statementRunner, type StatementRunner, type StatementTarget } from './statement-runner.js';
+import { hasQueryCalculations } from './query-calculation-outputs.js';
+import { prepareCalculatedDatasetQuery } from './compile-calculated-dataset-query.js';
 
 export interface PreparedDatasetQuery extends StatementRunner {
   readonly compilation: DatasetCompilation;
@@ -44,6 +46,8 @@ export function prepareDatasetQuery(
   });
   // Preserve omission while validating/planning: maxMeasures constrains an
   // explicit selection, not the dataset's default set of base measures.
+  // RFC 0026: calculations plan against a view of the dataset, under an outer stage.
+  if (hasQueryCalculations(query)) return prepareCalculatedDatasetQuery(dataset, query, options, mode);
   const measures = query.measures ?? baseMeasureNames(dataset.measures);
   const executionLimit = mode === 'execution' ? overfetchLimit(query.limit) : query.limit;
   const executionOptions = { ...options, executionLimit };

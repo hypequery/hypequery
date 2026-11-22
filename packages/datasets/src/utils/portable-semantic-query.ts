@@ -9,6 +9,7 @@ import type {
 import { PortableExecutionUnsupportedError } from '../portable-execution-errors.js';
 import { rehydrateMeasureFilter } from './protocol-rehydrate-filters.js';
 import { UNSUPPORTED_CONTRACT_REASONS } from './unsupported-contract-reasons.js';
+import { portableCalculationFields } from './portable-query-calculations.js';
 
 export function tenantRuntime(tenant: unknown): SemanticTenantRuntime | undefined {
   if (tenant === undefined || tenant === null) return undefined;
@@ -62,6 +63,8 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
         }
       : {}),
     ...(operation.timezone === undefined ? {} : { timezone: operation.timezone }),
+    // RFC 0026: calculations reach the dataset client in its own shape.
+    ...(operation.kind === 'dataset' ? portableCalculationFields(operation) : {}),
   };
 }
 

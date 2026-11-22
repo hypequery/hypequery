@@ -139,9 +139,23 @@ export {
   createPortableSemanticExecutor,
   createPortableSemanticRuntime,
   PortableExecutionBudgetError,
+  PortableExecutionInputError,
   PortableExecutionTenantError,
   PortableExecutionUnsupportedError,
 } from './portable-executor.js';
+// Query-scoped calculations (RFC 0026).
+export type {
+  DatasetCalculationColumn,
+  DatasetQueryCalculation,
+  DatasetQueryLimitBy,
+  DatasetQueryOtherBucket,
+  QueryCalculationInterval,
+  QueryCalculationKind,
+  QueryFormulaArgument,
+  QueryFormulaNode,
+  QueryFormulaOperator,
+  QueryWindowCalculation,
+} from './utils/query-calculation-types.js';
 export type {
   PortableSemanticBudget,
   PortableSemanticRuntime,

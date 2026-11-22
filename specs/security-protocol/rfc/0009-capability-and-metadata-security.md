@@ -337,7 +337,8 @@ The normalized query is a closed object. Every field is always present, and
 `includeMeta` and `limit` are removed. A query with a non-empty `having`, or a
 `timezone` other than `UTC`, has no preimage and fails with
 `HQ_CACHE_PREIMAGE_INVALID_QUERY`; `timezone: "UTC"` normalizes as if absent
-(RFC 0025). The reasons for each rule:
+(RFC 0025). So does a query with a non-empty `calculations`, or any `limitBy`
+or `other` (RFC 0026). The reasons for each rule:
 
 - **Column and row order are part of the result.** So `dimensions`, `measures`
   and `orderBy` keep their order.

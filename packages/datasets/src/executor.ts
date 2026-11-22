@@ -15,6 +15,7 @@ import { buildDatasetPlan, buildMetricPlan } from './semantic-planner.js';
 import { assertMetricHandle, getMetricRef } from './utils/metric-handle.js';
 import { validateMetricQueryInput } from './utils/metric-query-validation.js';
 import { prepareDatasetQuery } from './utils/compile-dataset-query.js';
+import { calculationColumns, hasQueryCalculations } from './utils/query-calculation-outputs.js';
 import { snapshotExecutionContext } from './utils/snapshot-execution-context.js';
 import type { DatasetCompilation } from './dataset-compilation.js';
 import { isDatasetInstance } from './utils/dataset-target.js';
@@ -465,7 +466,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       if (format === 'arrow') {
         return { data: await prepared.streamArrow(), meta };
       }
-      const measures = prepared.compilation.query.measures ?? [];
+      const measures = [
+        ...(prepared.compilation.query.measures ?? []),
+        ...calculationColumns(query as DatasetQuery).map(column => column.name),
+      ];
       return { data: serializeMeasureBatches(await prepared.stream(), measures), meta };
     }
 
@@ -614,6 +618,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         }
         if (boundedQuery.having?.length) {
           throw new Error('Dataset having conditions require the queryBuilder execution path.');
+        }
+        if (hasQueryCalculations(boundedQuery)) {
+          throw new Error('Dataset query calculations require the queryBuilder execution path.');
         }
         return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),

@@ -1,3 +1,4 @@
+import { hasQueryCalculations } from '../utils/query-calculation-outputs.js';
 import {
   buildProtocolCachePreimage,
   deriveProtocolCacheKey,
@@ -250,6 +251,8 @@ export function datasetCacheKey(
   // separate queries that differ only in their conditions. Run them uncached,
   // as the Python SDK does, until the shared preimage covers `having`.
   if (query.having !== undefined && query.having.length > 0) return undefined;
+  // RFC 0026: calculations, limitBy and other have no portable key either.
+  if (hasQueryCalculations(query)) return undefined;
   try {
     const wire = {
       kind: 'dataset',

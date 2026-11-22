@@ -58,6 +58,15 @@ const COMPARE_SUFFIXES = ['_previous', '_change', '_change_pct'] as const;
 
 const invalid = (path: string): never => expressionError('HQ_EXPRESSION_INVALID_QUERY', path);
 
+/** C0 and C1 controls, as the invocation envelope defines them. */
+function hasControlCharacter(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return false;
+}
+
 function positiveInteger(value: unknown, path: string, maximum = Number.MAX_SAFE_INTEGER): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > maximum) invalid(path);
   return value as number;
@@ -422,8 +431,7 @@ export function validateOtherBucket(
   const result: Record<string, unknown> = { dimension, n, measure };
   if (value.label !== undefined) {
     const label = kit.stringValue(value.label, '$.other.label');
-    // eslint-disable-next-line no-control-regex
-    if (label.length === 0 || [...label].length > MAX_LABEL || /[\u0000-\u001f\u007f]/.test(label)) {
+    if (label.length === 0 || [...label].length > MAX_LABEL || hasControlCharacter(label)) {
       invalid('$.other.label');
     }
     result.label = label;

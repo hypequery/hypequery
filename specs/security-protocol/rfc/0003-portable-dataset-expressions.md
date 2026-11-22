@@ -65,7 +65,9 @@ A dataset query has `kind: "dataset"`, a simple `dataset` identifier, and may
 contain `dimensions`, `measures`, `filters`, `having`, `orderBy`, `limit`,
 `offset`, `by`, `timezone`, and `includeMeta`. A metric query has
 `kind: "metric"`, `dataset`, `metric`, and the same fields except `measures`
-and `having`. RFC 0025 defines `having` and `timezone`.
+and `having`. RFC 0025 defines `having` and `timezone`. Under extension 2 a
+dataset query may also contain `calculations`, `limitBy` and `other`, which
+RFC 0026 defines.
 
 Dimensions, filters, and ordering may use qualified relationship paths. The
 version 1 identifier limit therefore bounds traversal to eight segments, while
@@ -108,6 +110,7 @@ optional and, when present, may be empty. A metric query MUST reject a
 | Tenant key and tenant-required state | Contract metadata; trusted runtime supplies tenant scope |
 | `includeMeta` | Query envelope flag |
 | `having` conditions and query timezone | Query envelope `having` and `timezone` (RFC 0025) |
+| Query-scoped calculations, Top-N per group, Top-N with remainder | Query envelope `calculations`, `limitBy`, `other`; extension 2 only (RFC 0026) |
 | Typed result rows and canonical result values | Response contract concern; not query intent |
 | Pagination, timing, SQL, tenant, and cache result metadata | Response/runtime concern; not query intent |
 | Runtime tenant value and cache controls | Trusted execution context; never expression input |
