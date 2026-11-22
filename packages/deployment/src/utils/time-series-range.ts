@@ -11,12 +11,12 @@ import type { ProtocolFilterLeaf } from './filter-leaves.js';
  */
 export function timeSeriesRangeViolation(
   leaves: readonly ProtocolFilterLeaf[],
-  /** The field a leaf's filter name reads, or undefined for a non-comparison. */
-  fieldOf: (leaf: ProtocolFilterLeaf) => string | undefined,
+  /** True when a leaf compares the time axis, by the column it reads. */
+  isOnAxis: (leaf: ProtocolFilterLeaf) => boolean,
   timeAxis: string,
   subject: string,
 ): { message: string; path: string } | undefined {
-  const onAxis = leaves.filter(leaf => fieldOf(leaf) === timeAxis);
+  const onAxis = leaves.filter(isOnAxis);
   const nested = onAxis.find(leaf => leaf.nested);
   if (nested) {
     return {

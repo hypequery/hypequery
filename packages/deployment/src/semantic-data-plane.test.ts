@@ -468,6 +468,26 @@ describe('semantic data plane', () => {
       .toBe('input-invalid');
   });
 
+  it('matches the time field to a filter by backing column (RFC 0029)', async () => {
+    // `timeField` names the column that the `createdAt` dimension reads.
+    const byColumn = { ...orders(), timeField: 'created_at' };
+    const { plane: dataPlane } = plane({ deployment: deployment({ datasets: [customers(), byColumn] }) as never });
+    const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, ...operation }),
+      credentials: 'token',
+    }));
+    const on = (name: string, operator: string, value: unknown) => ({
+      kind: 'comparison', operator,
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value },
+    });
+    expect(await reject({ filters: [on('createdAt', 'inDateRange', 'today')] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'inDateRange', 'last 7 days')] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'gte', '2026-01-01'), on('createdAt', 'lt', '2026-02-01')] }))
+      .toBe('accepted');
+    expect(await reject({ filters: [on('status', 'inDateRange', 'today')] })).toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

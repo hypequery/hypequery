@@ -62,10 +62,9 @@ export function prepareDatasetQuery(
 
   if (usesTimeSeriesPlan(dataset, query)) {
     plan = 'time';
-    // A filled series needs its measures named: the planner fills only those.
-    const planned = buildTimeMeasureDatasetSql(
-      dataset, query.measures === undefined ? { ...query, measures } : query, executionOptions,
-    );
+    // The planner validates the selection as written, then fills the default
+    // measures itself when they were omitted.
+    const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
     const main = withFinalSafety(readsFinal(), renderStatement(planned.statement));
     const preflight = withFinalSafety(readsFinal(), renderStatement(planned.preflight));
     statement = main;

@@ -1,7 +1,8 @@
 import { isProtocolRelativeDateRange } from '@hypequery/protocol';
 import type { AnyDatasetInstance, DatasetFilterNode, MetricFilter } from '../types.js';
-import { isFilterGroup } from './filter-tree.js';
+import { filterTreeErrors, isFilterGroup } from './filter-tree.js';
 import { datasetTimeKeys } from './dataset-time-keys.js';
+import { isTimeKeyFilter } from './query-timezone.js';
 import { resolveRelativeDateRange } from './relative-date-range.js';
 
 /**
@@ -15,8 +16,9 @@ const GRAMMAR = 'today, yesterday, this|last <unit>, last <N> <unit>s or month|q
 /** Why `filter` can't be resolved, or `undefined` when it can. */
 export function relativeDateFilterError(ds: AnyDatasetInstance, filter: MetricFilter): string | undefined {
   const axes = datasetTimeKeys(ds);
-  const field = ds.filters[filter.field]?.field ?? filter.field;
-  if (filter.field.includes('.') || !axes.includes(field)) {
+  // Compared by backing column, as the planner reads the axis: a `timeKey`
+  // may name a column that a differently named dimension reads.
+  if (!isTimeKeyFilter(ds, filter.field)) {
     return axes.length === 0
       ? `Filter "${filter.field}" cannot use "inDateRange": dataset "${ds.name}" has no time axis.`
       : `Filter "${filter.field}" cannot use "inDateRange": it applies only to a time axis (${axes.join(', ')}).`;
@@ -31,8 +33,8 @@ export function relativeDateFilterError(ds: AnyDatasetInstance, filter: MetricFi
  * The query's filters with every resolvable `inDateRange` replaced by its
  * bounds. A comparison at the top level, or directly inside an `and`, becomes
  * two comparisons there, so a top-level range still bounds the time axis; one
- * under `or`/`not` becomes an `and` group. Unresolvable ones are left for
- * validation to report.
+ * under `or`/`not` becomes an `and` group. Unresolvable ones, and every
+ * filter of a malformed tree, are left for validation to report.
  */
 export function resolveRelativeDateFilters(
   ds: AnyDatasetInstance,
@@ -40,10 +42,14 @@ export function resolveRelativeDateFilters(
   now: Date,
   timezone: string | undefined,
 ): DatasetFilterNode[] | undefined {
-  if (!Array.isArray(filters)) return filters;
+  // A malformed tree (a null filter, a cycle, a group nested too deep) is left
+  // as written: validation reports it, and walking it here could throw.
+  if (!Array.isArray(filters) || filterTreeErrors(filters).length > 0) return filters;
   let changed = false;
   const bounds = (filter: MetricFilter): MetricFilter[] | undefined => {
-    if (filter.operator !== 'inDateRange' || relativeDateFilterError(ds, filter)) return undefined;
+    if (filter.operator !== 'inDateRange' || typeof filter.field !== 'string' || relativeDateFilterError(ds, filter)) {
+      return undefined;
+    }
     const range = resolveRelativeDateRange(filter.value, now, timezone ?? 'UTC')!;
     changed = true;
     return [
@@ -63,16 +69,12 @@ export function resolveRelativeDateFilters(
     }
     return group(node);
   };
+  // The tree is well formed here: each group has exactly one key.
   const group = (node: DatasetFilterNode): DatasetFilterNode => {
-    const record = node as Record<string, unknown>;
-    // A malformed group is left exactly as written for validation to report.
-    if (Object.keys(record).length !== 1) return node;
-    if (Array.isArray(record.and)) return { and: conjunction(record.and as DatasetFilterNode[]) };
-    if (Array.isArray(record.or)) return { or: (record.or as DatasetFilterNode[]).map(single) };
-    if (record.not !== undefined && typeof record.not === 'object' && record.not !== null && !Array.isArray(record.not)) {
-      return { not: single(record.not as DatasetFilterNode) };
-    }
-    return node;
+    const record = node as { and?: DatasetFilterNode[]; or?: DatasetFilterNode[]; not?: DatasetFilterNode };
+    if (record.and) return { and: conjunction(record.and) };
+    if (record.or) return { or: record.or.map(single) };
+    return { not: single(record.not!) };
   };
   const resolved = conjunction(filters);
   return changed ? resolved : filters;

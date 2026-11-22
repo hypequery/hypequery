@@ -18,6 +18,7 @@ import type {
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
 import { timeSeriesRangeViolation } from './utils/time-series-range.js';
+import { fieldBackingColumn } from './utils/field-backing-column.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -255,9 +256,16 @@ export function validateSemanticOperation(
   };
   const timeAxis = dataset.timeField === undefined || allowed.grains.size === 0
     ? undefined : String(dataset.timeField);
+  // Compared by backing column: the time field may name the column a
+  // differently named dimension reads.
+  const axisColumn = timeAxis === undefined ? undefined : fieldBackingColumn(dataset, timeAxis);
+  const onAxis = (leaf: ProtocolFilterLeaf) => {
+    const field = fieldOf(leaf);
+    return field !== undefined && fieldBackingColumn(dataset, field) === axisColumn;
+  };
   filters.forEach(leaf => {
     if (comparisonField(leaf.expression)?.operator !== 'inDateRange') return;
-    if (timeAxis === undefined || fieldOf(leaf) !== timeAxis) {
+    if (timeAxis === undefined || !onAxis(leaf)) {
       fail(
         timeAxis === undefined
           ? 'This dataset has no time field, so "inDateRange" does not apply.'
@@ -274,7 +282,7 @@ export function validateSemanticOperation(
     ? 'Filled queries'
     : measures.some(name => timeMeasures.has(String(name))) ? 'Window and shift measures' : undefined;
   if (series !== undefined && timeAxis !== undefined) {
-    const violation = timeSeriesRangeViolation(filters, fieldOf, timeAxis, series);
+    const violation = timeSeriesRangeViolation(filters, onAxis, timeAxis, series);
     if (violation) fail(violation.message, violation.path);
   }
 

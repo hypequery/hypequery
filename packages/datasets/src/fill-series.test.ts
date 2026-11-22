@@ -86,6 +86,34 @@ describe('fill (RFC 0029)', () => {
       .rejects.toThrow('"fill" requires the queryBuilder execution path.');
   });
 
+  it('fills a dimension-only query, scanning the exact range', () => {
+    const noon = [
+      { field: 'createdAt', operator: 'gte', value: '2026-01-01T12:00:00' },
+      { field: 'createdAt', operator: 'lt', value: '2026-01-03' },
+    ] as const;
+    const compiled = client.compileDataset(Orders, { dimensions: ['country'], measures: [], by: 'day', fill: true, filters: [...noon] });
+    expect(compiled.sql).not.toMatch(/WHERE \)/);
+    // A row before the noon start must not add a country to the series.
+    expect(compiled.sql).toContain('_hq_scanned AS (SELECT * FROM _hq_source CROSS JOIN _hq_bounds WHERE (_hq_time >= _hq_lower AND _hq_time < _hq_upper))');
+    const measured = client.compileDataset(Orders, { dimensions: ['country'], measures: ['orders'], by: 'day', fill: true, filters: [...noon] });
+    expect(measured.sql).toContain('WHERE (_hq_time >= _hq_lower AND _hq_time < _hq_upper))');
+  });
+
+  it('counts an omitted measure list against maxMeasures as omitted', () => {
+    const Limited = dataset('limited', {
+      source: 'orders',
+      timeKey: 'createdAt',
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }) },
+      measures: { orders: measure.count('id'), revenue: measure.sum('amount') },
+      limits: { maxMeasures: 1 },
+    });
+    const compiled = client.compileDataset(Limited, { by: 'day', fill: true, filters: [january] });
+    expect(compiled.describe().measures).toEqual(['orders', 'revenue']);
+    expect(compiled.sql).toContain('AS `revenue`');
+    expect(client.validate(Limited, { measures: ['orders', 'revenue'], by: 'day', fill: true, filters: [january] }).errors)
+      .toContain('Too many measures: 2 (max 1)');
+  });
+
   it('never shares a cache key with the unfilled query', () => {
     const settings = resolveProtocolCacheKeySettings({}, false);
     const key = (fill?: boolean) => datasetCacheKey(settings, Orders, { measures: ['orders'], by: 'day', filters: [january], limit: 10, ...(fill === undefined ? {} : { fill }) }, undefined, undefined);
