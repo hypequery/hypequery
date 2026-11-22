@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import CodeWindow from '@/components/CodeWindow';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
@@ -224,6 +227,7 @@ export default function HypequeryVsLuzmoPage() {
       primaryCta={{ href: '#at-a-glance', label: 'At a glance', target: 'vs_luzmo_table' }}
       secondaryCta={{ href: '/compare/luzmo-alternatives', label: 'Luzmo alternatives', target: 'vs_luzmo_alternatives' }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -453,7 +457,12 @@ export default function HypequeryVsLuzmoPage() {
               <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
                 the best embedded analytics platforms
               </Link>
-              .
+              .{' '}
+              If you are new to the category, start with{' '}
+              <Link href="/embedded-analytics" className={inlineLink}>
+                embedded analytics
+              </Link>{' '}
+              for developers: architecture, tenancy and the three kinds of tool.
             </p>
           </>
         }
@@ -485,6 +494,8 @@ export default function HypequeryVsLuzmoPage() {
           </div>
         </div>
       </section>
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={VERIFIED_ON} sources={sources} />
     </HubShell>

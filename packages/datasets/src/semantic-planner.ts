@@ -1,4 +1,5 @@
 import { hasFilterGroups } from './utils/filter-tree.js';
+import { assertTableSource } from './utils/sql-dataset-source.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
@@ -111,7 +112,9 @@ function normalizeFilters(
  * Semantic backends receive a source name, not SQL, so they cannot apply
  * `FINAL`. Running a final dataset there would count unmerged row versions.
  */
-function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution'>): void {
+function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution' | 'sqlSource'>): void {
+  // A backend reads `source` as a table name; a SQL source's is only an alias.
+  assertTableSource(ds, 'the semantic-backend execution path');
   if (ds.rowResolution) {
     throw new Error(`Dataset "${ds.name}" reads its source with FINAL, which requires the queryBuilder execution path.`);
   }
