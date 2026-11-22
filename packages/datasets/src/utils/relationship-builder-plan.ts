@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import { relationshipKeys } from './relationship-keys.js';
 import type { RelationshipKey } from '../types.js';
 import { relationshipJoinSource } from './relationship-measure-sql.js';
@@ -76,7 +77,7 @@ export function buildRelationshipBuilderContext(
   const referenced = [
     ...(query.dimensions ?? []),
     ...(query.measures ?? []),
-    ...(query.filters ?? []).map((filter) => filter.field),
+    ...filterLeaves(query.filters).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
     ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);

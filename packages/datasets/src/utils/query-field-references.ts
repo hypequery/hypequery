@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import type { AnyDatasetInstance, DatasetQuery, MetricFilter } from '../types.js';
 import { baseMeasureNames, isBaseMeasure } from './dataset-measures.js';
 import { measureDependencies } from './measure-dependencies.js';
@@ -17,7 +18,7 @@ function filterField(dataset: AnyDatasetInstance, filter: MetricFilter): string 
 export function queryFieldReferences(dataset: AnyDatasetInstance, query: DatasetQuery): string[] {
   const names: string[] = [
     ...(query.dimensions ?? []),
-    ...(query.filters ?? []).map(filter => filterField(dataset, filter)),
+    ...filterLeaves(query.filters).map(filter => filterField(dataset, filter)),
     ...segmentFilters(dataset, query.segments).map(filter => filterField(dataset, filter)),
     ...(query.orderBy ?? []).map(order => order.field),
     ...(query.having ?? []).map(condition => condition.measure),

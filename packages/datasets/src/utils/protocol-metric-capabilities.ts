@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import type { ProtocolDatasetMetric } from '@hypequery/protocol';
 import type { MetricHandle, MetricQuery, MetricRef, TimeGrain } from '../types.js';
 
@@ -17,7 +18,7 @@ export function protocolMetricCapabilityErrors(handle: MetricHandle, query: Metr
   for (const dimension of query.dimensions ?? []) {
     if (!capabilities.dimensions.includes(dimension)) errors.push(`Dimension "${dimension}" is not published for this metric.`);
   }
-  for (const filter of query.filters ?? []) {
+  for (const filter of filterLeaves(query.filters)) {
     if (!capabilities.filters.includes(filter.field)) errors.push(`Filter "${filter.field}" is not published for this metric.`);
   }
   const grain = handle.__type === 'grained_metric_ref' ? handle.grain : query.by;

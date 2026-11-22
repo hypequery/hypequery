@@ -88,6 +88,24 @@ await analytics.execute(Orders, {
 ```
 </CodeBlock>
 
+## Combine filters with `and`, `or` and `not`
+
+A query's `filters` list is ANDed. Nest `{ or: [...] }`, `{ and: [...] }` and `{ not: filter }` groups in it for anything else:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  measures: ['revenue'],
+  filters: [
+    { or: [eq('country', 'US'), eq('country', 'CA')] },
+    { not: eq('status', 'refunded') },
+  ],
+});
+```
+</CodeBlock>
+
+Each comparison in a group is validated like a top-level one, and `maxFilters` counts comparisons, not groups. Under `not`, the negated operator is what must be allowed: `not eq` needs `neq`, `not between` needs `lt` and `gt`, and `not like` needs `like`. Tenant filters, enforced constraints and segments stay outside any `or` you write. Window, shift and filled queries need their time range as top-level filters. Groups need the `queryBuilder` path and a builder with `whereGroup`, `orWhere` and `orWhereGroup`, which `@hypequery/clickhouse` provides.
+
 ## Filter aggregated values with `having`
 
 `filters` narrow the rows before they are aggregated. To keep only the groups whose aggregated value passes a condition, such as countries with more than 10,000 in revenue, use `having`:

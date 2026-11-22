@@ -1,3 +1,4 @@
+import { hasFilterGroups } from './utils/filter-tree.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
@@ -5,6 +6,7 @@ import type {
   AnyDatasetInstance,
   DatasetQuery,
   ExecutionContext,
+  DatasetFilterNode,
   MetricFilter,
   MetricOrderBy,
   MetricQuery,
@@ -75,11 +77,19 @@ function dimensionsForQuery(
   });
 }
 
+/** The backend plan is a flat AND list; refuse groups rather than flatten them (RFC 0029). */
+function flatFilters(filters: DatasetFilterNode[] = []): MetricFilter[] {
+  if (hasFilterGroups(filters)) {
+    throw new Error('Filter groups (and/or/not) require the queryBuilder execution path.');
+  }
+  return filters as MetricFilter[];
+}
+
 function normalizeFilters(
   ds: AnyDatasetInstance,
-  filters: MetricFilter[] = [],
+  nodes: DatasetFilterNode[] = [],
 ): MetricFilter[] {
-  return filters.map((filter) => {
+  return flatFilters(nodes).map((filter) => {
     if (isQualifiedField(filter.field)) {
       const { relationshipName, targetColumn } = resolveQualifiedPlanField(ds, filter.field);
       return { ...filter, field: `${relationshipName}.${targetColumn}` };
@@ -237,7 +247,7 @@ function aggregatePlan(
     limit: query.limit,
     offset: query.offset,
     tenant: planRowScope(ds, context),
-    joins: collectJoins(ds, query.dimensions, query.filters, query.orderBy, context),
+    joins: collectJoins(ds, query.dimensions, flatFilters(query.filters), query.orderBy, context),
   };
 }
 

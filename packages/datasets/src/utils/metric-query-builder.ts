@@ -13,6 +13,8 @@ import {
   resolveFilterField,
 } from '../query-planner.js';
 import { queryTimeFilter } from './query-timezone.js';
+import { applyFilterTree } from './filter-predicate-tree.js';
+import { filterLeaves } from './filter-tree.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
 import { segmentFilters } from './segments.js';
@@ -56,17 +58,16 @@ export function buildMetricQueryBuilder(
   qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx, dialect);
 
   // User filters
-  for (const filter of query.filters ?? []) {
+  for (const filter of filterLeaves(query.filters)) {
     if (isTenantScopedFilter(ds, filter, context)) {
       throw new Error(
         `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
       );
     }
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
-    }
   }
+  qb = applyFilterTree(qb, query.filters, filter => (
+    queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone)
+  ));
 
   // Segments: author-defined, so they resolve dimensions directly rather
   // than through the caller-facing filter allow-list.

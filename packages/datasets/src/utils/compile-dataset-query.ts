@@ -13,6 +13,7 @@ import { overfetchLimit } from './pagination.js';
 import { resolveResultLimit } from './result-limits.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
+import { filterLeaves } from './filter-tree.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { statementRunner, type StatementRunner, type StatementTarget } from './statement-runner.js';
@@ -85,7 +86,7 @@ export function prepareDatasetQuery(
     dimensions: Object.freeze([...(query.dimensions ?? [])]),
     measures: Object.freeze([...measures]),
     measureDependencies: Object.freeze(measureDependencyNames(queryMeasureDefinitions(dataset, measures), measures)),
-    filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
+    filters: Object.freeze(filterLeaves(query.filters).map(({ field, operator }) => Object.freeze({ field, operator }))),
     having: Object.freeze((query.having ?? []).map(({ measure, operator }) => Object.freeze({ measure, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
     by: query.by, timeKey: query.timeKey, timezone: query.timezone,

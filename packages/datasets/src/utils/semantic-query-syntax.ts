@@ -1,10 +1,12 @@
+import { filterLeaves, filterTreeErrors } from './filter-tree.js';
 import { isSemanticFilterOperator } from '../constants.js';
 import type { DatasetQuery, MetricQuery } from '../types.js';
 
 /** Reject SQL structure outside the semantic contract before reaching a builder. */
 export function semanticQuerySyntaxErrors(query: DatasetQuery | MetricQuery): string[] {
-  const errors: string[] = [];
-  for (const filter of query.filters ?? []) {
+  const errors: string[] = filterTreeErrors(query.filters);
+  if (errors.length > 0) return errors;
+  for (const filter of filterLeaves(query.filters)) {
     if (!isSemanticFilterOperator(filter.operator)) {
       errors.push(`Unsupported semantic filter operator "${String(filter.operator)}".`);
     }
