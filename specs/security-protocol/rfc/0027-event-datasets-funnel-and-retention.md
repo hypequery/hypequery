@@ -258,12 +258,14 @@ measured per bucket ("classic"), not as "returned in p or any later
 period". With `breakdown`, events are partitioned exactly as for a funnel,
 and groups are ranked by cohort size summed over all cohorts.
 
-A period whose bucket starts after the range ends is not observable, and has
-no row. A bucket the range only partly covers is reported, with only the
-covered events counted.
+A period has a row only when its whole bucket ends no later than the range
+end. A partly covered period would understate retention, so it is left out
+rather than reported low. Align the range start to a bucket boundary too:
+otherwise the first cohort's bucket is only partly covered, and the cohort is
+smaller than it should be.
 
 **Rows.** For each returned breakdown group (in rank order), each cohort
-(ascending) and each observable period 1 … `periods` (ascending):
+(ascending) and each fully covered period 1 … `periods` (ascending):
 
 | Column | Value |
 | --- | --- |
