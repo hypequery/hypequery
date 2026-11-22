@@ -12,6 +12,17 @@ Follow the repository layout, commands, API policies, and release guidance in
 - Keep behavior that depends on an owning class's state as class methods.
 - Do not accumulate unrelated helpers in a generic `utils.ts` file.
 
+## Public API changes
+
+- `@hypequery/protocol`, `@hypequery/datasets` and `@hypequery/deployment`
+  commit API Extractor reports under `packages/<pkg>/api-report/`. After you
+  change their public types, build, run `pnpm api:report` and commit the
+  report diff.
+- The changeset for a package whose report changed must contain a
+  `Consumer-breaking:` line. Use `no` for additive-only changes. Otherwise say
+  what breaks and give a migration note. See "Public API reports" in
+  `CLAUDE.md`.
+
 <!-- BEGIN:turborepo-agent-rules -->
 
 # This is NOT the Turborepo you know
