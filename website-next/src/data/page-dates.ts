@@ -15,7 +15,6 @@ const pageUpdated: Record<string, string> = {
   '/compare/hypequery-vs-luzmo': '2026-11-18',
   '/compare/embeddable-alternatives': '2026-11-18',
   '/compare/hypequery-vs-querypanel': '2026-11-22',
-  '/compare/hypequery-vs-explo': '2026-11-22',
   '/cube-js-alternative': '2026-11-12',
   '/clickhouse-saas-analytics': '2026-11-22',
   '/clickhouse-cloud-pricing': '2026-11-14',

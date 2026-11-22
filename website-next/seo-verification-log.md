@@ -453,17 +453,16 @@ Not claimed: per-tenant scoping in either ClickHouse server beyond ClickHouse us
 
 ## Compare and semantic layer push (checked 2026-11-22)
 
-New and re-verified pages. The QueryPanel, Explo and Metabase rows are also stored with each page's data
+New and re-verified pages. The QueryPanel and Metabase rows are also stored with each page's data
 (`sources` in `src/data/comparisons/*.ts` and the `hypequery-vs-metabase` entry in `src/data/compare-pages.ts`).
 
 | # | Page | URL |
 |---|---|---|
 | P6 | ClickHouse embedded analytics (retitled) | /clickhouse-saas-analytics |
 | P7 | hypequery vs QueryPanel | /compare/hypequery-vs-querypanel |
-| P8 | hypequery vs Explo | /compare/hypequery-vs-explo |
 | P9 | hypequery vs Metabase (re-verified) | /compare/hypequery-vs-metabase |
 
-hypequery code samples on P7, P8 and /semantic-layer were type-checked on 2026-11-22 against the published
+hypequery code samples on P7 and /semantic-layer were type-checked on 2026-11-22 against the published
 `@hypequery/datasets@0.32.0`, `@hypequery/serve@0.26.1` and `@hypequery/clickhouse@2.15.1`.
 
 | Page | Claim | Source | Checked |
@@ -489,27 +488,6 @@ hypequery code samples on P7, P8 and /semantic-layer were type-checked on 2026-1
 | P7 | ClickHouse adapter passes query_params and clickhouse_settings to an @clickhouse/client callback | https://querypanel.io/blog/clickhouse-embedded-analytics-saas-2026 | 2026-11-22 |
 | P7 | Hosted MCP server at mcp.querypanel.io with OAuth; plugin repo MIT | https://github.com/querypanel/mcp-plugin | 2026-11-22 |
 | P7 | Node SDK package.json licence UNLICENSED | https://github.com/querypanel/node-sdk | 2026-11-22 |
-| P8 | Omni announced acquiring Explo on 2025-10-22; Explo product to function as today during transition | https://omni.co/blog/omni-acquires-explo/ | 2026-11-22 |
-| P8 | Existing customers keep full access for 12 months; migrate before the sunset date; pricing unchanged until contract end | https://omni.co/explo | 2026-11-22 |
-| P8 | Explo homepage banner "Explo is joining Omni!"; products Dashboard, Report Builder AI, Data Share, Explo AI | https://www.explo.co/ | 2026-11-22 |
-| P8 | Latest changelog entry 2025-09-30 | https://www.explo.co/changelog | 2026-11-22 |
-| P8 | explo.co/pricing returns 404 | https://www.explo.co/pricing | 2026-11-22 |
-| P8 | Explo queries your database each time and stores no customer data | https://docs.explo.co/faqs | 2026-11-22 |
-| P8 | Isolated connectivity regions for enterprise customers | https://docs.explo.co/data-sources/connecting-to-data-sources/connectivity-regions | 2026-11-22 |
-| P8 | 17 data sources listed, ClickHouse among them | https://www.explo.co/integrations | 2026-11-22 |
-| P8 | ClickHouse via native protocol over SSL; FIDO connector also uses HTTPS 8443 | https://docs.explo.co/data-sources/connecting-to-data-sources/data-source-types/clickhouse | 2026-11-22 |
-| P8 | Customer groups; dataset SQL variables like {{customer_id}} | https://docs.explo.co/customers/overview | 2026-11-22 |
-| P8 | Schemas map each customer to a data source | https://docs.explo.co/data-sources/data-sources-and-schema/multiple-data-sources | 2026-11-22 |
-| P8 | Embed secrets are expiring JWTs with an encrypted body | https://docs.explo.co/embedding-documentation/embed-secrets/intro | 2026-11-22 |
-| P8 | Security FAQ recommends JWTs over the non-expiring customer token | https://docs.explo.co/security/security-faqs | 2026-11-22 |
-| P8 | Global Datasets function as a semantic layer, SQL-defined with commit history | https://docs.explo.co/data-sources/data-library/global-datasets | 2026-11-22 |
-| P8 | REST API covers customers, resources, exports and embed JWTs | https://docs.explo.co/api-reference/overview | 2026-11-22 |
-| P8 | Report Builder AI chat for end users | https://docs.explo.co/report-builder-features/report-builder-ai | 2026-11-22 |
-| P8 | Web component <explo-dashboard> works in React, Vue, Angular | https://docs.explo.co/embedding-documentation/dashboard/option-1-web-component | 2026-11-22 |
-| P8 | Iframe and web component embedding options compared | https://docs.explo.co/embedding-documentation/web-component-vs-iframe | 2026-11-22 |
-| P8 | Omni embedded analytics: semantic model, APIs and MCP server | https://omni.co/embedded-analytics | 2026-11-22 |
-| P8 | Omni embeds use signed URLs; entity and userAttributes for row-level permissions | https://docs.omni.co/embed/setup/url-parameters/entity.md | 2026-11-22 |
-| P8 | Omni supports ClickHouse | https://docs.omni.co/connect-data/setup/clickhouse.md | 2026-11-22 |
 | P9 | Official ClickHouse driver built in since v54.1, maintained by Metabase; ClickHouse 23.3+; partner driver archived | https://www.metabase.com/docs/latest/databases/connections/clickhouse | 2026-11-22 |
 | P9 | 18 official drivers maintained by the Metabase team; community drivers listed separately | https://www.metabase.com/docs/latest/databases/connecting | 2026-11-22 |
 | P9 | Guest embeds: web components authorized by a server-signed JWT, locked parameters, every plan, Powered by Metabase on OSS and Starter | https://www.metabase.com/docs/latest/embedding/guest-embedding | 2026-11-22 |
@@ -538,7 +516,4 @@ hypequery code samples on P7, P8 and /semantic-layer were type-checked on 2026-1
 
 - QueryPanel: a self-hosted deployment (one passing mention only), a security or SOC 2 page, and a consistent list of
   LLM providers (the home page grid and the FAQ disagree).
-- Explo: an exact sunset date, whether the platform has shut down, whether new signups are accepted, self-host or
-  on-prem deployment, licence terms, any pricing, an MCP server, a React package.
-- Omni: pricing (omni.co/pricing returned 404) and the full list of supported databases.
 - Metabase: whether row and column security or database routing work on ClickHouse.
