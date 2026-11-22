@@ -30,6 +30,11 @@ function canonicalTimezone(timezone: string | undefined): string {
   return new Intl.DateTimeFormat('en', { timeZone: timezone }).resolvedOptions().timeZone;
 }
 
+/** The canonical IANA name a query zone is rendered as; `UTC` when absent. */
+export function queryTimezoneName(timezone: string | undefined): string {
+  return canonicalTimezone(timezone);
+}
+
 /** Conversion preserves timestamp instants and interprets Date values as local dates. */
 export function queryTimeSql(dialect: DatasetSqlDialectRules, expression: string, timezone: string | undefined): string {
   return dialect.toQueryTimezone(expression, canonicalTimezone(timezone));

@@ -1,5 +1,5 @@
 /**
- * RFC 0027 event operations (funnel) over an event dataset.
+ * RFC 0027 event operations (funnel, retention) over an event dataset.
  *
  * Planned as one raw ClickHouse statement over the dataset's scoped source,
  * so tenancy, row policies, enforced constraints and `FINAL` apply exactly as
@@ -19,12 +19,15 @@ import { PortableExecutionBudgetError } from './portable-execution-errors.js';
 import { filterLeafCount, filterLeaves } from './utils/filter-tree.js';
 import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
-import { funnelResultRows, type EventResultRow } from './utils/funnel-rows.js';
-import type { EventOperationSpec } from './utils/event-operation-spec.js';
+import { funnelResultRows } from './utils/funnel-rows.js';
+import { buildRetentionSql } from './utils/retention-sql.js';
+import { retentionResultRows } from './utils/retention-rows.js';
+import { eventOperationConditions, type EventOperationSpec } from './utils/event-operation-spec.js';
+import type { EventResultRow } from './utils/event-result-values.js';
 import { eventOperationShapeErrors } from './utils/event-operation-shape.js';
 
-export type { EventOperationSpec, FunnelSpec } from './utils/event-operation-spec.js';
-export type { EventResultRow, EventResultValue } from './utils/funnel-rows.js';
+export type { EventOperationSpec, FunnelSpec, RetentionSpec } from './utils/event-operation-spec.js';
+export type { EventResultRow, EventResultValue } from './utils/event-result-values.js';
 
 export interface PreparedEventOperation {
   readonly statement: RenderedStatement;
@@ -49,7 +52,7 @@ export function eventOperationErrors(
   if (!ds.events) return [`Dataset "${ds.name}" does not declare events.`];
   const shape = eventOperationShapeErrors(spec);
   if (shape.length > 0) return shape;
-  const conditions = spec.steps.flatMap(step => step.where);
+  const conditions = eventOperationConditions(spec);
   const conditionLeaves = filterLeaves(conditions);
   // The filter budget is checked below on the authored count, so the
   // validator's own count of the resolved filters is set aside.
@@ -66,7 +69,7 @@ export function eventOperationErrors(
   // axis is an ordinary timestamp field here, as the data plane treats it.
   for (const condition of conditionLeaves) {
     if (condition.field.includes('.') || isTimeAxisFilter(ds, condition)) {
-      errors.push(`Step conditions may not use "${condition.field}"; put the time range in filters.`);
+      errors.push(`Conditions may not use "${condition.field}"; put the time range in filters.`);
     }
   }
   // RFC 0027 events are read from the dataset alone: no relationship joins.
@@ -136,16 +139,24 @@ export function prepareEventOperation(
 ): PreparedEventOperation {
   const filters = resolveRelativeDateFilters(ds, [...input.filters], (options.now ?? (() => new Date()))(), input.timezone);
   const spec: EventOperationSpec = filters === undefined || filters === input.filters ? input : { ...input, filters };
-  const authored = filterLeafCount([...input.filters, ...input.steps.flatMap(step => step.where)]);
+  const authored = filterLeafCount([...input.filters, ...eventOperationConditions(input)]);
   const errors = eventOperationErrors(ds, spec, options.context, authored);
   if (errors.length > 0) throw new Error(`Invalid ${spec.kind}: ${errors.join('; ')}`);
-  const planned = buildFunnelSql(ds, spec, options, joinCtx => queryReadsFinal(ds, joinCtx));
+  const readsFinal = (joinCtx: Parameters<typeof queryReadsFinal>[1]) => queryReadsFinal(ds, joinCtx);
+  const planned = spec.kind === 'retention'
+    ? buildRetentionSql(ds, spec, options, readsFinal)
+    : buildFunnelSql(ds, spec, options, readsFinal);
   const statement = withFinalSafety(planned.readsFinal, renderStatement(planned.statement));
   const runner = statementRunner(options.builderFactory, { kind: 'raw', statement }, {
     ...(options.context?.abortSignal === undefined ? {} : { abortSignal: options.context.abortSignal }),
   });
   return {
     statement,
-    execute: async () => withinResultLimit(ds, funnelResultRows(spec, planned.breakdown, await runner.execute())),
+    execute: async () => {
+      const rows = await runner.execute();
+      return withinResultLimit(ds, spec.kind === 'retention'
+        ? retentionResultRows(spec, planned.breakdown, rows)
+        : funnelResultRows(spec, planned.breakdown, rows));
+    },
   };
 }

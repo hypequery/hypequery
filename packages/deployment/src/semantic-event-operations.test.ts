@@ -210,7 +210,7 @@ describe('funnel invocations (RFC 0027)', () => {
     ['a time-typed entity', funnel({ entity: 'occurredAt' }), '$.operation.entity', /non-groupable entity/],
     ['an unknown breakdown', funnel({ breakdown: ['country'] }), '$.operation.breakdown[0]', /non-groupable dimension "country"/],
     ['too many rows for the budget', funnel({ by: 'day', breakdown: ['plan'], breakdownLimit: 100 }), '$.operation', /could return 6400 rows; the limit is 500/],
-    ['too many filters and conditions', funnel({ filters: [RANGE, ...Array.from({ length: 6 }, () => eq('plan', 'pro'))] }), '$.operation', /At most 8 filters and step conditions/],
+    ['too many filters and conditions', funnel({ filters: [RANGE, ...Array.from({ length: 6 }, () => eq('plan', 'pro'))] }), '$.operation', /At most 8 filters and conditions/],
   ])('refuses %s', async (_name, operation, path, message) => {
     const { instance, calls } = plane();
     const error = await failure(instance.invoke({ invocation: invocation(operation) }));
@@ -296,15 +296,25 @@ describe('funnel filters and conditions under RFC 0029', () => {
     const error = await failure(plane().instance.invoke({ invocation: invocation(funnel({
       filters: [RANGE, or(eq('plan', 'a'), eq('plan', 'b'), eq('plan', 'c'), eq('plan', 'd'), eq('plan', 'e'), eq('plan', 'f'))],
     })) }));
-    expect(error.message).toMatch(/At most 8 filters and step conditions/);
+    expect(error.message).toMatch(/At most 8 filters and conditions/);
   });
 
   it('needs the time range at the top level', async () => {
     const error = await failure(plane().instance.invoke({ invocation: invocation(funnel({
       filters: [or(RANGE, eq('plan', 'pro'))],
     })) }));
-    expect(error.message).toMatch(/need their time range as top-level filters/);
-    expect(error.path).toBe('$.operation.filters[0].operands[0]');
+    expect(error.message).toMatch(/exactly one bounded range on "occurredAt" as top-level filters/);
+    expect(error.path).toBe('$.operation.filters');
+  });
+
+  it('keeps a nested time comparison as an event filter beside the top-level range', async () => {
+    const at = (operator: string, value: string) => ({ ...eq('occurredAt', value), operator });
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, or(at('lt', '2026-10-10'), at('gt', '2026-10-20'))],
+    })) });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.operation.filters).toEqual([RANGE, or(at('lt', '2026-10-10'), at('gt', '2026-10-20'))]);
   });
 
   it('accepts a top-level relative range and bounds its span without a clock', async () => {
@@ -408,5 +418,95 @@ describe('funnel invocations end to end with the portable executor', () => {
     expect(statements[0]!.sql).toContain("where(toDateTime64(analytics.activity.occurredAt, 9, 'UTC'),gte,2026-10-15)");
     expect(statements[0]!.sql).toContain('where(analytics.activity.region,eq,eu)');
     expect(statements[0]!.parameters).toEqual(['signup', 'query_run']);
+  });
+});
+
+function retention(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: 'retention',
+    dataset: 'activity',
+    start: { where: [eq('eventName', 'signup')] },
+    return: { where: [eq('eventName', 'query_run')] },
+    grain: 'week',
+    periods: 8,
+    filters: [RANGE],
+    ...overrides,
+  };
+}
+
+describe('retention invocations (RFC 0027)', () => {
+  it('accepts RFC 0029 groups in start and return conditions and a relative range', async () => {
+    const or = (...operands: unknown[]) => ({ kind: 'logical', operator: 'or', operands });
+    const relative = { kind: 'comparison', operator: 'inDateRange', left: { kind: 'reference', name: 'occurredAt' }, right: { kind: 'literal', value: 'last 8 weeks' } };
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(retention({
+      start: { where: [or(eq('eventName', 'signup'), eq('eventName', 'sso_signup'))] },
+      return: { where: [{ kind: 'logical', operator: 'not', operand: eq('eventName', 'signup') }] },
+      filters: [relative],
+    })) });
+    expect(calls).toHaveLength(1);
+    // 'last 52 weeks' spans 364 days: 53 week cohorts × 52 periods = 2756 rows.
+    const error = await failure(plane().instance.invoke({ invocation: invocation(retention({
+      periods: 52,
+      filters: [{ ...relative, right: { kind: 'literal', value: 'last 52 weeks' } }],
+    })) }));
+    expect(error.message).toMatch(/could return 2756 rows; the limit is 500/);
+    // Monthly cohorts of a 7-day relative range: two, wherever the clock puts it.
+    const months = await failure(plane().instance.invoke({
+      invocation: { ...invocation(retention({ grain: 'month', periods: 1, filters: [{ ...relative, right: { kind: 'literal', value: 'last 7 days' } }] })), budget: { maxRows: 1 } },
+    }));
+    expect(months.message).toMatch(/could return 2 rows; the limit is 1/);
+  });
+
+  it('runs through the event executor with constraints passed apart', async () => {
+    const cutoff = { ...eq('occurredAt', '2026-10-15'), operator: 'gte' };
+    const { instance, calls, datasetCalls } = plane({ resolveConstraints: async () => [eq('region', 'eu'), cutoff] });
+    await instance.invoke({ invocation: invocation(retention()) });
+    expect(datasetCalls).toHaveLength(0);
+    expect(calls[0]!.operation).toMatchObject({ kind: 'retention', filters: [RANGE] });
+    expect(calls[0]!.constraints).toEqual([eq('region', 'eu'), cutoff]);
+  });
+
+  it('applies the dimension ceiling and query-zone months to retention', async () => {
+    const error = await failure(plane({ limits: { maxDimensions: 2 } }).instance.invoke({
+      invocation: invocation(retention({ breakdown: ['plan', 'region'] })),
+    }));
+    expect(error.message).toMatch(/At most 2 grouping fields/);
+    // One UTC day, two Los Angeles months: 2 cohorts × 2 periods = 4 rows > 3.
+    const operation = retention({ grain: 'month', periods: 2, timezone: 'America/Los_Angeles',
+      filters: [between('occurredAt', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z')] });
+    const months = await failure(plane().instance.invoke({ invocation: { ...invocation(operation), budget: { maxRows: 3 } } }));
+    expect(months.message).toMatch(/could return 4 rows; the limit is 3/);
+  });
+
+  it.each([
+    ['a start condition on an unknown field', retention({ start: { where: [eq('nope', 1)] } }), '$.operation.start.where[0]', /Unknown or unfilterable field "nope"/],
+    ['a return condition on the time field', retention({ return: { where: [between('occurredAt', '2026-10-01', '2026-10-02')] } }), '$.operation.return.where[0]', /put the time range in filters/],
+    ['no time range', retention({ filters: [eq('plan', 'pro')] }), '$.operation.filters', /Retention operations require exactly one bounded range/],
+    ['too many rows for the budget', retention({ grain: 'day', periods: 52 }), '$.operation', /could return 1664 rows; the limit is 500/],
+    ['a hidden-or-unknown breakdown', retention({ breakdown: ['country'] }), '$.operation.breakdown[0]', /non-groupable dimension "country"/],
+  ])('refuses %s', async (_name, operation, path, message) => {
+    const { instance, calls } = plane();
+    const error = await failure(instance.invoke({ invocation: invocation(operation) }));
+    expect(error.category).toBe('input-invalid');
+    expect(error.path).toBe(path);
+    expect(error.message).toMatch(message);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('estimates retention rows as cohorts × periods × groups', async () => {
+    // Five weekly buckets × 8 periods × 10 groups = 400 rows, within 500.
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(retention({ breakdown: ['plan'], breakdownLimit: 10, filters: [between('occurredAt', '2026-10-01', '2026-10-29')] })) });
+    expect(calls).toHaveLength(1);
+    const error = await failure(plane().instance.invoke({
+      invocation: invocation(retention({ breakdown: ['plan'], breakdownLimit: 13, filters: [between('occurredAt', '2026-10-01', '2026-10-29')] })),
+    }));
+    expect(error.message).toMatch(/could return 520 rows/);
+  });
+
+  it('refuses retention sent as invocation 2', async () => {
+    const error = await failure(plane().instance.invoke({ invocation: invocation(retention(), 2) }));
+    expect(error).toMatchObject({ category: 'input-invalid', code: 'HQ_SEMANTIC_INVOCATION_INVALID' });
   });
 });

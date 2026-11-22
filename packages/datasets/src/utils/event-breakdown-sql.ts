@@ -18,7 +18,7 @@ export function rankedBreakdownSql(options: {
   }
   const partition = breakdown.join(', ');
   const valueOrder = breakdown.map(alias => `${alias} ASC NULLS LAST`).join(', ');
-  const sized = `SELECT *, sum(${sizeColumn}) OVER (PARTITION BY ${partition}) AS _hq_size FROM ${relation}`;
-  const ranked = `SELECT *, dense_rank() OVER (ORDER BY _hq_size DESC, ${valueOrder}) AS _hq_rank FROM (${sized})`;
+  const sized = `SELECT *, sum(${sizeColumn}) OVER (PARTITION BY ${partition}) AS _hq_group_size FROM ${relation}`;
+  const ranked = `SELECT *, dense_rank() OVER (ORDER BY _hq_group_size DESC, ${valueOrder}) AS _hq_rank FROM (${sized})`;
   return `SELECT * FROM (${ranked}) WHERE _hq_rank <= ${limit} ORDER BY ${orderBy.join(', ')}`;
 }

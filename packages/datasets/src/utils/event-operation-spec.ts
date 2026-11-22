@@ -23,7 +23,27 @@ export interface FunnelSpec {
   readonly timezone?: string;
 }
 
-export type EventOperationSpec = FunnelSpec;
+/** An RFC 0027 retention operation in the dataset layer's vocabulary. */
+export interface RetentionSpec {
+  readonly kind: 'retention';
+  readonly entity: string;
+  /** What starts a cohort and what counts as a return: comparisons or groups (RFC 0029), ANDed. */
+  readonly start: readonly DatasetFilterNode[];
+  readonly return: readonly DatasetFilterNode[];
+  readonly grain: EventCohortGrain;
+  readonly periods: number;
+  readonly filters: readonly DatasetFilterNode[];
+  readonly breakdown: readonly string[];
+  readonly breakdownLimit: number;
+  readonly timezone?: string;
+}
+
+export type EventOperationSpec = FunnelSpec | RetentionSpec;
+
+/** Every condition list the operation tests events against. */
+export function eventOperationConditions(spec: EventOperationSpec): readonly DatasetFilterNode[] {
+  return spec.kind === 'retention' ? [...spec.start, ...spec.return] : spec.steps.flatMap(step => step.where);
+}
 
 function comparison(expression: ProtocolExpression, path: string): MetricFilter {
   return rehydrateMeasureFilter(
@@ -56,6 +76,23 @@ export function eventConstraintFilters(expressions: readonly ProtocolExpression[
 export function eventOperationSpec(operation: ProtocolEventOperation, dataset: AnyDatasetInstance): EventOperationSpec {
   if (!dataset.events) {
     throw new Error(`Dataset "${dataset.name}" does not declare events, so it has no ${operation.kind}.`);
+  }
+  const common = {
+    entity: String(operation.entity ?? dataset.events.entity),
+    filters: filters(operation.filters, 'filters'),
+    breakdown: (operation.breakdown ?? []).map(String),
+    breakdownLimit: operation.breakdownLimit ?? PROTOCOL_EVENT_OPERATION_LIMITS.defaultBreakdownLimit,
+    ...(operation.timezone === undefined ? {} : { timezone: operation.timezone }),
+  };
+  if (operation.kind === 'retention') {
+    return {
+      kind: 'retention',
+      ...common,
+      start: filters(operation.start.where, 'start.where'),
+      return: filters(operation.return.where, 'return.where'),
+      grain: operation.grain,
+      periods: operation.periods,
+    };
   }
   const window = parseProtocolEventWindow(operation.window);
   if (!window) throw new Error(`Invalid funnel window "${operation.window}".`);

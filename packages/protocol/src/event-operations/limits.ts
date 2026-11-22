@@ -8,7 +8,13 @@ export const PROTOCOL_EVENT_OPERATION_LIMITS = Object.freeze({
   defaultBreakdownLimit: 25,
   maxWindowMilliseconds: 365 * 86_400_000,
   maxRangeDays: 731,
+  maxPeriods: 52,
 });
+
+/** Output columns retention always emits; a breakdown dimension can't reuse one. */
+export const PROTOCOL_RETENTION_COLUMNS: ReadonlySet<string> = new Set([
+  'cohort', 'period', 'entities', 'retained', 'rate',
+]);
 
 /** Output columns a funnel always emits; a breakdown dimension can't reuse one. */
 export const PROTOCOL_FUNNEL_COLUMNS: ReadonlySet<string> = new Set([

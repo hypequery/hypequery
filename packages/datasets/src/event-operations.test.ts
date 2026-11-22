@@ -5,8 +5,9 @@ import { dataset, dimension, measure } from './index.js';
 import { eventOperationErrors, prepareEventOperation } from './event-operations.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
-import { eventOperationSpec, type FunnelSpec } from './utils/event-operation-spec.js';
+import { eventOperationSpec, type FunnelSpec, type RetentionSpec } from './utils/event-operation-spec.js';
 import { funnelResultRows } from './utils/funnel-rows.js';
+import { retentionResultRows } from './utils/retention-rows.js';
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 import { createPortableSemanticRuntime } from './portable-executor.js';
 
@@ -113,7 +114,7 @@ describe('funnel planning (RFC 0027)', () => {
     }).statement;
     expect(sql).not.toContain('windowFunnel');
     expect(sql).toContain('arrayMax(arrayMap(_hq_t ->');
-    expect(sql).toContain('dense_rank() OVER (ORDER BY _hq_size DESC, _hq_b0 ASC NULLS LAST)');
+    expect(sql).toContain('dense_rank() OVER (ORDER BY _hq_group_size DESC, _hq_b0 ASC NULLS LAST)');
     expect(sql).toContain('_hq_rank <= 5');
     expect(sql).toContain("formatDateTime(toStartOfWeek(_hq_first), '%Y-%m-%d') AS _hq_cohort");
   });
@@ -174,6 +175,95 @@ describe('funnel result rows', () => {
 
   it('refuses a count that is not a non-negative integer', () => {
     expect(() => funnelResultRows(spec(), [], [{ _hq_r1: -1, _hq_r2: 0 }])).toThrow(/non-negative integer/);
+  });
+});
+
+function retention(overrides: Partial<RetentionSpec> = {}): RetentionSpec {
+  return {
+    kind: 'retention',
+    entity: 'userId',
+    start: [{ field: 'eventName', operator: 'eq', value: 'signup' }],
+    return: [{ field: 'eventName', operator: 'eq', value: 'query_run' }],
+    grain: 'week',
+    periods: 3,
+    filters: [RANGE],
+    breakdown: [],
+    breakdownLimit: 25,
+    ...overrides,
+  };
+}
+
+describe('retention planning (RFC 0027)', () => {
+  it('plans cohorts, per-period returns and observable periods with bound values', () => {
+    const { factory } = capturingFactory();
+    const { sql, parameters } = prepareEventOperation(Activity, retention({ timezone: 'Europe/Berlin' }), {
+      builderFactory: factory, context,
+    }).statement;
+    expect(sql).toContain("minIf(toStartOfWeek(_hq_time), _hq_start = 1) AS _hq_cohort_start");
+    expect(sql).toContain('groupUniqArrayIf(toStartOfWeek(_hq_time), _hq_return = 1) AS _hq_returns');
+    expect(sql).toContain('sumForEach(arrayMap(_hq_p -> toUInt64(has(_hq_returns, addWeeks(_hq_cohort_start, _hq_p))), range(1, 4)))');
+    expect(sql).toContain("toDateTime64(addWeeks(_hq_cohort_start, _hq_p + 1), 9, 'Europe/Berlin') <= parseDateTime64BestEffort(?, 9, 'Europe/Berlin')");
+    expect(sql).toContain('HAVING countIf(_hq_start = 1) > 0');
+    expect(parameters).toEqual(expect.arrayContaining(['acme', 'signup', 'query_run', '2026-11-01']));
+  });
+
+  it('reports only periods whose whole bucket ends by the range end', () => {
+    const { factory } = capturingFactory();
+    const { sql } = prepareEventOperation(Activity, retention({
+      filters: [
+        { field: 'occurredAt', operator: 'gte', value: '2026-10-01' },
+        { field: 'occurredAt', operator: 'lt', value: '2026-11-01' },
+      ],
+    }), { builderFactory: factory, context }).statement;
+    expect(sql).toContain("toDateTime64(addWeeks(_hq_cohort_start, _hq_p + 1), 9, 'UTC') <= parseDateTime64BestEffort(?, 9, 'UTC')");
+  });
+
+  it('ranks breakdown groups by total cohort size', () => {
+    const { factory } = capturingFactory();
+    const { sql } = prepareEventOperation(Activity, retention({ breakdown: ['plan'], breakdownLimit: 3 }), {
+      builderFactory: factory, context,
+    }).statement;
+    expect(sql).toContain('sum(_hq_size) OVER (PARTITION BY _hq_b0) AS _hq_group_size');
+    expect(sql).toContain('ORDER BY _hq_rank ASC, _hq_cohort ASC');
+  });
+
+  it('expands observable periods only, with quoted 64-bit counts', async () => {
+    const { factory } = capturingFactory([
+      { _hq_cohort: '2026-10-04', _hq_size: '20', _hq_retained: ['5', '2', '0'], _hq_observable: '2' },
+    ]);
+    const rows = await prepareEventOperation(Activity, retention(), { builderFactory: factory, context }).execute();
+    expect(rows).toEqual([
+      { cohort: '2026-10-04', period: 1, entities: 20, retained: 5, rate: 0.25 },
+      { cohort: '2026-10-04', period: 2, entities: 20, retained: 2, rate: 0.1 },
+    ]);
+  });
+
+  it('refuses a condition on the time field and a missing range', () => {
+    expect(eventOperationErrors(Activity, retention({
+      return: [{ field: 'occurredAt', operator: 'gte', value: '2026-10-02' }],
+    }), context).join(' ')).toMatch(/may not use "occurredAt"/);
+    expect(eventOperationErrors(Activity, retention({ filters: [] }), context).join(' ')).toMatch(/A retention requires/);
+  });
+
+  it('refuses counts of the wrong shape', () => {
+    expect(() => retentionResultRows(retention(), [], [{ _hq_size: 1, _hq_retained: [1], _hq_observable: 1 }]))
+      .toThrow(/wrong length/);
+  });
+
+  it('resolves a protocol retention operation', () => {
+    const where = (value: string) => [{ kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'eventName' }, right: { kind: 'literal', value } }];
+    const operation = validateProtocolEventOperation({
+      kind: 'retention', dataset: 'activity', start: { where: where('signup') }, return: { where: where('query_run') },
+      grain: 'month', periods: 6,
+      filters: [{
+        kind: 'comparison', operator: 'between', left: { kind: 'reference', name: 'occurredAt' },
+        right: { kind: 'literal', value: { $hypequery: { type: 'tuple', version: 1, values: ['2026-01-01', '2026-07-01'] } } },
+      }],
+    });
+    expect(eventOperationSpec(operation, Activity)).toMatchObject({
+      kind: 'retention', entity: 'userId', grain: 'month', periods: 6, breakdownLimit: 25,
+      start: [{ field: 'eventName', operator: 'eq', value: 'signup' }],
+    });
   });
 });
 
@@ -245,6 +335,35 @@ describe('review regressions (RFC 0027)', () => {
   });
 });
 
+describe('retention review regressions (RFC 0027)', () => {
+  it('refuses direct retention specs the protocol would refuse', () => {
+    expect(eventOperationErrors(Activity, retention({ breakdown: ['period'] }), context))
+      .toEqual(['Breakdown dimension "period" collides with the "period" output column.']);
+    const shape = eventOperationErrors(Activity, retention({ periods: 53, grain: 'hour' as never, start: [] }), context).join(' ');
+    for (const message of [/periods must be an integer/, /not day, week or month/, /start condition needs 1 to 10/]) {
+      expect(shape).toMatch(message);
+    }
+  });
+
+  it('compares a timestamp return condition with an instant in UTC', () => {
+    const Received = dataset('received_retention', {
+      source: 'analytics.received', tenantKey: 'tenantId', timeKey: 'occurredAt',
+      events: { entity: 'userId', event: 'eventName' },
+      dimensions: {
+        userId: dimension.string(), eventName: dimension.string(),
+        receivedAt: dimension.timestamp(), occurredAt: dimension.timestamp(),
+      },
+    });
+    const { factory } = capturingFactory();
+    const { sql, parameters } = prepareEventOperation(Received, retention({
+      return: [{ field: 'receivedAt', operator: 'lt', value: '2026-10-20T00:00:00Z' }],
+      timezone: 'Asia/Tokyo',
+    }), { builderFactory: factory, context }).statement;
+    expect(sql).toMatch(/toDateTime64\(_hq_f\d, 9, 'UTC'\) < \?/);
+    expect(parameters).toContain('2026-10-20 00:00:00');
+  });
+});
+
 describe('RFC 0029 filters in funnels', () => {
   it('renders and/or/not step conditions as written, with bound values', () => {
     const { factory } = capturingFactory();
@@ -298,6 +417,16 @@ describe('RFC 0029 filters in funnels', () => {
     expect(() => prepareEventOperation(Narrow, spec({
       filters: [{ field: 'occurredAt', operator: 'inDateRange', value: 'last 7 days' }, { field: 'eventName', operator: 'neq', value: 'x' }],
     }), { builderFactory: factory, context })).toThrow(/Too many filters: 4 \(max 3\)/);
+  });
+
+  it('plans a nested time comparison as an event filter beside the top-level range', () => {
+    const nested = spec({ filters: [RANGE, { or: [
+      { field: 'occurredAt', operator: 'lt', value: '2026-10-10' },
+      { field: 'occurredAt', operator: 'gt', value: '2026-10-20' },
+    ] }] });
+    expect(eventOperationErrors(Activity, nested, context)).toEqual([]);
+    const { sql } = prepareEventOperation(Activity, nested, { builderFactory: capturingFactory().factory, context }).statement;
+    expect(sql).toMatch(/\(toDateTime64\(analytics\.activity\.at, 9, 'UTC'\) < \? OR toDateTime64\(analytics\.activity\.at, 9, 'UTC'\) > \?\)/);
   });
 
   it('refuses a time range that only appears under "or"', () => {
@@ -374,5 +503,17 @@ describe('zone-aware ceilings on direct calls (RFC 0027)', () => {
       builderFactory: capturingFactory(twoGroups.slice(0, 1)).factory, context,
     }).execute();
     expect(oneGroup).toHaveLength(2);
+  });
+
+  it('bounds expanded retention rows by maxResultSize too', async () => {
+    const Capped = dataset('capped_retention', {
+      source: 'analytics.activity', tenantKey: 'tenantId', timeKey: 'occurredAt',
+      events: { entity: 'userId', event: 'eventName' },
+      limits: { maxResultSize: 2 },
+      dimensions: { userId: dimension.string(), eventName: dimension.string(), occurredAt: dimension.timestamp() },
+    });
+    const cohort = { _hq_cohort: '2026-10-04', _hq_size: 10, _hq_retained: [5, 2, 1], _hq_observable: 3 };
+    await expect(prepareEventOperation(Capped, retention(), { builderFactory: capturingFactory([cohort]).factory, context }).execute())
+      .rejects.toThrow(/The result has 3 rows; dataset "capped_retention" returns at most 2/);
   });
 });

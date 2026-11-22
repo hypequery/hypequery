@@ -1,5 +1,5 @@
 /**
- * Contract-driven validation of RFC 0027 event operations (funnel).
+ * Contract-driven validation of RFC 0027 event operations (funnel, retention).
  *
  * The protocol validator already checked syntax, closed records and
  * structural limits. What remains depends on the contract and the caller:
@@ -23,12 +23,12 @@ import {
 } from './semantic-operation-validation.js';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
-import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 import {
   estimateEventBuckets,
   estimatePlacementFreeBuckets,
   eventRangeDays,
   eventTimeRange,
+  type EventTimeRange,
 } from './utils/event-time-range.js';
 
 export interface SemanticEventOperationLimits {
@@ -98,17 +98,36 @@ function relativeRangeDays(value: unknown): number | undefined {
   return (range.kind === 'last' ? range.count : 1) * UNIT_MAX_DAYS[range.unit];
 }
 
-/** `{ name, where }` lists the operation tests events against. */
+/** The condition lists an operation tests events against. */
 function conditionLists(operation: ProtocolEventOperation): { path: string; where: readonly ProtocolExpression[] }[] {
+  if (operation.kind === 'retention') {
+    return [
+      { path: '$.operation.start.where', where: operation.start.where },
+      { path: '$.operation.return.where', where: operation.return.where },
+    ];
+  }
   return operation.steps.map((step, index) => ({ path: `$.operation.steps[${index}].where`, where: step.where }));
 }
 
-/** Rows the operation can return, before execution, from its range and options. */
-function estimatedRows(operation: ProtocolEventOperation, buckets: number | undefined): number {
+/**
+ * Rows the operation can return, before execution, from its range and
+ * options: cohorts × steps (funnel) or cohorts × periods (retention), per
+ * breakdown group.
+ */
+function estimatedRows(operation: ProtocolEventOperation, range: EventTimeRange, relativeDays?: number): number {
   const groups = operation.breakdown === undefined
     ? 1
     : operation.breakdownLimit ?? PROTOCOL_EVENT_OPERATION_LIMITS.defaultBreakdownLimit;
-  return (buckets ?? 1) * groups * operation.steps.length;
+  // A relative range is placed by the executor's clock, so its buckets are
+  // counted for the worst placement rather than for the anchored span.
+  const buckets = (grain: 'day' | 'week' | 'month') => (relativeDays === undefined
+    ? estimateEventBuckets(range, grain)
+    : estimatePlacementFreeBuckets(relativeDays, grain));
+  if (operation.kind === 'retention') {
+    return buckets(operation.grain) * operation.periods * groups;
+  }
+  const cohorts = operation.by === undefined ? 1 : buckets(operation.by);
+  return cohorts * groups * operation.steps.length;
 }
 
 /**
@@ -165,7 +184,7 @@ export function validateSemanticEventOperation(
         const comparison = checkLeaf(leaf, allowed, fail);
         if (comparison !== undefined
           && (comparison.field.includes('.') || filterTarget(dataset, comparison.field) === timeField)) {
-          fail(`Step conditions may not use "${comparison.field}"; put the time range in filters.`, leaf.path);
+          fail(`Conditions may not use "${comparison.field}"; put the time range in filters.`, leaf.path);
         }
       }
     });
@@ -190,18 +209,30 @@ export function validateSemanticEventOperation(
     }
   }
   if (leaves > limits.maxFilters) {
-    fail(`At most ${limits.maxFilters} filters and step conditions may be applied together.`, '$.operation');
+    fail(`At most ${limits.maxFilters} filters and conditions may be applied together.`, '$.operation');
   }
 
-  // The bounded range must be top-level comparisons on the time field, as a
-  // window or filled query's must (RFC 0029): one under "or"/"not" filters
-  // events but bounds nothing. A relative range resolves at the executor, so
-  // its span is bounded here without a clock.
+  // The bounded range is made of top-level comparisons on the time field
+  // (RFC 0029). A time comparison under "or"/"not" is kept as an event filter
+  // but bounds nothing (RFC 0027), so it neither counts toward the range nor
+  // refuses the call. A relative range resolves at the executor, so its span
+  // is bounded here without a clock.
   const subject = operation.kind === 'funnel' ? 'Funnels' : 'Retention operations';
+  const topLevel = filterLeaves.filter(leaf => !leaf.nested && isOnAxis(leaf));
+  const operators = topLevel.map(leaf => semanticComparisonField(leaf.expression)?.operator);
+  const bounded = (operators.length === 1 && (operators[0] === 'between' || operators[0] === 'inDateRange'))
+    || (operators.length === 2
+      && operators.some(operator => operator === 'gt' || operator === 'gte')
+      && operators.some(operator => operator === 'lt' || operator === 'lte'));
   const shape = timeField === undefined
     ? { message: `${subject} require a time field.`, path: '$.operation.filters' }
-    : timeSeriesRangeViolation(filterLeaves, isOnAxis, timeField, subject);
-  const topLevel = filterLeaves.filter(leaf => !leaf.nested && isOnAxis(leaf));
+    : bounded
+      ? undefined
+      : {
+          message: `${subject} require exactly one bounded range on "${timeField}" as top-level filters: `
+            + 'between, inDateRange, or gt/gte with lt/lte.',
+          path: '$.operation.filters',
+        };
   const relative = topLevel.length === 1 && semanticComparisonField(topLevel[0]!.expression)?.operator === 'inDateRange'
     ? relativeRangeDays((topLevel[0]!.expression as { right?: { value?: unknown } }).right?.value)
     : undefined;
@@ -223,14 +254,7 @@ export function validateSemanticEventOperation(
   if (eventRangeDays(range) > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
     fail(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`, '$.operation.filters');
   }
-  // A relative range is placed by the executor's clock, so its buckets are
-  // counted for the worst placement rather than for the anchored span.
-  const buckets = operation.by === undefined
-    ? undefined
-    : relative !== undefined
-      ? estimatePlacementFreeBuckets(relative, operation.by)
-      : estimateEventBuckets(range, operation.by);
-  const rows = estimatedRows(operation, buckets);
+  const rows = estimatedRows(operation, range, relative);
   if (rows > limits.maxRows) {
     fail(
       `This ${operation.kind} could return ${rows} rows; the limit is ${limits.maxRows}. `

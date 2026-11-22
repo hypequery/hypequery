@@ -1,7 +1,7 @@
 export { validateProtocolEventOperation, isProtocolEventOperationKind } from './validate.js';
 export { parseProtocolEventWindow } from './window.js';
 export { isProtocolPredicate } from './predicates.js';
-export { PROTOCOL_EVENT_OPERATION_LIMITS, PROTOCOL_FUNNEL_COLUMNS } from './limits.js';
+export { PROTOCOL_EVENT_OPERATION_LIMITS, PROTOCOL_FUNNEL_COLUMNS, PROTOCOL_RETENTION_COLUMNS } from './limits.js';
 export type {
   ProtocolEventCohortGrain,
   ProtocolEventOperation,
@@ -10,4 +10,6 @@ export type {
   ProtocolEventWindowUnit,
   ProtocolFunnelOperation,
   ProtocolFunnelStep,
+  ProtocolRetentionCondition,
+  ProtocolRetentionOperation,
 } from './types.js';
