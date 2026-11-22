@@ -1,3 +1,4 @@
+import { sqlSourceToContract } from './utils/sql-dataset-source.js';
 import { byName } from './utils/by-name.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
 import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
@@ -179,7 +180,7 @@ export function protocolDatasetRecord(
     name: dataset.name,
     ...(dataset.description !== undefined ? { description: dataset.description } : {}),
     ...toProtocolSemanticMetadata(dataset),
-    source: dataset.source,
+    source: dataset.sqlSource ? sqlSourceToContract(dataset.sqlSource) : dataset.source,
     ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
     ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),

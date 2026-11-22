@@ -1,4 +1,5 @@
 import { validateProtocolRowResolution } from '@hypequery/protocol';
+import { isDatasetSqlSource, resolveDatasetSqlSource } from './utils/sql-dataset-source.js';
 import type { RowResolution } from './types.js';
 /**
  * dataset() — creates a typed semantic model over a physical table.
@@ -125,7 +126,10 @@ export function dataset<
   // CheckedDatasetMeasures. Preserve their literal names and definition types.
   const measures = { ...config.measures } as TDefinitions;
   const filters = normalizeFilters(dimensions, config.filters) as NormalizedDatasetFilters<TDimensions, TFilters>;
-  const relationships = normalizeRelationships(config.relationships, config.source);
+  // A SQL source is read as a derived table under its alias (RFC 0028).
+  const sqlSource = isDatasetSqlSource(config.source) ? resolveDatasetSqlSource(name, config.source) : undefined;
+  const source = sqlSource ? sqlSource.alias : config.source as string;
+  const relationships = normalizeRelationships(config.relationships, source);
 
   type TMeasures = BaseMeasures<TDefinitions>;
   type ThisDataset = DatasetInstance<TDimensions, TDefinitions, TRelationships, TDatasetName, DerivedMeasures<TDefinitions>, TSegments, NormalizedDatasetFilters<TDimensions, TFilters>, TTimeKey, TTimeKeys[number]>;
@@ -174,7 +178,8 @@ export function dataset<
   const ds: ThisDataset = {
     __type: 'dataset',
     name,
-    source: config.source,
+    source,
+    ...(sqlSource ? { sqlSource } : {}),
     ...datasetRowResolution(name, config),
     description: config.description,
     ...snapshotSemanticMetadata(config),

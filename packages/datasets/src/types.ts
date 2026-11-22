@@ -635,6 +635,45 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
   description?: string;
 }
 
+/**
+ * A dataset source that is a query instead of a table (RFC 0028): one
+ * read-only ClickHouse `SELECT`, read as a derived table named after the
+ * dataset. Checked when the dataset is defined.
+ *
+ * @example
+ * ```ts
+ * source: {
+ *   sql: 'SELECT tenant_id, user_id, ts FROM app.signups UNION ALL SELECT tenant_id, user_id, ts FROM app.events',
+ *   dependencies: ['app.signups', 'app.events'],
+ *   columns: { tenant_id: 'string', user_id: 'string', ts: 'timestamp' },
+ * }
+ * ```
+ */
+export interface DatasetSqlSource {
+  /** One `SELECT` (or `WITH … SELECT`): no settings, table functions, comments, parameters or second statement. */
+  sql: string;
+  /**
+   * The derived table's alias, which field SQL may qualify columns with
+   * (`activity.step`). Defaults to the dataset name; publishing under another
+   * name keeps it, so qualified field SQL stays valid.
+   */
+  alias?: string;
+  /** Every table the SQL reads, as `table` or `database.table`, spelled as in the SQL. */
+  dependencies: readonly string[];
+  /** The derived table's columns: the only ones the dataset may reference. */
+  columns: Readonly<Record<string, FieldType>>;
+}
+
+/** A SQL source as a dataset instance holds it: frozen, with what the checker found. */
+export interface ResolvedDatasetSqlSource {
+  readonly sql: string;
+  readonly alias: string;
+  readonly dependencies: readonly string[];
+  readonly columns: Readonly<Record<string, FieldType>>;
+  /** The SQL reads a table with `FINAL`, so queries pin the FINAL safety setting. */
+  readonly readsFinal: boolean;
+}
+
 export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
@@ -644,7 +683,8 @@ export interface DatasetConfig<
   TTimeKey extends string | undefined = string | undefined,
   TTimeKeys extends readonly string[] = readonly string[],
 > extends SemanticMetadata {
-  source: string;
+  /** A table (`orders`, `analytics.orders`), or a SQL source (RFC 0028). */
+  source: string | DatasetSqlSource;
   /**
    * Read the source with ClickHouse `FINAL`, so queries see one row per
    * sorting key: the latest version in a ReplacingMergeTree (deleted keys
@@ -712,7 +752,13 @@ export interface DatasetInstance<
 > {
   __type: 'dataset';
   name: TDatasetName;
+  /**
+   * The name queries qualify base columns with: the table, or for a SQL
+   * source the dataset name, which aliases the derived table.
+   */
   source: string;
+  /** Set when the dataset reads a SQL source (RFC 0028) rather than a table. */
+  sqlSource?: ResolvedDatasetSqlSource;
   /**
    * True whenever `rowResolution` is set.
    *

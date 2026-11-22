@@ -141,6 +141,11 @@ export function resolveQualifiedField(
   }
 
   const target = relationship.target() as AnyDatasetInstance;
+  if (target.sqlSource) {
+    return {
+      error: `Relationship "${relationshipName}" on dataset "${ds.name}" targets "${target.name}", which reads a SQL source; SQL-sourced datasets can't be relationship targets yet (RFC 0028).`,
+    };
+  }
   const targetDimension = Object.hasOwn(target.dimensions, field)
     ? target.dimensions[field]
     : undefined;
