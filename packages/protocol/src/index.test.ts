@@ -46,6 +46,7 @@ describe('@hypequery/protocol public surface', () => {
       'PROTOCOL_IDENTIFIER_LIMITS',
       'PROTOCOL_EVENT_OPERATION_LIMITS',
       'PROTOCOL_FUNNEL_COLUMNS',
+      'PROTOCOL_RETENTION_COLUMNS',
       'PROTOCOL_NULL_CHECK_OPERATORS',
       'PROTOCOL_SEMANTIC_FAILURE_MESSAGES',
       'ProtocolCacheKeyError',

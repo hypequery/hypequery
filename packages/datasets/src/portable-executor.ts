@@ -63,7 +63,7 @@ export interface PortableSemanticExecutionInput {
 }
 
 /**
- * The data plane's RFC 0027 execution input: the same fields, with a funnel
+ * The data plane's RFC 0027 execution input: the same fields, with a funnel or retention
  * operation whose `filters` already carry any enforced constraints.
  */
 export interface PortableEventExecutionInput extends Omit<PortableSemanticExecutionInput, 'operation'> {
@@ -95,7 +95,7 @@ export interface PortableSemanticRuntime {
    */
   compile(input: PortableSemanticExecutionInput): PortableDatasetCompilation;
   execute(input: PortableSemanticExecutionInput): Promise<ProtocolSemanticInvocationResult>;
-  /** RFC 0027 funnels; wire into the data plane's `executeEventOperation`. */
+  /** RFC 0027 funnels and retention; wire into the data plane's `executeEventOperation`. */
   executeEventOperation(input: PortableEventExecutionInput): Promise<ProtocolSemanticInvocationResult>;
 }
 

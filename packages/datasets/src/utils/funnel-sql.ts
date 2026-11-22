@@ -8,8 +8,8 @@ import { eventConditionFlagSql } from './event-condition-sql.js';
 import { rankedBreakdownSql } from './event-breakdown-sql.js';
 import type { FunnelSpec } from './event-operation-spec.js';
 
-/** A planned funnel and what its rows mean. */
-export interface PlannedFunnel {
+/** A planned event operation and what its rows mean. */
+export interface PlannedEventStatement {
   readonly statement: PlannedStatement;
   readonly breakdown: readonly string[];
   readonly readsFinal: boolean;
@@ -65,7 +65,7 @@ export function buildFunnelSql(
   spec: FunnelSpec,
   options: DatasetQueryExecutionOptions,
   readsFinal: (joinCtx: ReturnType<typeof buildEventSourceSql>['joinCtx']) => boolean,
-): PlannedFunnel {
+): PlannedEventStatement {
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   if (dialect.name !== 'clickhouse') {
     throw new Error(`Funnels need ClickHouse; the "${dialect.name}" datasets dialect has no equivalent yet.`);

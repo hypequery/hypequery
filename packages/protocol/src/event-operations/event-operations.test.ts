@@ -73,8 +73,13 @@ describe('event operations (RFC 0027)', () => {
     const validated = validateProtocolEventOperation(value);
     expect(validated).toEqual(value);
     expect(Object.isFrozen(validated)).toBe(true);
-    expect(Object.isFrozen(validated.steps)).toBe(true);
-    expect(Object.isFrozen(validated.steps[0])).toBe(true);
+    if (validated.kind === 'funnel') {
+      expect(Object.isFrozen(validated.steps)).toBe(true);
+      expect(Object.isFrozen(validated.steps[0])).toBe(true);
+    } else {
+      expect(Object.isFrozen(validated.start)).toBe(true);
+      expect(Object.isFrozen(validated.return.where)).toBe(true);
+    }
   });
 
   it.each(rejections)('rejects $id with $error', ({ value, error }) => {
@@ -104,6 +109,21 @@ describe('event operations (RFC 0027)', () => {
       'kind', 'dataset', 'entity', 'steps', 'window', 'order', 'filters',
       'breakdown', 'breakdownLimit', 'by', 'timezone',
     ]);
+  });
+
+  it('keeps retention document order and reports retention paths', () => {
+    const retention = {
+      kind: 'retention', dataset: 'activity', grain: 'week', periods: 8, filters: [RANGE],
+      return: { where: [equals('eventName', 'query_run')] }, start: { where: [equals('eventName', 'signup')] },
+      timezone: 'UTC', breakdown: ['plan'], entity: 'accountId',
+    };
+    expect(Object.keys(validateProtocolEventOperation(retention))).toEqual([
+      'kind', 'dataset', 'entity', 'start', 'return', 'grain', 'periods', 'filters', 'breakdown', 'timezone',
+    ]);
+    expect(rejection({ ...retention, periods: 53 }).path).toBe('$.periods');
+    expect(rejection({ ...retention, start: { where: [] } }).path).toBe('$.start.where');
+    expect(rejection({ ...retention, breakdown: ['retained'] }).path).toBe('$.breakdown[0]');
+    expect(isProtocolEventOperationKind('retention')).toBe(true);
   });
 
   it('rejects a mutable or accessor-bearing operation', () => {

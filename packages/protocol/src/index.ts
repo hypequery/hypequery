@@ -105,6 +105,7 @@ export type {
 export {
   PROTOCOL_EVENT_OPERATION_LIMITS,
   PROTOCOL_FUNNEL_COLUMNS,
+  PROTOCOL_RETENTION_COLUMNS,
   isProtocolEventOperationKind,
   isProtocolPredicate,
   parseProtocolEventWindow,
@@ -119,6 +120,8 @@ export type {
   ProtocolEventWindowUnit,
   ProtocolFunnelOperation,
   ProtocolFunnelStep,
+  ProtocolRetentionCondition,
+  ProtocolRetentionOperation,
 } from './event-operations/index.js';
 
 export type {

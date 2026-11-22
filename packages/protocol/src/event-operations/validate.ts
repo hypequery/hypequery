@@ -3,14 +3,18 @@ import { ProtocolExpressionError, validateProtocolExpression } from '../expressi
 import { expressionError } from '../expressions/errors.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import { ProtocolIdentifierError, parseProtocolIdentifier } from '../identifiers/index.js';
-import { PROTOCOL_EVENT_OPERATION_LIMITS as LIMITS, PROTOCOL_FUNNEL_COLUMNS } from './limits.js';
+import {
+  PROTOCOL_EVENT_OPERATION_LIMITS as LIMITS,
+  PROTOCOL_FUNNEL_COLUMNS,
+  PROTOCOL_RETENTION_COLUMNS,
+} from './limits.js';
 import { isProtocolPredicate } from './predicates.js';
 import { exactFields, freezeRecord, requireArray, requireRecord, type DataRecord } from './records.js';
 import { parseProtocolEventWindow } from './window.js';
 import type { ProtocolEventOperation, ProtocolEventOperationKind } from './types.js';
 
 const COHORT_GRAINS: ReadonlySet<string> = new Set(['day', 'week', 'month']);
-const KINDS: ReadonlySet<string> = new Set<ProtocolEventOperationKind>(['funnel']);
+const KINDS: ReadonlySet<string> = new Set<ProtocolEventOperationKind>(['funnel', 'retention']);
 const COMMON_OPTIONAL = ['entity', 'breakdown', 'breakdownLimit', 'timezone'] as const;
 /** Predicates per filter list; a time range plus ordinary filters. */
 const MAX_FILTERS = 100;
@@ -139,6 +143,37 @@ function funnel(value: DataRecord): DataRecord {
   return result;
 }
 
+/** A `{ where }` record: what starts a cohort, or what counts as a return. */
+function condition(input: unknown, path: string): DataRecord {
+  const value = requireRecord(input, path);
+  exactFields(value, ['where'], [], path);
+  return freezeRecord({ where: conditions(value.where, `${path}.where`) });
+}
+
+function retention(value: DataRecord): DataRecord {
+  exactFields(value, ['kind', 'dataset', 'start', 'return', 'grain', 'periods', 'filters'], COMMON_OPTIONAL, '$');
+  const start = condition(value.start, '$.start');
+  const returning = condition(value.return, '$.return');
+  const grain = cohortGrain(value.grain, '$.grain');
+  const periods = boundedInteger(value.periods, '$.periods', 1, LIMITS.maxPeriods);
+  const shared: DataRecord = {};
+  common(value, shared, PROTOCOL_RETENTION_COLUMNS);
+  // Document order: kind, dataset, entity, start, return, grain, periods, filters, …
+  return {
+    kind: 'retention',
+    dataset: shared.dataset,
+    ...(shared.entity === undefined ? {} : { entity: shared.entity }),
+    start,
+    return: returning,
+    grain,
+    periods,
+    filters: shared.filters,
+    ...(shared.breakdown === undefined ? {} : { breakdown: shared.breakdown }),
+    ...(shared.breakdownLimit === undefined ? {} : { breakdownLimit: shared.breakdownLimit }),
+    ...(shared.timezone === undefined ? {} : { timezone: shared.timezone }),
+  };
+}
+
 /**
  * Validate an RFC 0027 operation: syntax, closed records, limits and output
  * names. Whether the dataset declares events, whether each field exists and
@@ -152,6 +187,8 @@ export function validateProtocolEventOperation(input: unknown): ProtocolEventOpe
   switch (value.kind) {
     case 'funnel':
       return freezeRecord(funnel(value)) as unknown as ProtocolEventOperation;
+    case 'retention':
+      return freezeRecord(retention(value)) as unknown as ProtocolEventOperation;
     default:
       return expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.kind');
   }

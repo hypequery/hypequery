@@ -1,5 +1,5 @@
 /**
- * Contract-driven validation of RFC 0027 event operations (funnel).
+ * Contract-driven validation of RFC 0027 event operations (funnel, retention).
  *
  * The protocol validator already checked syntax, closed records and
  * structural limits. What remains depends on the contract and the caller:
@@ -21,7 +21,12 @@ import {
   type SemanticOperationViolation,
 } from './semantic-operation-validation.js';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
-import { estimateEventBuckets, eventRangeDays, eventTimeRange } from './utils/event-time-range.js';
+import {
+  estimateEventBuckets,
+  eventRangeDays,
+  eventTimeRange,
+  type EventTimeRange,
+} from './utils/event-time-range.js';
 
 export interface SemanticEventOperationLimits {
   /** Largest row count the result may have after every ceiling is applied. */
@@ -62,17 +67,31 @@ function checkPredicate(
   return comparison.field;
 }
 
-/** `{ name, where }` lists the operation tests events against. */
+/** The condition lists an operation tests events against. */
 function conditionLists(operation: ProtocolEventOperation): { path: string; where: readonly ProtocolExpression[] }[] {
+  if (operation.kind === 'retention') {
+    return [
+      { path: '$.operation.start.where', where: operation.start.where },
+      { path: '$.operation.return.where', where: operation.return.where },
+    ];
+  }
   return operation.steps.map((step, index) => ({ path: `$.operation.steps[${index}].where`, where: step.where }));
 }
 
-/** Rows the operation can return, before execution, from its range and options. */
-function estimatedRows(operation: ProtocolEventOperation, buckets: number | undefined): number {
+/**
+ * Rows the operation can return, before execution, from its range and
+ * options: cohorts × steps (funnel) or cohorts × periods (retention), per
+ * breakdown group.
+ */
+function estimatedRows(operation: ProtocolEventOperation, range: EventTimeRange): number {
   const groups = operation.breakdown === undefined
     ? 1
     : operation.breakdownLimit ?? PROTOCOL_EVENT_OPERATION_LIMITS.defaultBreakdownLimit;
-  return (buckets ?? 1) * groups * operation.steps.length;
+  if (operation.kind === 'retention') {
+    return estimateEventBuckets(range, operation.grain) * operation.periods * groups;
+  }
+  const buckets = operation.by === undefined ? 1 : estimateEventBuckets(range, operation.by);
+  return buckets * groups * operation.steps.length;
 }
 
 /**
@@ -119,7 +138,7 @@ export function validateSemanticEventOperation(
       const path = `${list.path}[${index}]`;
       const field = checkPredicate(expression, path, allowed, fail);
       if (field !== undefined && (field.includes('.') || filterTarget(dataset, field) === timeField)) {
-        fail(`Step conditions may not use "${field}"; put the time range in filters.`, path);
+        fail(`Conditions may not use "${field}"; put the time range in filters.`, path);
       }
     });
   }
@@ -127,7 +146,7 @@ export function validateSemanticEventOperation(
     checkPredicate(expression, `$.operation.filters[${index}]`, allowed, fail);
   });
   if (operation.filters.length + conditions > limits.maxFilters) {
-    fail(`At most ${limits.maxFilters} filters and step conditions may be applied together.`, '$.operation');
+    fail(`At most ${limits.maxFilters} filters and conditions may be applied together.`, '$.operation');
   }
 
   const range = timeField === undefined
@@ -144,8 +163,7 @@ export function validateSemanticEventOperation(
   if (eventRangeDays(range) > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
     fail(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`, '$.operation.filters');
   }
-  const buckets = operation.by === undefined ? undefined : estimateEventBuckets(range, operation.by);
-  const rows = estimatedRows(operation, buckets);
+  const rows = estimatedRows(operation, range);
   if (rows > limits.maxRows) {
     fail(
       `This ${operation.kind} could return ${rows} rows; the limit is ${limits.maxRows}. `

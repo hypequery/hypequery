@@ -151,7 +151,7 @@ export type {
   PortableEventExecutionInput,
 } from './portable-executor.js';
 
-// RFC 0027 event operations (funnel) over event datasets.
+// RFC 0027 event operations (funnel, retention) over event datasets.
 export { eventOperationErrors, prepareEventOperation } from './event-operations.js';
 export type {
   EventOperationSpec,
@@ -159,6 +159,7 @@ export type {
   EventResultValue,
   FunnelSpec,
   PreparedEventOperation,
+  RetentionSpec,
 } from './event-operations.js';
 
 // SQL portability compiler (R1A-07)

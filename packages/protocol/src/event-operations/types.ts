@@ -52,7 +52,26 @@ export interface ProtocolFunnelOperation extends ProtocolEventOperationCommon {
   readonly by?: ProtocolEventCohortGrain;
 }
 
+/** What puts an entity into a cohort, or counts as its return. */
+export interface ProtocolRetentionCondition {
+  readonly where: readonly ProtocolExpression[];
+}
+
+/**
+ * Retention (RFC 0027): entities enter the cohort of the bucket holding their
+ * first `start` event; each period reports how many had a `return` event in
+ * the bucket `cohort + period`.
+ */
+export interface ProtocolRetentionOperation extends ProtocolEventOperationCommon {
+  readonly kind: 'retention';
+  readonly start: ProtocolRetentionCondition;
+  readonly return: ProtocolRetentionCondition;
+  readonly grain: ProtocolEventCohortGrain;
+  /** Periods after the cohort to report, 1–52. */
+  readonly periods: number;
+}
+
 /** An operation over an event dataset (RFC 0027). */
-export type ProtocolEventOperation = ProtocolFunnelOperation;
+export type ProtocolEventOperation = ProtocolFunnelOperation | ProtocolRetentionOperation;
 
 export type ProtocolEventOperationKind = ProtocolEventOperation['kind'];

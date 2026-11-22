@@ -1,5 +1,5 @@
 /**
- * RFC 0027 event operations (funnel) over an event dataset.
+ * RFC 0027 event operations (funnel, retention) over an event dataset.
  *
  * Planned as one raw ClickHouse statement over the dataset's scoped source,
  * so tenancy, row policies, enforced constraints and `FINAL` apply exactly as
@@ -15,11 +15,14 @@ import { statementRunner } from './utils/statement-runner.js';
 import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './utils/time-axis-bounds.js';
 import { isTimeKeyFilter } from './utils/query-timezone.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
-import { funnelResultRows, type EventResultRow } from './utils/funnel-rows.js';
-import type { EventOperationSpec } from './utils/event-operation-spec.js';
+import { funnelResultRows } from './utils/funnel-rows.js';
+import { buildRetentionSql } from './utils/retention-sql.js';
+import { retentionResultRows } from './utils/retention-rows.js';
+import { eventOperationConditions, type EventOperationSpec } from './utils/event-operation-spec.js';
+import type { EventResultRow } from './utils/event-result-values.js';
 
-export type { EventOperationSpec, FunnelSpec } from './utils/event-operation-spec.js';
-export type { EventResultRow, EventResultValue } from './utils/funnel-rows.js';
+export type { EventOperationSpec, FunnelSpec, RetentionSpec } from './utils/event-operation-spec.js';
+export type { EventResultRow, EventResultValue } from './utils/event-result-values.js';
 
 export interface PreparedEventOperation {
   readonly statement: RenderedStatement;
@@ -37,7 +40,7 @@ export function eventOperationErrors(
   context?: ExecutionContext,
 ): string[] {
   if (!ds.events) return [`Dataset "${ds.name}" does not declare events.`];
-  const conditions = spec.steps.flatMap(step => step.where);
+  const conditions = eventOperationConditions(spec);
   const errors = [...validateDatasetQueryInput(ds, {
     dimensions: [spec.entity, ...spec.breakdown],
     measures: [],
@@ -48,7 +51,7 @@ export function eventOperationErrors(
   }
   for (const condition of conditions) {
     if (condition.field.includes('.') || isTimeKeyFilter(ds, condition.field)) {
-      errors.push(`Step conditions may not use "${condition.field}"; put the time range in filters.`);
+      errors.push(`Conditions may not use "${condition.field}"; put the time range in filters.`);
     }
   }
   const range = resolveTimeAxisRange(ds, [...spec.filters]);
@@ -68,13 +71,21 @@ export function prepareEventOperation(
 ): PreparedEventOperation {
   const errors = eventOperationErrors(ds, spec, options.context);
   if (errors.length > 0) throw new Error(`Invalid ${spec.kind}: ${errors.join('; ')}`);
-  const planned = buildFunnelSql(ds, spec, options, joinCtx => queryReadsFinal(ds, joinCtx));
+  const readsFinal = (joinCtx: Parameters<typeof queryReadsFinal>[1]) => queryReadsFinal(ds, joinCtx);
+  const planned = spec.kind === 'retention'
+    ? buildRetentionSql(ds, spec, options, readsFinal)
+    : buildFunnelSql(ds, spec, options, readsFinal);
   const statement = withFinalSafety(planned.readsFinal, renderStatement(planned.statement));
   const runner = statementRunner(options.builderFactory, { kind: 'raw', statement }, {
     ...(options.context?.abortSignal === undefined ? {} : { abortSignal: options.context.abortSignal }),
   });
   return {
     statement,
-    execute: async () => funnelResultRows(spec, planned.breakdown, await runner.execute()),
+    execute: async () => {
+      const rows = await runner.execute();
+      return spec.kind === 'retention'
+        ? retentionResultRows(spec, planned.breakdown, rows)
+        : funnelResultRows(spec, planned.breakdown, rows);
+    },
   };
 }
