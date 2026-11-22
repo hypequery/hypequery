@@ -513,6 +513,75 @@ describe('semantic data plane', () => {
     }))).toBe('input-invalid');
   });
 
+  it('selects an alternate named by its column and bounds it through its dimension (RFC 0029)', async () => {
+    const base = orders() as Record<string, unknown> & { dimensions: unknown[]; filters: unknown[] };
+    const { filters, ...rest } = base;
+    const { filters: customerFilters, ...customer } = customers() as Record<string, unknown>;
+    const v3 = {
+      kind: 'hypequery-deployment',
+      version: 3,
+      datasets: [
+        { ...customer, allowedFilters: customerFilters },
+        {
+          ...rest,
+          allowedFilters: filters,
+          // The alternate names the column the `shippedAt` dimension reads.
+          alternateTimeFields: ['shipped_at'],
+          dimensions: [...base.dimensions, {
+            name: 'shippedAt', type: 'timestamp', source: { kind: 'column', column: 'shipped_at' },
+            filterable: true, groupable: true,
+          }],
+        },
+      ],
+    };
+    const on = (name: string, operator: string, value: unknown) => ({
+      kind: 'comparison', operator,
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value },
+    });
+    const filled = {
+      by: 'day', fill: true, timeKey: 'shipped_at',
+      filters: [on('shippedAt', 'gte', '2026-01-01'), on('shippedAt', 'lt', '2026-02-01')],
+    };
+    const everything = {
+      kind: 'hypequery-field-visibility', version: 1,
+      datasets: { orders: { dimensions: '*', measures: '*' }, customers: { dimensions: '*', measures: '*' } },
+    };
+    for (const overrides of [{}, { resolveFieldVisibility: async () => everything }]) {
+      const { plane: dataPlane } = plane({ deployment: v3 as never, ...overrides } as never);
+      const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+        invocation: invocation({ ...DATASET_QUERY, ...operation }),
+        credentials: 'token',
+      }));
+      expect(await reject(filled)).toBe('accepted');
+      expect(await reject({ by: 'day', fill: true, timeKey: 'shipped_at', filters: [on('shippedAt', 'inDateRange', 'last 7 days')] }))
+        .toBe('accepted');
+      expect(await reject({ filters: [on('shippedAt', 'inDateRange', 'today')] })).toBe('accepted');
+      // The range must still be on the selected axis.
+      expect(await reject({ ...filled, timeKey: 'createdAt' })).toBe('input-invalid');
+    }
+  });
+
+  it('matches the time field to a filter by backing column (RFC 0029)', async () => {
+    // `timeField` names the column that the `createdAt` dimension reads.
+    const byColumn = { ...orders(), timeField: 'created_at' };
+    const { plane: dataPlane } = plane({ deployment: deployment({ datasets: [customers(), byColumn] }) as never });
+    const reject = (operation: Record<string, unknown>) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, ...operation }),
+      credentials: 'token',
+    }));
+    const on = (name: string, operator: string, value: unknown) => ({
+      kind: 'comparison', operator,
+      left: { kind: 'reference', name },
+      right: { kind: 'literal', value },
+    });
+    expect(await reject({ filters: [on('createdAt', 'inDateRange', 'today')] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'inDateRange', 'last 7 days')] })).toBe('accepted');
+    expect(await reject({ by: 'day', fill: true, filters: [on('createdAt', 'gte', '2026-01-01'), on('createdAt', 'lt', '2026-02-01')] }))
+      .toBe('accepted');
+    expect(await reject({ filters: [on('status', 'inDateRange', 'today')] })).toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

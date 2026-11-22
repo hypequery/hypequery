@@ -288,7 +288,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
    */
   private prepareQuery<T extends DatasetQuery | MetricQuery>(target: unknown, input: T): T {
     const query = this.withTimezone(input);
-    if (!Array.isArray(query.filters)) return query;
+    // A bad zone is left for validation to report, so `validate()` returns it
+    // as an error instead of throwing here.
+    if (!Array.isArray(query.filters) || queryTimezoneErrors(query.timezone).length > 0) return query;
     let ds: AnyDatasetInstance | undefined;
     if (isDatasetInstance(target)) ds = target;
     else {

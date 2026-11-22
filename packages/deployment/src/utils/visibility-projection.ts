@@ -4,6 +4,7 @@ import type {
   ProtocolDeploymentDatasetV3,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
+import { isTimeAxisVisible } from './field-backing-column.js';
 
 type Dimension = ProtocolDeploymentDataset['dimensions'][number];
 
@@ -41,9 +42,10 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
   const { defaults, timeField, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
   const { alternateTimeFields, ...withoutAlternates } = rest as typeof rest & { alternateTimeFields?: readonly string[] };
   // RFC 0029: an alternate axis shows only beside a visible default axis, and
-  // only when its dimension is visible, so a hidden one is never named.
+  // only when a dimension naming it or reading its column is visible, so a
+  // hidden one is never named.
   const visibleAlternates = visible.timeField
-    ? alternateTimeFields?.filter(name => visible.dimensions.has(String(name)))
+    ? alternateTimeFields?.filter(name => isTimeAxisVisible(dataset, String(name), visible.dimensions))
     : undefined;
   const defaultDimensions = defaults?.dimensions?.filter(name => visible.dimensions.has(String(name)));
   const narrowedDefaults = {

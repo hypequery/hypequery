@@ -169,18 +169,48 @@ describe('inDateRange query filters (RFC 0029)', () => {
 describe('relative date filter rewriting', () => {
   const range = { field: 'createdAt', operator: 'inDateRange', value: 'today' } as const;
 
-  it('leaves non-arrays, untouched lists and malformed groups as written', () => {
+  it('leaves non-arrays, untouched lists and malformed trees as written', () => {
     expect(resolveRelativeDateFilters(Orders, undefined, NOW, 'UTC')).toBeUndefined();
     const plain = [{ field: 'country', operator: 'eq', value: 'US' }] as DatasetFilterNode[];
     expect(resolveRelativeDateFilters(Orders, plain, NOW, 'UTC')).toBe(plain);
-    const malformed = { and: [range], or: [] } as unknown as DatasetFilterNode;
-    const odd = { not: [] } as unknown as DatasetFilterNode;
-    expect(resolveRelativeDateFilters(Orders, [range, malformed, odd], NOW, undefined)).toEqual([
-      { field: 'createdAt', operator: 'gte', value: '2026-11-22' },
-      { field: 'createdAt', operator: 'lt', value: '2026-11-23' },
-      malformed,
-      odd,
-    ]);
+    // Validation reports a malformed tree; resolving any of it could throw.
+    for (const bad of [{ and: [range], or: [] }, { not: [] }, null]) {
+      const filters = [range, bad] as unknown as DatasetFilterNode[];
+      expect(resolveRelativeDateFilters(Orders, filters, NOW, undefined)).toBe(filters);
+    }
+    const cyclic: Record<string, unknown> = { and: [range] };
+    (cyclic.and as unknown[]).push(cyclic);
+    const looped = [cyclic] as unknown as DatasetFilterNode[];
+    expect(resolveRelativeDateFilters(Orders, looped, NOW, 'UTC')).toBe(looped);
+    const unnamed = [{ field: 7, operator: 'inDateRange', value: 'today' }] as unknown as DatasetFilterNode[];
+    expect(resolveRelativeDateFilters(Orders, unnamed, NOW, 'UTC')).toBe(unnamed);
+  });
+
+  it('reports malformed filters and a bad zone from validate() instead of throwing', () => {
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }), now: () => NOW });
+    const errors = (query: Record<string, unknown>) => client.validate(Orders, { measures: ['orders'], ...query } as never).errors;
+    expect(errors({ filters: [null] })).toContain('Each filter must be an object: a comparison, or an and/or/not group.');
+    const cyclic: Record<string, unknown> = { or: [range] };
+    (cyclic.or as unknown[]).push(cyclic);
+    expect(errors({ filters: [cyclic] })).toContain('Filter groups may nest at most 32 deep.');
+    expect(errors({ timezone: 'Bad/Zone', filters: [range] }))
+      .toContain('Invalid timezone: use an IANA name such as UTC or America/New_York.');
+  });
+
+  it('matches a time axis by its backing column', () => {
+    // `timeKey` names the column that the `createdAt` dimension reads.
+    const ByColumn = dataset('byColumn', {
+      source: 'orders',
+      timeKey: 'created_at',
+      dimensions: { createdAt: dimension.timestamp({ column: 'created_at' }) },
+      measures: { orders: measure.count('id') },
+    });
+    const filter = { field: 'createdAt', operator: 'inDateRange', value: 'today' } as const;
+    expect(relativeDateFilterError(ByColumn, filter)).toBeUndefined();
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:8123' }), now: () => NOW });
+    expect(client.validate(ByColumn, { measures: ['orders'], filters: [filter] }).errors).toEqual([]);
+    expect(client.compileDataset(ByColumn, { measures: ['orders'], filters: [filter] }).parameters)
+      .toEqual(['2026-11-22', '2026-11-23']);
   });
 
   it('explains a dataset with no time axis', () => {

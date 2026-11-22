@@ -30,4 +30,17 @@ describe('alternate time fields under visibility (RFC 0029)', () => {
     expect(narrowDatasetToVisible(dataset as never, visible(['shippedAt'], false) as never)).not.toHaveProperty('alternateTimeFields');
     expect(narrowDatasetToVisible(dataset as never, visible(['createdAt']) as never)).not.toHaveProperty('alternateTimeFields');
   });
+
+  it('keeps an alternate named by the column a visible dimension reads', () => {
+    const byColumn = {
+      ...dataset,
+      alternateTimeFields: ['shipped_at'],
+      dimensions: [
+        { name: 'shippedAt', type: 'timestamp', source: { kind: 'column', column: 'shipped_at' }, filterable: true, groupable: true },
+      ],
+    };
+    expect((narrowDatasetToVisible(byColumn as never, visible(['createdAt', 'shippedAt']) as never) as Record<string, unknown>)
+      .alternateTimeFields).toEqual(['shipped_at']);
+    expect(narrowDatasetToVisible(byColumn as never, visible(['createdAt']) as never)).not.toHaveProperty('alternateTimeFields');
+  });
 });
