@@ -5,6 +5,8 @@
 - Version: expression extension 2, deployment contract 3
 - Amends: RFC 0003 (expression extension 1), RFC 0006 (deployment contract 2)
 - Tracking: HQ-77, HQ-78, HQ-79, HQ-83, HQ-86
+- Amended by: RFC 0030 (target acceptance; query features gated by invocation
+  version)
 
 Acceptance freezes expression extension 2 and deployment contract 3.
 Implementations may not claim conformance to either until the fixtures listed
@@ -95,6 +97,13 @@ that names no new grain and no segment is invocation 1.
 A consumer that supports only the earlier versions rejects the new container
 version and does not partially execute it (decision 0001). A consumer that
 supports the new versions MUST keep accepting the earlier ones.
+
+[RFC 0030](./0030-deployment-target-capability-advertisement.md) amends this
+selection. The lowest-version rule still picks the version from content. The
+deployment target's `accepts` advertisement then decides whether that version
+may be sent, and a producer fails rather than lowering it. Query features are
+gated by semantic invocation version only, never by the deployment contract
+version, and every later query addition takes a new invocation version.
 
 ## Time grains
 
