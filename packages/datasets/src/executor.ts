@@ -15,10 +15,11 @@ import { buildDatasetPlan, buildMetricPlan } from './semantic-planner.js';
 import { assertMetricHandle, getMetricRef } from './utils/metric-handle.js';
 import { validateMetricQueryInput } from './utils/metric-query-validation.js';
 import { prepareDatasetQuery } from './utils/compile-dataset-query.js';
+import { calculationColumns, hasQueryCalculations } from './utils/query-calculation-outputs.js';
 import { snapshotExecutionContext } from './utils/snapshot-execution-context.js';
 import type { DatasetCompilation } from './dataset-compilation.js';
 import { isDatasetInstance } from './utils/dataset-target.js';
-import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
+import { withResolvedRelativeDates } from './utils/relative-date-filters.js';
 import { queryTimezoneErrors } from './utils/query-timezone.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
@@ -288,17 +289,15 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
    */
   private prepareQuery<T extends DatasetQuery | MetricQuery>(target: unknown, input: T): T {
     const query = this.withTimezone(input);
-    // A bad zone is left for validation to report, so `validate()` returns it
-    // as an error instead of throwing here.
-    if (!Array.isArray(query.filters) || queryTimezoneErrors(query.timezone).length > 0) return query;
+    // A bad zone is left as written for validation to report, so `validate()`
+    // returns it as an error instead of throwing here.
+    if (!Array.isArray(query.filters)) return query;
     let ds: AnyDatasetInstance | undefined;
     if (isDatasetInstance(target)) ds = target;
     else {
       try { ds = getMetricRef(target as MetricRef).dataset; } catch { ds = undefined; }
     }
-    if (!ds) return query;
-    const filters = resolveRelativeDateFilters(ds, query.filters, this.now(), query.timezone);
-    return filters === query.filters ? query : { ...query, filters };
+    return ds ? withResolvedRelativeDates(ds, query, this.now()) : query;
   }
 
   getCacheStats(): SemanticCacheStats {
@@ -494,7 +493,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       if (format === 'arrow') {
         return { data: await prepared.streamArrow(), meta };
       }
-      const measures = prepared.compilation.query.measures ?? [];
+      const measures = [
+        ...(prepared.compilation.query.measures ?? []),
+        ...calculationColumns(query as DatasetQuery).map(column => column.name),
+      ];
       return { data: serializeMeasureBatches(await prepared.stream(), measures), meta };
     }
 
@@ -643,6 +645,9 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         }
         if (boundedQuery.having?.length) {
           throw new Error('Dataset having conditions require the queryBuilder execution path.');
+        }
+        if (hasQueryCalculations(boundedQuery)) {
+          throw new Error('Dataset query calculations require the queryBuilder execution path.');
         }
         return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),

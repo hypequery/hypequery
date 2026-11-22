@@ -67,3 +67,19 @@ export class PortableExecutionTenantError extends PortableExecutionError {
   }
 }
 
+
+/**
+ * Signalled when a query the protocol validator accepted still cannot be
+ * planned against this dataset, such as an RFC 0026 calculation over a measure
+ * of the wrong kind or a time measure without a bounded range. The caller can
+ * correct it, so it is `input-invalid` rather than an executor failure.
+ */
+export class PortableExecutionInputError extends PortableExecutionError {
+  readonly code = 'HQ_SEMANTIC_INPUT_INVALID';
+  readonly category = 'input-invalid';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'PortableExecutionInputError';
+  }
+}

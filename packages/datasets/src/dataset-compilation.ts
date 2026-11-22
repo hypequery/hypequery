@@ -30,6 +30,8 @@ export interface DatasetCompilationDescription {
   readonly offset: number;
   readonly parameterCount: number;
   readonly preflightStatementCount: number;
+  /** RFC 0026 output columns, present when the query carries calculations. */
+  readonly calculations?: readonly string[];
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { ProtocolSemanticQuery } from '../expressions/index.js';
+import type { ProtocolCalculationColumn, ProtocolSemanticQuery } from '../expressions/index.js';
 import type { ProtocolEventOperation } from '../event-operations/index.js';
 
 /**
@@ -78,6 +78,8 @@ export interface ProtocolSemanticInvocationPagination {
 export interface ProtocolSemanticInvocationMeta {
   readonly rowCount: number;
   readonly pagination?: ProtocolSemanticInvocationPagination;
+  /** The typed output columns a query's calculations added. RFC 0026. */
+  readonly calculations?: readonly ProtocolCalculationColumn[];
 }
 
 /**

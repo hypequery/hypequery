@@ -106,6 +106,7 @@ export const REFERENCE_FAMILIES = [
   'identifiers-v1',
   'expressions-v1',
   'expressions-v2',
+  'query-calculations-v1',
   'query-schemas-v1',
   'query-implementations-v1',
   'query-events-v1',
@@ -136,6 +137,8 @@ export function referenceHandle(
     case 'expressions-v1':
       return handleExpression(role, c, section, 1);
     case 'expressions-v2':
+      return handleExpression(role, c, section, 2);
+    case 'query-calculations-v1':
       return handleExpression(role, c, section, 2);
     case 'query-schemas-v1':
       return attempt(() => {

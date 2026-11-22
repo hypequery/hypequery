@@ -1,3 +1,4 @@
+import { calculationColumns } from './query-calculation-outputs.js';
 import { baseMeasureNames } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
@@ -23,7 +24,11 @@ export function toDatasetQueryResult(
   const { dataset, query, sql, timingMs, context } = options;
   const selectedMeasures = query.measures ?? baseMeasureNames(dataset.measures);
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-  const serializedData = serializeSemanticMeasureValues(data, selectedMeasures);
+  // RFC 0026 outputs are measure values too, serialized the same way.
+  const calculations = calculationColumns(query);
+  const serializedData = serializeSemanticMeasureValues(data, [
+    ...selectedMeasures, ...calculations.map(column => column.name),
+  ]);
 
   return {
     data: serializedData,
@@ -33,6 +38,7 @@ export function toDatasetQueryResult(
       tenant: getRuntimeTenantId(context),
       rowCount: serializedData.length,
       pagination,
+      ...(calculations.length === 0 ? {} : { calculations }),
     },
   };
 }

@@ -9,6 +9,12 @@ export type RowResolution =
   | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: string }
   | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: string };
 import type { QueryableRelationshipMeasureNames, RelationshipMeasureDefinition } from './utils/relationship-measure-types.js';
+import type {
+  DatasetCalculationColumn,
+  DatasetQueryCalculation,
+  DatasetQueryLimitBy,
+  DatasetQueryOtherBucket,
+} from './utils/query-calculation-types.js';
 import type { DatasetFilterFor } from './utils/dataset-filter-types.js';
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticCacheMetaInfo, SemanticCacheRuntime } from './cache/semantic-query-cache.js';
@@ -478,6 +484,12 @@ export interface DatasetQuery {
   timeKey?: string;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
+  /** Query-scoped calculations over published measures (RFC 0026). */
+  calculations?: DatasetQueryCalculation[];
+  /** Top-N per group: the first `n` rows of each `by` group in `orderBy` order (RFC 0026). */
+  limitBy?: DatasetQueryLimitBy;
+  /** Top-N of one dimension plus a remainder bucket (RFC 0026). */
+  other?: DatasetQueryOtherBucket;
   /**
    * Return every `by` period of the query's bounded time range, empty ones
    * included (RFC 0029): count measures read 0 and the rest null, as in a
@@ -519,6 +531,8 @@ export interface MetricResultMeta {
   };
   /** Result-cache observability. Present when the call went through the cache. */
   cache?: SemanticCacheMetaInfo;
+  /** The typed output columns a dataset query's calculations added (RFC 0026). */
+  calculations?: DatasetCalculationColumn[];
 }
 
 export interface MetricResult<T = Record<string, unknown>> {
