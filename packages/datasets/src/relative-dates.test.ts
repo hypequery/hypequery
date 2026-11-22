@@ -5,6 +5,7 @@ import { measure } from './measure.js';
 import { createDatasetClient } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import { resolveRelativeDateRange } from './utils/relative-date-range.js';
+import { relativeDateFilterError, resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import type { DatasetFilterNode } from './types.js';
 
@@ -152,4 +153,44 @@ describe('inDateRange query filters (RFC 0029)', () => {
       segments: { recent: { filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'today' }] } },
     })).toThrow(/inDateRange/);
   });
+
+  it('resolves ranges inside and/or/not groups and in metric queries', () => {
+    const nested = compile([{ or: [
+      { and: [{ field: 'createdAt', operator: 'inDateRange', value: 'yesterday' }, { field: 'country', operator: 'eq', value: 'US' }] },
+      { not: { field: 'shippedAt', operator: 'inDateRange', value: 'today' } },
+    ] }]);
+    expect(nested.parameters).toEqual(['2026-11-21', '2026-11-22', 'US', '2026-11-22', '2026-11-23']);
+    const metric = Orders.metric('orders', { measure: 'orders' });
+    expect(client.toSQL(metric, { filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'last month' }] }))
+      .toContain("toDateTime64(orders.created_at, 9, 'Europe/Berlin') >= ?");
+  });
 });
+
+describe('relative date filter rewriting', () => {
+  const range = { field: 'createdAt', operator: 'inDateRange', value: 'today' } as const;
+
+  it('leaves non-arrays, untouched lists and malformed groups as written', () => {
+    expect(resolveRelativeDateFilters(Orders, undefined, NOW, 'UTC')).toBeUndefined();
+    const plain = [{ field: 'country', operator: 'eq', value: 'US' }] as DatasetFilterNode[];
+    expect(resolveRelativeDateFilters(Orders, plain, NOW, 'UTC')).toBe(plain);
+    const malformed = { and: [range], or: [] } as unknown as DatasetFilterNode;
+    const odd = { not: [] } as unknown as DatasetFilterNode;
+    expect(resolveRelativeDateFilters(Orders, [range, malformed, odd], NOW, undefined)).toEqual([
+      { field: 'createdAt', operator: 'gte', value: '2026-11-22' },
+      { field: 'createdAt', operator: 'lt', value: '2026-11-23' },
+      malformed,
+      odd,
+    ]);
+  });
+
+  it('explains a dataset with no time axis', () => {
+    const Untimed = dataset('untimed', {
+      source: 'untimed', dimensions: { day: dimension.timestamp() }, measures: { rows: measure.count('day') },
+    });
+    expect(relativeDateFilterError(Untimed, { field: 'day', operator: 'inDateRange', value: 'today' }))
+      .toBe('Filter "day" cannot use "inDateRange": dataset "untimed" has no time axis.');
+    expect(relativeDateFilterError(Orders, { field: 'customer.createdAt', operator: 'inDateRange', value: 'today' }))
+      .toMatch(/applies only to a time axis/);
+  });
+});
+
