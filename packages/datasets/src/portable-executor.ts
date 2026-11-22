@@ -68,6 +68,12 @@ export interface PortableSemanticExecutorOptions {
    * `CLOUD-09` owns the bounded multi-release cache.
    */
   readonly cacheRebuiltCatalogs?: boolean;
+  /**
+   * Clock that resolves `inDateRange` filters (RFC 0029), read once per call.
+   * Defaults to the system clock. The request carries no clock: a caller
+   * never decides what "today" is.
+   */
+  readonly now?: () => Date;
 }
 
 type Registry = Readonly<Record<string, RehydratedDataset>>;
@@ -90,7 +96,10 @@ export interface PortableSemanticRuntime {
 export function createPortableSemanticRuntime(
   options: PortableSemanticExecutorOptions,
 ): PortableSemanticRuntime {
-  const client = createDatasetClient({ queryBuilder: options.queryBuilder });
+  const client = createDatasetClient({
+    queryBuilder: options.queryBuilder,
+    ...(options.now === undefined ? {} : { now: options.now }),
+  });
   let memo: { revision: string; registry: Registry } | undefined;
 
   function registryFor(input: PortableSemanticExecutionInput): Registry {

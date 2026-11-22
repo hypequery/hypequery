@@ -1,5 +1,5 @@
 import type { AnyDatasetInstance, DatasetFilterNode, DatasetQuery, TimeGrain } from '../types.js';
-import { nestedFilterLeaves } from './filter-tree.js';
+import { filterTreeErrors, nestedFilterLeaves } from './filter-tree.js';
 import { isSupportedTimeGrain } from '../constants.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { isShiftMeasure } from './dataset-measures.js';
@@ -28,9 +28,14 @@ export function analyzeTimeMeasureAxis(
   query: DatasetQuery,
 ): { axis?: TimeMeasureAxis; errors: string[] } {
   const timeMeasures = selectedTimeMeasures(dataset, query);
-  if (timeMeasures.size === 0) return { errors: [] };
+  if (timeMeasures.size === 0 && query.fill !== true) return { errors: [] };
+  // A malformed filter tree is reported by the filter checks; walking it
+  // here could throw (a null filter, a cycle, a group nested too deep).
+  if (filterTreeErrors(query.filters).length > 0) return { errors: [] };
   const errors: string[] = [];
-  const subjects = [...timeMeasures.values()].some(isShiftMeasure) ? 'Window and shift measures' : 'Window measures';
+  const subjects = timeMeasures.size === 0
+    ? 'Filled queries'
+    : [...timeMeasures.values()].some(isShiftMeasure) ? 'Window and shift measures' : 'Window measures';
   if (!isSupportedTimeGrain(query.by)) return { errors: [`${subjects} require a supported "by" grain.`] };
   const grain = query.by;
   for (const [name, window] of timeMeasures) {

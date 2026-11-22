@@ -1,3 +1,4 @@
+import { isProtocolRelativeDateRange } from './relative-dates.js';
 import {
   ProtocolIdentifierError,
   parseProtocolIdentifier,
@@ -24,11 +25,14 @@ interface State {
   readonly extension: ProtocolExpressionExtension;
   readonly active: WeakSet<object>;
   nodes: number;
+  /** True only while validating a semantic query's `filters` (RFC 0029 `inDateRange`). */
+  relativeDates: boolean;
 }
 
 const BINARY = new Set(['add', 'subtract', 'multiply', 'divide']);
 const COMPARISONS = new Set([
   'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like', 'isNull', 'isNotNull',
+  'inDateRange',
 ]);
 const AGGREGATIONS_V1: ReadonlySet<ProtocolAggregation> = new Set<ProtocolAggregation>([
   'sum', 'count', 'countDistinct', 'avg', 'min', 'max',
@@ -177,6 +181,10 @@ function validateExpression(input: unknown, path: string, depth: number, state: 
         exactFields(value, nullCheck ? ['kind', 'operator', 'left'] : ['kind', 'operator', 'left', 'right'], [], path);
         const operator = stringValue(value.operator, `${path}.operator`);
         if (!COMPARISONS.has(operator)) expressionError('HQ_EXPRESSION_INVALID_OPERATOR', `${path}.operator`);
+        // RFC 0029: stored definitions must not change meaning with the calendar.
+        if (operator === 'inDateRange' && !state.relativeDates) {
+          expressionError('HQ_EXPRESSION_INVALID_OPERATOR', `${path}.operator`);
+        }
         if (nullCheck) {
           return freezeRecord({
             kind,
@@ -226,6 +234,12 @@ function validateExpression(input: unknown, path: string, depth: number, state: 
 }
 
 function validateComparisonOperands(operator: string, right: ProtocolExpression, path: string): void {
+  if (operator === 'inDateRange') {
+    if (right.kind !== 'literal' || !isProtocolRelativeDateRange(right.value)) {
+      expressionError('HQ_EXPRESSION_INVALID_VALUE', path);
+    }
+    return;
+  }
   if (operator === 'like') {
     if (right.kind !== 'literal' || typeof right.value !== 'string') {
       expressionError('HQ_EXPRESSION_INVALID_VALUE', path);
@@ -264,6 +278,27 @@ function validateAggregate(value: DataRecord, path: string, depth: number, state
     expressionError('HQ_EXPRESSION_INVALID_AGGREGATION', `${path}.level`);
   }
   const filters = value.filters === undefined ? undefined : arrayValue(value.filters, `${path}.filters`, state);
+  // An aggregate's filters are a measure definition, never a relative range (RFC 0029).
+  const relativeDates = state.relativeDates;
+  state.relativeDates = false;
+  try {
+    return validatedAggregate(value, path, depth, state, aggregation, isArg, isPercentile, level, filters);
+  } finally {
+    state.relativeDates = relativeDates;
+  }
+}
+
+function validatedAggregate(
+  value: DataRecord,
+  path: string,
+  depth: number,
+  state: State,
+  aggregation: ProtocolAggregation,
+  isArg: boolean,
+  isPercentile: boolean,
+  level: unknown,
+  filters: readonly unknown[] | undefined,
+): ProtocolExpression {
   return freezeRecord({
     kind: 'aggregate',
     aggregation,
@@ -287,7 +322,7 @@ function newState(options: ProtocolExpressionOptions): State {
   if (extension !== 1 && extension !== 2) {
     throw new RangeError('extension must be 1 or 2');
   }
-  return { limits: resolveExpressionLimits(options), extension, active: new WeakSet(), nodes: 0 };
+  return { limits: resolveExpressionLimits(options), extension, active: new WeakSet(), nodes: 0, relativeDates: false };
 }
 
 export function validateProtocolExpression(
@@ -318,7 +353,9 @@ export function validateProtocolSemanticQuery(
         'filters',
         ...(v2 ? ['segments'] : []),
         ...(metric ? [] : ['having']),
-        'orderBy', 'limit', 'offset', 'by', 'timezone', 'includeMeta',
+        'orderBy', 'limit', 'offset', 'by', 'timezone',
+        ...(metric ? [] : ['fill']),
+        'includeMeta',
       ],
       '$',
     );
@@ -332,13 +369,18 @@ export function validateProtocolSemanticQuery(
     if (!metric) copyIdentifierArray(value, result, 'measures', v2, state);
     if (value.filters !== undefined) {
       const filters = arrayValue(value.filters, '$.filters', state);
-      result.filters = Object.freeze(filters.map((filter, index) => validatePredicate(
-        filter,
-        `$.filters[${index}]`,
-        1,
-        state,
-        'HQ_EXPRESSION_INVALID_QUERY',
-      )));
+      state.relativeDates = true;
+      try {
+        result.filters = Object.freeze(filters.map((filter, index) => validatePredicate(
+          filter,
+          `$.filters[${index}]`,
+          1,
+          state,
+          'HQ_EXPRESSION_INVALID_QUERY',
+        )));
+      } finally {
+        state.relativeDates = false;
+      }
     }
     if (value.segments !== undefined) result.segments = validateSegments(value.segments, state);
     if (value.having !== undefined) {
@@ -358,6 +400,12 @@ export function validateProtocolSemanticQuery(
       // names regardless of the host's ICU or zoneinfo build.
       if (!CLIENT_TIMEZONE_NAMES.has(timezone)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.timezone');
       result.timezone = timezone;
+    }
+    if (value.fill !== undefined) {
+      if (typeof value.fill !== 'boolean') expressionError('HQ_EXPRESSION_TYPE', '$.fill');
+      // RFC 0029: periods to fill exist only under a grain.
+      if (value.by === undefined) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.fill');
+      result.fill = value.fill;
     }
     if (value.includeMeta !== undefined) {
       if (typeof value.includeMeta !== 'boolean') expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.includeMeta');

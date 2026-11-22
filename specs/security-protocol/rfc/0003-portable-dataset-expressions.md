@@ -32,7 +32,9 @@ kinds MUST be rejected.
   its fixed-arity `args` array. `round` accepts one or two arguments.
 - `comparison`: one of `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
   `between`, or `like`, with `left` and `right`; or `isNull` or `isNotNull`,
-  with `left` only ([RFC 0023](./0023-null-check-comparisons.md)).
+  with `left` only ([RFC 0023](./0023-null-check-comparisons.md)); or
+  `inDateRange`, with a relative date string as `right`, in semantic-query
+  filters only ([RFC 0029](./0029-boolean-filters-relative-dates-fill-time-keys.md)).
 - `logical`: `and` or `or` with at least two `operands`, or `not` with one
   `operand`.
 - `aggregate`: one of `sum`, `count`, `countDistinct`, `avg`, `min`, `max`,
@@ -63,9 +65,10 @@ the field entirely, including an empty array.
 
 A dataset query has `kind: "dataset"`, a simple `dataset` identifier, and may
 contain `dimensions`, `measures`, `filters`, `having`, `orderBy`, `limit`,
-`offset`, `by`, `timezone`, and `includeMeta`. A metric query has
-`kind: "metric"`, `dataset`, `metric`, and the same fields except `measures`
-and `having`. RFC 0025 defines `having` and `timezone`.
+`offset`, `by`, `timezone`, `fill`, and `includeMeta`. A metric query has
+`kind: "metric"`, `dataset`, `metric`, and the same fields except `measures`,
+`having` and `fill`. RFC 0025 defines `having` and `timezone`; RFC 0029
+defines `fill`.
 
 Dimensions, filters, and ordering may use qualified relationship paths. The
 version 1 identifier limit therefore bounds traversal to eight segments, while
@@ -108,6 +111,9 @@ optional and, when present, may be empty. A metric query MUST reject a
 | Tenant key and tenant-required state | Contract metadata; trusted runtime supplies tenant scope |
 | `includeMeta` | Query envelope flag |
 | `having` conditions and query timezone | Query envelope `having` and `timezone` (RFC 0025) |
+| Nested `and`/`or`/`not` filter groups | `logical` predicates in query `filters` (RFC 0029) |
+| Relative date ranges on a time axis | `inDateRange` comparison (RFC 0029) |
+| Filled `by` series | Query envelope `fill` (RFC 0029) |
 | Typed result rows and canonical result values | Response contract concern; not query intent |
 | Pagination, timing, SQL, tenant, and cache result metadata | Response/runtime concern; not query intent |
 | Runtime tenant value and cache controls | Trusted execution context; never expression input |

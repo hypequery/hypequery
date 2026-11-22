@@ -88,6 +88,29 @@ await analytics.execute(Orders, {
 ```
 </CodeBlock>
 
+## Relative date ranges
+
+`inDateRange` filters a time axis by a range relative to today:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  measures: ['revenue'],
+  filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'last 30 days' }],
+});
+```
+</CodeBlock>
+
+| Value | Range |
+| --- | --- |
+| `today`, `yesterday` | That day |
+| `this week`, `this month`, `this quarter`, `this year` | The whole current period, including the days still to come |
+| `last week`, `last month`, `last quarter`, `last year` | The previous whole period |
+| `last 7 days`, `last 3 months`, … (`last N <unit>s`, N from 1 to 9999) | N whole periods that end where the current one starts. The current period isn't included, so `last 7 days` ends yesterday |
+| `month to date`, `quarter to date`, `year to date` | From the start of the current period through today |
+
+The client works out the range once per query, in the query timezone, as `>= start` and `< end` dates. A cached result therefore never answers for a different day. Weeks start on Sunday, like the `week` grain. `inDateRange` works only on a time axis (`timeKey` or one of `timeKeys`), and the filter must allow `gte` and `lt`. Measure filters and segments can't use it. Pass `now` to `createDatasetClient` to pin the clock in tests.
+
 ## Combine filters with `and`, `or` and `not`
 
 A query's `filters` list is ANDed. Nest `{ or: [...] }`, `{ and: [...] }` and `{ not: filter }` groups in it for anything else:

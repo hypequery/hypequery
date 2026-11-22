@@ -12,7 +12,7 @@ import { measureDependencyNames } from './measure-dependencies.js';
 import { overfetchLimit } from './pagination.js';
 import { resolveResultLimit } from './result-limits.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
-import { selectedTimeMeasures } from './time-query-measures.js';
+import { usesTimeSeriesPlan } from './time-query-measures.js';
 import { filterLeaves } from './filter-tree.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
@@ -60,8 +60,10 @@ export function prepareDatasetQuery(
     buildRelationshipBuilderContext(dataset, query, options.context, resolveDatasetSqlDialect(options.builderFactory)),
   );
 
-  if (selectedTimeMeasures(dataset, query).size) {
+  if (usesTimeSeriesPlan(dataset, query)) {
     plan = 'time';
+    // The planner validates the selection as written, then fills the default
+    // measures itself when they were omitted.
     const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
     const main = withFinalSafety(readsFinal(), renderStatement(planned.statement));
     const preflight = withFinalSafety(readsFinal(), renderStatement(planned.preflight));

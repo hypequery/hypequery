@@ -2,6 +2,7 @@ import { hmac } from '@noble/hashes/hmac.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { validateProtocolSemanticQuery } from '../expressions/validate.js';
+import type { ProtocolExpression } from '../expressions/types.js';
 import { serializeJcs } from '../values/jcs.js';
 import type {
   BuildProtocolCachePreimageOptions,
@@ -69,6 +70,14 @@ function compareUtf8(left: string, right: string): number {
   return a.byteLength - b.byteLength;
 }
 
+function usesRelativeDateRange(expression: ProtocolExpression): boolean {
+  if (expression.kind === 'comparison') return expression.operator === 'inDateRange';
+  if (expression.kind !== 'logical') return false;
+  return expression.operator === 'not'
+    ? usesRelativeDateRange(expression.operand)
+    : expression.operands.some(usesRelativeDateRange);
+}
+
 function normalizeQuery(source: unknown): Record<string, unknown> {
   let query;
   try {
@@ -83,6 +92,11 @@ function normalizeQuery(source: unknown): Record<string, unknown> {
   // definition identity by the caller, and UTC (the default) folds nothing.
   if (query.kind === 'dataset' && (query.having?.length ?? 0) > 0) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   if (query.timezone !== undefined && query.timezone !== 'UTC') fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  // RFC 0029: a relative range means a different query every day, and a
+  // filled series has rows the preimage can't describe. Neither has a
+  // portable key; `fill: false` is the default and is dropped below.
+  if ((query.filters ?? []).some(usesRelativeDateRange)) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  if (query.kind === 'dataset' && query.fill === true) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   // AND-combined, so order cannot change rows; identical filters collapse.
   const filters = new Map<string, unknown>();
   for (const filter of query.filters ?? []) filters.set(serializeJcs(filter), filter);

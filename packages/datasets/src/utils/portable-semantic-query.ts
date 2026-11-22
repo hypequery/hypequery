@@ -78,6 +78,8 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
         }
       : {}),
     ...(operation.timezone === undefined ? {} : { timezone: operation.timezone }),
+    // RFC 0029: the dataset client plans a filled series on the time axis.
+    ...(operation.kind === 'dataset' && operation.fill === true ? { fill: true } : {}),
   };
 }
 

@@ -55,6 +55,9 @@ export function datasetHavingErrors(
   const errors: string[] = [];
   if (selectedTimeMeasures(ds, query).size > 0) {
     errors.push('Having is not supported on queries that select window or shift measures.');
+  } else if (query.fill === true) {
+    // It would delete the rows fill adds (RFC 0029).
+    errors.push('Having is not supported on filled queries.');
   }
   // `maxFilters` bounds every predicate the query adds, before and after
   // aggregation alike. Filters alone over the limit are reported separately.

@@ -6,7 +6,7 @@ import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { queryTimeFilter } from './query-timezone.js';
 import { applyFilterTree } from './filter-predicate-tree.js';
-import { selectedTimeMeasures } from './time-query-measures.js';
+import { usesTimeSeriesPlan } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
 import type {
   AnyDatasetInstance,
@@ -35,7 +35,7 @@ export function buildDatasetQueryBuilder(
   query: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
-  if (selectedTimeMeasures(dataset, query).size) {
+  if (usesTimeSeriesPlan(dataset, query)) {
     throw new Error('A time-based dataset query needs the time-measure SQL planner; use createDatasetClient().toSQL().');
   }
   if (hasSelectedDerivedMeasure(dataset, query)) {

@@ -5,7 +5,12 @@ export type ProtocolBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
 export type ProtocolFunctionName = 'nullIfZero' | 'coalesce' | 'round' | 'floor' | 'ceil';
 /** Comparison operators that compare `left` with a `right` value. */
 export type ProtocolValueComparisonOperator =
-  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like'
+  /**
+   * A relative date range such as `"last 30 days"` (RFC 0029). Allowed only
+   * in a semantic query's `filters`; the executor resolves it.
+   */
+  | 'inDateRange';
 /** Comparison operators that test `left` for NULL and take no `right` (RFC 0023). */
 export type ProtocolNullCheckOperator = 'isNull' | 'isNotNull';
 export type ProtocolComparisonOperator = ProtocolValueComparisonOperator | ProtocolNullCheckOperator;
@@ -136,6 +141,11 @@ export interface ProtocolDatasetQuery extends ProtocolQueryCommon {
    * Each condition requires its measure in `measures`. RFC 0025.
    */
   readonly having?: readonly ProtocolHavingCondition[];
+  /**
+   * Return every `by` period of the query's bounded time range, filling
+   * empty ones (RFC 0029). Requires `by`; `false` means the same as absent.
+   */
+  readonly fill?: boolean;
 }
 
 export interface ProtocolMetricQuery extends ProtocolQueryCommon {

@@ -14,6 +14,14 @@ export function selectedTimeMeasures(dataset: AnyDatasetInstance, query: Dataset
   return measures;
 }
 
+/**
+ * True when the query needs the bounded time-axis planner: it selects a window
+ * or shift measure, or asks for a filled series (RFC 0029).
+ */
+export function usesTimeSeriesPlan(dataset: AnyDatasetInstance, query: DatasetQuery): boolean {
+  return query.fill === true || selectedTimeMeasures(dataset, query).size > 0;
+}
+
 export function usesTimeMeasure(definition: DerivedMeasureDefinition, measures: Readonly<Record<string, DatasetMeasureDefinition>>): boolean {
   return measureDependencyNames(measures, Object.values(definition.uses)).some(name => isWindowMeasure(measures[name]) || isShiftMeasure(measures[name]));
 }

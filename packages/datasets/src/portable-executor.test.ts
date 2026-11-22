@@ -301,6 +301,32 @@ describe('portable semantic execution', () => {
     expect(statements[0]).toContain("tenant_id = 'acme'");
   });
 
+  it('resolves inDateRange with its own clock and fills the series (RFC 0029)', async () => {
+    const raw: { sql: string; parameters: unknown }[] = [];
+    const factory: QueryBuilderFactoryLike = {
+      ...recordingFactory().factory,
+      table: (name: string) => createQueryBuilder({ host: 'http://127.0.0.1:1' }).table(name as never) as unknown as QueryBuilderLike,
+      rawQuery: async (sql: string, parameters?: unknown) => { raw.push({ sql, parameters }); return []; },
+    } as QueryBuilderFactoryLike;
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory, now: () => new Date('2026-11-22T10:00:00Z') });
+
+    await execute(input({
+      operation: {
+        kind: 'dataset', dataset: 'orders', measures: ['revenue'], by: 'day', fill: true, timezone: 'Europe/Berlin',
+        filters: [{
+          kind: 'comparison', operator: 'inDateRange',
+          left: { kind: 'reference', name: 'createdAt' },
+          right: { kind: 'literal', value: 'last 7 days' },
+        }],
+      } as never,
+    }));
+
+    const main = raw.find(statement => statement.sql.includes('_hq_values'))!;
+    expect(main.sql).toContain('_hq_series');
+    expect(JSON.stringify(main.parameters ?? main.sql)).toContain('2026-11-15');
+    expect(JSON.stringify(main.parameters ?? main.sql)).toContain('2026-11-22');
+  });
+
   // -- budgets -------------------------------------------------------------
 
   it('applies the budget as the limit when the caller omits one', async () => {

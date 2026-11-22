@@ -175,7 +175,8 @@ The grammar is lowercase ASCII words separated by single spaces:
 from 1 to 9999 written without leading zeros. Both `last 1 month` and
 `last 3 month` are valid, as are `last 1 months` and `last 3 months`. `T` is
 today's date and `S` is the first day of the unit containing `T`, so for
-`day`, `S = T`.
+`day`, `S = T`. A start before 1900-01-01 resolves to 1900-01-01, the earliest
+date ClickHouse stores, so `last 9999 years` means "since 1900".
 
 The current period is defined the way Cube defines it:
 

@@ -205,6 +205,11 @@ from .query_implementations import (
     query_implementation_to_data,
     validate_protocol_query_implementation,
 )
+from .relative_dates import (
+    ProtocolRelativeDateRange,
+    is_protocol_relative_date_range,
+    parse_protocol_relative_date_range,
+)
 from .releases import (
     DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS,
     PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN,
@@ -366,6 +371,7 @@ __all__ = [
     "ProtocolQueryTimeGrain",
     "ProtocolRecordSchema",
     "ProtocolReferenceExpression",
+    "ProtocolRelativeDateRange",
     "ProtocolRuntimeReferenceImplementation",
     "ProtocolSchema",
     "ProtocolSchemaError",
@@ -425,11 +431,13 @@ __all__ = [
     "is_empty_protocol_business_context",
     "is_protocol_identifier",
     "is_protocol_qualified_identifier",
+    "is_protocol_relative_date_range",
     "join_protocol_qualified_identifier",
     "map_value",
     "parse_client_contract_features",
     "parse_protocol_identifier",
     "parse_protocol_qualified_identifier",
+    "parse_protocol_relative_date_range",
     "prepare_protocol_business_context",
     "prepare_protocol_client_contract",
     "prepare_protocol_deployment_bundle_manifest",

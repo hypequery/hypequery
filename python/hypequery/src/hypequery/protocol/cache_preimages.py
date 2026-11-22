@@ -16,7 +16,13 @@ from typing import Final, Literal, NoReturn, TypeAlias
 from ._jcs import serialize_jcs
 from .cache_keys import MAX_CACHE_KEY_PREIMAGE_BYTES, MIN_CACHE_KEY_SECRET_BYTES
 from .errors import ProtocolExpressionError
-from .expression_models import ProtocolDatasetQuery, semantic_query_to_data
+from .expression_models import (
+    ProtocolComparisonExpression,
+    ProtocolDatasetQuery,
+    ProtocolExpression,
+    ProtocolLogicalExpression,
+    semantic_query_to_data,
+)
 from .expressions import validate_protocol_semantic_query
 from .utf8 import encode_utf8
 
@@ -83,6 +89,14 @@ def _jcs(value: object) -> str:
     return serialize_jcs(value, max_bytes=MAX_CACHE_KEY_PREIMAGE_BYTES)
 
 
+def _uses_relative_date_range(expression: ProtocolExpression) -> bool:
+    if isinstance(expression, ProtocolComparisonExpression):
+        return expression.operator == "inDateRange"
+    if isinstance(expression, ProtocolLogicalExpression):
+        return any(_uses_relative_date_range(item) for item in expression.operands)
+    return False
+
+
 def _normalize_query(source: object) -> dict[str, object]:
     try:
         validated = validate_protocol_semantic_query(source, extension=2)
@@ -96,6 +110,12 @@ def _normalize_query(source: object) -> dict[str, object]:
     if isinstance(validated, ProtocolDatasetQuery) and validated.having:
         _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
     if validated.timezone is not None and validated.timezone != "UTC":
+        _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
+    # RFC 0029: a relative range is a different query every day, and a filled
+    # series has rows the preimage can't describe. ``fill: false`` is dropped.
+    if any(_uses_relative_date_range(item) for item in validated.filters or ()):
+        _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
+    if isinstance(validated, ProtocolDatasetQuery) and validated.fill is True:
         _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
     query = semantic_query_to_data(validated)
     # AND-combined, so order cannot change rows; identical filters collapse.
