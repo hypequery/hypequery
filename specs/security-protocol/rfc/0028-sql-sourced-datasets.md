@@ -59,6 +59,7 @@ checker can't prove is refused.
 | Key | Type | Rule |
 |---|---|---|
 | `sql` | string | One read-only ClickHouse `SELECT`; see "SQL rules". |
+| `alias` | string, optional | The derived table's alias, which field SQL may qualify columns with. A portable identifier; defaults to the dataset name. |
 | `dependencies` | string[] | Every table the SQL reads, as `table` or `database.table`, spelled as in the SQL. Non-empty, unique, at most 64. |
 | `columns` | `{ [name]: 'string' \| 'number' \| 'boolean' \| 'timestamp' }` | The derived table's columns. Non-empty, at most the dataset item limit. Names are portable identifiers. |
 
@@ -69,8 +70,9 @@ in the dataset must name one: column-backed dimensions (whose declared type must
 equal the column's), `tenantKey`, `timeKey`/`timeKeys` that aren't dimensions,
 filter fields that aren't dimensions, measure `field`/`argField` that aren't
 dimensions, relationship `from` keys, row-policy fields, and raw-SQL field
-`dependencies`. A dimension's raw `sql` may qualify columns with the dataset
-name (`activity.step`) or leave them bare.
+`dependencies`. A reference may be bare or qualified with the alias
+(`activity.step`). Fields qualified with a relationship name belong to its
+target.
 
 `rowResolution` and the deprecated `final` are refused on a SQL source. `FINAL`
 is a table modifier and a derived table has no single table to resolve; write
@@ -144,14 +146,16 @@ accepted only because rule 6 treats each list item as a table reference.
 The planner reads a SQL source as
 
 ```sql
-(SELECT tenant_id, user_id, step, occurred_at FROM (<sql>)) AS activity
+(SELECT `tenant_id`, `user_id`, `step`, `occurred_at` FROM (<sql>)) AS `activity`
 ```
 
-The projection lists the declared columns in declared order, so a column the
-SQL produces but doesn't declare is unreachable. A declared column the SQL
-doesn't produce fails at execution with ClickHouse's own error. The alias is
-the dataset name and qualifies base columns wherever a table source would use
-the table name.
+The projection lists the declared columns, quoted, in declared order, so a
+column the SQL produces but doesn't declare is unreachable and a column named
+like a keyword still projects. A declared column the SQL doesn't produce fails
+at execution with ClickHouse's own error. The alias qualifies base columns
+wherever a table source would use the table name. It is part of the source,
+not the dataset's name: publishing a dataset under another name keeps it, so
+field SQL that qualifies with it stays valid after rehydration.
 
 Interaction with existing semantics:
 
@@ -186,6 +190,7 @@ and 3:
     "kind": "sql",
     "dialect": "clickhouse",
     "sql": "SELECT tenant_id, user_id, … FROM app.invoices",
+    "alias": "activity",
     "dependencies": ["app.signups", "app.events", "app.subscriptions", "app.invoices"],
     "columns": [
       { "name": "tenant_id", "type": "string" },
@@ -197,7 +202,8 @@ and 3:
 }
 ```
 
-`kind` and `dialect` are required and must be `sql` and `clickhouse`. Columns
+`kind` and `dialect` are required and must be `sql` and `clickhouse`. `alias`
+is required in the contract; publishing writes the code-first default. Columns
 are an array in declared order, which is the projection order. The validator
 applies every rule in this RFC. Structural failures use the existing codes
 (`HQ_DEPLOYMENT_TYPE`, `HQ_DEPLOYMENT_UNKNOWN_FIELD`,
@@ -206,14 +212,19 @@ applies every rule in this RFC. Structural failures use the existing codes
 at `…source.sql` (including a dependency in a system database); a coverage
 failure is `HQ_DEPLOYMENT_INVALID_REFERENCE` at `…source.dependencies`.
 
-The contract validator checks the column references it can resolve without
-the dataset vocabulary: the tenant field, and each column-backed dimension's
-column and type (`HQ_DEPLOYMENT_INVALID_REFERENCE` at `…tenant.field` or
-`…dimensions[i].source.column`). `rowResolution` beside a SQL source is
-`HQ_DEPLOYMENT_INVALID_VALUE` at `…rowResolution`. The remaining references
-(measure fields, filters, time keys, relationship keys, raw-SQL dependencies)
-are checked by the definition rules above, which rehydration runs, so a
-portable executor refuses the dataset before it plans a query.
+The contract validator checks every column reference it can name:
+
+- the tenant field;
+- each column-backed dimension's column and type;
+- SQL-expression dimension and measure dependencies;
+- `timeField`, measure `field`/`argField` and filter fields that aren't
+  dimensions or relationship-qualified;
+- relationship `from` keys.
+
+Each failure is `HQ_DEPLOYMENT_INVALID_REFERENCE` at that field.
+`rowResolution` beside a SQL source is `HQ_DEPLOYMENT_INVALID_VALUE` at
+`…rowResolution`. Measure filters are expressions; the definition rules check
+them on rehydration, before a portable executor plans a query.
 
 Older validators read `source` as text and reject the object
 (`HQ_DEPLOYMENT_TYPE`). Consumers upgrade together; nothing strips the object or
