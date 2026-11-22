@@ -12,9 +12,11 @@ export function fieldBackingColumn(dataset: ProtocolDeploymentDatasetAnyVersion,
 }
 
 /**
- * True when a time axis is visible: a visible dimension is named by it or
- * reads the column it names (RFC 0029). An axis no dimension reads cannot be
- * shown by a policy, so it stays hidden.
+ * True when a time axis is visible (RFC 0029). An axis that names a dimension
+ * is that dimension, as the planner resolves it, so it is visible only when
+ * that dimension is. An axis that names a column no dimension is named after
+ * is visible when a visible dimension reads that column. An axis no dimension
+ * reads cannot be shown by a policy, so it stays hidden.
  */
 export function isTimeAxisVisible(
   dataset: ProtocolDeploymentDatasetAnyVersion,
@@ -22,6 +24,7 @@ export function isTimeAxisVisible(
   visibleDimensions: ReadonlySet<string>,
 ): boolean {
   if (visibleDimensions.has(axis)) return true;
+  if (dataset.dimensions.some(dimension => String(dimension.name) === axis)) return false;
   return dataset.dimensions.some(dimension => (
     visibleDimensions.has(String(dimension.name)) && fieldBackingColumn(dataset, String(dimension.name)) === axis
   ));

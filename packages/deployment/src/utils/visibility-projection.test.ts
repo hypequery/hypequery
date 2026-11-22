@@ -43,4 +43,19 @@ describe('alternate time fields under visibility (RFC 0029)', () => {
       .alternateTimeFields).toEqual(['shipped_at']);
     expect(narrowDatasetToVisible(byColumn as never, visible(['createdAt']) as never)).not.toHaveProperty('alternateTimeFields');
   });
+
+  it('never shows a hidden dimension through another dimension that reads its name as a column', () => {
+    // `shipped_at` names a hidden dimension; `shippedAt` merely reads a column of that name.
+    const shadowed = {
+      ...dataset,
+      alternateTimeFields: ['shipped_at'],
+      dimensions: [
+        { name: 'shipped_at', type: 'timestamp', source: { kind: 'column', column: 'private_at' }, filterable: true, groupable: true },
+        { name: 'shippedAt', type: 'timestamp', source: { kind: 'column', column: 'shipped_at' }, filterable: true, groupable: true },
+      ],
+    };
+    expect(narrowDatasetToVisible(shadowed as never, visible(['createdAt', 'shippedAt']) as never)).not.toHaveProperty('alternateTimeFields');
+    expect((narrowDatasetToVisible(shadowed as never, visible(['createdAt', 'shipped_at']) as never) as Record<string, unknown>)
+      .alternateTimeFields).toEqual(['shipped_at']);
+  });
 });
