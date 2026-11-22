@@ -1,4 +1,5 @@
 import { validateProtocolRowResolution } from './row-resolution.js';
+import { isProtocolSqlSource, validateProtocolSqlSource } from './sql-source.js';
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import {
@@ -888,7 +889,11 @@ function validateDataset(
   // `field` is a plain call and the first failure throws.
   const result: Record<string, unknown> = {
     name: field(() => identifier(value.name, `${path}.name`)),
-    source: field(() => boundedText(value.source, `${path}.source`, limits.maxSourceBytes)),
+    source: field(() => (
+      typeof value.source === 'object' && value.source !== null
+        ? validateProtocolSqlSource(value.source, `${path}.source`, limits)
+        : boundedText(value.source, `${path}.source`, limits.maxSourceBytes)
+    )),
     tenant: field(() => validateTenant(value.tenant, `${path}.tenant`, limits)),
     dimensions: field(() => namedItems(
       value.dimensions, `${path}.dimensions`, limits.maxDatasetItems,
@@ -939,6 +944,9 @@ function validateDataset(
   if (value.rowResolution !== undefined) {
     result.rowResolution = field(() => validateProtocolRowResolution(value.rowResolution, `${path}.rowResolution`));
   }
+  if (isProtocolSqlSource(result.source)) {
+    validateSqlSourceReferences(value, result, path, issues);
+  }
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
   }
@@ -957,6 +965,35 @@ function validateDataset(
   }
   issues?.checkpoint(since);
   return freezeRecord(result) as unknown as ProtocolDatasetContract;
+}
+
+/**
+ * RFC 0028: a SQL source's declared columns are the only addressable ones,
+ * and FINAL belongs inside its SQL rather than on the dataset.
+ */
+function validateSqlSourceReferences(
+  value: DataRecord,
+  result: Record<string, unknown>,
+  path: string,
+  issues?: DeploymentErrorCollector,
+): void {
+  const source = result.source as { readonly columns: readonly { readonly name: string; readonly type: string }[] };
+  const fail = (code: ProtocolDeploymentErrorCode, at: string) => attempt(issues, () => deploymentError(code, at));
+  if (value.rowResolution !== undefined) fail('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.rowResolution`);
+  const name = typeof result.name === 'string' ? result.name : undefined;
+  const column = (reference: string) => {
+    const bare = name !== undefined && reference.startsWith(`${name}.`) ? reference.slice(name.length + 1) : reference;
+    return source.columns.find(item => item.name === bare);
+  };
+  const tenant = result.tenant as ProtocolDatasetTenantPolicy | undefined;
+  if (tenant?.kind === 'required' && column(tenant.field) === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.tenant.field`);
+  const dimensions = result.dimensions as readonly ProtocolDatasetDimension[] | undefined;
+  for (const [index, dimension] of (dimensions ?? []).entries()) {
+    if (dimension.source.kind !== 'column') continue;
+    if (column(dimension.source.column)?.type !== dimension.type) {
+      fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.dimensions[${index}].source.column`);
+    }
+  }
 }
 
 export function validateProtocolDatasetContract(
@@ -983,6 +1020,8 @@ function validateDatasetReferences(
   issues?: DeploymentErrorCollector,
 ): void {
   const names = new Set(datasets.map(dataset => dataset.name));
+  // RFC 0028 version 1: a derived table can't be joined in as a target.
+  const sqlSourced = new Set(datasets.filter(dataset => isProtocolSqlSource(dataset.source)).map(dataset => dataset.name));
   const reference = (path: string) => attempt(issues, () => deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path));
   for (const [index, dataset] of datasets.entries()) {
     if (dataset.defaults?.dimensions?.some(name => (
@@ -994,7 +1033,7 @@ function validateDatasetReferences(
       reference(`$.datasets[${index}].defaults.timeGrain`);
     }
     for (const [relationshipIndex, relationship] of dataset.relationships.entries()) {
-      if (!names.has(relationship.target)) {
+      if (!names.has(relationship.target) || sqlSourced.has(relationship.target)) {
         reference(`$.datasets[${index}].relationships[${relationshipIndex}].target`);
       }
     }

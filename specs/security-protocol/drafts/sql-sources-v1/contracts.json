@@ -1,0 +1,3143 @@
+{
+  "accepted": [
+    {
+      "name": "activity stream over four tables",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "SQL-sourced dataset with a relationship to a table dataset",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": [
+              {
+                "name": "user",
+                "kind": "belongsTo",
+                "target": "users",
+                "from": "user_id",
+                "to": "id",
+                "queryable": true
+              }
+            ]
+          },
+          {
+            "name": "users",
+            "source": "app.users",
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "dimensions": [
+              {
+                "name": "plan",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "plan"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "CTE and IN subquery",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "WITH recent AS (SELECT * FROM app.events WHERE `timestamp` > now() - INTERVAL 30 DAY) SELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM recent WHERE user_id NOT IN (SELECT user_id FROM app.blocked)",
+              "dependencies": [
+                "app.events",
+                "app.blocked"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "multiple statements",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events; DROP TABLE app.events",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "trailing semicolon",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events;",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "line comment",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events -- note",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "block comment",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events /* note */",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "hash comment",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events # note",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "positional placeholder",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE step = ?",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "server parameter",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE step = {step:String}",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "heredoc",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE step = $$x$$",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "settings clause",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events SETTINGS max_threads = 1",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "format clause",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events FORMAT JSON",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "into outfile",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events INTO OUTFILE 'x.csv'",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "not a select",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "INSERT INTO app.events SELECT * FROM app.signups",
+              "dependencies": [
+                "app.events",
+                "app.signups"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "explain subquery",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT * FROM (EXPLAIN SELECT 1 FROM app.events)",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "url table function",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT * FROM url('https://example.com/x.csv', CSV)",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "remote table function",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT * FROM remote('other:9000', app.events)",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "file table function in a join",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events JOIN file('/etc/passwd') AS f ON 1",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "numbers table function",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT * FROM numbers(10)",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "dictionary read",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT dictGet('plans', 'name', user_id) AS tenant_id, user_id, step, occurred_at FROM app.events",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "sleep",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE sleepEachRow(1) = 0",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "system table",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT * FROM system.tables",
+              "dependencies": [
+                "system.tables"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "unterminated literal",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE step = 'x",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "escaped quote hides a statement break",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE step = 'x\\'; DROP TABLE t",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.sql"
+    },
+    {
+      "name": "undeclared table",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events UNION ALL SELECT tenant_id, user_id, step, occurred_at FROM app.secrets",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].source.dependencies"
+    },
+    {
+      "name": "undeclared IN table",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events WHERE user_id IN app.blocked",
+              "dependencies": [
+                "app.events"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].source.dependencies"
+    },
+    {
+      "name": "unused dependency",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, step, occurred_at FROM app.events",
+              "dependencies": [
+                "app.events",
+                "app.signups"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].source.dependencies"
+    },
+    {
+      "name": "unknown source field",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ],
+              "extra": true
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_UNKNOWN_FIELD",
+      "path": "$.datasets[0].source.extra"
+    },
+    {
+      "name": "other dialect",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "postgres",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].source.dialect"
+    },
+    {
+      "name": "dataset-level row resolution",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": [],
+            "rowResolution": {
+              "kind": "final"
+            }
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.datasets[0].rowResolution"
+    },
+    {
+      "name": "tenant field is not a declared column",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "org_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].tenant.field"
+    },
+    {
+      "name": "dimension column is not declared",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "name"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].dimensions[1].source.column"
+    },
+    {
+      "name": "dimension type differs from the column",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "number",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[0].dimensions[1].source.column"
+    },
+    {
+      "name": "SQL-sourced relationship target",
+      "contract": {
+        "kind": "hypequery-deployment",
+        "version": 2,
+        "datasets": [
+          {
+            "name": "activity",
+            "source": {
+              "kind": "sql",
+              "dialect": "clickhouse",
+              "sql": "SELECT tenant_id, user_id, 'signup' AS step, created_at AS occurred_at FROM app.signups\nUNION ALL\nSELECT tenant_id, user_id, name AS step, `timestamp` AS occurred_at FROM app.events\nUNION ALL\nSELECT tenant_id, user_id, 'subscribed' AS step, started_at AS occurred_at FROM app.subscriptions FINAL WHERE is_deleted = 0\nUNION ALL\nSELECT tenant_id, user_id, 'paid' AS step, paid_at AS occurred_at FROM app.invoices",
+              "dependencies": [
+                "app.signups",
+                "app.events",
+                "app.subscriptions",
+                "app.invoices"
+              ],
+              "columns": [
+                {
+                  "name": "tenant_id",
+                  "type": "string"
+                },
+                {
+                  "name": "user_id",
+                  "type": "string"
+                },
+                {
+                  "name": "step",
+                  "type": "string"
+                },
+                {
+                  "name": "occurred_at",
+                  "type": "timestamp"
+                }
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "timeField": "occurred_at",
+            "dimensions": [
+              {
+                "name": "user_id",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "user_id"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "step",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "step"
+                },
+                "filterable": true,
+                "groupable": true
+              },
+              {
+                "name": "occurred_at",
+                "type": "timestamp",
+                "source": {
+                  "kind": "column",
+                  "column": "occurred_at"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "users",
+                "aggregation": "countDistinct",
+                "field": "user_id",
+                "filters": []
+              }
+            ],
+            "filters": [],
+            "relationships": []
+          },
+          {
+            "name": "users",
+            "source": "app.users",
+            "tenant": {
+              "kind": "required",
+              "field": "tenant_id"
+            },
+            "dimensions": [
+              {
+                "name": "plan",
+                "type": "string",
+                "source": {
+                  "kind": "column",
+                  "column": "plan"
+                },
+                "filterable": true,
+                "groupable": true
+              }
+            ],
+            "measures": [],
+            "filters": [],
+            "relationships": [
+              {
+                "name": "activity",
+                "kind": "belongsTo",
+                "target": "activity",
+                "from": "id",
+                "to": "user_id",
+                "queryable": true
+              }
+            ]
+          }
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_REFERENCE",
+      "path": "$.datasets[1].relationships[0].target"
+    }
+  ]
+}

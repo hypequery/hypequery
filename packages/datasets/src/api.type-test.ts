@@ -566,3 +566,31 @@ void mergedStateFunction;
 void mergedField;
 void allowlisted;
 void mergedSpec;
+
+// RFC 0028: a source may be a SQL query with declared dependencies and columns.
+const sqlSourced = dataset('activity_types', {
+  source: {
+    sql: 'SELECT tenant_id, step FROM app.events',
+    dependencies: ['app.events'],
+    columns: { tenant_id: 'string', step: 'string' },
+  },
+  tenantKey: 'tenant_id',
+  dimensions: { step: dimension.string() },
+  measures: { steps: measure.count('step') },
+});
+const sqlSourceAlias: string = sqlSourced.source;
+const sqlSourceColumns: Readonly<Record<string, 'string' | 'number' | 'boolean' | 'timestamp'>> | undefined = sqlSourced.sqlSource?.columns;
+dataset('activity_types_bad', {
+  source: {
+    sql: 'SELECT step FROM app.events',
+    dependencies: ['app.events'],
+    // @ts-expect-error column types are dataset field types.
+    columns: { step: 'text' },
+  },
+  dimensions: { step: dimension.string() },
+});
+// @ts-expect-error a SQL source declares the tables it reads.
+dataset('activity_types_no_dependencies', { source: { sql: 'SELECT 1 AS a', columns: { a: 'number' } }, dimensions: {} });
+
+void sqlSourceAlias;
+void sqlSourceColumns;

@@ -1,3 +1,4 @@
+import { assertTableSource } from './sql-dataset-source.js';
 import { currentRowPredicate } from './dataset-source.js';
 import type { AnyDatasetInstance, AggregationSpec } from '../types.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
@@ -44,6 +45,7 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
 
 /** The target's quoted table, read with `FINAL` when the target dataset requires it. */
 function relationshipTargetTable(target: AnyDatasetInstance, dialect: DatasetSqlDialectRules): string {
+  assertTableSource(target, 'a relationship target');
   const quoted = dialect.quoteQualifiedName(target.source);
   if (!target.rowResolution) return quoted;
   if (!dialect.finalTable) {

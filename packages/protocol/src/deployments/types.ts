@@ -174,10 +174,29 @@ export type ProtocolRowResolution =
   | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: ProtocolIdentifier }
   | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: ProtocolIdentifier };
 
+/** RFC 0028: one read-only ClickHouse SELECT, read as a derived table. */
+export interface ProtocolSqlSource {
+  readonly kind: 'sql';
+  readonly dialect: 'clickhouse';
+  readonly sql: string;
+  /** Every table the SQL reads, exactly as written in it. */
+  readonly dependencies: readonly ProtocolQualifiedIdentifier[];
+  /** The derived table's only addressable columns, in projection order. */
+  readonly columns: readonly ProtocolSqlSourceColumn[];
+}
+
+export interface ProtocolSqlSourceColumn {
+  readonly name: ProtocolIdentifier;
+  readonly type: ProtocolDatasetFieldType;
+}
+
+/** A physical table name, or (RFC 0028) a SQL source. */
+export type ProtocolDatasetSource = string | ProtocolSqlSource;
+
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly description?: string;
-  readonly source: string;
+  readonly source: ProtocolDatasetSource;
   readonly rowResolution?: ProtocolRowResolution;
   readonly freshness?: ProtocolDatasetFreshness;
   readonly owner?: string;

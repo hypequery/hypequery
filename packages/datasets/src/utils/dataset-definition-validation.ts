@@ -23,6 +23,7 @@ import { validateShiftMeasures } from './shift-measure-validation.js';
  */
 
 import type {
+  FieldType,
   DatasetConfig,
   DatasetMeasureDefinition,
   DimensionDefinition,
@@ -32,6 +33,7 @@ import type {
   SemanticFiltersDefinition,
 } from '../types.js';
 import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
+import { isDatasetSqlSource, resolveDatasetSqlSource } from './sql-dataset-source.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { rawSqlErrorMessage } from './raw-sql-dialect-check.js';
 import { SEMANTIC_FILTER_OPERATORS, SEMANTIC_NULL_CHECK_OPERATORS, isSemanticFilterOperator } from '../constants.js';
@@ -308,6 +310,79 @@ function validateMergeMeasure(datasetName: string, name: string, definition: Mea
   }
 }
 
+/**
+ * RFC 0028: a SQL source's declared columns are the only ones its dataset can
+ * address, so every column reference must name one. References qualified with
+ * a relationship name belong to that relationship's target and aren't checked.
+ */
+function validateSqlSourceReferences(
+  datasetName: string,
+  config: DatasetConfig<AnyDimensions, AnyMeasures, AnyRelationships>,
+  columns: Readonly<Record<string, FieldType>>,
+): void {
+  const dimensions = config.dimensions ?? {};
+  const relationships = config.relationships ?? {};
+  const declared = (reference: string) => {
+    const bare = reference.startsWith(`${datasetName}.`) ? reference.slice(datasetName.length + 1) : reference;
+    return Object.hasOwn(columns, bare) ? bare : undefined;
+  };
+  const viaRelationship = (reference: string) => {
+    const [head, ...rest] = reference.split(QUALIFIED_SEPARATOR);
+    return rest.length > 0 && head !== undefined && Object.hasOwn(relationships, head);
+  };
+  const requireColumn = (reference: string, context: string) => {
+    if (declared(reference) === undefined) {
+      fail(
+        datasetName,
+        `${context} "${reference}" is not a column of the SQL source. Declare it in source.columns ` +
+        `(declared: ${Object.keys(columns).join(', ')}).`,
+      );
+    }
+  };
+  const fieldOrColumn = (reference: string, context: string) => {
+    if (!Object.hasOwn(dimensions, reference) && !viaRelationship(reference)) requireColumn(reference, context);
+  };
+
+  for (const [name, definition] of Object.entries(dimensions)) {
+    if (definition.sql !== undefined) {
+      for (const dependency of definition.dependencies ?? []) requireColumn(dependency, `dimension "${name}" dependency`);
+      continue;
+    }
+    const column = definition.column ?? name;
+    requireColumn(column, `dimension "${name}" column`);
+    const type = columns[declared(column)!];
+    if (type !== definition.fieldType) {
+      fail(datasetName, `dimension "${name}" is ${definition.fieldType}, but source column "${column}" is declared ${type}.`);
+    }
+  }
+  if (config.tenantKey !== undefined) requireColumn(config.tenantKey, 'tenantKey');
+  for (const timeKey of [config.timeKey, ...(config.timeKeys ?? [])]) {
+    if (timeKey !== undefined) fieldOrColumn(timeKey, 'time key');
+  }
+  for (const [name, definition] of Object.entries(config.filters ?? {})) {
+    fieldOrColumn(definition.field, `filter "${name}" field`);
+  }
+  for (const [name, definition] of Object.entries(config.measures ?? {})) {
+    if (isDerivedMeasure(definition) || isWindowMeasure(definition) || isShiftMeasure(definition)) continue;
+    if (definition.sql !== undefined) {
+      for (const dependency of definition.dependencies ?? []) requireColumn(dependency, `measure "${name}" dependency`);
+    } else {
+      for (const field of [definition.field, definition.argField]) {
+        if (field !== undefined) fieldOrColumn(field, `measure "${name}" field`);
+      }
+    }
+    for (const filter of definition.filters ?? []) {
+      if (Object.hasOwn(config.filters ?? {}, filter.field)) continue;
+      fieldOrColumn(filter.field, `measure "${name}" filter field`);
+    }
+  }
+  for (const [name, relationship] of Object.entries(relationships)) {
+    for (const key of relationship.keys ?? [{ from: relationship.from, to: relationship.to }]) {
+      requireColumn(key.from, `relationship "${name}" key`);
+    }
+  }
+}
+
 function validateLimits(datasetName: string, limits: DatasetConfig['limits']): void {
   if (!limits) {
     return;
@@ -348,17 +423,29 @@ export function validateDatasetDefinition(
     );
   }
 
-  if (typeof config.source !== 'string' || config.source.trim().length === 0) {
-    fail(name, 'a non-empty source table is required.');
-  }
+  if (isDatasetSqlSource(config.source)) {
+    const source = resolveDatasetSqlSource(name, config.source);
+    if (config.rowResolution !== undefined || config.final) {
+      fail(
+        name,
+        'rowResolution and final apply to a table, not a SQL source. Write FROM <table> FINAL ' +
+        '(and any deletion filter) inside the SQL instead.',
+      );
+    }
+    validateSqlSourceReferences(name, config, source.columns);
+  } else {
+    if (typeof config.source !== 'string' || config.source.trim().length === 0) {
+      fail(name, 'a non-empty source table is required.');
+    }
 
-  // `database.table` is the deepest qualification ClickHouse addresses.
-  if (!isSafeQualifiedName(config.source, 2)) {
-    fail(
-      name,
-      `source "${config.source}" is not a safe table identifier. Expected "table" or ` +
-      '"database.table", each segment containing only letters, numbers and underscores.',
-    );
+    // `database.table` is the deepest qualification ClickHouse addresses.
+    if (!isSafeQualifiedName(config.source, 2)) {
+      fail(
+        name,
+        `source "${config.source}" is not a safe table identifier. Expected "table" or ` +
+        '"database.table", each segment containing only letters, numbers and underscores.',
+      );
+    }
   }
 
   if (config.final !== undefined && typeof config.final !== 'boolean') {

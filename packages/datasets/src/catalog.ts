@@ -1,4 +1,4 @@
-import type { RowResolution } from './types.js';
+import type { DatasetSqlSource, RowResolution } from './types.js';
 import type { ProtocolExpression } from '@hypequery/protocol';
 import { derivedMeasureCatalogExpression } from './utils/protocol-metric-expressions.js';
 import type { RelationshipKey } from './types.js';
@@ -116,6 +116,8 @@ export interface DatasetCatalog extends SemanticMetadata {
   name: string;
   description?: string;
   source: string;
+  /** RFC 0028: the SQL source, when `source` aliases a derived table. */
+  sqlSource?: DatasetSqlSource;
   rowResolution?: RowResolution;
   freshness?: DatasetFreshness;
   owner?: string;
@@ -266,6 +268,13 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     description: dataset.description,
     ...snapshotSemanticMetadata(dataset),
     source: dataset.source,
+    ...(dataset.sqlSource === undefined ? {} : {
+      sqlSource: {
+        sql: dataset.sqlSource.sql,
+        dependencies: [...dataset.sqlSource.dependencies],
+        columns: { ...dataset.sqlSource.columns },
+      },
+    }),
     ...(dataset.rowResolution === undefined ? {} : { rowResolution: { ...dataset.rowResolution } }),
     freshness: dataset.freshness,
     owner: dataset.owner,
