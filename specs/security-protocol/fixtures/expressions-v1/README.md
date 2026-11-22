@@ -20,3 +20,4 @@ RFC 0025 added `having` and `timezone` to the query envelope: the `dataset-havin
 RFC 0029 runs the logical filters this grammar always accepted: the `dataset-logical-filters` query (and `logical-filters-with-segments` in `expressions-v2`) nests `and` inside `or` and `or` inside `not` beside a top-level comparison.
 
 RFC 0029 added `inDateRange` and `fill`: the `dataset-in-date-range-*` queries (every grammar form, and a range under `not`), `dataset-fill` and `dataset-fill-false`, and the `in-date-range-*` and `fill-*` rejections (values outside the grammar, a non-literal value, the operator outside query filters or inside an aggregate's filters or `having`, `fill` without `by`, a non-boolean `fill`, and `fill` on a metric query). `expressions-v2` adds `fill-sub-day-relative-range`.
+RFC 0029 also added `timeKey`: the `dataset-time-key` and `metric-time-key` queries, and the `time-key-*` rejections (a qualified name and a non-string).

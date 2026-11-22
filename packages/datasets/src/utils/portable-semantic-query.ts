@@ -67,6 +67,8 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
     limit: operation.limit ?? maxRows,
     ...(operation.offset === undefined ? {} : { offset: operation.offset }),
     ...(operation.by === undefined ? {} : { by: operation.by as TimeGrain }),
+    // RFC 0029: the data plane checked the axis against the contract.
+    ...(operation.timeKey === undefined ? {} : { timeKey: String(operation.timeKey) }),
     // RFC 0025: the dataset client applies both on the queryBuilder path,
     // and validates `having` against the selection again.
     ...(operation.kind === 'dataset' && operation.having !== undefined

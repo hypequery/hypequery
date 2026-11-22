@@ -880,7 +880,7 @@ function validateDataset(
     [
       'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS,
-      'timeField', 'limits', 'endpoint',
+      'timeField', ...(version === 3 ? ['alternateTimeFields'] : []), 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ],
     path,
@@ -948,6 +948,11 @@ function validateDataset(
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
   }
+  if (version === 3 && value.alternateTimeFields !== undefined) {
+    result.alternateTimeFields = field(() => validateAlternateTimeFields(
+      value.alternateTimeFields, `${path}.alternateTimeFields`, value.timeField, limits,
+    ));
+  }
   if (isProtocolSqlSource(result.source)) {
     validateSqlSourceReferences(value, result, path, filtersKey, measureIndices, issues);
   }
@@ -966,6 +971,29 @@ function validateDataset(
   }
   issues?.checkpoint(since);
   return freezeRecord(result) as unknown as ProtocolDatasetContract;
+}
+
+/**
+ * Contract 3 `alternateTimeFields` (RFC 0029): further time axes a query may
+ * select with `timeKey`. Non-empty, distinct, and never the default axis,
+ * which must exist.
+ */
+function validateAlternateTimeFields(
+  input: unknown,
+  path: string,
+  timeField: unknown,
+  limits: Readonly<ProtocolDeploymentLimits>,
+): readonly string[] {
+  const items = requireArray(input, path, limits.maxDatasetItems);
+  if (items.length === 0) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
+  if (timeField === undefined) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path);
+  const seen = new Set<string>();
+  return Object.freeze(items.map((item, index) => {
+    const name = identifier(item, `${path}[${index}]`);
+    if (name === timeField || seen.has(name)) deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}[${index}]`);
+    seen.add(name);
+    return name;
+  }));
 }
 
 /**
@@ -1249,7 +1277,7 @@ function validateDeploymentDataset(
     ],
     [
       'description', 'freshness', 'owner', 'defaults', 'rowResolution',
-      ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
+      ...SEMANTIC_METADATA_FIELDS, 'timeField', ...(version === 3 ? ['alternateTimeFields'] : []), 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ], path, issues);
   // When collecting, a malformed measure list is reported and the rest of the
@@ -1457,6 +1485,7 @@ export function validateProtocolDeploymentContractAtLowestVersion(
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
 function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
   return (dataset.segments?.length ?? 0) > 0
+    || (dataset.alternateTimeFields?.length ?? 0) > 0
     || dataset.measures.some(measure => (
       ('aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
       || ('kind' in measure && (measure.kind === 'window' || measure.kind === 'shift'))

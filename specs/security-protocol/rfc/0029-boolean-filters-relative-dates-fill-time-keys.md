@@ -309,9 +309,14 @@ document order.
 { "timeField": "created_at", "alternateTimeFields": ["shipped_at", "delivered_at"] }
 ```
 
-Each entry must name a `timestamp` dimension of the dataset. Entries must be
-distinct and must differ from `timeField`, and `timeField` must be present.
-Any other value fails with `HQ_DEPLOYMENT_INVALID_REFERENCE`. Order is the
+Each entry is a simple identifier naming a dimension or a column, as
+`timeField` may. An empty list fails with `HQ_DEPLOYMENT_INVALID_VALUE`. A
+list without `timeField`, a repeated entry, or an entry equal to `timeField`
+fails with `HQ_DEPLOYMENT_INVALID_REFERENCE`. Contract 2 has no such field
+(`HQ_DEPLOYMENT_UNKNOWN_FIELD`). Under RFC 0019 an alternate is visible only
+beside a visible `timeField` and when its own dimension is visible; a
+projected contract drops the hidden ones, and a join-only dataset carries
+none. Order is the
 authored order and is part of the contract identity. The field is a contract 3
 feature under the lowest-version rule. A dataset with `timeKeys` publishes
 contract 3 and its `timeKeys` as `alternateTimeFields`, so they are never
@@ -326,9 +331,10 @@ A dataset or metric query may carry `timeKey`, a simple identifier:
   "filters": [{ "kind": "comparison", "operator": "inDateRange", "left": { "kind": "reference", "name": "shipped_at" }, "right": { "kind": "literal", "value": "this quarter" } }] }
 ```
 
-It selects the time axis for `by`, `fill`, window and shift measures. The
-query runs as if the dataset's `timeField` were the selected key. Absent
-means `timeField`. A data plane refuses a `timeKey` that is neither
+It selects the time axis for `by`, `fill`, window and shift measures, whose
+bounded range must then be on that axis. The query runs as if the dataset's
+`timeField` were the selected key. Absent means `timeField`. A qualified or
+non-string `timeKey` fails with `HQ_EXPRESSION_INVALID_IDENTIFIER`. A data plane refuses a `timeKey` that is neither
 `timeField` nor one of `alternateTimeFields`, or whose dimension the caller
 may not see (RFC 0019), with `input-invalid`. A hidden key reads exactly like
 an unknown one. The field sits after `by` in document order, before

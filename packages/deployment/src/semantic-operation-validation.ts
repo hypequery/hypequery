@@ -18,7 +18,7 @@ import type {
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
 import { timeSeriesRangeViolation } from './utils/time-series-range.js';
-import { fieldBackingColumn } from './utils/field-backing-column.js';
+import { fieldBackingColumn, isTimeAxisVisible } from './utils/field-backing-column.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -254,22 +254,50 @@ export function validateSemanticOperation(
     if (comparison === null) return undefined;
     return String(namedFilters.get(comparison.field)?.field ?? comparison.field);
   };
-  const timeAxis = dataset.timeField === undefined || allowed.grains.size === 0
-    ? undefined : String(dataset.timeField);
-  // Compared by backing column: the time field may name the column a
-  // differently named dimension reads.
-  const axisColumn = timeAxis === undefined ? undefined : fieldBackingColumn(dataset, timeAxis);
-  const onAxis = (leaf: ProtocolFilterLeaf) => {
+  // RFC 0029: the time axes a caller may use, in contract order. A hidden
+  // alternate reads exactly like an undeclared one.
+  const axes = dataset.timeField === undefined || allowed.grains.size === 0
+    ? []
+    : [
+        String(dataset.timeField),
+        ...((dataset as ProtocolDeploymentDatasetV3).alternateTimeFields ?? [])
+          .map(String)
+          .filter(name => visible === undefined || isTimeAxisVisible(dataset, name, visible.dimensions)),
+      ];
+  let timeAxis: string | undefined = axes[0];
+  if (operation.timeKey !== undefined) {
+    if (axes.includes(String(operation.timeKey))) {
+      timeAxis = String(operation.timeKey);
+    } else {
+      timeAxis = undefined;
+      fail(
+        axes.length === 0
+          ? 'This dataset has no time field, so a timeKey does not apply.'
+          : `Unknown time key "${String(operation.timeKey)}". Available: ${axes.join(', ')}.`,
+        '$.operation.timeKey',
+      );
+    }
+  }
+  // Axes and filters are compared by backing column: an axis may name the
+  // column that a differently named dimension reads.
+  const columnOf = (leaf: ProtocolFilterLeaf) => {
     const field = fieldOf(leaf);
-    return field !== undefined && fieldBackingColumn(dataset, field) === axisColumn;
+    return field === undefined ? undefined : fieldBackingColumn(dataset, field);
+  };
+  const axisColumns = new Set(axes.map(axis => fieldBackingColumn(dataset, axis)));
+  const selectedColumn = timeAxis === undefined ? undefined : fieldBackingColumn(dataset, timeAxis);
+  const onAxis = (leaf: ProtocolFilterLeaf) => {
+    const column = columnOf(leaf);
+    return column !== undefined && column === selectedColumn;
   };
   filters.forEach(leaf => {
     if (comparisonField(leaf.expression)?.operator !== 'inDateRange') return;
-    if (timeAxis === undefined || !onAxis(leaf)) {
+    const column = columnOf(leaf);
+    if (column === undefined || !axisColumns.has(column)) {
       fail(
-        timeAxis === undefined
+        axes.length === 0
           ? 'This dataset has no time field, so "inDateRange" does not apply.'
-          : `"inDateRange" applies only to the time field "${timeAxis}".`,
+          : `"inDateRange" applies only to a time axis: ${axes.join(', ')}.`,
         leaf.path,
       );
     }

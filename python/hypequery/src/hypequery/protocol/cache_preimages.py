@@ -117,6 +117,9 @@ def _normalize_query(source: object) -> dict[str, object]:
         _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
     if isinstance(validated, ProtocolDatasetQuery) and validated.fill is True:
         _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
+    # Without the contract, a key equal to ``timeField`` can't be told from another.
+    if validated.time_key is not None:
+        _fail("HQ_CACHE_PREIMAGE_INVALID_QUERY")
     query = semantic_query_to_data(validated)
     # AND-combined, so order cannot change rows; identical filters collapse.
     filters = {_jcs(item): item for item in _list(query.get("filters"))}

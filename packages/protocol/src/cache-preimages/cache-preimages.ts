@@ -97,6 +97,8 @@ function normalizeQuery(source: unknown): Record<string, unknown> {
   // portable key; `fill: false` is the default and is dropped below.
   if ((query.filters ?? []).some(usesRelativeDateRange)) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   if (query.kind === 'dataset' && query.fill === true) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
+  // Without the contract a key equal to `timeField` can't be told from another.
+  if (query.timeKey !== undefined) fail('HQ_CACHE_PREIMAGE_INVALID_QUERY');
   // AND-combined, so order cannot change rows; identical filters collapse.
   const filters = new Map<string, unknown>();
   for (const filter of query.filters ?? []) filters.set(serializeJcs(filter), filter);

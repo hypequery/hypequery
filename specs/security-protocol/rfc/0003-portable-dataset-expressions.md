@@ -65,10 +65,10 @@ the field entirely, including an empty array.
 
 A dataset query has `kind: "dataset"`, a simple `dataset` identifier, and may
 contain `dimensions`, `measures`, `filters`, `having`, `orderBy`, `limit`,
-`offset`, `by`, `timezone`, `fill`, and `includeMeta`. A metric query has
+`offset`, `by`, `timeKey`, `timezone`, `fill`, and `includeMeta`. A metric query has
 `kind: "metric"`, `dataset`, `metric`, and the same fields except `measures`,
 `having` and `fill`. RFC 0025 defines `having` and `timezone`; RFC 0029
-defines `fill`.
+defines `fill` and `timeKey`.
 
 Dimensions, filters, and ordering may use qualified relationship paths. The
 version 1 identifier limit therefore bounds traversal to eight segments, while
@@ -114,6 +114,7 @@ optional and, when present, may be empty. A metric query MUST reject a
 | Nested `and`/`or`/`not` filter groups | `logical` predicates in query `filters` (RFC 0029) |
 | Relative date ranges on a time axis | `inDateRange` comparison (RFC 0029) |
 | Filled `by` series | Query envelope `fill` (RFC 0029) |
+| Alternate time axes (`timeKeys`) | Contract 3 `alternateTimeFields`, query `timeKey` (RFC 0029) |
 | Typed result rows and canonical result values | Response contract concern; not query intent |
 | Pagination, timing, SQL, tenant, and cache result metadata | Response/runtime concern; not query intent |
 | Runtime tenant value and cache controls | Trusted execution context; never expression input |

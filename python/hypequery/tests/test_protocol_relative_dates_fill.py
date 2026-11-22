@@ -1,4 +1,4 @@
-"""RFC 0029 ``inDateRange`` and ``fill`` on portable semantic queries."""
+"""RFC 0029 ``inDateRange``, ``fill`` and ``timeKey`` on portable semantic queries."""
 
 from __future__ import annotations
 
@@ -129,3 +129,20 @@ def test_preimage_refuses_relative_ranges_and_fill_but_drops_fill_false() -> Non
             _preimage(query)
         assert raised.value.code == "HQ_CACHE_PREIMAGE_INVALID_QUERY"
     assert _preimage(_query(by="day", fill=False)) == _preimage(_query(by="day"))
+
+
+def test_time_key_round_trips_on_dataset_and_metric_queries() -> None:
+    dataset = validate_protocol_semantic_query(_query(by="week", timeKey="shipped_at"))
+    assert dataset.time_key == "shipped_at"
+    assert semantic_query_to_data(dataset)["timeKey"] == "shipped_at"
+    metric = validate_protocol_semantic_query(
+        {"kind": "metric", "dataset": "orders", "metric": "revenue", "timeKey": "shipped_at"}
+    )
+    assert metric.time_key == "shipped_at"
+    assert _code(_query(timeKey="customer.shipped_at")) == "HQ_EXPRESSION_INVALID_IDENTIFIER"
+
+
+def test_preimage_refuses_a_time_key() -> None:
+    with pytest.raises(ProtocolCachePreimageError) as raised:
+        _preimage(_query(by="day", timeKey="shipped_at"))
+    assert raised.value.code == "HQ_CACHE_PREIMAGE_INVALID_QUERY"
