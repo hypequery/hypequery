@@ -55,6 +55,17 @@ export interface QueryBuilderLike {
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 
   /**
+   * Optional: OR-combine and parenthesize caller filters (RFC 0029). Needed
+   * only for queries whose filters hold an `or` or `not` group; such a query
+   * on a builder without all three is refused rather than flattened.
+   * `@hypequery/clickhouse`'s builder has them. A group callback receives a
+   * builder for the group and returns the builder its calls produced.
+   */
+  orWhere?(column: string, operator: string, value: unknown): QueryBuilderLike;
+  whereGroup?(callback: (builder: QueryBuilderLike) => QueryBuilderLike | void): QueryBuilderLike;
+  orWhereGroup?(callback: (builder: QueryBuilderLike) => QueryBuilderLike | void): QueryBuilderLike;
+
+  /**
    * Optional: read the table source with ClickHouse `FINAL`. Needed only for
    * datasets that declare `rowResolution`; querying one through a builder without
    * it is refused rather than run without `FINAL`, which would count every

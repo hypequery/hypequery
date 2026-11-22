@@ -4,6 +4,7 @@ import type {
   ProtocolDeploymentDatasetV3,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
+import { isTimeAxisVisible } from './field-backing-column.js';
 
 type Dimension = ProtocolDeploymentDataset['dimensions'][number];
 
@@ -38,7 +39,14 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
   dataset: TDataset,
   visible: ProtocolVisibleDatasetFields,
 ): TDataset {
-  const { defaults, timeField, ...rest } = dataset;
+  const { defaults, timeField, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
+  const { alternateTimeFields, ...withoutAlternates } = rest as typeof rest & { alternateTimeFields?: readonly string[] };
+  // RFC 0029: an alternate axis shows only beside a visible default axis, and
+  // only when a dimension naming it or reading its column is visible, so a
+  // hidden one is never named.
+  const visibleAlternates = visible.timeField
+    ? alternateTimeFields?.filter(name => isTimeAxisVisible(dataset, String(name), visible.dimensions))
+    : undefined;
   const defaultDimensions = defaults?.dimensions?.filter(name => visible.dimensions.has(String(name)));
   const narrowedDefaults = {
     ...(defaultDimensions === undefined || defaultDimensions.length === 0
@@ -47,8 +55,9 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     ...(defaults?.timeGrain === undefined || !visible.timeField ? {} : { timeGrain: defaults.timeGrain }),
   };
   return {
-    ...rest,
+    ...withoutAlternates,
     ...(visible.timeField && timeField !== undefined ? { timeField } : {}),
+    ...(visibleAlternates === undefined || visibleAlternates.length === 0 ? {} : { alternateTimeFields: visibleAlternates }),
     // An empty `defaults` object is not a valid contract value.
     ...(Object.keys(narrowedDefaults).length === 0 ? {} : { defaults: narrowedDefaults }),
     dimensions: dataset.dimensions.map(dimension => (

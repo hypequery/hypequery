@@ -8,6 +8,7 @@ import {
   type PortableSemanticExecutionInput,
 } from './portable-executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
+import { createQueryBuilder } from '../../clickhouse/src/index.js';
 
 const REVISION = 'a'.repeat(64);
 
@@ -255,6 +256,75 @@ describe('portable semantic execution', () => {
         filters: [{ kind: 'logical', operator: 'not', operand: { kind: 'literal', value: true } }],
       } as never,
     }))).rejects.toThrow(PortableExecutionUnsupportedError);
+  });
+
+  it('runs and/or/not filters through the query builder (RFC 0029)', async () => {
+    const statements: string[] = [];
+    const real = createQueryBuilder({ host: 'http://127.0.0.1:1' });
+    const wrap = (builder: object): QueryBuilderLike => new Proxy(builder, {
+      get(target, property) {
+        if (property === 'execute') {
+          return async () => {
+            statements.push((target as { toSQL(): string }).toSQL());
+            return [{ revenue: 10 }];
+          };
+        }
+        const value = Reflect.get(target, property);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          const result = value.apply(target, args);
+          return result && typeof result === 'object' && 'toSQL' in result ? wrap(result) : result;
+        };
+      },
+    }) as QueryBuilderLike;
+    const factory = { table: (name: string) => wrap(real.table(name as never)), rawQuery: async () => [] } as unknown as QueryBuilderFactoryLike;
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory });
+    const status = (value: string) => ({
+      kind: 'comparison', operator: 'eq',
+      left: { kind: 'reference', name: 'status' },
+      right: { kind: 'literal', value },
+    });
+
+    await execute(input({
+      operation: {
+        kind: 'dataset', dataset: 'orders', measures: ['revenue'],
+        filters: [
+          { kind: 'logical', operator: 'or', operands: [status('paid'), status('refunded')] },
+          // `status` allows only eq: a double negation is eq again; a single one would be refused.
+          { kind: 'logical', operator: 'not', operand: { kind: 'logical', operator: 'not', operand: { kind: 'logical', operator: 'or', operands: [status('a'), status('b')] } } },
+        ],
+      } as never,
+    }));
+
+    expect(statements[0]).toContain("(analytics.orders.status = 'paid' OR analytics.orders.status = 'refunded')");
+    expect(statements[0]).toContain("(analytics.orders.status = 'a' OR analytics.orders.status = 'b')");
+    expect(statements[0]).toContain("tenant_id = 'acme'");
+  });
+
+  it('resolves inDateRange with its own clock and fills the series (RFC 0029)', async () => {
+    const raw: { sql: string; parameters: unknown }[] = [];
+    const factory: QueryBuilderFactoryLike = {
+      ...recordingFactory().factory,
+      table: (name: string) => createQueryBuilder({ host: 'http://127.0.0.1:1' }).table(name as never) as unknown as QueryBuilderLike,
+      rawQuery: async (sql: string, parameters?: unknown) => { raw.push({ sql, parameters }); return []; },
+    } as QueryBuilderFactoryLike;
+    const execute = createPortableSemanticExecutor({ queryBuilder: factory, now: () => new Date('2026-11-22T10:00:00Z') });
+
+    await execute(input({
+      operation: {
+        kind: 'dataset', dataset: 'orders', measures: ['revenue'], by: 'day', fill: true, timezone: 'Europe/Berlin',
+        filters: [{
+          kind: 'comparison', operator: 'inDateRange',
+          left: { kind: 'reference', name: 'createdAt' },
+          right: { kind: 'literal', value: 'last 7 days' },
+        }],
+      } as never,
+    }));
+
+    const main = raw.find(statement => statement.sql.includes('_hq_values'))!;
+    expect(main.sql).toContain('_hq_series');
+    expect(JSON.stringify(main.parameters ?? main.sql)).toContain('2026-11-15');
+    expect(JSON.stringify(main.parameters ?? main.sql)).toContain('2026-11-22');
   });
 
   // -- budgets -------------------------------------------------------------

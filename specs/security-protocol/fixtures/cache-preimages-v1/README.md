@@ -74,3 +74,6 @@ Both produced identical output for all 44 cases. The conformance runner now
 holds `@hypequery/protocol` and the Python package to the same bytes.
 
 RFC 0025: `query-having-uncacheable` and `query-timezone-not-folded` pin that a non-empty `having` or a non-UTC `timezone` has no preimage, and `timezone-utc-is-default` that `"UTC"` produces the same preimage as no zone (`all-dataset-features`).
+
+RFC 0029: `query-in-date-range-uncacheable` and `query-fill-uncacheable` pin that a relative date range anywhere in the filters, or `fill: true`, has no preimage, and `fill-false-is-default` that `fill: false` produces the same preimage as no flag.
+`query-time-key-uncacheable` pins that a query naming a `timeKey` has no preimage.

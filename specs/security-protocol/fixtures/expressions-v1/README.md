@@ -16,3 +16,8 @@ Generators have these language-neutral meanings:
 RFC 0023 added the null checks: the `comparison-isNull`, `comparison-isNotNull` and `null-check-*` success cases and the `dataset-null-check-filters` query, and rejections for a null check with a `right` operand (including a `null` literal), one without `left`, and a value comparison without `right`.
 
 RFC 0025 added `having` and `timezone` to the query envelope: the `dataset-having-*`, `dataset-timezone-*` and `metric-timezone` queries, and the `having-*` and `timezone-*` rejections (a measure that isn't selected or with no `measures`, `like` and null-check operators, non-numeric and boolean values, wrong `between`/`in` shapes, an extra or missing member, `having` on a metric query, and a zone outside RFC 0018's registry or in the wrong case).
+
+RFC 0029 runs the logical filters this grammar always accepted: the `dataset-logical-filters` query (and `logical-filters-with-segments` in `expressions-v2`) nests `and` inside `or` and `or` inside `not` beside a top-level comparison.
+
+RFC 0029 added `inDateRange` and `fill`: the `dataset-in-date-range-*` queries (every grammar form, and a range under `not`), `dataset-fill` and `dataset-fill-false`, and the `in-date-range-*` and `fill-*` rejections (values outside the grammar, a non-literal value, the operator outside query filters or inside an aggregate's filters or `having`, `fill` without `by`, a non-boolean `fill`, and `fill` on a metric query). `expressions-v2` adds `fill-sub-day-relative-range`.
+RFC 0029 also added `timeKey`: the `dataset-time-key` and `metric-time-key` queries, and the `time-key-*` rejections (a qualified name and a non-string).

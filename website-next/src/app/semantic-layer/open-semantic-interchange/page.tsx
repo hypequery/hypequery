@@ -218,7 +218,7 @@ export default function OpenSemanticInterchangePage() {
       lead={
         <p>
           What the spec is for, who is behind it, what a model file looks like, which tools convert to and from it, what
-          it deliberately leaves out, and what it means if your semantic layer is defined in code.
+          it deliberately leaves out, and what it means if your <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> is defined in code.
         </p>
       }
       primaryCta={{ href: '#spec', label: 'Read the spec summary', target: 'osi_spec' }}

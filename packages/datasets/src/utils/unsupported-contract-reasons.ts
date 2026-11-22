@@ -23,7 +23,7 @@ export const UNSUPPORTED_CONTRACT_REASONS = {
   unsupportedFormula: 'HQ_PORTABLE_UNSUPPORTED_FORMULA',
   /** A relationship names a dataset outside the supplied contract. */
   relationshipTargetMissing: 'HQ_PORTABLE_RELATIONSHIP_TARGET_MISSING',
-  /** An invocation filter is not a field/operator/literal comparison. */
+  /** An invocation filter has a leaf that is not a field/operator/literal comparison. */
   queryFilterNotComparison: 'HQ_PORTABLE_QUERY_FILTER_NOT_COMPARISON',
   /** A segment predicate is not an `and` of field/operator/literal comparisons. */
   segmentPredicateNotConjunction: 'HQ_PORTABLE_SEGMENT_PREDICATE_NOT_CONJUNCTION',

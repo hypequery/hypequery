@@ -2120,5 +2120,107 @@
       ]
     },
     "error": "HQ_DEPLOYMENT_INVALID_VALUE"
+  },
+  {
+    "id": "alternate-time-fields-under-version-2",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "timeField": "createdAt",
+          "alternateTimeFields": [
+            "shippedAt"
+          ],
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "shippedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "shipped_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "deliveredAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "delivered_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "relationships": [],
+          "filters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "error": "HQ_DEPLOYMENT_UNKNOWN_FIELD"
   }
 ]

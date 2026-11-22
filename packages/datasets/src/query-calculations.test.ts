@@ -215,4 +215,73 @@ describe('RFC 0026 calculations in the dataset client', () => {
     const client = createDatasetClient({ backend: createInMemoryBackend({ orders: [] }) });
     await expect(Promise.resolve().then(() => client.execute(Orders, query, TENANT))).rejects.toThrow(/queryBuilder execution path/);
   });
+
+  describe('alongside RFC 0029 filters, fill and time keys', () => {
+    const NOW = new Date('2026-11-22T10:00:00Z');
+    function clockClient() {
+      const db = createQueryBuilder({ adapter: { name: 'recording', async query<T>() { return [] as T[]; } } });
+      return createDatasetClient({ queryBuilder: db, now: () => NOW });
+    }
+    const january = { field: 'createdAt', operator: 'between' as const, value: ['2026-01-01', '2026-01-31'] };
+
+    it('fills a series that carries a filter calculation, on the time-series planner', () => {
+      const compilation = clockClient().compileDataset(Orders, {
+        dimensions: ['country'], measures: ['revenue'], by: 'day', fill: true, filters: [january],
+        calculations: [{ name: 'web_revenue', filter: { measure: 'revenue', where: WEB } }],
+      }, TENANT);
+      expect(compilation.describe().plan).toBe('time');
+      expect(compilation.sql).toContain('_hq_series');
+      expect(compilation.sql).toContain('`_hq_calc_0` AS `web_revenue`');
+      expect(compilation.preflightStatements).toHaveLength(1);
+    });
+
+    it('bounds a compare with a relative range the client resolves', () => {
+      const compilation = clockClient().compileDataset(Orders, {
+        measures: ['revenue'], by: 'month',
+        filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'this year' }],
+        calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+      }, TENANT);
+      expect(compilation.describe().plan).toBe('time');
+      expect(compilation.sql).toContain('`_hq_calc_0_0_change_pct` AS `revenue_change_pct`');
+      expect(compilation.parameters).toEqual(expect.arrayContaining(['2026-01-01']));
+    });
+
+    it('counts filter-group comparisons, not groups, toward the predicate budget', () => {
+      const group = { or: [...WEB, { field: 'country', operator: 'eq' as const, value: 'US' }] };
+      const query = (where: typeof WEB) => ({
+        measures: ['revenue'], filters: [group],
+        calculations: [{ name: 'x', filter: { measure: 'revenue', where } }],
+      }) as DatasetQuery;
+      expect(errors(query(WEB))).toEqual([]);
+      expect(errors(query([...WEB, ...WEB])).join('\n'))
+        .toMatch(/Too many filters, having conditions and filter-calculation conditions: 4 \(max 3\)/);
+      const sql = clockClient().toSQL(Orders, query(WEB), TENANT);
+      expect(sql).toMatch(/\(orders\.channel = \? OR orders\.country = \?\)/);
+    });
+
+    it('plans a calculation on the selected time key', () => {
+      const Shipped = dataset('shipped', {
+        source: 'orders', tenantKey: 'tenant_id', timeKey: 'createdAt', timeKeys: ['shippedAt'],
+        dimensions: {
+          createdAt: dimension.timestamp({ column: 'created_at' }),
+          shippedAt: dimension.timestamp({ column: 'shipped_at' }),
+          amount: dimension.number(),
+        },
+        filters: { createdAt: { field: 'createdAt' }, shippedAt: { field: 'shippedAt' } },
+        measures: { revenue: measure.sum('amount') },
+      });
+      const query = (field: string) => ({
+        measures: ['revenue'], by: 'month' as const, timeKey: 'shippedAt',
+        filters: [{ field, operator: 'between' as const, value: ['2026-01-01', '2026-04-01'] }],
+        calculations: [{ name: 'p', shift: { measure: 'revenue', amount: 1, unit: 'month' as const } }],
+      }) as DatasetQuery;
+      // The bounded range must be on the axis the series runs on.
+      expect(clockClient().validate(Shipped, query('createdAt'), TENANT).errors.join('\n')).toMatch(/bounded time range/);
+      const compilation = clockClient().compileDataset(Shipped, query('shippedAt'), TENANT);
+      expect(compilation.describe().timeKey).toBe('shippedAt');
+      expect(compilation.sql).toContain('shipped_at');
+      expect(compilation.sql).not.toContain('created_at');
+    });
+  });
 });
+

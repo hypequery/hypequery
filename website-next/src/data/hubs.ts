@@ -1,7 +1,7 @@
 // The hub pages every related page links up to: the nav, the footer,
 // blog posts and pillar pages all read their labels from here.
 
-export type HubKey = 'clickhouse' | 'semanticLayer' | 'semanticLayers' | 'embeddedAnalytics';
+export type HubKey = 'clickhouse' | 'semanticLayer' | 'semanticLayers' | 'embeddedAnalytics' | 'compare';
 
 export type Hub = {
   href: string;
@@ -32,7 +32,12 @@ export const hubs: Record<HubKey, Hub> = {
     label: 'Embedded analytics',
     description: 'Customer-facing dashboards: architecture, tenancy and tool types.',
   },
+  compare: {
+    href: '/compare',
+    label: 'Compare hypequery',
+    description: 'hypequery against Cube, Metabase, Luzmo, Embeddable, QueryPanel and the ClickHouse clients.',
+  },
 };
 
 /** Nav and footer order. */
-export const hubList: Hub[] = [hubs.clickhouse, hubs.semanticLayer, hubs.semanticLayers, hubs.embeddedAnalytics];
+export const hubList: Hub[] = [hubs.clickhouse, hubs.semanticLayer, hubs.semanticLayers, hubs.embeddedAnalytics, hubs.compare];

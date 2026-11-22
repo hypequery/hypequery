@@ -41,3 +41,9 @@ export type {
   ProtocolTimeGrain,
   ProtocolValueComparisonOperator,
 } from './types.js';
+export {
+  isProtocolRelativeDateRange,
+  parseProtocolRelativeDateRange,
+  type ProtocolRelativeDateRange,
+  type ProtocolRelativeDateUnit,
+} from './relative-dates.js';

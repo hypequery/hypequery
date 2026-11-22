@@ -14,7 +14,7 @@ tags:
 
 **Short answer:** an ORM maps database rows to objects in your language and manages their whole lifecycle — identity, change tracking, relations, migrations. A query builder does one narrower job: it constructs SQL programmatically, with types checking your column names, filters, and result shapes. ORMs earn their complexity on transactional (OLTP) databases where you load an entity, mutate it, and save it back. ClickHouse has no such workflow — it's columnar, append-heavy, and aggregation-first — so for ClickHouse you want a query builder, not an ORM.
 
-That's why the established TypeScript ORMs never grew ClickHouse support, and why hypequery is deliberately a [typed query builder](/clickhouse-query-builder) plus schema codegen plus a semantic layer — not an ORM. If you want to see what that looks like against your own schema, the [quick start](/docs/quick-start) gets you to generated types and a first query in a few minutes.
+That's why the established TypeScript ORMs never grew ClickHouse support, and why hypequery is deliberately a [typed query builder](/clickhouse-query-builder) plus schema codegen plus a [semantic layer](/semantic-layer) — not an ORM. If you want to see what that looks like against your own schema, the [quick start](/docs/quick-start) gets you to generated types and a first query in a few minutes.
 
 The rest of this post defines both terms precisely, shows the code, and explains why the distinction is architectural rather than a matter of taste.
 

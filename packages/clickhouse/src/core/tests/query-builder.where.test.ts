@@ -33,6 +33,14 @@ describe('QueryBuilder - Where Conditions', () => {
       expect(sql).toBe("SELECT * FROM test_table WHERE name LIKE '%O''Brien%'");
     });
 
+    it('should render notLike as NOT LIKE', () => {
+      const sql = builder
+        .where('name', 'notLike', '%test%')
+        .orWhere('name', 'notLike', "%O'Brien%")
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE name NOT LIKE '%test%' OR name NOT LIKE '%O''Brien%'");
+    });
+
     it('should support explicit null helpers', () => {
       const sql = builder
         .whereNull('optional_name')

@@ -3,7 +3,7 @@ import { buildCompositeTimeMeasureSql } from './composite-time-measure-sql.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import type { AnyDatasetInstance, DatasetQuery } from '../types.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
-import { getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } from './dataset-measures.js';
+import { baseMeasureNames, getBaseMeasure, getDerivedMeasure, isShiftMeasure, isWindowMeasure } from './dataset-measures.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
@@ -25,11 +25,15 @@ export interface PlannedTimeMeasureStatements {
 /** Plan source rows → output axis → window/shift values → final projection. */
 export function buildTimeMeasureDatasetSql(
   ds: AnyDatasetInstance,
-  query: DatasetQuery,
+  input: DatasetQuery,
   options: DatasetQueryExecutionOptions,
 ): PlannedTimeMeasureStatements {
-  const validation = validateDatasetQueryInput(ds, query, options.context);
+  // Validate the selection as written: `maxMeasures` bounds an explicit list,
+  // not the default set an omitted one stands for (RFC 0029 `fill`).
+  const validation = validateDatasetQueryInput(ds, input, options.context);
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
+  // A filled series fills only the measures it names, so name the defaults.
+  const query = input.measures === undefined ? { ...input, measures: baseMeasureNames(ds.measures) } : input;
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   assertRawSqlForDialect(ds, dialect);
   const { axis } = analyzeTimeMeasureAxis(
@@ -68,7 +72,12 @@ export function buildTimeMeasureDatasetSql(
   // Scan only requested populations: intervening rows must not introduce dimensions.
   const end = dialect.addTime('_hq_last', 1, axis.grain);
   const populations: string[] = [];
-  if ([...needed].some(name => name.includes('.') || getBaseMeasure(ds.measures, name))) {
+  if (timeMeasures.size === 0) {
+    // A plain filled series (RFC 0029) reads the exact range, measures or
+    // none: a row before a partial first bucket's start must not add a
+    // dimension combination the range never held.
+    populations.push(`(_hq_time ${axis.lowerInclusive ? '>=' : '>'} _hq_lower AND _hq_time ${axis.upperInclusive ? '<=' : '<'} _hq_upper)`);
+  } else if ([...needed].some(name => name.includes('.') || getBaseMeasure(ds.measures, name))) {
     populations.push(`(_hq_time >= _hq_first AND _hq_time < ${end})`);
   }
   if (windows.length) {

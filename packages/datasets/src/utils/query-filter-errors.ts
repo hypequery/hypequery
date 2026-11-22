@@ -1,4 +1,4 @@
-import type { AnyDatasetInstance, ExecutionContext, MetricFilter } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, ExecutionContext } from '../types.js';
 import { validateFilterValue } from '../validation.js';
 import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 import { getRuntimeTenantPredicate } from './tenant-runtime.js';
@@ -6,24 +6,34 @@ import { isQualifiedField } from './relationship-fields.js';
 import { validateQualifiedFilter } from './relationship-validation.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
 import { effectiveFilters } from './effective-filters.js';
+import { effectiveFilterLeaves } from './filter-tree.js';
+import { relativeDateFilterError } from './relative-date-filters.js';
 
 /**
- * Why each `{ field, operator, value }` filter cannot apply to `ds`: an
- * unknown or disallowed field or operator, a value of the wrong type, or the
- * tenant field under runtime tenancy. Query `filters` and RFC 0026 filter
- * calculations share these rules.
+ * Why each comparison of a filter tree cannot apply to `ds`: an unknown or
+ * disallowed field or operator (under `not`, the negated operator the
+ * allowlist must permit), a value of the wrong type, an unresolved relative
+ * range, or the tenant field under runtime tenancy. Query `filters` and RFC
+ * 0026 filter calculations share these rules; a malformed tree is reported by
+ * `filterTreeErrors`, not here.
  */
 export function queryFilterErrors(
   ds: AnyDatasetInstance,
-  queryFilters: readonly MetricFilter[],
+  queryFilters: readonly DatasetFilterNode[],
   context?: ExecutionContext,
 ): string[] {
   const errors: string[] = [];
   const filters = effectiveFilters(ds);
   const filterNames = Object.keys(filters);
-  for (const filter of queryFilters) {
+  for (const { filter, operators } of effectiveFilterLeaves(queryFilters)) {
+    // The client resolves every valid relative range first (RFC 0029); one
+    // still here could not be resolved, and says why.
+    if (filter.operator === 'inDateRange') {
+      errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
+      continue;
+    }
     if (isQualifiedField(filter.field)) {
-      const filterError = validateQualifiedFilter(ds, filter, context);
+      const filterError = validateQualifiedFilter(ds, filter, context, operators);
       if (filterError) {
         errors.push(filterError);
       }
@@ -36,9 +46,10 @@ export function queryFilterErrors(
     }
 
     const filterDefinition = filters[filter.field];
-    if (!filterAllowsOperator(filterDefinition, filter.operator)) {
+    const refused = operators.find(operator => !filterAllowsOperator(filterDefinition, operator));
+    if (refused) {
       errors.push(
-        `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
+        `Filter "${filter.field}" does not allow operator "${refused}"${refused === filter.operator ? '' : ` (the negation of "${filter.operator}")`}. Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
       );
       continue;
     }

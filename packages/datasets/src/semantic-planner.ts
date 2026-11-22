@@ -1,3 +1,5 @@
+import { hasFilterGroups } from './utils/filter-tree.js';
+import { assertTableSource } from './utils/sql-dataset-source.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure, getDerivedMeasure } from './utils/dataset-measures.js';
 import { protocolMetricCapabilityErrors } from './utils/protocol-metric-capabilities.js';
@@ -5,6 +7,7 @@ import type {
   AnyDatasetInstance,
   DatasetQuery,
   ExecutionContext,
+  DatasetFilterNode,
   MetricFilter,
   MetricOrderBy,
   MetricQuery,
@@ -75,11 +78,19 @@ function dimensionsForQuery(
   });
 }
 
+/** The backend plan is a flat AND list; refuse groups rather than flatten them (RFC 0029). */
+function flatFilters(filters: DatasetFilterNode[] = []): MetricFilter[] {
+  if (hasFilterGroups(filters)) {
+    throw new Error('Filter groups (and/or/not) require the queryBuilder execution path.');
+  }
+  return filters as MetricFilter[];
+}
+
 function normalizeFilters(
   ds: AnyDatasetInstance,
-  filters: MetricFilter[] = [],
+  nodes: DatasetFilterNode[] = [],
 ): MetricFilter[] {
-  return filters.map((filter) => {
+  return flatFilters(nodes).map((filter) => {
     if (isQualifiedField(filter.field)) {
       const { relationshipName, targetColumn } = resolveQualifiedPlanField(ds, filter.field);
       return { ...filter, field: `${relationshipName}.${targetColumn}` };
@@ -101,7 +112,9 @@ function normalizeFilters(
  * Semantic backends receive a source name, not SQL, so they cannot apply
  * `FINAL`. Running a final dataset there would count unmerged row versions.
  */
-function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution'>): void {
+function rejectFinalOnBackend(ds: Pick<AnyDatasetInstance, 'name' | 'rowResolution' | 'sqlSource'>): void {
+  // A backend reads `source` as a table name; a SQL source's is only an alias.
+  assertTableSource(ds, 'the semantic-backend execution path');
   if (ds.rowResolution) {
     throw new Error(`Dataset "${ds.name}" reads its source with FINAL, which requires the queryBuilder execution path.`);
   }
@@ -237,7 +250,7 @@ function aggregatePlan(
     limit: query.limit,
     offset: query.offset,
     tenant: planRowScope(ds, context),
-    joins: collectJoins(ds, query.dimensions, query.filters, query.orderBy, context),
+    joins: collectJoins(ds, query.dimensions, flatFilters(query.filters), query.orderBy, context),
   };
 }
 
@@ -248,6 +261,7 @@ export function buildDatasetPlan(
 ): PlanNode {
   rejectFinalOnBackend(ds);
   rejectConstraintsOnBackend(context);
+  if (query.fill === true) throw new Error('"fill" requires the queryBuilder execution path.');
   if ((query.measures ?? []).some(name => name.includes('.'))) throw new Error('Relationship measures require the queryBuilder execution path.');
   if (query.timezone !== undefined) throw new Error('Execution timezone requires the queryBuilder execution path.');
   if (selectsAlternateTimeKey(ds, query.timeKey)) throw new Error('Alternate time keys require the queryBuilder execution path.');

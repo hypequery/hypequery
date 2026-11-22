@@ -24,6 +24,7 @@ import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { queryFilterErrors } from './query-filter-errors.js';
 import { hasQueryCalculations } from './query-calculation-outputs.js';
 import { calculatedDatasetQueryErrors } from './compile-calculated-dataset-query.js';
+import { filterLeafCount, filterTreeErrors } from './filter-tree.js';
 
 export function validateDatasetQueryInput(
   dataset: AnyDatasetInstance,
@@ -66,7 +67,7 @@ export function validateDatasetQueryInput(
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
-  errors.push(...enforcedConstraintErrors(ds, context, query.filters?.length ?? 0));
+  errors.push(...enforcedConstraintErrors(ds, context, filterLeafCount(query.filters)));
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);
@@ -104,7 +105,10 @@ export function validateDatasetQueryInput(
     }
   }
 
-  if (query.filters) errors.push(...queryFilterErrors(ds, query.filters, context));
+  // A malformed tree is reported once, by the syntax check; its leaves are not read.
+  if (query.filters && filterTreeErrors(query.filters).length === 0) {
+    errors.push(...queryFilterErrors(ds, query.filters, context));
+  }
 
   if (query.orderBy) {
     const invalid: string[] = [];
@@ -127,6 +131,12 @@ export function validateDatasetQueryInput(
     if (invalid.length > 0) {
       errors.push(`Unknown orderBy fields: ${invalid.join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
     }
+  }
+
+  if (query.fill !== undefined && typeof query.fill !== 'boolean') {
+    errors.push('Invalid fill: expected true or false.');
+  } else if (query.fill === true && !query.by) {
+    errors.push('"fill" needs a "by" grain: it fills the periods of the time series.');
   }
 
   if (query.by && !ds.timeKey) {
@@ -160,8 +170,10 @@ export function validateDatasetQueryInput(
 
   errors.push(...datasetHavingErrors(ds, query, selectedMeasures));
 
-  if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
-    errors.push(`Too many filters: ${query.filters.length} (max ${ds.limits.maxFilters})`);
+  // RFC 0029: the budget counts comparisons; and/or/not groups cost nothing.
+  const filterCount = filterLeafCount(query.filters);
+  if (ds.limits?.maxFilters && filterCount > ds.limits.maxFilters) {
+    errors.push(`Too many filters: ${filterCount} (max ${ds.limits.maxFilters})`);
   }
 
   if (ds.limits?.maxResultSize && query.limit != null && query.limit > ds.limits.maxResultSize) {

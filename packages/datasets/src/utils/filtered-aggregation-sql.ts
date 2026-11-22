@@ -49,6 +49,9 @@ function renderMeasureFilterCondition(
       return `${field} IS NULL`;
     case 'isNotNull':
       return `${field} IS NOT NULL`;
+    case 'inDateRange':
+      // RFC 0029: a measure definition must not change meaning with the calendar.
+      throw new Error('"inDateRange" is a query filter; measure filters cannot use it.');
   }
 }
 
