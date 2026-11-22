@@ -135,58 +135,34 @@ class CalculationPlanner {
   readonly unsupported: string[] = [];
   private readonly available = new Map<string, Available>();
   private readonly added: Record<string, DatasetMeasureDefinition> = {};
-  private readonly selected: ReadonlySet<string>;
 
   constructor(
     private readonly ds: AnyDatasetInstance,
     private readonly query: DatasetQuery,
     private readonly context: ExecutionContext | undefined,
-    selectedMeasures: readonly string[],
-  ) {
-    this.selected = new Set(selectedMeasures);
-  }
+  ) {}
 
   /** The measures of the view: the dataset's, plus every calculation measure. */
   get measures(): Record<string, DatasetMeasureDefinition> {
     return { ...this.ds.measures, ...this.added };
   }
 
-  definition(name: string): DatasetMeasureDefinition | undefined {
-    if (Object.hasOwn(this.added, name)) return this.added[name];
-    return Object.hasOwn(this.ds.measures, name) ? this.ds.measures[name] : undefined;
-  }
-
-  /** A reference to an earlier output, or to a measure the dataset publishes. */
-  private input(
-    name: string,
-    label: string,
-    accepts: readonly QueryCalculationKind[],
-    published: 'any' | 'selected',
-  ): { internal: string; definition: DatasetMeasureDefinition; timed: boolean } | undefined {
+  /**
+   * A reference to an earlier output, or to a measure the dataset publishes.
+   * The envelope has already refused forward references, earlier outputs of a
+   * kind this entry does not accept, relationship measures, and unselected
+   * measures where an entry reads selected ones; what is left is the contract.
+   */
+  private input(name: string, label: string): { internal: string; timed: boolean } | undefined {
     const earlier = this.available.get(name);
-    if (earlier !== undefined) {
-      if (!accepts.includes(earlier.kind)) {
-        this.errors.push(`${label} cannot read "${name}", a ${earlier.kind} calculation.`);
-        return undefined;
-      }
-      return { internal: earlier.internal, definition: this.definition(earlier.internal)!, timed: earlier.timed };
-    }
-    if (name.includes('.')) {
-      this.errors.push(`${label} cannot read relationship measure "${name}"; calculations read local measures.`);
-      return undefined;
-    }
-    const definition = Object.hasOwn(this.ds.measures, name) ? this.ds.measures[name] : undefined;
-    if (definition === undefined) {
+    if (earlier !== undefined) return { internal: earlier.internal, timed: earlier.timed };
+    if (!Object.hasOwn(this.ds.measures, name)) {
       this.errors.push(`${label} reads unknown measure "${name}".`);
-      return undefined;
-    }
-    if (published === 'selected' && !this.selected.has(name)) {
-      this.errors.push(`${label} reads "${name}", which the query does not select.`);
       return undefined;
     }
     const timed = measureDependencyNames(this.ds.measures, [name])
       .some(dependency => isShiftMeasure(this.ds.measures[dependency]) || isWindowMeasure(this.ds.measures[dependency]));
-    return { internal: name, definition, timed };
+    return { internal: name, timed };
   }
 
   private add(internal: string, definition: DatasetMeasureDefinition, publicName: string, kind: QueryCalculationKind, timed: boolean): void {
@@ -208,13 +184,12 @@ class CalculationPlanner {
       case 'window': return this.window(entry as Extract<DatasetQueryCalculation, { window: unknown }>, internal, label);
       case 'formula': return this.formula(entry as Extract<DatasetQueryCalculation, { formula: unknown }>, internal, label);
       case 'compare': return this.compare(entry as Extract<DatasetQueryCalculation, { compare: unknown }>, internal, label);
-      default: return;
     }
   }
 
   private filter(entry: Extract<DatasetQueryCalculation, { filter: unknown }>, internal: string, label: string): void {
     const { measure, where } = entry.filter;
-    const input = this.input(measure, label, [], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     const base = getBaseMeasure(this.ds.measures, measure);
     if (base === undefined) {
@@ -239,7 +214,7 @@ class CalculationPlanner {
 
   private shift(entry: Extract<DatasetQueryCalculation, { shift: unknown }>, internal: string, label: string): void {
     const { measure, amount, unit } = entry.shift;
-    const input = this.input(measure, label, ['filter', 'formula'], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     if (input.timed) {
       this.errors.push(`${label} cannot shift "${measure}", which already depends on a shift or window.`);
@@ -253,7 +228,7 @@ class CalculationPlanner {
 
   private window(entry: Extract<DatasetQueryCalculation, { window: unknown }>, internal: string, label: string): void {
     const { measure } = entry.window;
-    const input = this.input(measure, label, ['filter'], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     if (getBaseMeasure(this.measures, input.internal) === undefined) {
       this.errors.push(`${label} must window a base measure; "${measure}" is not one.`);
@@ -270,7 +245,7 @@ class CalculationPlanner {
     const resolved = new Map<string, string>();
     let timed = false;
     for (const name of formulaReferences(entry.formula)) {
-      const input = this.input(name, label, ['filter', 'shift', 'window', 'formula', 'compare'], 'selected');
+      const input = this.input(name, label);
       if (input === undefined) return;
       resolved.set(name, input.internal);
       timed ||= input.timed;
@@ -280,13 +255,10 @@ class CalculationPlanner {
 
   private compare(entry: Extract<DatasetQueryCalculation, { compare: unknown }>, internal: string, label: string): void {
     const { to, measures } = entry.compare;
-    const unit = to === 'previousYear' ? 'year' : this.query.by;
-    if (unit === undefined) {
-      this.errors.push(`${label} needs "by": it compares each bucket with an earlier one.`);
-      return;
-    }
+    // The envelope requires `by` for every compare.
+    const unit = to === 'previousYear' ? 'year' : this.query.by!;
     measures.forEach((measure, at) => {
-      const input = this.input(measure, label, ['filter', 'formula'], 'selected');
+      const input = this.input(measure, label);
       if (input === undefined) return;
       if (input.timed) {
         this.errors.push(`${label} cannot compare "${measure}", which already depends on a shift or window.`);
@@ -332,7 +304,7 @@ export function planQueryCalculations(
   }
 
   const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
-  const planner = new CalculationPlanner(ds, query, context, selectedMeasures);
+  const planner = new CalculationPlanner(ds, query, context);
   const unsupported = [
     ...(query.limitBy === undefined ? [] : ['"limitBy" is not supported by this executor yet.']),
     ...(query.other === undefined ? [] : ['"other" is not supported by this executor yet.']),
