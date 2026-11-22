@@ -312,18 +312,19 @@ function validateMergeMeasure(datasetName: string, name: string, definition: Mea
 
 /**
  * RFC 0028: a SQL source's declared columns are the only ones its dataset can
- * address, so every column reference must name one. References qualified with
- * a relationship name belong to that relationship's target and aren't checked.
+ * address, so every column reference must name one, bare or qualified with
+ * the source's alias. References qualified with a relationship name belong to that relationship's target and aren't checked.
  */
 function validateSqlSourceReferences(
   datasetName: string,
   config: DatasetConfig<AnyDimensions, AnyMeasures, AnyRelationships>,
+  alias: string,
   columns: Readonly<Record<string, FieldType>>,
 ): void {
   const dimensions = config.dimensions ?? {};
   const relationships = config.relationships ?? {};
   const declared = (reference: string) => {
-    const bare = reference.startsWith(`${datasetName}.`) ? reference.slice(datasetName.length + 1) : reference;
+    const bare = reference.startsWith(`${alias}.`) ? reference.slice(alias.length + 1) : reference;
     return Object.hasOwn(columns, bare) ? bare : undefined;
   };
   const viaRelationship = (reference: string) => {
@@ -432,7 +433,7 @@ export function validateDatasetDefinition(
         '(and any deletion filter) inside the SQL instead.',
       );
     }
-    validateSqlSourceReferences(name, config, source.columns);
+    validateSqlSourceReferences(name, config, source.alias, source.columns);
   } else {
     if (typeof config.source !== 'string' || config.source.trim().length === 0) {
       fail(name, 'a non-empty source table is required.');

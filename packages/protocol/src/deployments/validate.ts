@@ -39,6 +39,7 @@ import type {
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
+  ProtocolSqlSource,
 } from './types.js';
 
 type DataRecord = Record<string, unknown>;
@@ -944,11 +945,11 @@ function validateDataset(
   if (value.rowResolution !== undefined) {
     result.rowResolution = field(() => validateProtocolRowResolution(value.rowResolution, `${path}.rowResolution`));
   }
-  if (isProtocolSqlSource(result.source)) {
-    validateSqlSourceReferences(value, result, path, issues);
-  }
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
+  }
+  if (isProtocolSqlSource(result.source)) {
+    validateSqlSourceReferences(value, result, path, filtersKey, issues);
   }
   field(() => optionalText(value.description, 'description', result, path, limits));
   field(() => optionalText(value.owner, 'owner', result, path, limits));
@@ -969,30 +970,71 @@ function validateDataset(
 
 /**
  * RFC 0028: a SQL source's declared columns are the only addressable ones,
- * and FINAL belongs inside its SQL rather than on the dataset.
+ * and FINAL belongs inside its SQL rather than on the dataset. Column
+ * references may be bare or qualified with the source's alias; measure
+ * filters are expressions and are left to the runtime's definition checks.
  */
 function validateSqlSourceReferences(
   value: DataRecord,
   result: Record<string, unknown>,
   path: string,
+  filtersKey: string,
   issues?: DeploymentErrorCollector,
 ): void {
-  const source = result.source as { readonly columns: readonly { readonly name: string; readonly type: string }[] };
+  const source = result.source as ProtocolSqlSource;
   const fail = (code: ProtocolDeploymentErrorCode, at: string) => attempt(issues, () => deploymentError(code, at));
   if (value.rowResolution !== undefined) fail('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.rowResolution`);
-  const name = typeof result.name === 'string' ? result.name : undefined;
+  const dimensions = (result.dimensions ?? []) as readonly ProtocolDatasetDimension[];
+  const relationships = (result.relationships ?? []) as readonly ProtocolDatasetRelationship[];
+  const dimensionNames = new Set<string>(dimensions.map(dimension => dimension.name));
+  const relationshipNames = new Set<string>(relationships.map(relationship => relationship.name));
   const column = (reference: string) => {
-    const bare = name !== undefined && reference.startsWith(`${name}.`) ? reference.slice(name.length + 1) : reference;
+    const bare = reference.startsWith(`${source.alias}.`) ? reference.slice(source.alias.length + 1) : reference;
     return source.columns.find(item => item.name === bare);
   };
-  const tenant = result.tenant as ProtocolDatasetTenantPolicy | undefined;
-  if (tenant?.kind === 'required' && column(tenant.field) === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.tenant.field`);
-  const dimensions = result.dimensions as readonly ProtocolDatasetDimension[] | undefined;
-  for (const [index, dimension] of (dimensions ?? []).entries()) {
-    if (dimension.source.kind !== 'column') continue;
-    if (column(dimension.source.column)?.type !== dimension.type) {
-      fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${path}.dimensions[${index}].source.column`);
+  const requireColumn = (reference: string, at: string) => {
+    if (column(reference) === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', at);
+  };
+  // A field names a dimension, a relationship's field, or a source column.
+  const fieldOrColumn = (reference: string, at: string) => {
+    if (dimensionNames.has(reference)) return;
+    const dot = reference.indexOf('.');
+    if (dot > 0 && relationshipNames.has(reference.slice(0, dot))) return;
+    requireColumn(reference, at);
+  };
+  const dependencies = (expression: { readonly dependencies: readonly string[] } | undefined, at: string) => {
+    for (const [index, dependency] of (expression?.dependencies ?? []).entries()) {
+      requireColumn(dependency, `${at}.dependencies[${index}]`);
     }
+  };
+
+  const tenant = result.tenant as ProtocolDatasetTenantPolicy | undefined;
+  if (tenant?.kind === 'required') requireColumn(tenant.field, `${path}.tenant.field`);
+  for (const [index, dimension] of dimensions.entries()) {
+    const at = `${path}.dimensions[${index}].source`;
+    if (dimension.source.kind !== 'column') {
+      dependencies(dimension.source, at);
+    } else if (column(dimension.source.column)?.type !== dimension.type) {
+      fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${at}.column`);
+    }
+  }
+  if (typeof result.timeField === 'string') fieldOrColumn(result.timeField, `${path}.timeField`);
+  for (const [index, measure] of ((result.measures ?? []) as readonly ProtocolDatasetMeasure[]).entries()) {
+    const at = `${path}.measures[${index}]`;
+    if (measure.sql !== undefined) {
+      dependencies(measure.sql, `${at}.sql`);
+      continue;
+    }
+    fieldOrColumn(measure.field, `${at}.field`);
+    if (measure.argField !== undefined) fieldOrColumn(measure.argField, `${at}.argField`);
+  }
+  for (const [index, filter] of ((result[filtersKey] ?? []) as readonly ProtocolDatasetFilter[]).entries()) {
+    fieldOrColumn(filter.field, `${path}.${filtersKey}[${index}].field`);
+  }
+  for (const [index, relationship] of relationships.entries()) {
+    const at = `${path}.relationships[${index}]`;
+    requireColumn(relationship.from, `${at}.from`);
+    for (const [keyIndex, key] of (relationship.keys ?? []).entries()) requireColumn(key.from, `${at}.keys[${keyIndex}].from`);
   }
 }
 

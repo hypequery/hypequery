@@ -131,6 +131,16 @@ describe('RFC 0028 SQL sources in deployment contracts (draft fixtures)', () => 
     expect(failure(() => validateProtocolDeploymentContract(contract))).toEqual({ code, path });
   });
 
+  it('refuses getters in source lists without running them', () => {
+    const dataset = cases.accepted[0]!.contract.datasets[0] as Record<string, unknown>;
+    let calls = 0;
+    const dependencies = ['app.signups', 'app.events', 'app.subscriptions'];
+    Object.defineProperty(dependencies, 3, { enumerable: true, get: () => { calls += 1; return 'app.invoices'; } });
+    expect(failure(() => validateProtocolDatasetContract({ ...dataset, metrics: [], source: { ...(dataset.source as object), dependencies } })))
+      .toEqual({ code: 'HQ_DEPLOYMENT_UNSAFE_OBJECT', path: '$.source.dependencies[3]' });
+    expect(calls).toBe(0);
+  });
+
   it('validates a standalone dataset contract', () => {
     const dataset = cases.accepted[0]!.contract.datasets[0] as Record<string, unknown>;
     expect(validateProtocolDatasetContract({ ...dataset, metrics: [] }).source).toEqual(dataset.source);

@@ -29,6 +29,12 @@ function list(input: unknown, path: string, maxItems: number): readonly unknown[
   }
   if (input.length === 0) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', path);
   if (input.length > maxItems) deploymentError('HQ_DEPLOYMENT_TOO_MANY_ITEMS', path);
+  // Read descriptors, never elements, so a getter is refused without running.
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  for (let index = 0; index < input.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor?.enumerable || !('value' in descriptor)) deploymentError('HQ_DEPLOYMENT_UNSAFE_OBJECT', `${path}[${index}]`);
+  }
   return input;
 }
 
@@ -56,10 +62,11 @@ export function validateProtocolSqlSource(
   limits: Readonly<ProtocolDeploymentLimits>,
 ): ProtocolSqlSource {
   const value = record(input, path);
-  exact(value, ['kind', 'dialect', 'sql', 'dependencies', 'columns'], path);
+  exact(value, ['kind', 'dialect', 'sql', 'alias', 'dependencies', 'columns'], path);
   if (value.kind !== 'sql') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.kind`);
   if (value.dialect !== 'clickhouse') deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.dialect`);
   if (typeof value.sql !== 'string') deploymentError('HQ_DEPLOYMENT_TYPE', `${path}.sql`);
+  const alias = parseIdentifier(value.alias, `${path}.alias`, parseProtocolIdentifier);
   const dependencies = list(value.dependencies, `${path}.dependencies`, PROTOCOL_SQL_SOURCE_MAX_DEPENDENCIES)
     .map((dependency, index) => parseIdentifier(dependency, `${path}.dependencies[${index}]`, parseProtocolQualifiedIdentifier));
   if (new Set(dependencies).size !== dependencies.length) deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.dependencies`);
@@ -86,6 +93,7 @@ export function validateProtocolSqlSource(
     kind: 'sql',
     dialect: 'clickhouse',
     sql: value.sql,
+    alias,
     dependencies: Object.freeze(dependencies),
     columns: Object.freeze(columns),
   });

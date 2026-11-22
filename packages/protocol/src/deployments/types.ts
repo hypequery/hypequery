@@ -179,6 +179,11 @@ export interface ProtocolSqlSource {
   readonly kind: 'sql';
   readonly dialect: 'clickhouse';
   readonly sql: string;
+  /**
+   * The derived table's alias: what field SQL qualifies its columns with. The
+   * dataset's code-first name, kept when it is published under another name.
+   */
+  readonly alias: ProtocolIdentifier;
   /** Every table the SQL reads, exactly as written in it. */
   readonly dependencies: readonly ProtocolQualifiedIdentifier[];
   /** The derived table's only addressable columns, in projection order. */

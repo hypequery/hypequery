@@ -109,6 +109,7 @@ Queries read it as `(SELECT <columns> FROM (<sql>)) AS activity`. Tenant scoping
 - `SETTINGS`, `FORMAT` and `INTO OUTFILE` are refused. So are table functions such as `url()`, `remote()`, `file()` and `numbers()`, dictionary, file and sleep functions, and `system` tables. A column whose name is one of those words needs quoting.
 - `dependencies` must list exactly the tables the SQL reads, spelled the way the SQL spells them.
 - `columns` are the only columns the dataset can reference. Dimensions must match their column's type.
+- Field SQL may qualify columns with the source's alias (`activity.step`). The alias defaults to the dataset name; set `source.alias` to choose another.
 
 Every branch must project each row's real tenant. The planner applies the tenant filter outside the SQL, so it can't detect a branch that labels rows with the wrong tenant.
 

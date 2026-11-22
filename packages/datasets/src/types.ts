@@ -652,6 +652,12 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
 export interface DatasetSqlSource {
   /** One `SELECT` (or `WITH … SELECT`): no settings, table functions, comments, parameters or second statement. */
   sql: string;
+  /**
+   * The derived table's alias, which field SQL may qualify columns with
+   * (`activity.step`). Defaults to the dataset name; publishing under another
+   * name keeps it, so qualified field SQL stays valid.
+   */
+  alias?: string;
   /** Every table the SQL reads, as `table` or `database.table`, spelled as in the SQL. */
   dependencies: readonly string[];
   /** The derived table's columns: the only ones the dataset may reference. */
@@ -661,6 +667,7 @@ export interface DatasetSqlSource {
 /** A SQL source as a dataset instance holds it: frozen, with what the checker found. */
 export interface ResolvedDatasetSqlSource {
   readonly sql: string;
+  readonly alias: string;
   readonly dependencies: readonly string[];
   readonly columns: Readonly<Record<string, FieldType>>;
   /** The SQL reads a table with `FINAL`, so queries pin the FINAL safety setting. */

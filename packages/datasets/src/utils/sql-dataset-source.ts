@@ -5,7 +5,7 @@
 import { analyzeProtocolSqlSource, type ProtocolSqlSourceRefusal } from '@hypequery/protocol';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { isSafeSQLIdentifier } from '../sql-utils.js';
+import { isSafeSQLIdentifier, quoteSQLIdentifier } from '../sql-utils.js';
 import { stableStringify } from './canonical-json.js';
 import type { AnyDatasetInstance, DatasetSqlSource, FieldType, ResolvedDatasetSqlSource } from '../types.js';
 
@@ -43,9 +43,13 @@ export function isDatasetSqlSource(source: unknown): source is DatasetSqlSource 
 /** Check a code-first SQL source and freeze it with what the checker found. */
 export function resolveDatasetSqlSource(datasetName: string, source: DatasetSqlSource): ResolvedDatasetSqlSource {
   for (const key of Object.keys(source)) {
-    if (key !== 'sql' && key !== 'dependencies' && key !== 'columns') {
-      fail(datasetName, `source has unknown key "${key}". A SQL source declares sql, dependencies and columns.`);
+    if (key !== 'sql' && key !== 'alias' && key !== 'dependencies' && key !== 'columns') {
+      fail(datasetName, `source has unknown key "${key}". A SQL source declares sql, dependencies, columns and an optional alias.`);
     }
+  }
+  const alias = source.alias ?? datasetName;
+  if (typeof alias !== 'string' || !isSafeSQLIdentifier(alias)) {
+    fail(datasetName, `source alias "${String(alias)}" is not a safe identifier.`);
   }
   if (typeof source.sql !== 'string') fail(datasetName, 'source.sql must be a string.');
   if (!Array.isArray(source.dependencies) || source.dependencies.length === 0) {
@@ -75,6 +79,7 @@ export function resolveDatasetSqlSource(datasetName: string, source: DatasetSqlS
   if (!analysis.ok) fail(datasetName, `source.sql ${REFUSALS[analysis.reason](analysis.detail)}`);
   return Object.freeze({
     sql: source.sql,
+    alias,
     dependencies: Object.freeze([...source.dependencies]),
     columns: Object.freeze({ ...source.columns }),
     readsFinal: analysis.readsFinal,
@@ -85,9 +90,11 @@ export function resolveDatasetSqlSource(datasetName: string, source: DatasetSqlS
  * The derived table a SQL-sourced dataset reads: only its declared columns,
  * aliased as the dataset so base columns qualify exactly as for a table.
  */
-export function sqlSourceRelation(ds: Pick<AnyDatasetInstance, 'source' | 'sqlSource'>): string {
+export function sqlSourceRelation(ds: Pick<AnyDatasetInstance, 'sqlSource'>): string {
   const source = ds.sqlSource!;
-  return `(SELECT ${Object.keys(source.columns).join(', ')} FROM (${source.sql})) AS ${ds.source}`;
+  // Quoted, so a column named like a keyword (`select`) still projects.
+  const columns = Object.keys(source.columns).map(quoteSQLIdentifier).join(', ');
+  return `(SELECT ${columns} FROM (${source.sql})) AS ${quoteSQLIdentifier(source.alias)}`;
 }
 
 /** The RFC 0028 contract form. */
@@ -96,6 +103,7 @@ export function sqlSourceToContract(source: ResolvedDatasetSqlSource) {
     kind: 'sql' as const,
     dialect: 'clickhouse' as const,
     sql: source.sql,
+    alias: source.alias,
     dependencies: [...source.dependencies],
     columns: Object.entries(source.columns).map(([name, type]) => ({ name, type })),
   };
@@ -104,11 +112,13 @@ export function sqlSourceToContract(source: ResolvedDatasetSqlSource) {
 /** The code-first form of a contract's SQL source. */
 export function sqlSourceFromContract(source: {
   readonly sql: string;
+  readonly alias: string;
   readonly dependencies: readonly string[];
   readonly columns: readonly { readonly name: string; readonly type: FieldType }[];
 }): DatasetSqlSource {
   return {
     sql: source.sql,
+    alias: source.alias,
     dependencies: [...source.dependencies],
     columns: Object.fromEntries(source.columns.map(column => [column.name, column.type])),
   };

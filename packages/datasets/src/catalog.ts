@@ -271,6 +271,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     ...(dataset.sqlSource === undefined ? {} : {
       sqlSource: {
         sql: dataset.sqlSource.sql,
+        alias: dataset.sqlSource.alias,
         dependencies: [...dataset.sqlSource.dependencies],
         columns: { ...dataset.sqlSource.columns },
       },

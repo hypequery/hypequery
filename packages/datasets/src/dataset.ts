@@ -126,9 +126,9 @@ export function dataset<
   // CheckedDatasetMeasures. Preserve their literal names and definition types.
   const measures = { ...config.measures } as TDefinitions;
   const filters = normalizeFilters(dimensions, config.filters) as NormalizedDatasetFilters<TDimensions, TFilters>;
-  // A SQL source is read as a derived table aliased as the dataset (RFC 0028).
+  // A SQL source is read as a derived table under its alias (RFC 0028).
   const sqlSource = isDatasetSqlSource(config.source) ? resolveDatasetSqlSource(name, config.source) : undefined;
-  const source = sqlSource ? name : config.source as string;
+  const source = sqlSource ? sqlSource.alias : config.source as string;
   const relationships = normalizeRelationships(config.relationships, source);
 
   type TMeasures = BaseMeasures<TDefinitions>;

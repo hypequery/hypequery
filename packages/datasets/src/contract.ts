@@ -170,6 +170,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     ...(includeSql && catalog.sqlSource !== undefined ? {
       sqlSource: {
         sql: catalog.sqlSource.sql,
+        alias: catalog.sqlSource.alias,
         dependencies: [...catalog.sqlSource.dependencies],
         columns: { ...catalog.sqlSource.columns },
       },

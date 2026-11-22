@@ -33,7 +33,7 @@ const ACTIVITY_SOURCE: DatasetSqlSource = {
   columns: { tenant_id: 'string', user_id: 'string', step: 'string', occurred_at: 'timestamp' },
 };
 
-const DERIVED_TABLE = `(SELECT tenant_id, user_id, step, occurred_at FROM (${ACTIVITY_SQL})) AS activity`;
+const DERIVED_TABLE = `(SELECT \`tenant_id\`, \`user_id\`, \`step\`, \`occurred_at\` FROM (${ACTIVITY_SQL})) AS \`activity\``;
 
 const Users = dataset('users', {
   source: 'app.users',
@@ -97,7 +97,7 @@ describe('SQL-sourced datasets (RFC 0028)', () => {
   describe('definition', () => {
     it('aliases the derived table as the dataset and records what the checker found', () => {
       expect(Activity.source).toBe('activity');
-      expect(Activity.sqlSource).toEqual({ ...ACTIVITY_SOURCE, readsFinal: true });
+      expect(Activity.sqlSource).toEqual({ ...ACTIVITY_SOURCE, alias: 'activity', readsFinal: true });
       expect(Object.isFrozen(Activity.sqlSource)).toBe(true);
     });
 
@@ -147,6 +147,27 @@ describe('SQL-sourced datasets (RFC 0028)', () => {
       expect(build).toThrow(message);
     });
 
+    it('quotes projected columns, so keyword-named columns still project', () => {
+      const Keywords = dataset('keywords', {
+        source: { sql: 'SELECT `select`, `from` FROM app.events', dependencies: ['app.events'], columns: { select: 'string', from: 'string' } },
+        dimensions: { select: dimension.string() },
+        measures: { rows: measure.count('from') },
+      });
+      expect(client.toSQL(Keywords, { dimensions: ['select'], measures: ['rows'] }))
+        .toContain('FROM (SELECT `select`, `from` FROM (SELECT `select`, `from` FROM app.events)) AS `keywords`');
+    });
+
+    it('takes an explicit alias for qualified field SQL', () => {
+      const Aliased = dataset('activity_v2', {
+        ...activityConfig,
+        source: { ...ACTIVITY_SOURCE, alias: 'activity' },
+        dimensions: { ...activityConfig.dimensions, loud: dimension.string({ sql: 'upper(activity.step)', dependencies: ['activity.step'] }) },
+      });
+      expect(Aliased.source).toBe('activity');
+      expect(client.toSQL(Aliased, { dimensions: ['loud'], measures: ['users'] }, TENANT)).toContain(`FROM ${DERIVED_TABLE}`);
+      expect(define({ source: { ...ACTIVITY_SOURCE, alias: 'not safe' } })).toThrow('source alias "not safe" is not a safe identifier');
+    });
+
     it('accepts SQL dimensions over declared columns, qualified or bare', () => {
       expect(() => dataset('activity', {
         ...activityConfig,
@@ -180,7 +201,7 @@ describe('SQL-sourced datasets (RFC 0028)', () => {
       });
       const { calls, settings, db } = recordingBuilder();
       await createDatasetClient({ queryBuilder: db }).execute(Plain, { dimensions: ['step'], measures: ['users'] }, TENANT);
-      expect(calls[0]).toContain('FROM (SELECT tenant_id, user_id, step, occurred_at FROM (SELECT tenant_id, user_id, name AS step, ts AS occurred_at FROM app.events)) AS plain_activity');
+      expect(calls[0]).toContain('FROM (SELECT `tenant_id`, `user_id`, `step`, `occurred_at` FROM (SELECT tenant_id, user_id, name AS step, ts AS occurred_at FROM app.events)) AS `plain_activity`');
       expect(JSON.stringify(settings[0] ?? {})).not.toContain('optimize_move_to_prewhere_if_final');
     });
 
@@ -269,6 +290,7 @@ describe('SQL-sourced datasets (RFC 0028)', () => {
         kind: 'sql',
         dialect: 'clickhouse',
         sql: ACTIVITY_SQL,
+        alias: 'activity',
         dependencies: ['app.signups', 'app.events', 'app.subscriptions', 'app.invoices'],
         columns: [
           { name: 'tenant_id', type: 'string' },
@@ -309,6 +331,24 @@ describe('SQL-sourced datasets (RFC 0028)', () => {
       expect(calls).toHaveLength(1);
       expect(calls[0]).toContain(`FROM ${DERIVED_TABLE} WHERE activity.tenant_id = ?`);
       expect(params[0]).toEqual(['acme']);
+    });
+
+    it('keeps the source alias when published under another name', () => {
+      const Qualified = dataset('activity', {
+        ...activityConfig,
+        dimensions: {
+          ...activityConfig.dimensions,
+          loudStep: dimension.string({ sql: 'upper(activity.step)', dependencies: ['activity.step'] }),
+        },
+      });
+      const renamed = { ...Qualified, name: 'public_activity' } as typeof Qualified;
+      const contract = buildProtocolDeploymentContract([renamed, Users]);
+      const published = contract.datasets.find(item => item.name === 'public_activity')!;
+      expect((published.source as { alias: string }).alias).toBe('activity');
+      const hydrated = rehydrateProtocolDatasets(contract.datasets).public_activity!;
+      expect(hydrated.source).toBe('activity');
+      const query = { dimensions: ['loudStep'], measures: ['users'] };
+      expect(client.toSQL(hydrated, query, TENANT)).toBe(client.toSQL(Qualified, query, TENANT));
     });
 
     it('refuses publishing a relationship that targets a SQL-sourced dataset', () => {
