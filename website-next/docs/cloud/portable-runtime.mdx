@@ -23,25 +23,29 @@ does not run preflight guard statements; execution runs them before reading rows
 Portable compilation includes `activationRevision` in its structural description
 so the diagnostic record identifies the definition generation used.
 
-Use the shipped capability matrix to enable authoring controls for a target:
+The shipped capability matrix says what Core supports for each feature:
 
 <CodeBlock>
 ```typescript
 import { DATASET_EXECUTION_CAPABILITIES } from '@hypequery/datasets';
 
-const cloudFeatures = DATASET_EXECUTION_CAPABILITIES.features
-  .filter(feature => feature.cloud)
+const portableFeatures = DATASET_EXECUTION_CAPABILITIES.features
+  .filter(feature => feature.portable)
   .map(feature => feature.feature);
 ```
 </CodeBlock>
 
 The matrix distinguishes protocol representation, TS/Python local support,
-TS/Python publication, and repository cloud execution. It covers base and derived
+TS/Python publication, and Core's portable runtime. It covers base and derived
 measures, segments, window/shift measures, approximate distinct counts, and sub-day
-grains. It is a conservative feature discovery aid, not per-definition validation
-or a statement that a hosted service has qualified Python deployments.
+grains. It is a conservative feature discovery aid, not per-definition validation.
+It makes no claim about a hosted service. A deployment target says which
+deployment contract and semantic invocation versions it accepts in its live
+state (`accepts`, RFC 0030), and `hypequery deploy` checks a deployment against
+it before upload. The deprecated `cloud` flag and `cloudDeploymentVersion` never
+described Cloud and will be removed in a major release.
 
-Publishing currently emits deployment v2. Its formula grammar is narrower than
+Publishing emits deployment v2 unless a dataset uses a contract 3 feature. Its formula grammar is narrower than
 local planning: a derived measure may reference only base measures, and a
 literal may appear only as `round` decimals or a `coalesce` fallback.
 `buildProtocolDeploymentContract` and `assertDeployable` refuse anything else

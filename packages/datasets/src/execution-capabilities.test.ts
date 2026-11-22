@@ -30,7 +30,12 @@ const SQL_MARKERS: Record<string, string> = {
 describe('dataset execution capability matrix', () => {
   const features = DATASET_EXECUTION_CAPABILITIES.features;
   it('covers every declared feature exactly once and freezes discovery data', () => {
-    expect(DATASET_EXECUTION_CAPABILITIES).toEqual(capabilitySource);
+    // The deprecated `cloud` and `cloudDeploymentVersion` are aliases, not matrix data (RFC 0030).
+    const { cloudDeploymentVersion, features: withAliases, ...rest } = DATASET_EXECUTION_CAPABILITIES;
+    expect({ ...rest, features: withAliases.map(({ cloud: _cloud, ...entry }) => entry) }).toEqual(capabilitySource);
+    expect(withAliases.every(entry => entry.cloud === entry.portable)).toBe(true);
+    expect(cloudDeploymentVersion).toBe(3);
+    expect(capabilitySource).not.toHaveProperty('cloudDeploymentVersion');
     expect(features.map(entry => entry.feature).sort()).toEqual(['baseMeasures', 'derivedMeasures', 'segments', 'windowMeasures', 'shiftMeasures', 'approxCountDistinct', 'subDayGrains'].sort());
     expect(Object.isFrozen(features[0]!.typescript)).toBe(true);
   });
@@ -56,11 +61,10 @@ describe('dataset execution capability matrix', () => {
     expect(entry.typescript.local).toBe(true);
     const publish = () => publishToCloud({ datasets: { orders: ds }, access: { roles: [], scopes: [] } });
     expect(entry.typescript.publish).toBe(true);
-    expect(entry.cloud).toBe(true);
+    expect(entry.portable).toBe(true);
     const deployment = publish();
     // Lowest-version rule: contract 3 only when the dataset needs it.
     expect(deployment.version).toBe(entry.protocolVersions.includes(2) || entry.feature === 'subDayGrains' ? 2 : 3);
-    expect(deployment.version).toBeLessThanOrEqual(DATASET_EXECUTION_CAPABILITIES.cloudDeploymentVersion);
     expect(Object.keys(rehydrateProtocolDeploymentContract(deployment))).toEqual(['orders']);
     const runtime = createPortableSemanticRuntime({ queryBuilder: factory });
     const operation = {
