@@ -510,7 +510,7 @@ export default async function ClickHouseEmbeddedAnalyticsPage() {
             <Link href="/semantic-layer" className={inlineLink}>
               what a semantic layer is
             </Link>
-            ; for the vendor landscape around it, see{' '}
+            ; for the vendors that sell it, see{' '}
             <Link href="/embedded-analytics" className={inlineLink}>
               embedded analytics
             </Link>{' '}

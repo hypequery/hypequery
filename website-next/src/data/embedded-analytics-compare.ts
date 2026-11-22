@@ -43,7 +43,7 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/compare/embeddable-alternatives',
     title: 'Embeddable alternatives',
     description:
-      'Alternatives grouped by why teams leave Embeddable: owning the UI and data layer in the repo, giving customers a full BI tool, published pricing, or staying on ClickHouse without Cube.',
+      'Alternatives grouped by why teams leave Embeddable. Some want the UI and data layer in their repo, some want a full BI tool for customers, some want published pricing, and some want ClickHouse without Cube.',
   },
   {
     href: '/compare/hypequery-vs-embeddable',

@@ -109,7 +109,7 @@ const notes: Record<string, CompareHubNote> = {
   },
   '/cube-js-alternative': {
     bestFitFor: 'Comparing semantic layers for embedded analytics and AI agents.',
-    chooseHypequeryWhen: 'You want the semantic layer as a library on ClickHouse, not a separate service.',
+    chooseHypequeryWhen: 'You want the semantic layer as a library inside your backend, on ClickHouse.',
   },
   '/tinybird-alternative': {
     bestFitFor: 'Teams moving off Tinybird who want to keep a typed API layer.',

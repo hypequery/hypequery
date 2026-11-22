@@ -11,9 +11,9 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer';
-const TITLE = 'What Is a Semantic Layer? Definition, Examples, Tools';
+const TITLE = 'What Is a Semantic Layer? Definition, How It Works, Examples';
 const DESCRIPTION =
-  'A semantic layer defines metrics, dimensions and joins once, so dashboards, APIs and AI agents get the same number. How it works, examples and tools.';
+  'A semantic layer defines metrics, dimensions and joins once, so dashboards, APIs and AI agents get the same number. How it works, with examples.';
 // The date every vendor fact on this page was checked against the vendor's own docs.
 const VERIFIED_ON = 'November 10, 2026';
 
@@ -704,7 +704,7 @@ export default function SemanticLayerPage() {
         id="options"
         band
         eyebrow="Comparison"
-        title="Semantic layer tools compared: Cube, dbt, Snowflake, Databricks and code"
+        title="Semantic layer options compared: Cube, dbt, Snowflake, Databricks and code"
         intro={
           <>
             <p>

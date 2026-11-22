@@ -203,13 +203,13 @@ export default async function ComparePage({
 	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
 	              <h2 className="text-lg font-medium tracking-tight text-text">What this page is for</h2>
 	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                Use this page when the real question is how one tool changes the shape of your ClickHouse application code, not just which syntax looks nicer.
+	                Use this page to see how each tool changes the shape of your ClickHouse application code.
 	              </p>
 	            </div>
 	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
 	              <h2 className="text-lg font-medium tracking-tight text-text">What this page is not</h2>
 	              <p className="mt-3 text-sm leading-6 text-text-muted">
-	                It is not a broad ecosystem roundup. It stays narrow on the tradeoff a ClickHouse-heavy TypeScript team is actually deciding.
+	                It covers one tradeoff, the one a ClickHouse-heavy TypeScript team is deciding. For the wider list of options, start at the comparison hub.
 	              </p>
 	            </div>
 	            <div className="rounded-xl border border-border bg-bg-card shadow-card p-6">
