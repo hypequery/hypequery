@@ -14,6 +14,8 @@ import { renderStatement, type RenderedStatement } from './utils/statement-param
 import { statementRunner } from './utils/statement-runner.js';
 import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange, isTimeAxisFilter } from './utils/time-axis-bounds.js';
 import { PROTOCOL_EVENT_OPERATION_LIMITS } from '@hypequery/protocol';
+import { eventRangeSpanDays } from './utils/event-range-span.js';
+import { PortableExecutionBudgetError } from './portable-execution-errors.js';
 import { filterLeafCount, filterLeaves } from './utils/filter-tree.js';
 import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
@@ -80,7 +82,7 @@ export function eventOperationErrors(
     errors.push(`A ${spec.kind} requires exactly one bounded time range on "${ds.timeKey}" as top-level filters: between, inDateRange, or gt/gte with lt/lte, using ISO timestamps.`);
   } else if (isDefinitelyEmptyTimeRange(range)) {
     errors.push('The time range must be non-empty and ordered.');
-  } else if ((range.end.milliseconds - range.start.milliseconds) / 86_400_000 > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
+  } else if (eventRangeSpanDays(range, spec.timezone) > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
     // The same ceiling the data plane applies, here for direct callers too.
     errors.push(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`);
   }
@@ -96,6 +98,22 @@ function eventFilterBudgetErrors(ds: AnyDatasetInstance, context: ExecutionConte
   return [constraints === 0
     ? `Too many filters: ${count} (max ${maxFilters})`
     : `Too many filters: ${count} (max ${maxFilters - constraints} under the enforced constraints)`];
+}
+
+/**
+ * The dataset's `maxResultSize` bounds the expanded rows, as it bounds a
+ * dataset query's. The data plane estimates rows before querying; a direct
+ * caller learns here, before any row is returned.
+ */
+function withinResultLimit(ds: AnyDatasetInstance, rows: EventResultRow[]): EventResultRow[] {
+  const limit = ds.limits?.maxResultSize;
+  if (limit !== undefined && rows.length > limit) {
+    throw new PortableExecutionBudgetError(
+      `The result has ${rows.length} rows; dataset "${ds.name}" returns at most ${limit}. `
+      + 'Narrow the time range, use a coarser grain, or lower breakdownLimit.',
+    );
+  }
+  return rows;
 }
 
 export interface PrepareEventOperationOptions {
@@ -128,6 +146,6 @@ export function prepareEventOperation(
   });
   return {
     statement,
-    execute: async () => funnelResultRows(spec, planned.breakdown, await runner.execute()),
+    execute: async () => withinResultLimit(ds, funnelResultRows(spec, planned.breakdown, await runner.execute())),
   };
 }

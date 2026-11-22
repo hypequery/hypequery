@@ -345,3 +345,34 @@ describe('review regressions after main (RFC 0027)', () => {
     );
   });
 });
+
+describe('zone-aware ceilings on direct calls (RFC 0027)', () => {
+  it('reads an offset-free bound in the operation zone when checking the 731-day span', () => {
+    // 1 Jan 2026 08:00 in Tokyo is 23:00 UTC on 31 Dec 2025: 730 days and 23 hours.
+    const tokyo = spec({
+      filters: [{ field: 'occurredAt', operator: 'between', value: ['2024-01-01T00:00:00Z', '2026-01-01T08:00:00'] }],
+      timezone: 'Asia/Tokyo',
+    });
+    expect(eventOperationErrors(Activity, tokyo, context)).toEqual([]);
+    // Read as UTC the same bounds would span 731 days and 8 hours.
+    expect(eventOperationErrors(Activity, { ...tokyo, timezone: undefined }, context))
+      .toContain('The time range may span at most 731 days.');
+  });
+
+  it('bounds the expanded rows by the dataset maxResultSize', async () => {
+    const Capped = dataset('capped_activity', {
+      source: 'analytics.activity', tenantKey: 'tenantId', timeKey: 'occurredAt',
+      events: { entity: 'userId', event: 'eventName' },
+      limits: { maxResultSize: 3 },
+      dimensions: { userId: dimension.string(), eventName: dimension.string(), plan: dimension.string(), occurredAt: dimension.timestamp() },
+    });
+    const twoGroups = [{ _hq_b0: 'a', _hq_r1: 2, _hq_r2: 1 }, { _hq_b0: 'b', _hq_r1: 1, _hq_r2: 0 }];
+    await expect(prepareEventOperation(Capped, spec({ breakdown: ['plan'] }), {
+      builderFactory: capturingFactory(twoGroups).factory, context,
+    }).execute()).rejects.toThrow(/The result has 4 rows; dataset "capped_activity" returns at most 3/);
+    const oneGroup = await prepareEventOperation(Capped, spec({ breakdown: ['plan'] }), {
+      builderFactory: capturingFactory(twoGroups.slice(0, 1)).factory, context,
+    }).execute();
+    expect(oneGroup).toHaveLength(2);
+  });
+});
