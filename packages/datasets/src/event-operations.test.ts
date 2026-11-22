@@ -284,6 +284,22 @@ describe('RFC 0029 filters in funnels', () => {
     expect(parameters).toEqual(expect.arrayContaining(['2026-11-12', '2026-11-19']));
   });
 
+  it('counts a relative range once against maxFilters, as the caller wrote it', () => {
+    const Narrow = dataset('narrow_activity', {
+      source: 'analytics.activity', tenantKey: 'tenantId', timeKey: 'occurredAt',
+      events: { entity: 'userId', event: 'eventName' },
+      limits: { maxFilters: 3 },
+      dimensions: { userId: dimension.string(), eventName: dimension.string(), occurredAt: dimension.timestamp() },
+    });
+    const { factory } = capturingFactory();
+    const relativeSpec = spec({ filters: [{ field: 'occurredAt', operator: 'inDateRange', value: 'last 7 days' }] });
+    // Two one-condition steps and one relative range: three comparisons.
+    expect(() => prepareEventOperation(Narrow, relativeSpec, { builderFactory: factory, context })).not.toThrow();
+    expect(() => prepareEventOperation(Narrow, spec({
+      filters: [{ field: 'occurredAt', operator: 'inDateRange', value: 'last 7 days' }, { field: 'eventName', operator: 'neq', value: 'x' }],
+    }), { builderFactory: factory, context })).toThrow(/Too many filters: 4 \(max 3\)/);
+  });
+
   it('refuses a time range that only appears under "or"', () => {
     expect(eventOperationErrors(Activity, spec({
       filters: [{ or: [RANGE, { field: 'plan', operator: 'eq', value: 'pro' }] }],

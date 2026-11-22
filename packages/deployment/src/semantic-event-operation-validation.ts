@@ -24,7 +24,12 @@ import {
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
 import { timeSeriesRangeViolation } from './utils/time-series-range.js';
-import { estimateEventBuckets, eventRangeDays, eventTimeRange } from './utils/event-time-range.js';
+import {
+  estimateEventBuckets,
+  estimatePlacementFreeBuckets,
+  eventRangeDays,
+  eventTimeRange,
+} from './utils/event-time-range.js';
 
 export interface SemanticEventOperationLimits {
   /** Largest row count the result may have after every ceiling is applied. */
@@ -213,7 +218,13 @@ export function validateSemanticEventOperation(
   if (eventRangeDays(range) > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
     fail(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`, '$.operation.filters');
   }
-  const buckets = operation.by === undefined ? undefined : estimateEventBuckets(range, operation.by);
+  // A relative range is placed by the executor's clock, so its buckets are
+  // counted for the worst placement rather than for the anchored span.
+  const buckets = operation.by === undefined
+    ? undefined
+    : relative !== undefined
+      ? estimatePlacementFreeBuckets(relative, operation.by)
+      : estimateEventBuckets(range, operation.by);
   const rows = estimatedRows(operation, buckets);
   if (rows > limits.maxRows) {
     fail(

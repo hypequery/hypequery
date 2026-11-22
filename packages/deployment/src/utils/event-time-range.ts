@@ -110,6 +110,19 @@ export function estimateEventBuckets(range: EventTimeRange, grain: 'day' | 'week
   return (end.year! - start.year!) * 12 + end.month! - start.month! + 1;
 }
 
+/**
+ * The most buckets a span of `days` can touch wherever it is placed: a
+ * relative range resolves against a clock the data plane doesn't read. A
+ * month is at least 28 days, so a span meets at most one more month than
+ * fits in it; days and weeks are as for a fixed range.
+ */
+export function estimatePlacementFreeBuckets(days: number, grain: 'day' | 'week' | 'month'): number {
+  const span = Math.ceil(days);
+  if (grain === 'day') return span + 1;
+  if (grain === 'week') return Math.ceil(span / 7) + 1;
+  return Math.ceil(span / 28) + 1;
+}
+
 export function eventRangeDays(range: EventTimeRange): number {
   return (range.endMs - range.startMs) / DAY_MS;
 }

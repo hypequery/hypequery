@@ -316,6 +316,12 @@ describe('funnel filters and conditions under RFC 0029', () => {
     // 'last 12 months' spans at most 372 days: 373 day cohorts × 2 steps > 500.
     const rows = await failure(plane().instance.invoke({ invocation: invocation(funnel({ filters: [relative('last 12 months')], by: 'day' })) }));
     expect(rows.message).toMatch(/could return 746 rows; the limit is 500/);
+    // 'last 7 days' can straddle a month boundary wherever the clock puts it:
+    // two monthly cohorts × two steps = 4 rows, over a budget of 3.
+    const months = await failure(plane().instance.invoke({
+      invocation: { ...invocation(funnel({ filters: [relative('last 7 days')], by: 'month' })), budget: { maxRows: 3 } },
+    }));
+    expect(months.message).toMatch(/could return 4 rows; the limit is 3/);
     const offAxis = await failure(plane().instance.invoke({ invocation: invocation(funnel({
       filters: [RANGE, { ...relative('today'), left: { kind: 'reference', name: 'plan' } }],
     })) }));
