@@ -264,7 +264,7 @@ export default function SemanticLayerAiAgentsPage() {
         body: (
           <>
             <p>
-              It is the same semantic layer your dashboards use, exposed to an agent as tools. Instead of reading table
+              It is the same <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> your dashboards use, exposed to an agent as tools. Instead of reading table
               schemas and writing SQL, the agent lists the metrics and dimensions you defined, reads their descriptions,
               and asks for one by name, such as revenue by country, by month. The layer writes the SQL, applies access rules and
               returns rows.

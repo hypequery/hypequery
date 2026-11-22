@@ -177,4 +177,5 @@ Yes. The tools return rows, and your UI or the agent can turn them into a chart.
 
 - [AI analytics chat for ClickHouse](/clickhouse-ai)
 - [Semantic layer for AI agents](/semantic-layer/ai-agents)
+- [What is a semantic layer](/semantic-layer)
 - [hypequery vs ClickHouse Agents](/compare/hypequery-vs-clickhouse-agents)

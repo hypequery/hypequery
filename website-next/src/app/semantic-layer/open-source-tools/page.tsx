@@ -271,7 +271,7 @@ export default function OpenSourceSemanticLayerToolsPage() {
         body: (
           <>
             <p>
-              A semantic layer is where metrics, dimensions and joins are defined once, so every dashboard, API and
+              A <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> is where metrics, dimensions and joins are defined once, so every dashboard, API and
               agent computes &ldquo;revenue&rdquo; the same way. For this page, an open-source semantic layer is one
               whose model format and query engine are published under an open-source licence, so you can run it
               yourself.
