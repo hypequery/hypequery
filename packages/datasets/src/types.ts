@@ -384,6 +384,18 @@ export type MetricFilter<
     value?: undefined;
   });
 
+/**
+ * A nested caller filter group (RFC 0029). A query's `filters` list is an
+ * implicit AND; a group combines its items with AND or OR, or negates one.
+ */
+export type DatasetFilterGroup<TFilter = MetricFilter> =
+  | { and: readonly DatasetFilterNode<TFilter>[]; or?: never; not?: never }
+  | { or: readonly DatasetFilterNode<TFilter>[]; and?: never; not?: never }
+  | { not: DatasetFilterNode<TFilter>; and?: never; or?: never };
+
+/** A comparison, or an `and` / `or` / `not` group of them (RFC 0029). */
+export type DatasetFilterNode<TFilter = MetricFilter> = TFilter | DatasetFilterGroup<TFilter>;
+
 /** Operators that compare a field with a value. */
 export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
 
@@ -420,7 +432,8 @@ export interface SegmentDefinition {
 
 export interface MetricQuery {
   dimensions?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
   /** Segment names declared on the dataset, combined with `filters` by AND. */
   segments?: string[];
   orderBy?: MetricOrderBy[];
@@ -439,7 +452,8 @@ export interface MetricQuery {
 export interface DatasetQuery {
   dimensions?: string[];
   measures?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
   /**
    * Conditions on aggregated measure values, combined with AND and applied
    * after grouping. Each condition must reference a selected measure.
@@ -937,7 +951,7 @@ export type DatasetOrderableNames<TDataset extends DatasetInstance<any, any, any
 export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any, any>> {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
-  filters?: readonly DatasetFilterFor<TDataset>[];
+  filters?: readonly DatasetFilterNode<DatasetFilterFor<TDataset>>[];
   /**
    * Conditions on aggregated measure values, applied after grouping. Each
    * condition must reference a measure selected by this query.
@@ -1011,7 +1025,7 @@ export interface MetricQueryFor<
   TMetricName extends string,
 > {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
-  filters?: readonly DatasetFilterFor<TDataset>[];
+  filters?: readonly DatasetFilterNode<DatasetFilterFor<TDataset>>[];
   /** Segment names declared on the dataset. */
   segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];

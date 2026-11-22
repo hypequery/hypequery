@@ -5,6 +5,7 @@ import { applyAggregationSpec } from '../query-planner.js';
 import { resolveDatasetSqlDialect } from './dataset-sql-dialect.js';
 import { assertRawSqlForDialect } from './raw-sql-dialect-check.js';
 import { queryTimeFilter } from './query-timezone.js';
+import { applyFilterTree } from './filter-predicate-tree.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { baseMeasureNames, getBaseMeasure } from './dataset-measures.js';
 import type {
@@ -76,12 +77,9 @@ export function buildDatasetQueryBuilder(
     qb = applyMeasureDefinition(qb, ds, measureName, definition, joinCtx, dialect);
   }
 
-  for (const filter of query.filters ?? []) {
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      qb = qb.where(predicate.expression, predicate.operator, predicate.value);
-    }
-  }
+  qb = applyFilterTree(qb, query.filters, filter => (
+    queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone)
+  ));
 
   // Segments are author-defined, so they bypass the caller filter allow-list.
   for (const filter of segmentFilters(ds, query.segments)) {

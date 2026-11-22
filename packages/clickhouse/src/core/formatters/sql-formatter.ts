@@ -178,10 +178,10 @@ export class SQLFormatter {
         parameters: [range[0].value, range[1].value],
       };
     }
-    if (operator === 'like') {
+    if (operator === 'like' || operator === 'notLike') {
       const parameter = value as ValueNode;
       return {
-        query: `${column} LIKE ?`,
+        query: `${column} ${operator === 'like' ? 'LIKE' : 'NOT LIKE'} ?`,
         parameters: [parameter.value],
       };
     }
@@ -219,6 +219,7 @@ export class SQLFormatter {
       case 'lt': return '<';
       case 'lte': return '<=';
       case 'like': return 'LIKE';
+      case 'notLike': return 'NOT LIKE';
       default:
         throw new Error(`Unsupported operator: ${operator}`);
     }

@@ -320,6 +320,8 @@ export type {
   GrainedMetricRef,
   MetricContract,
   MetricFilter,
+  DatasetFilterGroup,
+  DatasetFilterNode,
   MetricFilterOperator,
   MetricNullCheckOperator,
   MetricValueFilterOperator,

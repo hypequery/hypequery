@@ -1,9 +1,10 @@
-import type { AnyDatasetInstance, DatasetQuery, MetricFilter, TimeGrain } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, DatasetQuery, TimeGrain } from '../types.js';
+import { nestedFilterLeaves } from './filter-tree.js';
 import { isSupportedTimeGrain } from '../constants.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
 import { isShiftMeasure } from './dataset-measures.js';
 
-import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './time-axis-bounds.js';
+import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange, isTimeAxisFilter } from './time-axis-bounds.js';
 import { windowGrainErrors, estimateTimeAxisBuckets, exceedsEstimatedTimeAxisLimit } from './time-axis-intervals.js';
 import { supportsShiftGrain } from './shift-measure-grains.js';
 
@@ -15,7 +16,7 @@ export interface TimeMeasureAxis {
   upper: string;
   lowerInclusive: boolean;
   upperInclusive: boolean;
-  filters: MetricFilter[];
+  filters: DatasetFilterNode[];
   /** UTC estimate; execution enforces the exact timezone-aware count. */
   bucketCount: number;
   resultLimit?: number;
@@ -38,6 +39,9 @@ export function analyzeTimeMeasureAxis(
       continue;
     }
     errors.push(...windowGrainErrors(name, window, grain));
+  }
+  if (nestedFilterLeaves(query.filters).some(filter => isTimeAxisFilter(dataset, filter))) {
+    return { errors: [...errors, `${subjects} need their time range as top-level filters: a time-axis comparison inside "or" or "not" cannot bound the series.`] };
   }
   const range = resolveTimeAxisRange(dataset, query.filters ?? []);
   if (!range) {

@@ -20,11 +20,12 @@ import type {
   DatasetQuery,
   ExecutionContext,
   GrainedMetricRef,
-  MetricFilter,
+  DatasetFilterNode,
   MetricOrderBy,
   MetricQuery,
   MetricRef,
 } from '../types.js';
+import { isFilterGroup } from '../utils/filter-tree.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
 import { runtimeConstraints } from '../utils/row-scope.js';
@@ -45,12 +46,16 @@ function scopeSignature(context?: ExecutionContext): string | null {
   return cache ? cache.scope ?? null : null;
 }
 
-function filterSignature(filters: MetricFilter[] | undefined) {
-  return (filters ?? []).map((filter) => ({
-    field: filter.field,
-    operator: filter.operator,
-    value: filter.value ?? null,
-  }));
+function filterSignature(filters: DatasetFilterNode[] | undefined): unknown[] {
+  return (filters ?? []).map((filter): unknown => {
+    if (!isFilterGroup(filter)) {
+      return { field: filter.field, operator: filter.operator, value: filter.value ?? null };
+    }
+    if ('not' in filter && filter.not !== undefined) return { not: filterSignature([filter.not])[0] };
+    return 'and' in filter && filter.and !== undefined
+      ? { and: filterSignature([...filter.and]) }
+      : { or: filterSignature([...filter.or!]) };
+  });
 }
 
 function havingSignature(having: readonly DatasetHavingCondition[]) {

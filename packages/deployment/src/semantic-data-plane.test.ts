@@ -401,6 +401,37 @@ describe('semantic data plane', () => {
       .toBe('input-invalid');
   });
 
+  it('runs and/or/not filters, checking every leaf with its effective operator (RFC 0029)', async () => {
+    const { plane: dataPlane, execute } = plane({ limits: { maxFilters: 3 } });
+    const reject = (filters: unknown[]) => categoryOf(() => dataPlane.invoke({
+      invocation: invocation({ ...DATASET_QUERY, filters }),
+      credentials: 'token',
+    }));
+    const status = (operator: string, value?: unknown) => ({
+      kind: 'comparison', operator,
+      left: { kind: 'reference', name: 'status' },
+      ...(value === undefined ? {} : { right: { kind: 'literal', value } }),
+    });
+    const or = (...operands: unknown[]) => ({ kind: 'logical', operator: 'or', operands });
+    const not = (operand: unknown) => ({ kind: 'logical', operator: 'not', operand });
+
+    expect(await reject([or(status('eq', 'paid'), status('isNull'))])).toBe('accepted');
+    expect(execute.mock.calls.at(-1)![0].operation.filters).toEqual([or(status('eq', 'paid'), status('isNull'))]);
+    // `status` allows eq, in and isNull: their negations neq, notIn and isNotNull are not.
+    expect(await reject([not(status('eq', 'paid'))])).toBe('input-invalid');
+    expect(await reject([not(not(status('eq', 'paid')))])).toBe('accepted');
+    expect(await reject([not(or(status('in', ['a']), status('isNull')))])).toBe('input-invalid');
+    // Leaves count against the budget; groups don't.
+    expect(await reject([or(status('eq', 'a'), status('eq', 'b'), status('eq', 'c'))])).toBe('accepted');
+    expect(await reject([or(status('eq', 'a'), status('eq', 'b'), status('eq', 'c')), status('eq', 'd')]))
+      .toBe('input-invalid');
+    // An unknown field or a non-comparison leaf fails wherever it sits.
+    expect(await reject([or(status('eq', 'a'), { ...status('eq', 'b'), left: { kind: 'reference', name: 'nope' } })]))
+      .toBe('input-invalid');
+    expect(await reject([or(status('eq', 'a'), { ...status('eq', 'b'), right: { kind: 'reference', name: 'status' } })]))
+      .toBe('input-invalid');
+  });
+
   it('enforces the declared operator list on a filter', async () => {
     const { plane: dataPlane } = plane();
     const filter = (operator: string) => categoryOf(() => dataPlane.invoke({

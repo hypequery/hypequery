@@ -16,6 +16,7 @@ import type {
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
+import { effectiveFilterOperators, protocolFilterLeaves } from './utils/filter-leaves.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -198,7 +199,11 @@ export function validateSemanticOperation(
     fail('At least one dimension or measure must be selected.', '$.operation');
   }
 
-  const filters = operation.filters ?? [];
+  // RFC 0029: the budget counts comparisons. A filter may be an and/or/not
+  // tree; each leaf is checked as a top-level comparison is.
+  const filters = (operation.filters ?? []).flatMap((expression, index) => (
+    protocolFilterLeaves(expression, `$.operation.filters[${index}]`)
+  ));
   if (filters.length > limits.maxFilters) {
     fail(`At most ${limits.maxFilters} filters may be applied.`, '$.operation.filters');
   }
@@ -213,8 +218,7 @@ export function validateSemanticOperation(
       '$.operation.having',
     );
   }
-  filters.forEach((expression, index) => {
-    const path = `$.operation.filters[${index}]`;
+  filters.forEach(({ expression, path, negated }) => {
     const comparison = comparisonField(expression);
     if (comparison === null) {
       // Only `field <operator> value` is expressible against a contract; a
@@ -228,9 +232,14 @@ export function validateSemanticOperation(
       fail(`Unknown or unfilterable field "${comparison.field}".`, path);
       return;
     }
-    if (!operators.has(comparison.operator)) {
+    // Under `not`, the negation is what runs, so it is what must be allowed.
+    const refused = effectiveFilterOperators(comparison.operator, negated)
+      .find(operator => !operators.has(operator));
+    if (refused !== undefined) {
       fail(
-        `Operator "${comparison.operator}" is not allowed on "${comparison.field}".`,
+        refused === comparison.operator
+          ? `Operator "${comparison.operator}" is not allowed on "${comparison.field}".`
+          : `Operator "${refused}" (the negation of "${comparison.operator}") is not allowed on "${comparison.field}".`,
         `${path}.operator`,
       );
     }
