@@ -77,8 +77,18 @@ type MCPServerConfig = {
   version?: string;
   tenantId?: string;
   includeSql?: boolean;
+  queryFeatures?: {
+    having?: boolean;
+    filterGroups?: boolean;
+    relativeDates?: boolean;
+    fill?: boolean;
+    timeKey?: boolean;
+    calculations?: boolean;
+  };
 };
 ```
 </CodeBlock>
 
 Set `includeSql: true` only in trusted debugging contexts. Query tools redact generated SQL by default.
+
+Every `queryFeatures` switch defaults to `true`. Turn one off only when your executor can't run it; see [Analysis arguments](/docs/mcp/tools#analysis-arguments).
