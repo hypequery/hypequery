@@ -35,16 +35,14 @@ const expected = mergePackageLists(
 
 const missing = [];
 const resolved = [];
-for (const pkg of expected) {
-  let ok = false;
-  let reason;
+const checks = await Promise.all(expected.map(async (pkg) => {
   try {
-    ok = await versionResolves(pkg);
+    return { pkg, ok: await versionResolves(pkg) };
   } catch (error) {
-    reason = error.message;
+    return { pkg: { ...pkg, reason: error.message }, ok: false };
   }
-  (ok ? resolved : missing).push(reason ? { ...pkg, reason } : pkg);
-}
+}));
+for (const { pkg, ok } of checks) (ok ? resolved : missing).push(pkg);
 
 const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, GITHUB_SHA } = process.env;
 const runUrl = `${GITHUB_SERVER_URL ?? 'https://github.com'}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;

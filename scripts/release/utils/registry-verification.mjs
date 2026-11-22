@@ -30,10 +30,28 @@ export function integrityMatches(bytes, integrity) {
 }
 
 /**
- * Check every item until each passes or the deadline passes. `check(item)`
- * resolves `{ ok: true }` or `{ ok: false, reason }`. Returns the items that
- * never passed, each with its last reason. `sleep` and `now` are injectable so
- * tests run instantly.
+ * Resolves `promise`, or `{ ok: false, reason }` once `signal` aborts, so a
+ * check that ignores its signal still cannot outlive the budget.
+ */
+export function settleWithinBudget(promise, signal, reason) {
+  if (signal.aborted) return Promise.resolve({ ok: false, reason });
+  return new Promise((resolve) => {
+    const onAbort = () => resolve({ ok: false, reason });
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (result) => { signal.removeEventListener('abort', onAbort); resolve(result); },
+      (error) => { signal.removeEventListener('abort', onAbort); resolve({ ok: false, reason: error.message }); },
+    );
+  });
+}
+
+/**
+ * Check every item until each passes or the budget runs out. `check(item,
+ * { signal, timeoutMs })` resolves `{ ok: true }` or `{ ok: false, reason }`;
+ * it gets the remaining budget so it can stop its own child processes and
+ * downloads, and an attempt still in flight when the budget ends counts as a
+ * failure. Returns the items that never passed, each with its last reason.
+ * `sleep` and `now` are injectable so tests can skip the waits.
  */
 export async function pollUntilVerified(items, check, {
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -44,18 +62,29 @@ export async function pollUntilVerified(items, check, {
   const deadline = now() + timeoutMs;
   let pending = items.map((item) => ({ item, reason: 'not checked' }));
   for (let attempt = 1; pending.length > 0; attempt += 1) {
+    const remainingMs = deadline - now();
+    if (remainingMs <= 0) break;
+    // A ref'd timer, unlike AbortSignal.timeout, keeps the process alive
+    // until the budget ends even if a check is waiting on nothing.
+    const budget = new AbortController();
+    const budgetTimer = setTimeout(() => budget.abort(), remainingMs);
+    const { signal } = budget;
+    const timedOut = `still running when the ${Math.round(timeoutMs / 1000)}s budget ran out`;
     const results = await Promise.all(pending.map(async (entry) => {
+      let attemptResult;
       try {
-        return { ...entry, result: await check(entry.item) };
+        attemptResult = check(entry.item, { signal, timeoutMs: remainingMs });
       } catch (error) {
-        return { ...entry, result: { ok: false, reason: error.message } };
+        attemptResult = Promise.reject(error);
       }
+      return { ...entry, result: await settleWithinBudget(Promise.resolve(attemptResult), signal, timedOut) };
     }));
+    clearTimeout(budgetTimer);
     pending = results
       .filter(({ result }) => !result.ok)
       .map(({ item, result }) => ({ item, reason: result.reason ?? 'unknown failure' }));
     onAttempt({ attempt, pending });
-    if (pending.length === 0) break;
+    if (pending.length === 0 || signal.aborted) break;
     const delay = retryDelayMs(attempt);
     if (now() + delay > deadline) break;
     await sleep(delay);

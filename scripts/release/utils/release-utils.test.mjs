@@ -9,7 +9,7 @@ import {
 } from './api-changesets.mjs';
 import { DAY_MS, evaluateCanaryStaleness } from './canary-staleness.mjs';
 import { mergePackageLists, parsePackageList, publishablePackages } from './publishable-packages.mjs';
-import { integrityMatches, pollUntilVerified, retryDelayMs } from './registry-verification.mjs';
+import { integrityMatches, pollUntilVerified, retryDelayMs, settleWithinBudget } from './registry-verification.mjs';
 import { alreadyReported, eventMarker, publishFailureMarkdown } from './release-issue.mjs';
 
 const workspace = [
@@ -87,6 +87,41 @@ test('pollUntilVerified gives up at the deadline with the last reason', async ()
   assert.deepEqual(failures, [{ item: { name: 'a', version: '1.0.0' }, reason: 'E404' }]);
   assert.ok(clock.now() <= 300_000, 'never sleeps past the deadline');
   assert.ok(calls > 5, 'kept retrying the missing version');
+});
+
+test('pollUntilVerified cuts off a stalled check when the budget runs out', async () => {
+  const started = Date.now();
+  let seen;
+  const failures = await pollUntilVerified([{ name: 'a', version: '1.0.0' }], (_pkg, budget) => {
+    seen = budget;
+    return new Promise(() => {}); // a request that never answers
+  }, { timeoutMs: 100 });
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 1_000, `returned after ${elapsed}ms, not when the check ended`);
+  assert.equal(failures.length, 1);
+  assert.match(failures[0].reason, /budget ran out/);
+  assert.ok(seen.timeoutMs > 0 && seen.timeoutMs <= 100, 'check got the remaining budget');
+  assert.equal(seen.signal.aborted, true, 'check was told to stop');
+});
+
+test('pollUntilVerified hands later attempts only what is left of the budget', async () => {
+  const clock = fakeClock();
+  const budgets = [];
+  await pollUntilVerified([{ name: 'a', version: '1.0.0' }], async (_pkg, { timeoutMs }) => {
+    budgets.push(timeoutMs);
+    return { ok: false, reason: 'missing' };
+  }, { ...clock, timeoutMs: 60_000 });
+  assert.equal(budgets[0], 60_000);
+  assert.equal(budgets[1], 50_000);
+  assert.ok(budgets.every((budget, index) => index === 0 || budget < budgets[index - 1]));
+});
+
+test('settleWithinBudget passes results through until the signal aborts', async () => {
+  assert.deepEqual(await settleWithinBudget(Promise.resolve({ ok: true }), new AbortController().signal, 'late'), { ok: true });
+  assert.deepEqual(await settleWithinBudget(Promise.reject(new Error('E404')), new AbortController().signal, 'late'), { ok: false, reason: 'E404' });
+  const aborted = new AbortController();
+  aborted.abort();
+  assert.deepEqual(await settleWithinBudget(new Promise(() => {}), aborted.signal, 'late'), { ok: false, reason: 'late' });
 });
 
 test('canary staleness compares the canary publish time with the latest package commit', () => {
