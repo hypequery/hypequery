@@ -1,4 +1,5 @@
-import type { AnyDatasetInstance, MetricFilter } from '../types.js';
+import type { AnyDatasetInstance, DatasetFilterNode, MetricFilter } from '../types.js';
+import { applyFilterTree } from './filter-predicate-tree.js';
 import type { QueryTimePredicate } from './query-timezone.js';
 import type { DatasetQueryExecutionOptions } from '../dataset-query.js';
 import { resolveDimensionExpression, resolveFilterField } from '../query-planner.js';
@@ -13,8 +14,8 @@ export interface EventSourceRequest {
   readonly breakdown: readonly string[];
   /** Filter names that step, start or return conditions test. */
   readonly conditionFields: readonly string[];
-  /** Every caller filter, including the time range. */
-  readonly filters: readonly MetricFilter[];
+  /** Every caller filter, including the time range; groups allowed (RFC 0029). */
+  readonly filters: readonly DatasetFilterNode[];
   readonly timezone?: string;
 }
 
@@ -71,12 +72,9 @@ export function buildEventSourceSql(
   let rowAlias = '_hq_row';
   while (identifiers.some(text => text.includes(rowAlias))) rowAlias += '_';
   raw = raw.select([`${dialect.packRow(parts)} AS ${rowAlias}`]);
-  for (const filter of request.filters) {
-    const field = resolveFilterField(ds, filter.field, joinCtx);
-    for (const predicate of queryTimeFilter(dialect, ds, filter, field, request.timezone)) {
-      raw = raw.where(predicate.expression, predicate.operator, predicate.value);
-    }
-  }
+  raw = applyFilterTree(raw, request.filters, filter => (
+    queryTimeFilter(dialect, ds, filter as MetricFilter, resolveFilterField(ds, filter.field, joinCtx), request.timezone)
+  ));
 
   const breakdown = request.breakdown.map((_, index) => `_hq_b${index}`);
   const conditionAliases = new Map(request.conditionFields.map((name, index) => [name, `_hq_f${index}`]));

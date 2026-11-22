@@ -14,7 +14,7 @@ tags:
   - ClickHouse
 ---
 
-Text-to-SQL (also called NL2SQL) has a language model turn a question into a SQL query, which then runs against your database. A semantic layer turns the question into a request for named metrics and dimensions ("revenue by country, last quarter"), and generates the SQL from definitions you wrote once. Text-to-SQL can answer anything the schema allows, and is wrong in ways that are hard to spot. A semantic layer only answers what you've modelled, and answers it the same way every time.
+Text-to-SQL (also called NL2SQL) has a language model turn a question into a SQL query, which then runs against your database. A [semantic layer](/semantic-layer) turns the question into a request for named metrics and dimensions ("revenue by country, last quarter"), and generates the SQL from definitions you wrote once. Text-to-SQL can answer anything the schema allows, and is wrong in ways that are hard to spot. A semantic layer only answers what you've modelled, and answers it the same way every time.
 
 Most production systems that work end up combining them: a semantic layer for the metrics people rely on, and SQL for trusted analysts exploring outside them. This guide shows how each approach handles the same question, where SQL agents go wrong, when text-to-SQL is the right tool, and how to combine the two.
 

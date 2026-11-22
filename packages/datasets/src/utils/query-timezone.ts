@@ -1,5 +1,6 @@
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
-import type { AnyDatasetInstance, MetricFilter, MetricFilterOperator } from '../types.js';
+import type { AnyDatasetInstance, MetricFilterOperator } from '../types.js';
+import type { PlannedFilter, PlannedFilterOperator } from './filter-predicate-tree.js';
 import { resolveDimensionFieldType, resolveFilterFieldType } from './filter-field-type.js';
 import { instantWallClock, parseTimestampInstant } from './timestamp-instants.js';
 import { mixedInstantListError } from '../validation.js';
@@ -54,7 +55,7 @@ export function queryTimeFilterSql(
 export interface QueryTimePredicate {
   /** The column side of the predicate, converted to a zone when the value needs one. */
   readonly expression: string;
-  readonly operator: MetricFilterOperator;
+  readonly operator: PlannedFilterOperator;
   /** The value to bind, with instants rewritten to the wall clock of that zone. */
   readonly value: unknown;
 }
@@ -91,7 +92,7 @@ const INSTANT_ZONE = 'UTC';
 export function queryTimeFilter(
   dialect: DatasetSqlDialectRules,
   ds: AnyDatasetInstance,
-  filter: MetricFilter,
+  filter: PlannedFilter,
   expression: string,
   timezone: string | undefined,
   options: QueryTimeFilterOptions = {},
@@ -105,7 +106,7 @@ export function queryTimeFilter(
     : expression;
   const local: QueryTimePredicate = { expression: localExpression, operator: filter.operator, value: filter.value };
   // A null check has no value to read in any zone.
-  if (fieldType !== 'timestamp' || filter.operator === 'like'
+  if (fieldType !== 'timestamp' || filter.operator === 'like' || filter.operator === 'notLike'
     || filter.operator === 'isNull' || filter.operator === 'isNotNull') return [local];
 
   const values = Array.isArray(filter.value) ? filter.value : [filter.value];

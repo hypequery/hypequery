@@ -158,6 +158,7 @@ export type {
   EventResultRow,
   EventResultValue,
   FunnelSpec,
+  PrepareEventOperationOptions,
   PreparedEventOperation,
 } from './event-operations.js';
 
@@ -331,6 +332,8 @@ export type {
   GrainedMetricRef,
   MetricContract,
   MetricFilter,
+  DatasetFilterGroup,
+  DatasetFilterNode,
   MetricFilterOperator,
   MetricNullCheckOperator,
   MetricValueFilterOperator,
@@ -352,6 +355,8 @@ export type {
   SemanticFiltersDefinition,
   DatasetConfig,
   RowResolution,
+  DatasetSqlSource,
+  ResolvedDatasetSqlSource,
   DatasetDefaults,
   DatasetEvents,
   DatasetFreshness,

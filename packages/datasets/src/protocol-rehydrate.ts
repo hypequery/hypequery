@@ -1,3 +1,4 @@
+import { sqlSourceFromContract } from './utils/sql-dataset-source.js';
 /**
  * Rebuilds executable datasets from a portable deployment contract.
  *
@@ -12,6 +13,7 @@
  * byte-identical SQL claim mitigated by construction rather than by review.
  */
 
+import { alternateTimeKeys } from './utils/protocol-rehydrate-time-keys.js';
 import type {
   ProtocolDatasetContract,
   ProtocolDeploymentContractAnyVersion,
@@ -25,7 +27,7 @@ import type {
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
+import { isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -491,7 +493,7 @@ export function rehydrateProtocolDatasets(
   for (const { base: contract, derived, timed, segments } of normalized) {
     const name = String(contract.name);
     const instance = dataset(name, {
-      source: contract.source,
+      source: isProtocolSqlSource(contract.source) ? sqlSourceFromContract(contract.source) : contract.source,
       ...(contract.rowResolution === undefined ? {} : { rowResolution: contract.rowResolution }),
       ...snapshotSemanticMetadata(contract),
       ...(contract.description !== undefined ? { description: contract.description } : {}),
@@ -513,6 +515,8 @@ export function rehydrateProtocolDatasets(
           ...(contract.events.event === undefined ? {} : { event: String(contract.events.event) }),
         },
       }),
+      // RFC 0029: contract 3 alternate axes are the dataset's `timeKeys`.
+      ...alternateTimeKeys(contract),
       dimensions: rehydrateDimensions(contract),
       measures: Object.fromEntries([
         ...contract.measures.map(measure => [

@@ -340,5 +340,106 @@
     },
     "rowLimit": null,
     "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-in-date-range-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "filters": [
+        {
+          "kind": "logical",
+          "operator": "or",
+          "operands": [
+            {
+              "kind": "comparison",
+              "operator": "inDateRange",
+              "left": {
+                "kind": "reference",
+                "name": "createdAt"
+              },
+              "right": {
+                "kind": "literal",
+                "value": "last 7 days"
+              }
+            },
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": {
+                "kind": "reference",
+                "name": "status"
+              },
+              "right": {
+                "kind": "literal",
+                "value": "paid"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-fill-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "by": "day",
+      "fill": true,
+      "filters": [
+        {
+          "kind": "comparison",
+          "operator": "between",
+          "left": {
+            "kind": "reference",
+            "name": "createdAt"
+          },
+          "right": {
+            "kind": "literal",
+            "value": {
+              "$hypequery": {
+                "type": "tuple",
+                "version": 1,
+                "values": [
+                  "2026-01-01",
+                  "2026-01-31"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-time-key-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "by": "day",
+      "timeKey": "shipped_at"
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
   }
 ]

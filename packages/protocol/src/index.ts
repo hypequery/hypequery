@@ -55,6 +55,8 @@ export {
   PROTOCOL_NULL_CHECK_OPERATORS,
   ProtocolExpressionError,
   isProtocolNullCheckOperator,
+  isProtocolRelativeDateRange,
+  parseProtocolRelativeDateRange,
   validateProtocolExpression,
   validateProtocolSemanticQuery,
 } from './expressions/index.js';
@@ -98,6 +100,8 @@ export type {
   ProtocolOrderBy,
   ProtocolSemanticQuery,
   ProtocolQueryTimeGrain,
+  ProtocolRelativeDateRange,
+  ProtocolRelativeDateUnit,
   ProtocolTimeGrain,
   ProtocolValueComparisonOperator,
 } from './expressions/index.js';
@@ -293,6 +297,9 @@ export type {
   ProtocolDatasetContract,
   ProtocolRowResolution,
   ProtocolDatasetEvents,
+  ProtocolDatasetSource,
+  ProtocolSqlSource,
+  ProtocolSqlSourceColumn,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -362,6 +369,14 @@ export type {
 
 export { validateProtocolRowResolution } from './deployments/row-resolution.js';
 export { validateProtocolDatasetEvents } from './deployments/events.js';
+export { isProtocolSqlSource, validateProtocolSqlSource } from './deployments/sql-source.js';
+export {
+  PROTOCOL_SQL_SOURCE_MAX_BYTES,
+  PROTOCOL_SQL_SOURCE_MAX_DEPENDENCIES,
+  analyzeProtocolSqlSource,
+  type ProtocolSqlSourceAnalysis,
+  type ProtocolSqlSourceRefusal,
+} from './deployments/sql-source-analysis.js';
 export {
   PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
   PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,

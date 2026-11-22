@@ -34,6 +34,9 @@ export type {
   ProtocolDatasetContract,
   ProtocolRowResolution,
   ProtocolDatasetEvents,
+  ProtocolDatasetSource,
+  ProtocolSqlSource,
+  ProtocolSqlSourceColumn,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -72,3 +75,10 @@ export type {
 
 export { validateProtocolRowResolution } from './row-resolution.js';
 export { validateProtocolDatasetEvents } from './events.js';
+export { isProtocolSqlSource, validateProtocolSqlSource } from './sql-source.js';
+export {
+  PROTOCOL_SQL_SOURCE_MAX_BYTES,
+  PROTOCOL_SQL_SOURCE_MAX_DEPENDENCIES,
+  analyzeProtocolSqlSource,
+} from './sql-source-analysis.js';
+export type { ProtocolSqlSourceAnalysis, ProtocolSqlSourceRefusal } from './sql-source-analysis.js';

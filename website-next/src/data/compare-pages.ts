@@ -28,8 +28,12 @@ export type ComparePageConfig = {
   chooseAlternativeHeading?: string;
   /** Three to five honest situations where the other tool is the better choice. */
   chooseAlternativeWhen: string[];
+  /** Situations where hypequery is the better choice. Rendered after `chooseAlternativeWhen` when present. */
+  chooseHypequeryWhen?: string[];
   rows: Array<{ label: string; hypequery: string; alternative: string }>;
   faq: Array<{ question: string; answer: string }>;
+  /** Every claim about the other product, with the page it was checked against. Rendered as a Sources list. */
+  sources?: Array<{ claim: string; url: string; checkedAt: string }>;
 };
 
 export const comparePages: ComparePageConfig[] = [
@@ -868,6 +872,13 @@ export const comparePages: ComparePageConfig[] = [
       'You want alerts and scheduled email or Slack subscriptions without building them.',
       'Guest embeds with tenant filters locked in a signed token cover your isolation needs, and either the “Powered by Metabase” banner is fine or you are on Pro.',
     ],
+    chooseHypequeryWhen: [
+      'The dashboard is part of your product and has to look like it, built from your own React components rather than themed Metabase embeds.',
+      'Tenant scope should come from the auth your backend already runs, enforced in code, instead of a second set of tenants, attributes and groups configured in Metabase.',
+      'Metric definitions should live in code. Measure names are typed for every caller, so renaming a measure fails the build in each dashboard and endpoint that uses it.',
+      'The same numbers also go to a public API or an AI agent in your product, from one definition with one tenant rule.',
+      'You do not want per-user pricing for customer-facing viewers. hypequery is Apache 2.0 with no seats.',
+    ],
     rows: [
       {
         label: 'Category',
@@ -875,19 +886,49 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'BI tool with an official ClickHouse connector and embedding',
       },
       {
-        label: 'Best for',
-        hypequery: 'Customer-facing analytics that ships inside your product',
-        alternative: 'Internal dashboards and self-serve exploration by non-engineers',
+        label: 'Deployment model',
+        hypequery: 'Libraries in your backend; hypequery Cloud is in early access',
+        alternative: 'Open Source is self-hosted; Starter is cloud only; Pro and Enterprise run on Metabase Cloud or self-hosted',
       },
       {
-        label: 'Who builds charts',
-        hypequery: 'Engineers, in TypeScript or Python plus React',
-        alternative: 'Anyone, in the Metabase UI',
+        label: 'Open source and licence',
+        hypequery: 'Apache 2.0, every package',
+        alternative: 'Open Source edition under AGPL; Pro and Enterprise features under the Metabase Commercial License',
       },
       {
-        label: 'Embedding',
-        hypequery: 'Your own React components on typed hooks',
-        alternative: 'Guest embeds on every plan; modular embedding with SSO, the React SDK and full app embedding on Pro and Enterprise',
+        label: 'Data sources',
+        hypequery: 'ClickHouse only: ClickHouse Cloud, self-hosted ClickHouse, chDB',
+        alternative: '18 official drivers maintained by Metabase, plus community drivers',
+      },
+      {
+        label: 'ClickHouse support',
+        hypequery: 'Types generated from your live schema; SQL compiled straight to the ClickHouse dialect',
+        alternative: 'Official driver built in since v54.1, maintained by Metabase, for ClickHouse 23.3 and later',
+      },
+      {
+        label: 'Tenant isolation',
+        hypequery: 'Tenant scope from your app’s auth, injected per request; queries without a tenant fail',
+        alternative: 'Locked filters in signed guest-embed tokens on every plan; Tenants, row and column security and database routing on Pro and Enterprise',
+      },
+      {
+        label: 'Metrics and semantic layer',
+        hypequery: 'Datasets, measures and relationships in TypeScript or Python, reviewed in pull requests',
+        alternative: 'Metrics, models and segments built in the UI; Pro and Enterprise can sync content to Git as YAML (Remote sync)',
+      },
+      {
+        label: 'API access',
+        hypequery: 'Generated HTTP endpoints with validation and OpenAPI, plus typed React hooks',
+        alternative: 'Unversioned REST API with API keys, documented on your instance',
+      },
+      {
+        label: 'AI agents and MCP',
+        hypequery: '@hypequery/mcp exposes governed datasets and metrics; generated tools for agent SDKs',
+        alternative: 'Metabot and an MCP server on every plan, scoped to the connecting user’s permissions; embedded Metabot on Pro and Enterprise',
+      },
+      {
+        label: 'Front-end embedding',
+        hypequery: 'Headless: your own React components on typed hooks',
+        alternative: 'Guest embeds (web components) on every plan; modular embedding with SSO, the React SDK and full app embedding (iframe) on Pro and Enterprise',
       },
       {
         label: 'Branding',
@@ -895,24 +936,9 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'Guest embeds show “Powered by Metabase” on Open Source and Starter; Pro and Enterprise remove it',
       },
       {
-        label: 'Multi-tenancy',
-        hypequery: 'Tenant scope from your app’s auth, injected per request',
-        alternative: 'Locked filters in signed guest-embed tokens; row and column security on Pro and Enterprise',
-      },
-      {
-        label: 'Type safety',
-        hypequery: 'Types generated from your live ClickHouse schema',
-        alternative: 'Questions are authored in the UI, not checked against code',
-      },
-      {
-        label: 'Agents and MCP',
-        hypequery: '@hypequery/mcp exposes governed datasets and metrics',
-        alternative: 'MCP server on every plan, scoped to the connecting user’s permissions',
-      },
-      {
         label: 'Pricing',
         hypequery: 'Free and open source; you pay for your own infrastructure',
-        alternative: 'Open Source free; Starter $100/month; Pro $575/month; Enterprise from $20,000/year',
+        alternative: 'Open Source free; Starter $100/month with 5 users; Pro $575/month with 10 users; Enterprise from $20,000/year',
       },
     ],
     faq: [
@@ -924,12 +950,12 @@ export const comparePages: ComparePageConfig[] = [
       {
         question: 'Which Metabase plans include embedding?',
         answer:
-          'Guest embeds work on every plan, including Open Source and Starter, where they show a Powered by Metabase banner. Modular embedding with SSO, the React SDK, full app embedding, and row and column security require Pro or Enterprise. Pro is listed at $575 per month with 10 users included, and Enterprise starts at $20,000 per year (checked 8 November 2026).',
+          'Guest embeds work on every plan, including Open Source and Starter, where they show a Powered by Metabase banner. Modular embedding with SSO, the React SDK, full app embedding, and row and column security require Pro or Enterprise. Pro is listed at $575 per month with 10 users included ($12 per extra user), and Enterprise starts at $20,000 per year (checked 22 November 2026).',
       },
       {
         question: 'Can I embed Metabase in a customer-facing SaaS product?',
         answer:
-          'Yes. On any plan, guest embeds let your server lock a tenant filter into the signed token, but viewers cannot drill through or use the query builder. For interactive embeds tied to your users, with row and column security from user attributes, you need Pro or Enterprise. Either way the charts are Metabase components and the tenant rules are configured in Metabase.',
+          'Yes. On any plan, guest embeds let your server lock a tenant filter into the signed token, but viewers cannot drill through or use the query builder. For interactive embeds tied to your users, with the Tenants feature and row and column security from user attributes, you need Pro or Enterprise. Either way the charts are Metabase components and the tenant rules are configured in Metabase.',
       },
       {
         question: 'Is Metabase or hypequery faster to get a first dashboard?',
@@ -946,6 +972,24 @@ export const comparePages: ComparePageConfig[] = [
         answer:
           'No. A common split is Metabase for internal BI and ad-hoc exploration, and hypequery for the customer-facing analytics baked into your product. Both point at the same ClickHouse.',
       },
+    ],
+    sources: [
+      { claim: 'Official ClickHouse driver built in since v54.1, maintained by Metabase; ClickHouse 23.3+; partner driver archived', url: 'https://www.metabase.com/docs/latest/databases/connections/clickhouse', checkedAt: '2026-11-22' },
+      { claim: '18 official drivers maintained by the Metabase team; community drivers listed separately', url: 'https://www.metabase.com/docs/latest/databases/connecting', checkedAt: '2026-11-22' },
+      { claim: 'Guest embeds: web components authorized by a server-signed JWT, locked parameters, every plan, Powered by Metabase on OSS and Starter', url: 'https://www.metabase.com/docs/latest/embedding/guest-embedding', checkedAt: '2026-11-22' },
+      { claim: 'Modular embedding with SSO is Pro and Enterprise only', url: 'https://www.metabase.com/docs/latest/embedding/modular-embedding', checkedAt: '2026-11-22' },
+      { claim: 'React SDK is Pro and Enterprise only; React 18 and 19; no SSR', url: 'https://www.metabase.com/docs/latest/embedding/sdk/introduction', checkedAt: '2026-11-22' },
+      { claim: 'Full app embedding is the whole app in an iframe, Pro and Enterprise', url: 'https://www.metabase.com/docs/latest/embedding/full-app-embedding', checkedAt: '2026-11-22' },
+      { claim: 'Static embedding deprecated in favor of guest embeds; public links', url: 'https://www.metabase.com/docs/latest/embedding/introduction', checkedAt: '2026-11-22' },
+      { claim: 'Tenants feature: tenant users and groups, tenant attributes, @tenant JWT claim, database routing (Pro and Enterprise)', url: 'https://www.metabase.com/docs/latest/embedding/tenants', checkedAt: '2026-11-22' },
+      { claim: 'Row and column security (formerly data sandboxing) maps user attributes to filters, Pro and Enterprise', url: 'https://www.metabase.com/docs/latest/permissions/row-and-column-security', checkedAt: '2026-11-22' },
+      { claim: 'Remote sync stores collections in a Git repository as YAML, with branch and pull-request review (Pro and Enterprise)', url: 'https://www.metabase.com/docs/latest/installation-and-operation/remote-sync', checkedAt: '2026-11-22' },
+      { claim: 'Metrics are built in a query-builder editor and only available to the query builder', url: 'https://www.metabase.com/docs/latest/data-modeling/metrics', checkedAt: '2026-11-22' },
+      { claim: 'REST API with API keys; the API is not versioned', url: 'https://www.metabase.com/docs/latest/people-and-groups/api-keys', checkedAt: '2026-11-22' },
+      { claim: 'Metabot is available on every plan', url: 'https://www.metabase.com/docs/latest/ai/metabot', checkedAt: '2026-11-22' },
+      { claim: 'MCP server on every plan, OAuth 2.0, runs with the signed-in user’s permissions', url: 'https://www.metabase.com/docs/latest/ai/mcp', checkedAt: '2026-11-22' },
+      { claim: 'Plans, prices, deployment and licence per plan: OSS free/AGPL/self-hosted; Starter $100/mo 5 users cloud; Pro $575/mo 10 users; Enterprise min $20,000/yr', url: 'https://www.metabase.com/pricing', checkedAt: '2026-11-22' },
+      { claim: 'Code outside enterprise/ is AGPL; enterprise/ is under the Metabase Commercial License', url: 'https://github.com/metabase/metabase/blob/master/LICENSE.txt', checkedAt: '2026-11-22' },
     ],
   },
 

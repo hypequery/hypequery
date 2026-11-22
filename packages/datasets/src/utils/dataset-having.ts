@@ -1,3 +1,4 @@
+import { filterLeafCount } from './filter-tree.js';
 import { SEMANTIC_HAVING_OPERATORS } from '../constants.js';
 import type { AnyDatasetInstance, DatasetHavingCondition, DatasetQuery } from '../types.js';
 import { selectedTimeMeasures } from './time-query-measures.js';
@@ -54,11 +55,14 @@ export function datasetHavingErrors(
   const errors: string[] = [];
   if (selectedTimeMeasures(ds, query).size > 0) {
     errors.push('Having is not supported on queries that select window or shift measures.');
+  } else if (query.fill === true) {
+    // It would delete the rows fill adds (RFC 0029).
+    errors.push('Having is not supported on filled queries.');
   }
   // `maxFilters` bounds every predicate the query adds, before and after
   // aggregation alike. Filters alone over the limit are reported separately.
   const maxFilters = ds.limits?.maxFilters;
-  const filterCount = Array.isArray(query.filters) ? query.filters.length : 0;
+  const filterCount = Array.isArray(query.filters) ? filterLeafCount(query.filters) : 0;
   const conditionCount = filterCount + query.having.length;
   if (maxFilters && conditionCount > maxFilters && filterCount <= maxFilters) {
     errors.push(`Too many filters and having conditions: ${conditionCount} (max ${maxFilters})`);

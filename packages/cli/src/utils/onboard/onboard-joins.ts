@@ -40,7 +40,8 @@ export function parseJoinPairs(value: string | undefined): JoinToCheck[] {
 /**
  * The joins a model declares, as physical key pairs. `belongsTo` reads from
  * the declaring dataset to its target; `hasOne` and `hasMany` the other way.
- * Relationships whose keys are derived (no single column) are left out.
+ * Relationships whose keys are derived (no single column), or that touch a
+ * SQL-sourced dataset, are left out.
  */
 export function declaredJoins(contract: ProtocolDeploymentContract, resolveFieldColumn: ResolveFieldColumn): JoinToCheck[] {
   return contract.datasets.flatMap(dataset => dataset.relationships.flatMap((relationship): JoinToCheck[] => {
@@ -48,6 +49,8 @@ export function declaredJoins(contract: ProtocolDeploymentContract, resolveField
     const from = resolveFieldColumn(dataset, String(relationship.from));
     const to = target && resolveFieldColumn(target, String(relationship.to));
     if (!target || !from || !to) return [];
+    // A SQL-sourced side (RFC 0028) is a derived table, with no physical table to check.
+    if (typeof dataset.source !== 'string' || typeof target.source !== 'string') return [];
     const own = { table: dataset.source, column: from };
     const other = { table: target.source, column: to };
     const name = `${dataset.name}.${relationship.name}`;

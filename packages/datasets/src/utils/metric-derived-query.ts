@@ -12,6 +12,8 @@ import {
   resolveFilterField,
 } from '../query-planner.js';
 import { queryTimeFilter } from './query-timezone.js';
+import { applyFilterTree } from './filter-predicate-tree.js';
+import { filterLeaves } from './filter-tree.js';
 import { StatementParameters, type PlannedStatement } from './statement-parameters.js';
 import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
@@ -76,17 +78,16 @@ export function buildDerivedMetricSql(
   }
 
   // Filters on CTE
-  for (const filter of query.filters ?? []) {
+  for (const filter of filterLeaves(query.filters)) {
     if (isTenantScopedFilter(ds, filter, context)) {
       throw new Error(
         `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
       );
     }
-    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
-    for (const predicate of queryTimeFilter(dialect, ds, filter, resolvedField, query.timezone)) {
-      cteBuilder = cteBuilder.where(predicate.expression, predicate.operator, predicate.value);
-    }
   }
+  cteBuilder = applyFilterTree(cteBuilder, query.filters, filter => (
+    queryTimeFilter(dialect, ds, filter, resolveFilterField(ds, filter.field, joinCtx), query.timezone)
+  ));
   for (const filter of segmentFilters(ds, query.segments)) {
     const predicates = queryTimeFilter(dialect, ds, filter, resolveDimensionExpression(ds, filter.field, joinCtx), query.timezone, { field: 'dimension' });
     for (const predicate of predicates) {

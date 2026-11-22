@@ -16,3 +16,5 @@ The rules that depend on the query grain are consumer checks at query time, not 
 Every case was generated with, and checked against, the TypeScript reference implementation. The Python implementation also passes every case.
 
 RFC 0023 added null checks: the `null-checks` success and identity case (measure filters, allowed-filter operators and a segment predicate) and rejections for a segment or measure-filter null check with a `right` operand.
+
+RFC 0029 added `alternateTimeFields`: the `alternate-time-fields` success and identity case, and rejections for an empty list, a list without `timeField`, a repeated entry, an entry equal to `timeField`, a qualified name, and a non-array. `deployments-v2` rejects the field (`alternate-time-fields-under-version-2`). A dataset with alternate time fields is contract 3 under the lowest-version rule.

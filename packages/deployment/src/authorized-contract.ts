@@ -80,7 +80,11 @@ function narrowToJoin(
   // what this principal may not do. Segments select rows of a direct query too.
   const { defaults: _defaults, endpoint: _endpoint, ...rest } = dataset;
   const contract3 = 'allowedFilters' in dataset && dataset.allowedFilters !== undefined;
-  const { segments: _segments, ...withoutSegments } = rest as typeof rest & { segments?: unknown };
+  // Alternate time axes, like segments, only shape a direct query.
+  const { segments: _segments, alternateTimeFields: _alternates, ...withoutSegments } = rest as typeof rest & {
+    segments?: unknown;
+    alternateTimeFields?: unknown;
+  };
   const timeField = dataset.timeField === undefined ? undefined : String(dataset.timeField);
   return {
     ...withoutSegments,

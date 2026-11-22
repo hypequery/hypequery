@@ -18,6 +18,7 @@ import { prepareDatasetQuery } from './utils/compile-dataset-query.js';
 import { snapshotExecutionContext } from './utils/snapshot-execution-context.js';
 import type { DatasetCompilation } from './dataset-compilation.js';
 import { isDatasetInstance } from './utils/dataset-target.js';
+import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { queryTimezoneErrors } from './utils/query-timezone.js';
 import { rejectTimeMeasuresOnBackend } from './utils/time-query-measures.js';
 import { baseMeasureNames } from './utils/dataset-measures.js';
@@ -46,6 +47,12 @@ export type { MetricQueryEngineOptions } from './metric-query-engine.js';
 export interface CreateDatasetClientOptions {
   /** Default IANA timezone for buckets and local time-key bounds. Queries can override it. */
   timezone?: string;
+  /**
+   * Clock that resolves relative date ranges such as `'last 30 days'`
+   * (RFC 0029), read once per query. Defaults to the system clock; set it for
+   * tests and replays.
+   */
+  now?: () => Date;
   /** Query builder factory for executing semantic metric and dataset queries. */
   queryBuilder?: QueryBuilderFactoryInput;
   /**
@@ -225,6 +232,7 @@ export interface DatasetClient {
 export class DatasetClientImpl extends MetricQueryEngine implements DatasetClient {
   private backend?: SemanticBackend;
   private readonly defaultTimezone?: string;
+  private readonly now: () => Date;
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
   private readonly cacheDefaults: ClientCacheDefaults;
@@ -251,6 +259,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       throw new Error('Execution timezone requires the queryBuilder execution path.');
     }
     this.defaultTimezone = options.backend ? undefined : options.timezone ?? 'UTC';
+    this.now = options.now ?? (() => new Date());
     this.backend = options.backend;
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheKeySettings = resolveProtocolCacheKeySettings(
@@ -270,6 +279,26 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private withTimezone<T extends DatasetQuery | MetricQuery>(query: T): T {
     return query.timezone !== undefined || this.defaultTimezone === undefined
       ? query : { ...query, timezone: this.defaultTimezone };
+  }
+
+  /**
+   * The query every stage sees: the client zone applied, then each relative
+   * date range resolved at one reading of the clock (RFC 0029), so the cache
+   * key, validation and SQL all use the same absolute bounds.
+   */
+  private prepareQuery<T extends DatasetQuery | MetricQuery>(target: unknown, input: T): T {
+    const query = this.withTimezone(input);
+    // A bad zone is left for validation to report, so `validate()` returns it
+    // as an error instead of throwing here.
+    if (!Array.isArray(query.filters) || queryTimezoneErrors(query.timezone).length > 0) return query;
+    let ds: AnyDatasetInstance | undefined;
+    if (isDatasetInstance(target)) ds = target;
+    else {
+      try { ds = getMetricRef(target as MetricRef).dataset; } catch { ds = undefined; }
+    }
+    if (!ds) return query;
+    const filters = resolveRelativeDateFilters(ds, query.filters, this.now(), query.timezone);
+    return filters === query.filters ? query : { ...query, filters };
   }
 
   getCacheStats(): SemanticCacheStats {
@@ -322,7 +351,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery = {},
     context?: ExecutionContext,
   ): PlanNode {
-    query = this.withTimezone(query);
+    query = this.prepareQuery(metric, query);
     assertMetricHandle(metric);
     const validation = validateMetricQueryInput(metric, query, context);
     if (!validation.valid) {
@@ -336,7 +365,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery = {},
     context?: ExecutionContext,
   ): PlanNode {
-    return buildDatasetPlan(ds, this.withTimezone(query), context);
+    return buildDatasetPlan(ds, this.prepareQuery(ds, query), context);
   }
 
   /**
@@ -387,7 +416,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   ): Promise<SemanticResult<TTarget, TRow>> {
     // An async cache read must not let caller mutations change the query or
     // tenant after its key has been derived.
-    query = this.withTimezone(structuredClone(query));
+    query = this.prepareQuery(target, structuredClone(query));
     context = snapshotExecutionContext(context);
     if (this.backend && query.timezone !== undefined) {
       throw new Error('Execution timezone requires the queryBuilder execution path.');
@@ -437,7 +466,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     if (this.backend) {
       throw new Error('Streaming requires the queryBuilder execution path.');
     }
-    const query = this.withTimezone(structuredClone(input));
+    const query = this.prepareQuery(requested, structuredClone(input));
     const context = snapshotExecutionContext(inputContext);
     // Streams answer to `limits.maxStreamRows` where the dataset declares one.
     let target: SemanticTarget;
@@ -493,7 +522,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   ): DatasetCompilation {
     if (this.backend) throw new Error('Dataset compilation requires the queryBuilder execution path.');
     if (!isDatasetInstance(target)) throw new Error('Dataset compilation requires a dataset target.');
-    return prepareDatasetQuery(target, this.withTimezone(query as DatasetQuery), {
+    return prepareDatasetQuery(target, this.prepareQuery(target, query as DatasetQuery), {
       builderFactory: this.resolveBuilderFactory(context),
       context,
     }).compilation;
@@ -504,7 +533,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): string {
-    query = this.withTimezone(query);
+    query = this.prepareQuery(target, query);
     if (this.backend && query.timezone !== undefined) {
       throw new Error('Execution timezone requires the queryBuilder execution path.');
     }
@@ -520,7 +549,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): ValidationResult {
-    query = this.withTimezone(query);
+    query = this.prepareQuery(target, query);
     if (this.backend && query.timezone !== undefined) {
       return { valid: false, errors: ['Execution timezone requires the queryBuilder execution path.'] };
     }

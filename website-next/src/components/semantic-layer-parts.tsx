@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import CodeWindow from '@/components/CodeWindow';
-import { HubLinkGrid, HubSection } from '@/components/hub-page';
+import { RelatedPages } from '@/components/related-pages';
 import { marketing } from '@/components/ui/marketing';
-import { otherSemanticLayerPages } from '@/data/semantic-layer-pages';
+import { semanticLayerRelatedLinks } from '@/data/related-pages';
 import { searchTitle } from '@/lib/page-title';
 import { absoluteUrl, ogImage } from '@/lib/site';
 import type { BreadcrumbItem } from '@/lib/structured-data';
@@ -66,24 +66,7 @@ export function CodePair({ left, right }: { left: CodeSample; right: CodeSample 
 
 /** The hub and the other spokes, plus the ClickHouse page for readers who want the hypequery side. */
 export function SemanticLayerGuides({ currentHref }: { currentHref: string }) {
-  const links = [
-    ...otherSemanticLayerPages(currentHref),
-    {
-      href: '/clickhouse-semantic-layer',
-      title: 'ClickHouse semantic layer',
-      description: 'Define datasets, measures and tenant keys for ClickHouse in TypeScript or Python.',
-    },
-    {
-      href: '/compare/hypequery-vs-cube',
-      title: 'hypequery vs Cube',
-      description: 'A code-first library compared with a standalone semantic layer service.',
-    },
-  ];
-  return (
-    <HubSection eyebrow="Guides" title="More on semantic layers">
-      <HubLinkGrid links={links} />
-    </HubSection>
-  );
+  return <RelatedPages eyebrow="Guides" title="More on semantic layers" pages={semanticLayerRelatedLinks(currentHref)} />;
 }
 
 export function SemanticLayerNextStep({ location }: { location: string }) {

@@ -1,0 +1,48 @@
+{
+  "table": "orders",
+  "columns": {
+    "tenant": "String", "id": "UInt32", "created_at": "DateTime64(3, 'UTC')",
+    "country": "Nullable(String)", "channel": "String", "user_id": "String", "amount": "Float64"
+  },
+  "rows": [
+    { "tenant": "a", "id": 1,  "created_at": "2025-01-10 09:00:00", "country": "US", "channel": "web",   "user_id": "u1", "amount": 100 },
+    { "tenant": "a", "id": 2,  "created_at": "2025-03-02 12:00:00", "country": "DE", "channel": "store", "user_id": "u2", "amount": 40 },
+    { "tenant": "a", "id": 3,  "created_at": "2026-01-03 08:00:00", "country": "US", "channel": "web",   "user_id": "u1", "amount": 120 },
+    { "tenant": "a", "id": 4,  "created_at": "2026-01-04 10:00:00", "country": "US", "channel": "store", "user_id": "u3", "amount": 30 },
+    { "tenant": "a", "id": 5,  "created_at": "2026-01-15 11:00:00", "country": "DE", "channel": "web",   "user_id": "u2", "amount": 60 },
+    { "tenant": "a", "id": 6,  "created_at": "2026-01-20 15:00:00", "country": "FR", "channel": "web",   "user_id": "u1", "amount": 10 },
+    { "tenant": "a", "id": 7,  "created_at": "2026-01-21 16:00:00", "country": null, "channel": "web",   "user_id": "u4", "amount": 5 },
+    { "tenant": "a", "id": 8,  "created_at": "2026-01-22 17:00:00", "country": "GB", "channel": "store", "user_id": "u5", "amount": 25 },
+    { "tenant": "a", "id": 9,  "created_at": "2026-03-01 09:00:00", "country": "US", "channel": "web",   "user_id": "u3", "amount": 200 },
+    { "tenant": "a", "id": 10, "created_at": "2026-03-02 09:30:00", "country": "DE", "channel": "store", "user_id": "u1", "amount": 80 },
+    { "tenant": "a", "id": 11, "created_at": "2026-03-05 10:00:00", "country": "DE", "channel": "web",   "user_id": "u2", "amount": 20 },
+    { "tenant": "a", "id": 12, "created_at": "2026-03-09 13:00:00", "country": "FR", "channel": "store", "user_id": "u6", "amount": 45 },
+    { "tenant": "a", "id": 13, "created_at": "2026-03-12 14:00:00", "country": "GB", "channel": "web",   "user_id": "u5", "amount": 45 },
+    { "tenant": "a", "id": 14, "created_at": "2026-03-30 18:00:00", "country": null, "channel": "store", "user_id": "u4", "amount": 15 },
+    { "tenant": "a", "id": 15, "created_at": "2026-04-02 08:00:00", "country": "US", "channel": "web",   "user_id": "u1", "amount": 90 },
+    { "tenant": "a", "id": 16, "created_at": "2026-04-03 08:00:00", "country": "ES", "channel": "web",   "user_id": "u7", "amount": 70 },
+    { "tenant": "b", "id": 1,  "created_at": "2026-01-05 09:00:00", "country": "US", "channel": "web",   "user_id": "u1", "amount": 9999 }
+  ],
+  "dataset": {
+    "name": "orders", "timeKey": "created_at", "tenantKey": "tenant",
+    "dimensions": ["created_at", "country", "channel", "user_id"],
+    "measures": {
+      "revenue": "sum(amount)", "orders": "count(id)", "users": "countDistinct(user_id)",
+      "avg_order": "avg(amount)", "largest": "max(amount)"
+    }
+  },
+  "range": ["2026-01-01T00:00:00Z", "2026-05-01T00:00:00Z"],
+  "outline": [
+    "filter: web_revenue by country; web users (countDistinct) by month",
+    "shift: revenue by month, 1 year back (2025 rows), Feb is empty and gap-filled",
+    "window: trailing 2 month, toDate year, cumulative on revenue and on a filter calculation",
+    "formula: aov = revenue / nullIfZero(orders); nested reference to aov",
+    "compare previousPeriod by month: Feb shows previous=Jan, change_pct NULL for Mar (previous 0)",
+    "compare previousYear by quarter",
+    "rank revenue by country within period; ties (FR and GB both 45 in March)",
+    "share additive: revenue by country of period; share non-additive: users by country of [] (u1 in US, DE, FR)",
+    "limitBy 2 by period ordered by revenue desc",
+    "other: top 2 countries by revenue + Other, users (countDistinct) exact in the Other bucket; NULL country lands in Other",
+    "tenant b's row never contributes"
+  ]
+}

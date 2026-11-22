@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import { HubFaq, HubSection, HubShell, HubTable } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
@@ -183,6 +186,7 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
         ),
       }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -309,6 +313,8 @@ export default function EmbeddedAnalyticsTypeScriptPage() {
       <HubSection band eyebrow="Questions" title="Embedded analytics evaluation FAQ">
         <HubFaq items={faqItems} />
       </HubSection>
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
+
     </HubShell>
   );
 }

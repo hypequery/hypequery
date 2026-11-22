@@ -1,7 +1,7 @@
-import type { ProtocolSemanticQuery } from '@hypequery/protocol';
+import type { ProtocolExpression, ProtocolSemanticQuery } from '@hypequery/protocol';
 import type {
+  DatasetFilterNode,
   DatasetHavingCondition,
-  MetricFilter,
   MetricOrderBy,
   SemanticTenantRuntime,
   TimeGrain,
@@ -17,14 +17,30 @@ export function tenantRuntime(tenant: unknown): SemanticTenantRuntime | undefine
   return tenant as SemanticTenantRuntime;
 }
 
-function operationFilters(operation: ProtocolSemanticQuery): MetricFilter[] {
-  return (operation.filters ?? []).map((expression, index) => rehydrateMeasureFilter(
+/**
+ * A query predicate as a dataset filter node. `logical` nodes become groups
+ * (RFC 0029); every leaf must be a field/operator/value comparison or a null
+ * check, which is all the data plane validated against the contract.
+ */
+function operationFilter(expression: ProtocolExpression, index: number): DatasetFilterNode {
+  if (expression.kind === 'logical') {
+    return expression.operator === 'not'
+      ? { not: operationFilter(expression.operand, index) }
+      : expression.operator === 'and'
+        ? { and: expression.operands.map(operand => operationFilter(operand, index)) }
+        : { or: expression.operands.map(operand => operationFilter(operand, index)) };
+  }
+  return rehydrateMeasureFilter(
     expression,
     () => new PortableExecutionUnsupportedError(
-      `Filter ${index} is not a field/operator/value comparison, so it cannot be planned.`,
+      `Filter ${index} holds a comparison that is not a field/operator/value comparison, so it cannot be planned.`,
       { reason: UNSUPPORTED_CONTRACT_REASONS.queryFilterNotComparison },
     ),
-  ));
+  );
+}
+
+function operationFilters(operation: ProtocolSemanticQuery): DatasetFilterNode[] {
+  return (operation.filters ?? []).map(operationFilter);
 }
 
 export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number): Record<string, unknown> {
@@ -51,6 +67,8 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
     limit: operation.limit ?? maxRows,
     ...(operation.offset === undefined ? {} : { offset: operation.offset }),
     ...(operation.by === undefined ? {} : { by: operation.by as TimeGrain }),
+    // RFC 0029: the data plane checked the axis against the contract.
+    ...(operation.timeKey === undefined ? {} : { timeKey: String(operation.timeKey) }),
     // RFC 0025: the dataset client applies both on the queryBuilder path,
     // and validates `having` against the selection again.
     ...(operation.kind === 'dataset' && operation.having !== undefined
@@ -62,6 +80,8 @@ export function semanticQuery(operation: ProtocolSemanticQuery, maxRows: number)
         }
       : {}),
     ...(operation.timezone === undefined ? {} : { timezone: operation.timezone }),
+    // RFC 0029: the dataset client plans a filled series on the time axis.
+    ...(operation.kind === 'dataset' && operation.fill === true ? { fill: true } : {}),
   };
 }
 

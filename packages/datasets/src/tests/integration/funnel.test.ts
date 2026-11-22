@@ -91,7 +91,13 @@ interface Scenario {
   timezone?: string;
   excludeTeam?: boolean;
   entity?: 'accountId';
+  /** RFC 0029: steps as `or` groups, the team exclusion as `not`, the range as `inDateRange`. */
+  booleanFilters?: boolean;
+  relativeRange?: boolean;
 }
+
+/** The runtime's clock for relative ranges: "last 14 days" is [1 Oct, 15 Oct). */
+const NOW = new Date('2026-10-15T12:00:00Z');
 
 function bruteForceLevel(events: readonly Event[], steps: readonly Condition[], window: number, order: 'strict' | 'any'): number {
   let best = 0;
@@ -129,7 +135,9 @@ function bucket(at: number, grain: 'day' | 'week' | 'month', timezone = 'UTC'): 
 
 function expectedRows(scenario: Scenario): Record<string, unknown>[] {
   const inRange = EVENTS.filter(event => event.tenant === 'a'
-    && event.at >= Date.parse(RANGE_START) && event.at <= Date.parse(RANGE_END)
+    && event.at >= Date.parse(RANGE_START)
+    // A relative range ends at today's midnight, exclusively.
+    && (scenario.relativeRange ? event.at < Date.parse(RANGE_END) : event.at <= Date.parse(RANGE_END))
     // SQL `plan != 'team'` is NULL for a NULL plan, so those rows drop too.
     && (!scenario.excludeTeam || (event.plan !== null && event.plan !== 'team')));
   const steps: Condition[] = scenario.steps.map(step => event => step.kinds.includes(event.event));
@@ -182,7 +190,12 @@ function expectedRows(scenario: Scenario): Record<string, unknown>[] {
 }
 
 function operation(scenario: Scenario): ProtocolEventOperation {
-  const condition = (kinds: readonly string[]) => (kinds.length === 1
+  const equals = (field: string, value: string) => ({
+    kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: field }, right: { kind: 'literal', value },
+  });
+  const condition = (kinds: readonly string[]) => (scenario.booleanFilters && kinds.length > 1
+    ? { kind: 'logical', operator: 'or', operands: kinds.map(kind => equals('eventName', kind)) }
+    : kinds.length === 1
     ? { kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'eventName' }, right: { kind: 'literal', value: kinds[0] } }
     : {
         kind: 'comparison', operator: 'in', left: { kind: 'reference', name: 'eventName' },
@@ -196,12 +209,16 @@ function operation(scenario: Scenario): ProtocolEventOperation {
     window: `${scenario.windowMinutes} minute`,
     order: scenario.order,
     filters: [
-      {
-        kind: 'comparison', operator: 'between', left: { kind: 'reference', name: 'occurredAt' },
-        right: { kind: 'literal', value: { $hypequery: { type: 'tuple', version: 1, values: [RANGE_START, RANGE_END] } } },
-      },
+      scenario.relativeRange
+        ? { kind: 'comparison', operator: 'inDateRange', left: { kind: 'reference', name: 'occurredAt' }, right: { kind: 'literal', value: 'last 14 days' } }
+        : {
+            kind: 'comparison', operator: 'between', left: { kind: 'reference', name: 'occurredAt' },
+            right: { kind: 'literal', value: { $hypequery: { type: 'tuple', version: 1, values: [RANGE_START, RANGE_END] } } },
+          },
       ...(scenario.excludeTeam
-        ? [{ kind: 'comparison', operator: 'neq', left: { kind: 'reference', name: 'plan' }, right: { kind: 'literal', value: 'team' } }]
+        ? [scenario.booleanFilters
+            ? { kind: 'logical', operator: 'not', operand: equals('plan', 'team') }
+            : { kind: 'comparison', operator: 'neq', left: { kind: 'reference', name: 'plan' }, right: { kind: 'literal', value: 'team' } }]
         : []),
     ],
     ...(scenario.breakdown ? { breakdown: [scenario.breakdown] } : {}),
@@ -211,7 +228,7 @@ function operation(scenario: Scenario): ProtocolEventOperation {
   });
 }
 
-const runtime = createPortableSemanticRuntime({ queryBuilder: db });
+const runtime = createPortableSemanticRuntime({ queryBuilder: db, now: () => NOW });
 const deployment = buildProtocolDeploymentContract([Activity], {
   endpoints: { activity: { access: { kind: 'public' }, tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant' } } },
 });
@@ -255,6 +272,9 @@ describe('RFC 0027 funnels match a brute-force sequence search on ClickHouse', (
 
   const scenarios: [string, Scenario][] = [
     ['strict order with ties and window edges', { steps: THREE_STEPS, windowMinutes: 10, order: 'strict' }],
+    ['or-group steps and a not filter (RFC 0029)', { steps: OVERLAPPING, windowMinutes: 15, order: 'strict', excludeTeam: true, booleanFilters: true }],
+    ['any order with or-group steps (RFC 0029)', { steps: OVERLAPPING, windowMinutes: 15, order: 'any', booleanFilters: true }],
+    ['a relative range resolved at the executor (RFC 0029)', { steps: THREE_STEPS, windowMinutes: 30, order: 'strict', by: 'day', relativeRange: true }],
     ['strict order with one-minute windows', { steps: THREE_STEPS, windowMinutes: 1, order: 'strict' }],
     ['strict order where one event satisfies several steps', { steps: OVERLAPPING, windowMinutes: 15, order: 'strict' }],
     ['any order', { steps: THREE_STEPS, windowMinutes: 10, order: 'any' }],

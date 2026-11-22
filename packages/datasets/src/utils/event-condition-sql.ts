@@ -1,4 +1,5 @@
-import type { MetricFilter } from '../types.js';
+import type { DatasetFilterNode, MetricFilter } from '../types.js';
+import { isFilterGroup } from './filter-tree.js';
 import type { QueryTimePredicate } from './query-timezone.js';
 import type { StatementParameters } from './statement-parameters.js';
 
@@ -32,6 +33,9 @@ export function eventConditionSql(column: string, filter: MetricFilter, statemen
       }
       return `${column} BETWEEN ${bind(filter.value[0])} AND ${bind(filter.value[1])}`;
     }
+    default:
+      // `inDateRange` applies only to the time axis, which conditions can't use.
+      throw new Error(`Operator "${filter.operator}" can't be used in an event condition.`);
   }
 }
 
@@ -44,13 +48,23 @@ export function eventConditionSql(column: string, filter: MetricFilter, statemen
  * compared in UTC, and a mixed range splits into one predicate per kind.
  */
 export function eventConditionFlagSql(
-  conditions: readonly MetricFilter[],
+  conditions: readonly DatasetFilterNode[],
   predicatesFor: (condition: MetricFilter) => readonly QueryTimePredicate[],
   statement: StatementParameters,
 ): string {
-  const parts = conditions.flatMap(condition => predicatesFor(condition).map(predicate => {
+  const leaf = (condition: MetricFilter) => predicatesFor(condition).map(predicate => {
     const filter = { field: condition.field, operator: predicate.operator, value: predicate.value } as MetricFilter;
     return `(${eventConditionSql(predicate.expression, filter, statement)})`;
-  }));
-  return `toUInt8(ifNull(${parts.join(' AND ')}, 0))`;
+  }).join(' AND ');
+  // RFC 0029 groups render as written. SQL three-valued logic makes a NULL
+  // field fail a comparison and its negation alike, and the outer ifNull
+  // reads what is left NULL as "no match".
+  const node = (item: DatasetFilterNode): string => {
+    if (!isFilterGroup(item)) return `(${leaf(item)})`;
+    const group = item as { and?: readonly DatasetFilterNode[]; or?: readonly DatasetFilterNode[]; not?: DatasetFilterNode };
+    if (group.not !== undefined) return `(NOT ${node(group.not)})`;
+    const items = (group.and ?? group.or ?? []).map(node);
+    return `(${items.join(group.and ? ' AND ' : ' OR ')})`;
+  };
+  return `toUInt8(ifNull(${conditions.map(node).join(' AND ')}, 0))`;
 }
