@@ -303,8 +303,18 @@ describe('funnel filters and conditions under RFC 0029', () => {
     const error = await failure(plane().instance.invoke({ invocation: invocation(funnel({
       filters: [or(RANGE, eq('plan', 'pro'))],
     })) }));
-    expect(error.message).toMatch(/need their time range as top-level filters/);
-    expect(error.path).toBe('$.operation.filters[0].operands[0]');
+    expect(error.message).toMatch(/exactly one bounded range on "occurredAt" as top-level filters/);
+    expect(error.path).toBe('$.operation.filters');
+  });
+
+  it('keeps a nested time comparison as an event filter beside the top-level range', async () => {
+    const at = (operator: string, value: string) => ({ ...eq('occurredAt', value), operator });
+    const { instance, calls } = plane();
+    await instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, or(at('lt', '2026-10-10'), at('gt', '2026-10-20'))],
+    })) });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.operation.filters).toEqual([RANGE, or(at('lt', '2026-10-10'), at('gt', '2026-10-20'))]);
   });
 
   it('accepts a top-level relative range and bounds its span without a clock', async () => {

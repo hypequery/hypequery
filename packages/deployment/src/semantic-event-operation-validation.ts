@@ -23,7 +23,6 @@ import {
 } from './semantic-operation-validation.js';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
-import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 import {
   estimateEventBuckets,
   estimatePlacementFreeBuckets,
@@ -208,15 +207,27 @@ export function validateSemanticEventOperation(
     fail(`At most ${limits.maxFilters} filters and conditions may be applied together.`, '$.operation');
   }
 
-  // The bounded range must be top-level comparisons on the time field, as a
-  // window or filled query's must (RFC 0029): one under "or"/"not" filters
-  // events but bounds nothing. A relative range resolves at the executor, so
-  // its span is bounded here without a clock.
+  // The bounded range is made of top-level comparisons on the time field
+  // (RFC 0029). A time comparison under "or"/"not" is kept as an event filter
+  // but bounds nothing (RFC 0027), so it neither counts toward the range nor
+  // refuses the call. A relative range resolves at the executor, so its span
+  // is bounded here without a clock.
   const subject = operation.kind === 'funnel' ? 'Funnels' : 'Retention operations';
+  const topLevel = filterLeaves.filter(leaf => !leaf.nested && isOnAxis(leaf));
+  const operators = topLevel.map(leaf => semanticComparisonField(leaf.expression)?.operator);
+  const bounded = (operators.length === 1 && (operators[0] === 'between' || operators[0] === 'inDateRange'))
+    || (operators.length === 2
+      && operators.some(operator => operator === 'gt' || operator === 'gte')
+      && operators.some(operator => operator === 'lt' || operator === 'lte'));
   const shape = timeField === undefined
     ? { message: `${subject} require a time field.`, path: '$.operation.filters' }
-    : timeSeriesRangeViolation(filterLeaves, isOnAxis, timeField, subject);
-  const topLevel = filterLeaves.filter(leaf => !leaf.nested && isOnAxis(leaf));
+    : bounded
+      ? undefined
+      : {
+          message: `${subject} require exactly one bounded range on "${timeField}" as top-level filters: `
+            + 'between, inDateRange, or gt/gte with lt/lte.',
+          path: '$.operation.filters',
+        };
   const relative = topLevel.length === 1 && semanticComparisonField(topLevel[0]!.expression)?.operator === 'inDateRange'
     ? relativeRangeDays((topLevel[0]!.expression as { right?: { value?: unknown } }).right?.value)
     : undefined;

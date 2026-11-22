@@ -419,6 +419,16 @@ describe('RFC 0029 filters in funnels', () => {
     }), { builderFactory: factory, context })).toThrow(/Too many filters: 4 \(max 3\)/);
   });
 
+  it('plans a nested time comparison as an event filter beside the top-level range', () => {
+    const nested = spec({ filters: [RANGE, { or: [
+      { field: 'occurredAt', operator: 'lt', value: '2026-10-10' },
+      { field: 'occurredAt', operator: 'gt', value: '2026-10-20' },
+    ] }] });
+    expect(eventOperationErrors(Activity, nested, context)).toEqual([]);
+    const { sql } = prepareEventOperation(Activity, nested, { builderFactory: capturingFactory().factory, context }).statement;
+    expect(sql).toMatch(/\(toDateTime64\(analytics\.activity\.at, 9, 'UTC'\) < \? OR toDateTime64\(analytics\.activity\.at, 9, 'UTC'\) > \?\)/);
+  });
+
   it('refuses a time range that only appears under "or"', () => {
     expect(eventOperationErrors(Activity, spec({
       filters: [{ or: [RANGE, { field: 'plan', operator: 'eq', value: 'pro' }] }],
