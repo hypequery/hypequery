@@ -115,13 +115,15 @@ so the checker never has to decide whether a construct is harmless.
    starts a table reference, so write `USING (a, b)` rather than `USING a, b`.
    A name after `IN` that isn't followed by `(` reads a table and is a table
    reference wherever it appears, function arguments included. (This
-   refuses `position(a IN b)`; write `position(b, a)`.) `FROM` inside a
-   function call (`EXTRACT(… FROM …)`, `substring(… FROM …)`) isn't a table
-   position.
+   refuses `position(a IN b)`; write `position(b, a)`.) `FROM` starts a table
+   reference at any parenthesis level, including ClickHouse's FROM-first
+   `(FROM t SELECT …)`, except directly inside `EXTRACT`, `SUBSTRING`,
+   `SUBSTR`, `TRIM` and `OVERLAY`, whose own syntax uses it.
 7. **No out-of-band reads or blocking.** Calls to functions that read an object
    named in a string, the filesystem, or that sleep are refused: names starting
    with `dict` (`dictGet`, `dictHas`, …), `joinGet`, `joinGetOrNull`, `file`,
-   `getSetting`, `getMacro`, `sleep`, `sleepEachRow`.
+   `getSetting`, `getSettingOrDefault`, `getServerSetting`, `getMacro`,
+   `hasColumnInTable`, `catboostEvaluate`, `sleep`, `sleepEachRow`.
 8. **System databases.** References and dependencies in `system`,
    `information_schema` or `INFORMATION_SCHEMA` are refused.
 9. **Coverage.** The set of table references equals the declared
