@@ -58,7 +58,7 @@ A `by` query returns a row only for periods that have data. Set `fill: true` to 
 ```typescript
 await analytics.execute(Orders, {
   dimensions: ['country'],
-  measures: ['orders', 'revenue'],
+  measures: ['orderCount', 'revenue'],
   by: 'day',
   fill: true,
   filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'last 30 days' }],
