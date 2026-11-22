@@ -76,10 +76,11 @@ including one with no activation (`active: null`), rather than `404`.
 | `semanticInvocation` | Semantic invocation versions (RFC 0014, RFC 0015) its data plane executes, against every contract version it accepts | `[1]` |
 | `bundle` | Deployment bundle manifest versions (RFC 0007) its intake accepts | `[1, 2]` |
 
-Each member is a non-empty array of distinct positive safe integers in
-ascending order. An unsorted, repeated, empty or non-integer list makes the
-response invalid. The consumer fails closed (`Cloud returned an invalid live
-deployment response.`) rather than guessing what the target meant.
+Each member is a non-empty array of at most 64 distinct positive safe
+integers in ascending order. An unsorted, repeated, empty or non-integer list
+makes the response invalid. The consumer fails closed (`Cloud returned an
+invalid live deployment response.`) rather than guessing what the target
+meant.
 
 A missing `accepts`, or a missing member, takes the default above. The
 contract and invocation defaults are the versions every hypequery Cloud
@@ -142,10 +143,14 @@ For example:
 
 ```text
 acme/production accepts deployment contract 2, but this deployment is contract 3.
-  orders uses segments, alternate time keys
   events uses window measures
-Remove these features, or deploy to a target that accepts contract 3.
+  orders uses segments, alternate time keys
+Remove these features, or deploy to a target that accepts contract 3. The CLI never lowers the version, because that would drop them.
 ```
+
+Datasets appear in contract order, which `@hypequery/datasets` sorts by name. With `--json`,
+each forcing dataset is also an entry in the error envelope's `issues`, with
+path `datasets.<name>`.
 
 The CLI MUST NOT lower the version. Rewriting a contract 3 deployment as
 contract 2 would drop segments, windows, shifts or time axes, and a deploy that
@@ -322,15 +327,23 @@ semantic invocation version from this RFC on.
   - `datasetGrains(dataset)`, the grains a query may bucket by;
   - `withDatasetAllowedFilters(dataset, filters)`, which writes the allow-list
     under the dataset's own version's name.
-- **Selection:** `semanticInvocationVersion(operation)` and
-  `toSemanticInvocation(operation, envelope)`.
-- **Acceptance:** `datasetContract3Features(dataset)`,
+- **Selection:** `semanticInvocationVersion(operation)`, which returns 1 or
+  2, `semanticInvocation2Features(operation)`, which names what forced 2, and
+  `toSemanticInvocation(operation, envelope)`, which returns a validated
+  invocation at that version.
+- **Acceptance:** `datasetContract3Features(dataset)` and
+  `deploymentContract3Features(contract)` over `PROTOCOL_CONTRACT_3_FEATURES`
+  and `PROTOCOL_CONTRACT_3_FEATURE_LABELS`. There are also
   `DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS`,
-  `validateProtocolDeploymentTargetAccepts(input)` and
-  `checkProtocolDeploymentTargetAcceptance(…)`.
+  `validateProtocolDeploymentTargetAccepts(input)`, which fills defaults and
+  throws `ProtocolDeploymentError` at a path, and
+  `checkProtocolDeploymentTargetAcceptance({ contract, bundleVersion, accepts })`,
+  which returns the refusals.
 
-Python's `hypequery.protocol` mirrors the feature registry and the
-advertisement validation.
+Python's `hypequery.protocol` mirrors the registry (`contract_3_features`)
+and the advertisement validation (`validate_protocol_deployment_target_accepts`).
+`hypequery.datasets` selects the contract version with the same rule, applied
+to the dataset as contract 3 would publish it.
 
 ## Conformance
 
@@ -342,8 +355,9 @@ Draft fixtures under `specs/security-protocol/drafts/target-acceptance-v1/`:
   forces, one case per registry entry, combinations in registry order, and
   contract 2 datasets with none.
 
-The TypeScript and Python test suites must both pass them. They aren't
-registered in the conformance manifest until this RFC is accepted.
+They land with the reference implementation. The TypeScript and Python test
+suites must both pass them. They aren't registered in the conformance
+manifest until this RFC is accepted.
 
 ## Open questions
 
