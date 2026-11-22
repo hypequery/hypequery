@@ -1,5 +1,5 @@
 import { PROTOCOL_EVENT_OPERATION_LIMITS as LIMITS, PROTOCOL_FUNNEL_COLUMNS } from '@hypequery/protocol';
-import type { EventOperationSpec } from './event-operation-spec.js';
+import type { EventOperationSpec, FunnelSpec } from './event-operation-spec.js';
 
 const COHORT_GRAINS = new Set(['day', 'week', 'month']);
 
@@ -21,6 +21,17 @@ export function eventOperationShapeErrors(spec: EventOperationSpec): string[] {
   if (!Number.isSafeInteger(spec.breakdownLimit) || spec.breakdownLimit < 1 || spec.breakdownLimit > LIMITS.maxBreakdownLimit) {
     errors.push(`breakdownLimit must be an integer from 1 to ${LIMITS.maxBreakdownLimit}.`);
   }
+  // Each kind checks only its own fields, so a new kind can't read another's.
+  switch (spec.kind) {
+    case 'funnel':
+      errors.push(...funnelShapeErrors(spec));
+      break;
+  }
+  return errors;
+}
+
+function funnelShapeErrors(spec: FunnelSpec): string[] {
+  const errors: string[] = [];
   if (spec.steps.length < LIMITS.minSteps || spec.steps.length > LIMITS.maxSteps) {
     errors.push(`A funnel has ${LIMITS.minSteps} to ${LIMITS.maxSteps} steps.`);
   }
