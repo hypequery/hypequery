@@ -16,7 +16,17 @@ const { values } = parseArgs({ options: { base: { type: 'string', default: 'orig
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
 const range = `${values.base}...HEAD`;
 
-const dirs = changedReportDirs(git('diff', '--name-only', range));
+// A package whose api-report/ directory does not exist on the base is getting
+// its first reports: that records the existing API rather than changing it.
+const existsOnBase = (dir) => {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${values.base}:packages/${dir}/api-report`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+};
+const dirs = changedReportDirs(git('diff', '--name-only', range)).filter(existsOnBase);
 if (dirs.length === 0) {
   console.log('No public API report changed.');
   process.exit(0);
