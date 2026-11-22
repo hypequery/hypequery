@@ -32,8 +32,9 @@ import type { PreparedDatasetQuery, DatasetQueryMode } from './compile-dataset-q
 
 /**
  * Every reason a calculated query cannot run, with the caller's names. The
- * inner query is validated with the outer limit, so the time-measure series
- * bound sees the page the caller asked for.
+ * inner query is validated with the outer limit and offset, so the
+ * time-measure series bound sees the page the caller asked for and an invalid
+ * page is refused before any SQL is built.
  */
 export function calculatedDatasetQueryErrors(
   ds: AnyDatasetInstance,
@@ -48,6 +49,7 @@ export function calculatedDatasetQueryErrors(
   const validation = validateDatasetQueryInput(plan.dataset, {
     ...plan.inner,
     ...(query.limit === undefined ? {} : { limit: query.limit }),
+    ...(query.offset === undefined ? {} : { offset: query.offset }),
   }, context);
   return {
     errors: publicCalculationErrors(validation.errors, plan.outputs),
@@ -72,7 +74,11 @@ export function prepareCalculatedDatasetQuery(
   assertStageSupported(plan, dialect);
   const view = plan.other === undefined ? plan.dataset : withOtherBucket(plan.dataset, plan.other, dialect);
   const executionLimit = mode === 'execution' ? overfetchLimit(query.limit) : query.limit;
-  const innerOptions: DatasetQueryExecutionOptions = { ...options, executionLimit: undefined };
+  // The inner statement is unpaged (the outer stage pages it), but the time
+  // planner keeps the caller's limit as its exact series budget.
+  const innerOptions: DatasetQueryExecutionOptions = {
+    ...options, executionLimit: undefined, seriesLimit: query.limit,
+  };
   const readsFinal = queryReadsFinal(
     view, buildRelationshipBuilderContext(view, plan.inner, options.context, dialect),
   );

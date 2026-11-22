@@ -32,7 +32,9 @@ export function buildTimeMeasureDatasetSql(
   if (!validation.valid) throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   assertRawSqlForDialect(ds, dialect);
-  const { axis } = analyzeTimeMeasureAxis(ds, query);
+  const { axis } = analyzeTimeMeasureAxis(
+    ds, options.seriesLimit === undefined ? query : { ...query, limit: options.seriesLimit },
+  );
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 
   const dependencies = measureDependencyNames(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);
