@@ -193,3 +193,24 @@ describe('funnel result cells', () => {
     expect(rows[1]).toMatchObject({ entities: 0, conversion_from_previous: 0, dropoff: 1 });
   });
 });
+
+describe('retention planner guards', () => {
+  const retention = {
+    kind: 'retention', entity: 'userId',
+    start: [{ field: 'eventName', operator: 'eq', value: 'signup' }],
+    return: [{ field: 'eventName', operator: 'eq', value: 'query' }],
+    grain: 'week', periods: 2, filters: [RANGE], breakdown: [], breakdownLimit: 25,
+  } as const;
+
+  it('refuses a dialect that is not ClickHouse', () => {
+    const other = factory({ datasetSqlDialect: { name: 'other-engine' } });
+    expect(() => prepareEventOperation(Activity, retention as never, { builderFactory: other }))
+      .toThrow(/Retention needs ClickHouse; the "other-engine" datasets dialect/);
+  });
+
+  it('needs a bounded range even when called below validation', async () => {
+    const { buildRetentionSql } = await import('./utils/retention-sql.js');
+    expect(() => buildRetentionSql(Activity, { ...retention, filters: [] } as never, { builderFactory: factory() }, () => false))
+      .toThrow(/exactly one bounded time range/);
+  });
+});
