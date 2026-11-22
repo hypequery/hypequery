@@ -875,7 +875,7 @@ export const comparePages: ComparePageConfig[] = [
     chooseHypequeryWhen: [
       'The dashboard is part of your product and has to look like it, built from your own React components rather than themed Metabase embeds.',
       'Tenant scope should come from the auth your backend already runs, enforced in code, instead of a second set of tenants, attributes and groups configured in Metabase.',
-      'Metric definitions should be type-checked against your ClickHouse schema, so a renamed column fails the build instead of a customer dashboard.',
+      'Metric definitions should live in code. Measure names are typed for every caller, so renaming a measure fails the build in each dashboard and endpoint that uses it.',
       'The same numbers also go to a public API or an AI agent in your product, from one definition with one tenant rule.',
       'You do not want per-user pricing for customer-facing viewers. hypequery is Apache 2.0 with no seats.',
     ],

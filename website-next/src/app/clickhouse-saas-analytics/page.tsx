@@ -86,6 +86,7 @@ GROUP BY account_id, day, status;`;
 
 // CREATE USER, CREATE ROW POLICY: syntax from the ClickHouse docs linked in Sources.
 const rowPolicyDdl = `CREATE USER app_reader IDENTIFIED BY '...';
+GRANT SELECT ON analytics.orders TO app_reader;
 
 -- Applies to every request, whatever the tenant
 CREATE ROW POLICY hide_internal ON analytics.orders
@@ -94,6 +95,7 @@ CREATE ROW POLICY hide_internal ON analytics.orders
 
 -- Hard isolation for one tenant: its own user and policy
 CREATE USER acme_reader IDENTIFIED BY '...';
+GRANT SELECT ON analytics.orders TO acme_reader;
 CREATE ROW POLICY acme_only ON analytics.orders
     USING account_id = 'acme'
     TO acme_reader;`;
@@ -103,8 +105,8 @@ const profileDdl = `CREATE SETTINGS PROFILE app_reader_profile SETTINGS
     readonly = 2,
     max_execution_time = 10 MAX 30,
     max_rows_to_read = 500000000 MAX 1000000000,
-    max_bytes_to_read = 50000000000,
-    max_result_rows = 100000,
+    max_bytes_to_read = 50000000000 MAX 100000000000,
+    max_result_rows = 100000 MAX 1000000,
     max_memory_usage = 4000000000 MAX 8000000000
 TO app_reader;
 
@@ -173,15 +175,16 @@ test('a query without a tenant never runs', async () => {
   ).rejects.toThrow(/requires runtime tenant scoping/);
 });
 
-test('two tenants see their own totals', async () => {
+// Fixture: 3 orders seeded for acme, 5 for globex, so a leak changes a count.
+test('each tenant sees exactly its own rows', async () => {
   const acme = await analytics.execute(Orders, { measures: ['orders'] }, {
     runtime: { tenant: 'acme' },
   });
   const globex = await analytics.execute(Orders, { measures: ['orders'] }, {
     runtime: { tenant: 'globex' },
   });
-  // Seed the two accounts with different row counts so a leak shows up here.
-  expect(acme.data).not.toEqual(globex.data);
+  expect(Number(acme.data[0]?.orders)).toBe(3);
+  expect(Number(globex.data[0]?.orders)).toBe(5);
 });`;
 
 const patternRows = [
