@@ -51,8 +51,10 @@ function builderFactory() {
   return { factory, sql };
 }
 
-function wire(visibility?: unknown) {
-  const { factory, sql } = builderFactory();
+function wire(visibility?: unknown, dialect?: { name: string; quoteIdentifier(identifier: string): string }) {
+  const built = builderFactory();
+  const sql = built.sql;
+  const factory: QueryBuilderFactoryLike = dialect === undefined ? built.factory : { ...built.factory, datasetSqlDialect: dialect };
   const plane = createDeploymentSemanticDataPlane({
     deployment: deployment() as never,
     activationRevision: REVISION,
@@ -192,5 +194,16 @@ describe('RFC 0026 calculations through the data plane', () => {
       dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 3, measure: 'revenue' },
     }));
     expect([error.category, error.path]).toEqual(['input-invalid', '$.operation.other.dimension']);
+  });
+
+  it('refuses a stage feature the engine cannot run as unsupported-capability, with its reason', async () => {
+    const { plane, sql } = wire(undefined, { name: 'elsewhere', quoteIdentifier: identifier => `"${identifier}"` });
+    const error = await failure(invoke(plane, {
+      dimensions: ['plan', 'status'], measures: ['revenue'],
+      orderBy: [{ field: 'revenue', direction: 'desc' }], limitBy: { n: 2, by: ['plan'] },
+    }));
+    expect([error.category, error.code]).toEqual(['unsupported-capability', 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY']);
+    expect(error.message).toBe('"limitBy" is not supported on the "elsewhere" dialect.');
+    expect(sql).toHaveLength(0);
   });
 });

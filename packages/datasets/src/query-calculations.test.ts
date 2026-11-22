@@ -159,7 +159,7 @@ describe('RFC 0026 calculations in the dataset client', () => {
       limitBy: { n: 2, by: ['period'] },
     }, TENANT);
     expect(sql).toContain('rank() OVER (PARTITION BY `_hq_calc`.`period` ORDER BY `_hq_calc`.`revenue` DESC NULLS LAST) AS `_hq_calc_0`');
-    expect(sql).toContain('`_hq_calc`.`revenue` / NULLIF(sum(`_hq_calc`.`revenue`) OVER (PARTITION BY `_hq_calc`.`period`), 0) AS `_hq_calc_1`');
+    expect(sql).toContain('(toFloat64(`_hq_calc`.`revenue`) / NULLIF(sum(`_hq_calc`.`revenue`) OVER (PARTITION BY `_hq_calc`.`period`), 0)) AS `_hq_calc_1`');
     // countDistinct is re-aggregated at the coarser grain and joined, NULL keys matching.
     expect(sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total`');
     expect(sql).toContain('isNotDistinctFrom(`_hq_calc`.`period`, `_hq_share__hq_calc_2`.`period`)');
@@ -247,6 +247,24 @@ describe('RFC 0026 calculations in the dataset client', () => {
       args: [{ op: 'percentChange', args: ['a', { op: 'nullIfZero', args: ['b'] }] }, 2],
     }, name => name);
     expect(definition.formula({ a: 'a', b: 'b' } as never).toSQL()).toBe('ROUND(((a) - (NULLIF(b, 0))) / (NULLIF(NULLIF(b, 0), 0)), 2)');
+  });
+
+  it('gives the time planner\'s axis preflight the same top-N CTE as the main statement', () => {
+    const compilation = recordingClient().client.compileDataset(Orders, {
+      by: 'month', dimensions: ['country'], measures: ['revenue'], filters: RANGE,
+      calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+      other: { dimension: 'country', n: 2, measure: 'revenue' },
+    }, TENANT);
+    expect(compilation.describe().plan).toBe('time');
+    const [preflight] = compilation.preflightStatements;
+    for (const statement of [compilation, preflight]) {
+      expect(statement.sql).toMatch(/^WITH `_hq_other_top` AS \(SELECT `country` FROM /);
+      expect(statement.sql).toContain('FROM `_hq_other_top`), orders.country');
+    }
+    // The preflight's own WITH list is read as a subquery under the CTE.
+    expect(preflight.sql).toContain(') SELECT * FROM (WITH ');
+    // The ranking binds its own tenancy in each statement.
+    expect(preflight.parameters.filter(value => value === 't1').length).toBeGreaterThanOrEqual(2);
   });
 
   it('refuses limitBy, other and joined denominators on a dialect without them, by name', () => {

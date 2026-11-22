@@ -19,19 +19,24 @@ import type { PlannedOther, QueryCalculationPlan } from './query-calculation-pla
 import type { PlannedStatement } from './statement-parameters.js';
 import { UnsupportedQueryCalculationError } from './query-calculation-errors.js';
 
-/** `limitBy`, `other` and joined share denominators rely on ClickHouse SQL. */
-export function assertStageSupported(plan: QueryCalculationPlan, dialect: DatasetSqlDialectRules): void {
-  if (dialect.name === 'clickhouse') return;
+/**
+ * Why this dialect cannot run the plan's stage, as one message, or undefined.
+ * `limitBy`, `other` and joined share denominators rely on ClickHouse SQL.
+ */
+export function unsupportedStageMessage(plan: QueryCalculationPlan, dialect: DatasetSqlDialectRules): string | undefined {
+  if (dialect.name === 'clickhouse') return undefined;
   const reasons = [
     ...(plan.limitBy === undefined ? [] : ['"limitBy"']),
     ...(plan.other === undefined ? [] : ['"other"']),
     ...(plan.shares.some(share => share.denominator !== undefined) ? ['a share of a non-additive measure'] : []),
   ];
-  if (reasons.length > 0) {
-    throw new UnsupportedQueryCalculationError(
-      [`${reasons.join(', ')} ${reasons.length === 1 ? 'is' : 'are'} not supported on the "${dialect.name}" dialect.`],
-    );
-  }
+  if (reasons.length === 0) return undefined;
+  return `${reasons.join(', ')} ${reasons.length === 1 ? 'is' : 'are'} not supported on the "${dialect.name}" dialect.`;
+}
+
+export function assertStageSupported(plan: QueryCalculationPlan, dialect: DatasetSqlDialectRules): void {
+  const message = unsupportedStageMessage(plan, dialect);
+  if (message !== undefined) throw new UnsupportedQueryCalculationError([message]);
 }
 
 export function withOtherBucket(

@@ -43,6 +43,8 @@ function windowLayer(
     names.length === 0 ? '' : `PARTITION BY ${names.map(column).join(', ')} `
   );
   const nullIfZero = (sql: string) => dialect.formulaFunction('nullIfZero', [sql]);
+  // Through the dialect, so an engine that truncates integer division can fix it in one place.
+  const divide = (left: string, right: string) => dialect.formulaBinary('divide', left, right);
   const projections = [`${quote(INNER)}.*`];
   const joins: string[] = [];
   for (const rank of plan.ranks) {
@@ -52,7 +54,7 @@ function windowLayer(
   for (const share of plan.shares) {
     const denominator = statements.denominators.get(share.internal);
     if (denominator === undefined) {
-      projections.push(`${column(share.column)} / ${nullIfZero(`sum(${column(share.column)}) OVER (${partition(share.of).trimEnd()})`)} AS ${quote(share.internal)}`);
+      projections.push(`${divide(column(share.column), nullIfZero(`sum(${column(share.column)}) OVER (${partition(share.of).trimEnd()})`))} AS ${quote(share.internal)}`);
       continue;
     }
     const alias = quote(`_hq_share_${share.internal}`);
@@ -64,7 +66,7 @@ function windowLayer(
       : ` LEFT JOIN (${select}) AS ${alias} ON ${share.of.map(name => (
         `isNotDistinctFrom(${column(name)}, ${alias}.${quote(name)})`
       )).join(' AND ')}`);
-    projections.push(`${column(share.column)} / ${nullIfZero(`${alias}.${quote(TOTAL)}`)} AS ${quote(share.internal)}`);
+    projections.push(`${divide(column(share.column), nullIfZero(`${alias}.${quote(TOTAL)}`))} AS ${quote(share.internal)}`);
   }
   return `SELECT ${projections.join(', ')} FROM (${inner.text}) AS ${quote(INNER)}${joins.join('')}`;
 }
@@ -105,8 +107,27 @@ export function buildCalculationStageSql(
     text += ` LIMIT ${plan.limitBy.n} BY ${plan.limitBy.by.map(name => quote(name)).join(', ')}`;
   }
   text += dialect.paginate(executionLimit ?? plan.limit, plan.offset);
-  if (statements.otherTop !== undefined) {
-    text = `WITH ${quote(OTHER_TOP_CTE)} AS (${inner.parameters.embed(statements.otherTop)}) ${text}`;
-  }
-  return { text, parameters: inner.parameters };
+  return withOtherTop({ text, parameters: inner.parameters }, statements.otherTop, dialect);
+}
+
+/**
+ * Gives a statement `other`'s top-N list as a CTE every nested statement can
+ * read. Each statement of the family that reads the rewritten dimension needs
+ * it: the outer stage and the time planner's axis preflight alike.
+ */
+export function withOtherTop(
+  statement: PlannedStatement,
+  otherTop: RenderedStatement | undefined,
+  dialect: DatasetSqlDialectRules,
+): PlannedStatement {
+  if (otherTop === undefined) return statement;
+  const quote = dialect.quoteIdentifier;
+  // A statement with its own WITH list is read as a subquery under ours.
+  const body = /^WITH\s/.test(statement.text)
+    ? `SELECT * FROM (${statement.text}) AS ${quote('_hq_with_other')}`
+    : statement.text;
+  return {
+    text: `WITH ${quote(OTHER_TOP_CTE)} AS (${statement.parameters.embed(otherTop)}) ${body}`,
+    parameters: statement.parameters,
+  };
 }

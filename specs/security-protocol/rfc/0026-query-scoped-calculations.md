@@ -423,7 +423,9 @@ validator, so no release gate silently drops it. Outline:
 
 - TypeScript implements every kind and field. `limitBy`, `other` and a
   non-additive `share` (a joined, re-aggregated denominator) need ClickHouse;
-  the datasets client refuses them by name on other dialects.
+  the datasets client refuses them by name on other dialects, and the
+  portable executor as `unsupported-capability` with reason
+  `HQ_PORTABLE_QUERY_CALCULATION_DIALECT`.
 - Python: not yet implemented. The `query-calculations-v1` family is absent
   from its `--expect-families` list, and its closed envelope refuses the
   fields, so Python callers get an error rather than a wrong answer.

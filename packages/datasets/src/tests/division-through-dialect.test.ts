@@ -63,6 +63,9 @@ const datasetPaths: Record<string, DatasetQuery> = {
   'ratio over a window': { by: 'day', measures: ['rollingRatio'], filters: RANGE },
   'ratio over a shift': { by: 'day', measures: ['growth'], filters: RANGE },
   'composite shifted ratio': { by: 'month', measures: ['priorAov'], filters: RANGE },
+  // RFC 0026: a share's window total and a formula calculation divide too.
+  'share calculation': { dimensions: ['status'], measures: ['revenue'], calculations: [{ name: 's', share: { measure: 'revenue' } }] },
+  'formula calculation': { dimensions: ['status'], measures: ['revenue', 'orders'], calculations: [{ name: 'f', formula: { op: 'divide', args: ['revenue', { op: 'nullIfZero', args: ['orders'] }] } }] },
 };
 
 function expectNoBareDivision(sql: string) {

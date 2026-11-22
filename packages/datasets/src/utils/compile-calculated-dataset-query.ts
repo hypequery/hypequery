@@ -24,7 +24,7 @@ import { renderStatement, type PlannedStatement } from './statement-parameters.j
 import { statementRunner } from './statement-runner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
-import { buildCalculationStageSql } from './calculation-stage-sql.js';
+import { buildCalculationStageSql, withOtherTop } from './calculation-stage-sql.js';
 import { planQueryCalculations, publicCalculationErrors, type QueryCalculationPlan } from './query-calculation-plan.js';
 import { assertStageSupported, otherRankingSql, withOtherBucket } from './other-bucket-sql.js';
 import type { PreparedDatasetQuery, DatasetQueryMode } from './compile-dataset-query.js';
@@ -110,7 +110,7 @@ export function prepareCalculatedDatasetQuery(
   const statement = withFinalSafety(readsFinal, renderStatement(outer));
   const preflightStatements: DatasetCompiledStatement[] = preflight === undefined
     ? []
-    : [withFinalSafety(readsFinal, renderStatement(preflight))];
+    : [withFinalSafety(readsFinal, renderStatement(withOtherTop(preflight, otherTop, dialect)))];
 
   const description: DatasetCompilationDescription = Object.freeze({
     kind: 'dataset-compilation', version: 1, dataset: dataset.name, plan: innerPlan,

@@ -238,6 +238,29 @@ describe('RFC 0026 rank, share, limitBy and other against brute-force SQL', () =
     }
   });
 
+  it('other with a time compare: the axis preflight and the series both read the top-N list', async () => {
+    const result = await execute({
+      by: 'month', dimensions: ['country'], measures: ['revenue'], filters: range,
+      other: { dimension: 'country', n: 1, measure: 'revenue' },
+      calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+    });
+    const [{ country: leader }] = await brute(`SELECT country FROM ${table} WHERE ${WHERE} AND country IS NOT NULL GROUP BY country ORDER BY sum(amount) DESC, country LIMIT 1`);
+    const expected = await brute(`SELECT toString(toStartOfMonth(created_at)) AS period, if(country = '${String(leader)}', country, 'Other') AS bucket, `
+      + `sum(amount) AS revenue FROM ${table} WHERE ${WHERE} GROUP BY period, bucket`);
+    const revenue = new Map(expected.map(row => [`${month(row.period)}|${row.bucket}`, num(row.revenue)]));
+    const seen = result.data.filter(row => revenue.has(key(row)));
+    expect(new Set(seen.map(row => row.country))).toEqual(new Set([leader, 'Other']));
+    expect(seen).toHaveLength(expected.length);
+    for (const row of seen) {
+      expect(num(row.revenue)).toBeCloseTo(revenue.get(key(row))!, 9);
+      // Within the range, the prior month's value is that month's own row.
+      const prior = `2026-${String(Number(month(row.period).slice(5)) - 1).padStart(2, '0')}|${row.country}`;
+      if (month(row.period) > month(fixture.range[0]) && revenue.has(prior)) {
+        expect(num(row.revenue_previous)).toBeCloseTo(revenue.get(prior)!, 9);
+      }
+    }
+  });
+
   it('rank and share over time-measure calculations', async () => {
     const result = await execute({
       by: 'month', dimensions: ['country'], measures: ['revenue'], filters: range,
