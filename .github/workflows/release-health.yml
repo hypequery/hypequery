@@ -21,6 +21,11 @@ jobs:
     permissions:
       contents: read
       issues: write # release-failure issue when stale
+    # Shared with ci.yml's release-failure-alert job, so the issue is never
+    # created twice by reports that run at the same time.
+    concurrency:
+      group: release-failure-issue
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
         with:

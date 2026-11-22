@@ -40,9 +40,17 @@ noticed them.
      for CDN lag, and then the job fails.
    - The stable job also verifies versions on `main` that npm lacks.
      changesets/action doesn't retry those while changesets are queued.
-3. **A failure is reported.** A failed publish job on `main` opens the open
-   `release-failure` issue, or comments on it, with the missing versions and the
-   run link. It uses `GITHUB_TOKEN` with `issues: write`.
+3. **A failure is reported.**
+   - When a publish job fails on `main`, the `release-failure-alert` job opens
+     the `release-failure` issue, or comments on the open one, with the missing
+     versions and the run link. It uses `GITHUB_TOKEN` with `issues: write`.
+   - Reports are serialized by one concurrency group shared with the daily
+     check.
+   - If two runs still create an issue each, the newer issue is closed and its
+     report moves to the oldest.
+   - Every check runs within the 5-minute budget: `npm view` is killed and the
+     tarball download is aborted when the budget ends, so the alert is never
+     delayed.
 4. **Canary staleness is checked daily.**
    - `release-health.yml` compares the `@hypequery/datasets` `canary` dist-tag
      with the newest `main` commit that touched a published package. It reports

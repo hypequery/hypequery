@@ -191,7 +191,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # npm trusted publishing and provenance
-      issues: write # release-failure issue on failure
 
     steps:
       - uses: actions/checkout@v7
@@ -277,12 +276,16 @@ jobs:
           NPM_CONFIG_PROVENANCE: 'true'
       - name: Verify canaries resolve on npm
         run: node scripts/release/verify-npm-publish.mjs --packages-file "$RUNNER_TEMP/publish-expected.json"
-      - name: Open or update the release-failure issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: node scripts/release/report-release-failure.mjs --job canary-release --expected-file "$RUNNER_TEMP/publish-expected.json"
+      # The release-failure-alert job reads this to name the missing versions.
+      - name: Keep the recorded versions for the failure report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: publish-expected-canary-release
+          path: ${{ runner.temp }}/publish-expected.json
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
   release:
     needs: [build, python-clients]
     runs-on: ubuntu-latest
@@ -291,10 +294,10 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write # npm trusted publishing and provenance
-      issues: write # release-failure issue on failure
     outputs:
       # publishedPackages is a JSON list of { name, version } for this run.
       mcp_published: ${{ steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '"@hypequery/mcp"') }}
+      published_packages: ${{ steps.changesets.outputs.publishedPackages }}
 
     steps:
       - uses: actions/checkout@v7
@@ -341,13 +344,68 @@ jobs:
         env:
           PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
         run: node scripts/release/verify-npm-publish.mjs --packages-file "$RUNNER_TEMP/publish-expected.json" --packages-json "$PUBLISHED"
-      - name: Open or update the release-failure issue
-        if: failure()
+      # The release-failure-alert job reads this to name the missing versions.
+      - name: Keep the recorded versions for the failure report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: publish-expected-release
+          path: ${{ runner.temp }}/publish-expected.json
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
+
+  # One job reports both publish jobs' failures, so they never race each other
+  # to create the issue. The concurrency group, shared with release-health.yml,
+  # serializes reports across runs too. A run waiting in the group is cancelled
+  # if a third one queues behind it; the daily staleness check still catches an
+  # outage that loses its alert that way.
+  release-failure-alert:
+    needs: [canary-release, release]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      (needs.canary-release.result == 'failure' || needs.release.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # open or comment on the release-failure issue
+    concurrency:
+      group: release-failure-issue
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      # A job that failed before recording its versions uploaded nothing; the
+      # report then says so instead of listing versions.
+      - name: Fetch the versions canary-release recorded
+        if: needs.canary-release.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: publish-expected-canary-release
+          path: ${{ runner.temp }}/expected/canary-release
+      - name: Fetch the versions release recorded
+        if: needs.release.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: publish-expected-release
+          path: ${{ runner.temp }}/expected/release
+      - name: Report canary-release
+        if: needs.canary-release.result == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
-        run: node scripts/release/report-release-failure.mjs --job release --expected-file "$RUNNER_TEMP/publish-expected.json" --packages-json "$PUBLISHED"
+        run: node scripts/release/report-release-failure.mjs --job canary-release --expected-file "$RUNNER_TEMP/expected/canary-release/publish-expected.json"
+      - name: Report release
+        if: needs.release.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PUBLISHED: ${{ needs.release.outputs.published_packages }}
+        run: node scripts/release/report-release-failure.mjs --job release --expected-file "$RUNNER_TEMP/expected/release/publish-expected.json" --packages-json "$PUBLISHED"
 
   # A stable @hypequery/mcp release is also listed in the official MCP Registry.
   mcp-registry:

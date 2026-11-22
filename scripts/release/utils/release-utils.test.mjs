@@ -10,7 +10,7 @@ import {
 import { DAY_MS, evaluateCanaryStaleness } from './canary-staleness.mjs';
 import { mergePackageLists, parsePackageList, publishablePackages } from './publishable-packages.mjs';
 import { integrityMatches, pollUntilVerified, retryDelayMs, settleWithinBudget } from './registry-verification.mjs';
-import { alreadyReported, eventMarker, publishFailureMarkdown } from './release-issue.mjs';
+import { alreadyReported, eventMarker, planDuplicateCleanup, publishFailureMarkdown } from './release-issue.mjs';
 
 const workspace = [
   { name: '@hypequery/datasets', version: '0.0.0-canary-20261122173219' },
@@ -122,6 +122,19 @@ test('settleWithinBudget passes results through until the signal aborts', async 
   const aborted = new AbortController();
   aborted.abort();
   assert.deepEqual(await settleWithinBudget(new Promise(() => {}), aborted.signal, 'late'), { ok: false, reason: 'late' });
+});
+
+test('planDuplicateCleanup keeps the oldest open issue', () => {
+  const open = [{ number: 12, url: 'u12' }, { number: 10, url: 'u10' }, { number: 11, url: 'u11' }];
+  assert.deepEqual(planDuplicateCleanup(open, 10), {
+    keep: { number: 10, url: 'u10' },
+    close: [{ number: 11, url: 'u11' }, { number: 12, url: 'u12' }],
+    repostOnKept: false,
+  });
+  const lost = planDuplicateCleanup(open, 12);
+  assert.equal(lost.keep.number, 10);
+  assert.equal(lost.repostOnKept, true, 'the newer run moves its report to the kept issue');
+  assert.deepEqual(planDuplicateCleanup([], 7), { keep: { number: 7 }, close: [], repostOnKept: false });
 });
 
 test('canary staleness compares the canary publish time with the latest package commit', () => {

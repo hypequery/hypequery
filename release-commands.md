@@ -145,13 +145,24 @@ queued, so without this check it would stay missing.
 
 ### Failure alerts
 
-When a publish job fails on `main`, its last step opens a GitHub issue labelled
-`release-failure`, or comments on the one already open. The report lists the
-versions that don't resolve on npm and links the run. The daily **Release
-health** workflow (`.github/workflows/release-health.yml`) reports on the same
-issue when the `@hypequery/datasets` `canary` dist-tag is more than 3 days older
-than the newest `main` commit that touched a published package. Run it by hand
-from the Actions tab at any time.
+When a publish job fails on `main`, the `release-failure-alert` job opens a
+GitHub issue labelled `release-failure`, or comments on the one already open.
+The report lists the versions that don't resolve on npm and links the run. Each
+publish job uploads the versions it recorded as an artifact, and the alert job
+reads it. The daily **Release health** workflow
+(`.github/workflows/release-health.yml`) reports on the same issue when the
+`@hypequery/datasets` `canary` dist-tag is more than 3 days older than the
+newest `main` commit that touched a published package. Run it by hand from the
+Actions tab at any time.
+
+Reports never race each other:
+
+- One alert job reports both publish jobs.
+- The alert job and the daily check share the `release-failure-issue`
+  concurrency group.
+- If two reports still create two issues at once, the run that created the
+  newer one closes it with a link and moves its report to the oldest open
+  issue.
 
 Triage:
 

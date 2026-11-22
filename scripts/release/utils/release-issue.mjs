@@ -63,3 +63,21 @@ export function canaryStaleMarkdown({ packageName, canaryVersion, canaryTime, co
     RUNBOOK,
   ].filter((line) => line !== null).join('\n');
 }
+
+/**
+ * After this run created issue `createdNumber`, decide how to resolve a race
+ * with another run that created one too. `openIssues` are the open
+ * release-failure issues (`{ number, url }`). The oldest (lowest number) is
+ * kept and every newer one is closed. If this run's own issue is closed, its
+ * report is reposted on the kept one, so no report is lost.
+ */
+export function planDuplicateCleanup(openIssues, createdNumber) {
+  const byNumber = new Map(openIssues.map((issue) => [issue.number, issue]));
+  if (!byNumber.has(createdNumber)) byNumber.set(createdNumber, { number: createdNumber });
+  const [keep, ...close] = [...byNumber.values()].sort((a, b) => a.number - b.number);
+  return { keep, close, repostOnKept: keep.number !== createdNumber };
+}
+
+export function duplicateNotice(keep) {
+  return `Duplicate of #${keep.number}: two release jobs reported at the same time. Reports continue there.`;
+}
