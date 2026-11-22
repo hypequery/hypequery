@@ -148,9 +148,9 @@ acme/production accepts deployment contract 2, but this deployment is contract 3
 Remove these features, or deploy to a target that accepts contract 3. The CLI never lowers the version, because that would drop them.
 ```
 
-Datasets appear in contract order, which `@hypequery/datasets` sorts by name. With `--json`,
-each forcing dataset is also an entry in the error envelope's `issues`, with
-path `datasets.<name>`.
+Datasets appear in contract order, which `@hypequery/datasets` sorts by name.
+With `--json`, each forcing dataset is also an entry in the error envelope's
+`issues`, with path `datasets.<name>`.
 
 The CLI MUST NOT lower the version. Rewriting a contract 3 deployment as
 contract 2 would drop segments, windows, shifts or time axes, and a deploy that
@@ -343,7 +343,9 @@ semantic invocation version from this RFC on.
 Python's `hypequery.protocol` mirrors the registry (`contract_3_features`)
 and the advertisement validation (`validate_protocol_deployment_target_accepts`).
 `hypequery.datasets` selects the contract version with the same rule, applied
-to the dataset as contract 3 would publish it.
+to the dataset as contract 3 would publish it. Python readers for the contract
+2 and 3 fields above are not part of this change. Policy rule 2 binds both
+languages from the next contract version on.
 
 ## Conformance
 
