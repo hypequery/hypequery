@@ -1,0 +1,767 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`query_dataset analysis features > advertised schema > stays provider-safe: one object, references resolving to root definitions 1`] = `
+{
+  "additionalProperties": false,
+  "definitions": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "enum": [
+                "amount",
+                "channel",
+                "country",
+                "createdAt",
+                "shippedAt",
+                "status",
+              ],
+              "type": "string",
+            },
+            "operator": {
+              "enum": [
+                "between",
+                "eq",
+                "gt",
+                "gte",
+                "in",
+                "like",
+                "lt",
+                "lte",
+                "neq",
+                "notIn",
+              ],
+              "type": "string",
+            },
+            "value": {},
+          },
+          "required": [
+            "field",
+            "operator",
+            "value",
+          ],
+          "type": "object",
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "enum": [
+                "createdAt",
+                "shippedAt",
+              ],
+              "type": "string",
+            },
+            "operator": {
+              "const": "inDateRange",
+              "type": "string",
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "today",
+                    "yesterday",
+                    "this day",
+                    "this week",
+                    "this month",
+                    "this quarter",
+                    "this year",
+                    "last day",
+                    "last week",
+                    "last month",
+                    "last quarter",
+                    "last year",
+                    "month to date",
+                    "quarter to date",
+                    "year to date",
+                  ],
+                  "type": "string",
+                },
+                {
+                  "pattern": "^last [1-9][0-9]{0,3} (day|week|month|quarter|year)s?$",
+                  "type": "string",
+                },
+              ],
+              "description": "Resolved by the server in the query timezone. "last N days" ends before today.",
+            },
+          },
+          "required": [
+            "field",
+            "operator",
+            "value",
+          ],
+          "type": "object",
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "and": {
+              "items": {
+                "$ref": "#/definitions/__schema0",
+              },
+              "minItems": 1,
+              "type": "array",
+            },
+          },
+          "required": [
+            "and",
+          ],
+          "type": "object",
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "or": {
+              "items": {
+                "$ref": "#/definitions/__schema0",
+              },
+              "minItems": 1,
+              "type": "array",
+            },
+          },
+          "required": [
+            "or",
+          ],
+          "type": "object",
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "not": {
+              "$ref": "#/definitions/__schema0",
+            },
+          },
+          "required": [
+            "not",
+          ],
+          "type": "object",
+        },
+      ],
+      "description": "A comparison, or { and: [...] }, { or: [...] } or { not: ... } over them.",
+    },
+    "__schema1": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "number",
+              },
+              {
+                "$ref": "#/definitions/__schema1",
+              },
+            ],
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array",
+        },
+        "op": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "nullIfZero",
+            "coalesce",
+            "round",
+            "floor",
+            "ceil",
+            "percentChange",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "op",
+        "args",
+      ],
+      "type": "object",
+    },
+  },
+  "properties": {
+    "calculations": {
+      "description": "Each is a name and exactly one kind. Inputs name a selected measure or an earlier output; shift, window and compare need grain and a time range filter. Outputs can be ordered by and used in having.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "compare": {
+            "additionalProperties": false,
+            "properties": {
+              "measures": {
+                "items": {
+                  "type": "string",
+                },
+                "minItems": 1,
+                "type": "array",
+              },
+              "to": {
+                "enum": [
+                  "previousPeriod",
+                  "previousYear",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "to",
+              "measures",
+            ],
+            "type": "object",
+          },
+          "filter": {
+            "additionalProperties": false,
+            "properties": {
+              "measure": {
+                "enum": [
+                  "customers",
+                  "orders",
+                  "revenue",
+                ],
+                "type": "string",
+              },
+              "where": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "enum": [
+                        "amount",
+                        "channel",
+                        "country",
+                        "status",
+                      ],
+                      "type": "string",
+                    },
+                    "operator": {
+                      "enum": [
+                        "between",
+                        "eq",
+                        "gt",
+                        "gte",
+                        "in",
+                        "like",
+                        "lt",
+                        "lte",
+                        "neq",
+                        "notIn",
+                      ],
+                      "type": "string",
+                    },
+                    "value": {},
+                  },
+                  "required": [
+                    "field",
+                    "operator",
+                    "value",
+                  ],
+                  "type": "object",
+                },
+                "minItems": 1,
+                "type": "array",
+              },
+            },
+            "required": [
+              "measure",
+              "where",
+            ],
+            "type": "object",
+          },
+          "formula": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/__schema1",
+              },
+            ],
+          },
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string",
+          },
+          "rank": {
+            "additionalProperties": false,
+            "properties": {
+              "direction": {
+                "enum": [
+                  "asc",
+                  "desc",
+                ],
+                "type": "string",
+              },
+              "measure": {
+                "type": "string",
+              },
+              "within": {
+                "items": {
+                  "enum": [
+                    "amount",
+                    "channel",
+                    "country",
+                    "createdAt",
+                    "period",
+                    "shippedAt",
+                    "status",
+                  ],
+                  "type": "string",
+                },
+                "type": "array",
+              },
+            },
+            "required": [
+              "measure",
+            ],
+            "type": "object",
+          },
+          "share": {
+            "additionalProperties": false,
+            "properties": {
+              "measure": {
+                "type": "string",
+              },
+              "of": {
+                "items": {
+                  "enum": [
+                    "amount",
+                    "channel",
+                    "country",
+                    "createdAt",
+                    "period",
+                    "shippedAt",
+                    "status",
+                  ],
+                  "type": "string",
+                },
+                "type": "array",
+              },
+            },
+            "required": [
+              "measure",
+            ],
+            "type": "object",
+          },
+          "shift": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer",
+              },
+              "measure": {
+                "type": "string",
+              },
+              "unit": {
+                "enum": [
+                  "minute",
+                  "hour",
+                  "day",
+                  "week",
+                  "month",
+                  "quarter",
+                  "year",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "measure",
+              "amount",
+              "unit",
+            ],
+            "type": "object",
+          },
+          "window": {
+            "additionalProperties": false,
+            "description": "Exactly one of trailing, toDate or cumulative.",
+            "properties": {
+              "cumulative": {
+                "const": true,
+                "type": "boolean",
+              },
+              "measure": {
+                "type": "string",
+              },
+              "toDate": {
+                "enum": [
+                  "hour",
+                  "day",
+                  "week",
+                  "month",
+                  "quarter",
+                  "year",
+                ],
+                "type": "string",
+              },
+              "trailing": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "maximum": 1000,
+                    "minimum": 1,
+                    "type": "integer",
+                  },
+                  "unit": {
+                    "enum": [
+                      "minute",
+                      "hour",
+                      "day",
+                      "week",
+                      "month",
+                      "quarter",
+                      "year",
+                    ],
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "amount",
+                  "unit",
+                ],
+                "type": "object",
+              },
+            },
+            "required": [
+              "measure",
+            ],
+            "type": "object",
+          },
+        },
+        "required": [
+          "name",
+        ],
+        "type": "object",
+      },
+      "maxItems": 50,
+      "type": "array",
+    },
+    "dataset": {
+      "const": "orders",
+      "type": "string",
+    },
+    "dimensions": {
+      "items": {
+        "enum": [
+          "amount",
+          "channel",
+          "country",
+          "createdAt",
+          "shippedAt",
+          "status",
+        ],
+        "type": "string",
+      },
+      "maxItems": 50,
+      "type": "array",
+    },
+    "fill": {
+      "description": "Return every grain period in the filtered time range, empty ones included. Needs grain and a time range filter.",
+      "type": "boolean",
+    },
+    "filters": {
+      "items": {
+        "$ref": "#/definitions/__schema0",
+      },
+      "maxItems": 100,
+      "type": "array",
+    },
+    "grain": {
+      "enum": [
+        "day",
+        "hour",
+        "minute",
+        "month",
+        "quarter",
+        "week",
+        "year",
+      ],
+      "type": "string",
+    },
+    "having": {
+      "description": "Conditions on aggregated measure values, applied after grouping (SQL HAVING). Each condition must name a measure selected in this query.",
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "measure": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "customers",
+                      "orders",
+                      "revenue",
+                    ],
+                    "type": "string",
+                  },
+                  {
+                    "type": "string",
+                  },
+                ],
+              },
+              "operator": {
+                "enum": [
+                  "eq",
+                  "neq",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte",
+                ],
+                "type": "string",
+              },
+              "value": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "measure",
+              "operator",
+              "value",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "measure": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "customers",
+                      "orders",
+                      "revenue",
+                    ],
+                    "type": "string",
+                  },
+                  {
+                    "type": "string",
+                  },
+                ],
+              },
+              "operator": {
+                "const": "between",
+                "type": "string",
+              },
+              "value": {
+                "items": {
+                  "type": "number",
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array",
+              },
+            },
+            "required": [
+              "measure",
+              "operator",
+              "value",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "measure": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "customers",
+                      "orders",
+                      "revenue",
+                    ],
+                    "type": "string",
+                  },
+                  {
+                    "type": "string",
+                  },
+                ],
+              },
+              "operator": {
+                "enum": [
+                  "in",
+                  "notIn",
+                ],
+                "type": "string",
+              },
+              "value": {
+                "items": {
+                  "type": "number",
+                },
+                "minItems": 1,
+                "type": "array",
+              },
+            },
+            "required": [
+              "measure",
+              "operator",
+              "value",
+            ],
+            "type": "object",
+          },
+        ],
+      },
+      "maxItems": 100,
+      "type": "array",
+    },
+    "limit": {
+      "default": 100,
+      "exclusiveMinimum": 0,
+      "maximum": 10000,
+      "type": "integer",
+    },
+    "limitBy": {
+      "additionalProperties": false,
+      "description": "Keep the first n rows of each by group, in orderBy order (orderBy required).",
+      "properties": {
+        "by": {
+          "items": {
+            "enum": [
+              "amount",
+              "channel",
+              "country",
+              "createdAt",
+              "period",
+              "shippedAt",
+              "status",
+            ],
+            "type": "string",
+          },
+          "minItems": 1,
+          "type": "array",
+        },
+        "n": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "n",
+        "by",
+      ],
+      "type": "object",
+    },
+    "measures": {
+      "items": {
+        "enum": [
+          "customers",
+          "orders",
+          "revenue",
+        ],
+        "type": "string",
+      },
+      "maxItems": 50,
+      "type": "array",
+    },
+    "offset": {
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer",
+    },
+    "orderBy": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "asc",
+              "desc",
+            ],
+            "type": "string",
+          },
+          "field": {
+            "anyOf": [
+              {
+                "enum": [
+                  "amount",
+                  "channel",
+                  "country",
+                  "createdAt",
+                  "customers",
+                  "orders",
+                  "period",
+                  "revenue",
+                  "shippedAt",
+                  "status",
+                ],
+                "type": "string",
+              },
+              {
+                "type": "string",
+              },
+            ],
+          },
+        },
+        "required": [
+          "field",
+          "direction",
+        ],
+        "type": "object",
+      },
+      "maxItems": 50,
+      "type": "array",
+    },
+    "other": {
+      "additionalProperties": false,
+      "description": "Keep the top n values of a selected dimension by measure; group the rest under label (default "Other").",
+      "properties": {
+        "dimension": {
+          "enum": [
+            "channel",
+            "country",
+            "status",
+          ],
+          "type": "string",
+        },
+        "label": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string",
+        },
+        "measure": {
+          "enum": [
+            "customers",
+            "orders",
+            "revenue",
+          ],
+          "type": "string",
+        },
+        "n": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "dimension",
+        "n",
+        "measure",
+      ],
+      "type": "object",
+    },
+    "timeKey": {
+      "description": "Time axis for the grain and time-based measures. Defaults to createdAt.",
+      "enum": [
+        "createdAt",
+        "shippedAt",
+      ],
+      "type": "string",
+    },
+    "timezone": {
+      "maxLength": 100,
+      "type": "string",
+    },
+  },
+  "required": [
+    "dataset",
+  ],
+  "type": "object",
+}
+`;

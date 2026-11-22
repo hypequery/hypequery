@@ -272,6 +272,22 @@ export const QUERY_OUTPUT_SCHEMA = resultSchema({
           },
           required: ['status'],
         },
+        calculations: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              name: { type: 'string' },
+              kind: { type: 'string', enum: ['filter', 'shift', 'window', 'formula', 'rank', 'share'] },
+              calculation: { type: 'string' },
+              measure: { type: 'string' },
+              type: { type: 'string', enum: ['number', 'integer'] },
+              format: { type: 'string', enum: ['ratio'] },
+            },
+            required: ['name', 'kind', 'calculation', 'type'],
+          },
+        },
       },
       required: ['rowCount', 'cache'],
     },

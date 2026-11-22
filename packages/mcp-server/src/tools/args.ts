@@ -2,11 +2,13 @@ import { z } from 'zod';
 import {
   SEMANTIC_FILTER_OPERATORS,
   SUPPORTED_TIME_GRAINS,
+  type DatasetFilterNode,
   type MetricFilter,
   type TimeGrain,
 } from '@hypequery/datasets';
 import { MCPToolError } from '../errors.js';
 import { formatArgumentIssues } from './utils/argument-errors.js';
+import { argumentsTooDeep } from './utils/argument-depth.js';
 import {
   MAX_QUERY_DIMENSIONS,
   MAX_QUERY_FILTERS,
@@ -57,6 +59,11 @@ function formatZodError(error: z.ZodError): string {
 // Canonical schemas are built per catalog, so their parsed type is not known
 // statically; callers name it, as Zod 3's `ZodTypeAny` used to imply `any`.
 export function parseToolArgs<T = any>(schema: z.ZodType, toolName: string, args: unknown): T {
+  // Filter groups and formulas nest, and a schema that refers to itself
+  // descends as deep as the input does, so depth is bounded before parsing.
+  if (argumentsTooDeep(args)) {
+    throw new MCPToolError('MCP_INVALID_ARGUMENTS', `Invalid ${toolName} arguments: arguments are nested too deeply`);
+  }
   const result = schema.safeParse(args);
   if (!result.success) {
     throw new MCPToolError(
@@ -67,11 +74,22 @@ export function parseToolArgs<T = any>(schema: z.ZodType, toolName: string, args
   return result.data as T;
 }
 
-export function toMetricFilters(
-  filters: Array<{ field: string; operator: MetricFilter['operator']; value?: unknown }> = [],
-): MetricFilter[] {
-  // A null check (RFC 0023) carries no value, so none is copied onto it.
-  return filters.map(filter => (filter.value === undefined
-    ? { field: filter.field, operator: filter.operator }
-    : { field: filter.field, operator: filter.operator, value: filter.value }) as MetricFilter);
+type ToolFilter = { field: string; operator: MetricFilter['operator']; value?: unknown };
+type ToolFilterNode = ToolFilter | { and: ToolFilterNode[] } | { or: ToolFilterNode[] } | { not: ToolFilterNode };
+
+/**
+ * Parsed tool filters as dataset client filters, groups included (RFC 0029).
+ * A null check (RFC 0023) carries no value, so none is copied onto it.
+ */
+export function toMetricFilters(filters: ToolFilterNode[] = []): DatasetFilterNode[] {
+  return filters.map(toFilterNode);
+}
+
+function toFilterNode(node: ToolFilterNode): DatasetFilterNode {
+  if ('and' in node) return { and: node.and.map(toFilterNode) };
+  if ('or' in node) return { or: node.or.map(toFilterNode) };
+  if ('not' in node) return { not: toFilterNode(node.not) };
+  return (node.value === undefined
+    ? { field: node.field, operator: node.operator }
+    : { field: node.field, operator: node.operator, value: node.value }) as MetricFilter;
 }
