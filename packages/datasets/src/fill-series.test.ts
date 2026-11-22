@@ -75,6 +75,15 @@ describe('fill (RFC 0029)', () => {
     expect(errors({ fill: 'yes', by: 'day', filters: [january] })).toContain('Invalid fill: expected true or false.');
   });
 
+  it('reports a malformed filter tree from validate() instead of throwing', () => {
+    const errors = (filters: unknown[]) => client.validate(Orders, { measures: ['orders'], by: 'day', fill: true, filters } as never).errors;
+    expect(errors([january, { and: [january], not: [] }])).toContain('A filter group has exactly one of "and", "or" or "not".');
+    expect(errors([january, null])).toContain('Each filter must be an object: a comparison, or an and/or/not group.');
+    let deep: unknown = january;
+    for (let depth = 0; depth < 5000; depth++) deep = { and: [deep] };
+    expect(errors([deep])).toContain('Filter groups may nest at most 32 deep.');
+  });
+
   it('bounds the series by the effective row limit', () => {
     expect(client.validate(Orders, { measures: ['orders'], by: 'day', fill: true, filters: [january], limit: 10 }).errors)
       .toContain('Window series exceeds the effective result limit of 10 buckets.');
