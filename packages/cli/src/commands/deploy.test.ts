@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { prepareProtocolDeploymentReleaseEnvelope } from '@hypequery/protocol';
+import { prepareProtocolDeploymentReleaseEnvelope, validateProtocolDeploymentTargetAccepts } from '@hypequery/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
@@ -873,5 +874,104 @@ describe('code draft uploads', () => {
     const loadCredential = vi.fn();
     await expect(submitDeploymentCommand('bundle', { release: 'release.json', draft: 'revenue', replaceRestored: true }, { loadCredential })).rejects.toThrow('--replace-restored');
     expect(loadCredential).not.toHaveBeenCalled();
+  });
+});
+
+describe('target capability check (RFC 0030)', () => {
+  const CLOUD_ENDPOINT = 'https://cloud.example.test/v1/deployments/submissions';
+  const v3Fixture = (id: string) => (JSON.parse(readFileSync(
+    new URL('../../../../specs/security-protocol/fixtures/deployments-v3/success.json', import.meta.url), 'utf8',
+  )) as { id: string; value: typeof bundle.contract }[]).find(entry => entry.id === id)!.value;
+  // Core 0.34 published `timeKeys` as contract 3 while Cloud stored contract 2 only.
+  const timeKeysBundle = { ...bundle, contract: v3Fixture('alternate-time-fields') };
+  const accepted = { kind: 'hypequery-deployment-submission' as const, version: 1 as const, status: 'accepted' as const, bundleIdentity: BUNDLE_IDENTITY };
+  // What `fetchLiveDeployment` returns: the advertisement parsed, defaults filled.
+  const liveState = (accepts?: unknown) => async () => ({
+    target: { project: 'project-1', environment: 'production' },
+    ...(accepts === undefined ? {} : { accepts: validateProtocolDeploymentTargetAccepts(accepts) }),
+    active: null,
+  }) as never;
+
+  async function submitWith(fetchLive: unknown, endpoint = CLOUD_ENDPOINT) {
+    const release = await releaseFile();
+    const submit = vi.fn(async () => ({ ...accepted, releaseIdentity: release.identity }));
+    const createTransport = vi.fn(() => ({ submit }));
+    const run = submitDeploymentCommand('dist/bundle', { release: release.path, endpoint }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      fetchLive: fetchLive as never,
+      fetchEndpoints: async () => undefined,
+      createTransport,
+    });
+    return { run, createTransport };
+  }
+
+  beforeEach(() => { vi.clearAllMocks(); mockVerifyDeploymentBundle.mockResolvedValue(timeKeysBundle); });
+
+  it('refuses contract 3 before upload when the target advertises nothing, naming the forcing features', async () => {
+    const { run, createTransport } = await submitWith(liveState());
+    const error = await run.catch(caught => caught);
+    expect(error).toMatchObject({ code: 'DEPLOYMENT_VERSION_UNSUPPORTED', category: 'correctable_input', exitClass: 'correctable' });
+    expect(error.message).toBe(
+      'project-1/production accepts deployment contract 2, but this deployment is contract 3.\n'
+      + '  orders uses alternate time keys\n'
+      + 'Remove these features, or deploy to a target that accepts contract 3. '
+      + 'The CLI never lowers the version, because that would drop them.',
+    );
+    expect(error.issues).toEqual([{ path: 'datasets.orders', message: 'orders uses alternate time keys' }]);
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it('applies the defaults when a Cloud target has no state to return', async () => {
+    const { run, createTransport } = await submitWith(async () => undefined);
+    await expect(run).rejects.toMatchObject({ code: 'DEPLOYMENT_VERSION_UNSUPPORTED' });
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it('uploads contract 3 to a target that advertises it', async () => {
+    const { run, createTransport } = await submitWith(liveState({ deploymentContract: [2, 3], semanticInvocation: [1, 2] }));
+    await run;
+    expect(createTransport).toHaveBeenCalledOnce();
+  });
+
+  it('lists every accepted version and each forcing dataset', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({ ...bundle, contract: v3Fixture('window-and-shift-measures') });
+    const { run } = await submitWith(liveState({ deploymentContract: [1, 2] }));
+    await expect(run).rejects.toThrow(
+      'accepts deployment contracts 1 and 2, but this deployment is contract 3.\n  orders uses window measures, shift measures\n',
+    );
+  });
+
+  it('refuses a bundle version the target does not take', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({ ...bundle, manifest: { ...bundle.manifest, version: 2 } });
+    const { run, createTransport } = await submitWith(liveState({ bundle: [1] }));
+    await expect(run).rejects.toThrow(
+      'project-1/production accepts deployment bundle version 1, but this bundle is version 2 because it carries business context.',
+    );
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it('refuses a contract 2 deployment at a target that no longer takes contract 2', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue(bundle);
+    const { run } = await submitWith(liveState({ deploymentContract: [3] }));
+    await expect(run).rejects.toThrow('accepts deployment contract 3, but this deployment is contract 2: it uses no feature');
+  });
+
+  it('leaves an endpoint without a state resource to its own intake', async () => {
+    const { run, createTransport } = await submitWith(async () => undefined, 'https://deploy.example.test/v1/releases');
+    await run;
+    expect(createTransport).toHaveBeenCalledOnce();
+  });
+
+  it('fails deploy after the build, before anything is uploaded', async () => {
+    const createTransport = vi.fn();
+    const release = await releaseFile();
+    await expect(deployCommand('analytics/cloud.ts', { endpoint: CLOUD_ENDPOINT, releaseOutput: release.path }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      buildDeployment: vi.fn(async () => timeKeysBundle.contract),
+      prepareDeploymentRelease: vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({ kind: 'hypequery-deployment-release', version: 1, bundleIdentity: BUNDLE_IDENTITY, target: { project: 'project-1', environment: 'production' } }).release),
+      fetchLive: liveState(),
+      createTransport,
+    })).rejects.toMatchObject({ code: 'DEPLOYMENT_VERSION_UNSUPPORTED' });
+    expect(createTransport).not.toHaveBeenCalled();
   });
 });

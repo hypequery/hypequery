@@ -60,6 +60,28 @@ describe('live deployment client', () => {
     await expect(fetchWith('github')).rejects.toThrow();
   });
 
+  it('reads the target\'s accepts advertisement, defaulting what Cloud does not send (RFC 0030)', async () => {
+    const state = (extra: Record<string, unknown>) => fetchLiveDeployment({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: 'secret-token',
+      target,
+      resource: 'state',
+      fetch: (async () => Response.json({ kind: 'hypequery-live-deployment', version: 1, target, active: null, ...extra })) as typeof fetch,
+    });
+    expect((await state({}))?.accepts).toEqual({ deploymentContract: [2], semanticInvocation: [1], bundle: [1, 2] });
+    expect((await state({ accepts: { deploymentContract: [2, 3], semanticInvocation: [1, 2], future: true } }))?.accepts)
+      .toEqual({ deploymentContract: [2, 3], semanticInvocation: [1, 2], bundle: [1, 2] });
+    expect((await fetchLiveDeployment({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: 'secret-token',
+      target,
+      resource: 'source',
+      fetch: (async () => Response.json({ ...response(), accepts: { deploymentContract: [3] } })) as typeof fetch,
+    }))?.accepts?.deploymentContract).toEqual([3]);
+    await expect(state({ accepts: { deploymentContract: [3, 2] } })).rejects.toThrow('invalid live deployment response');
+    await expect(state({ accepts: null })).rejects.toThrow('invalid live deployment response');
+  });
+
   it('rejects source bytes that do not match their digest', async () => {
     await expect(fetchLiveDeployment({
       endpoint: 'https://cloud.example.test/v1/deployments/submissions',

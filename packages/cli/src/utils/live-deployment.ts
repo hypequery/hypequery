@@ -6,7 +6,9 @@ import path from 'node:path';
 import {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   validateProtocolDeploymentReleaseTarget,
+  validateProtocolDeploymentTargetAccepts,
   type ProtocolDeploymentReleaseTarget,
+  type ProtocolDeploymentTargetAccepts,
 } from '@hypequery/protocol';
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -33,6 +35,11 @@ export type LiveDeploymentSource = {
 
 export type LiveDeployment = {
   readonly target: ProtocolDeploymentReleaseTarget;
+  /**
+   * The versions the target accepts (RFC 0030), with every member Cloud
+   * didn't advertise at its default. Absent only from hand-built values.
+   */
+  readonly accepts?: ProtocolDeploymentTargetAccepts;
   readonly active: null | {
     readonly revision: string;
     readonly releaseIdentity: string;
@@ -181,7 +188,14 @@ function parseResponse(
     || target.environment !== expectedTarget.environment) {
     throw new Error('Cloud returned a mismatched live deployment response.');
   }
-  if (value.active === null) return Object.freeze({ target, active: null });
+  let accepts: ProtocolDeploymentTargetAccepts;
+  try {
+    // RFC 0030: absent means the defaults; anything malformed fails closed.
+    accepts = validateProtocolDeploymentTargetAccepts(value.accepts);
+  } catch {
+    throw new Error('Cloud returned an invalid live deployment response.');
+  }
+  if (value.active === null) return Object.freeze({ target, accepts, active: null });
   if (typeof value.active !== 'object' || Array.isArray(value.active)) {
     throw new Error('Cloud returned an invalid live deployment response.');
   }
@@ -199,6 +213,7 @@ function parseResponse(
   }
   return Object.freeze({
     target,
+    accepts,
     active: Object.freeze({
       revision: active.revision,
       releaseIdentity: active.releaseIdentity,
