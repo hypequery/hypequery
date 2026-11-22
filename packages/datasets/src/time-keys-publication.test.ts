@@ -5,6 +5,7 @@ import { measure } from './measure.js';
 import { buildProtocolDeploymentContract } from './protocol-deployment-adapter.js';
 import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { createPortableSemanticExecutor } from './portable-executor.js';
+import { createDatasetClient } from './executor.js';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
@@ -85,4 +86,14 @@ describe('time keys in the deployment contract (RFC 0029)', () => {
     expect(statements[0]).toContain("'2027-01-01'");
     expect(statements[0]).not.toContain('created_at');
   });
+
+  it('validates the rebuilt dataset against its alternates', () => {
+    const contract = buildProtocolDeploymentContract([Orders], { endpoints });
+    const rebuilt = rehydrateProtocolDatasets(contract.datasets).orders!;
+    const client = createDatasetClient({ queryBuilder: createQueryBuilder({ host: 'http://127.0.0.1:1' }) });
+    expect(client.validate(rebuilt, { measures: ['orders'], by: 'day', timeKey: 'deliveredAt' } as never).valid).toBe(true);
+    expect(client.validate(rebuilt, { measures: ['orders'], by: 'day', timeKey: 'status' } as never).valid).toBe(false);
+    expect(client.toSQL(rebuilt, { measures: ['orders'], by: 'day', timeKey: 'deliveredAt' } as never)).toContain('orders.delivered_at');
+  });
 });
+
