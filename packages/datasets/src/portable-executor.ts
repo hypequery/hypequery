@@ -152,14 +152,8 @@ export function createPortableSemanticRuntime(
     const query = semanticQuery(input.operation, input.budget.maxRows);
     const context: ExecutionContext = tenant === undefined ? {} : { runtime: { tenant } };
     if (hasQueryCalculations(query)) {
-      // RFC 0026: a calculation this executor cannot run is refused by name,
-      // and one it can run but the dataset cannot satisfy is the caller's to fix.
-      const { errors, unsupported } = calculatedDatasetQueryErrors(target as never, query as never, context);
-      if (unsupported.length > 0) {
-        throw new PortableExecutionUnsupportedError(unsupported.join('; '), {
-          reason: UNSUPPORTED_CONTRACT_REASONS.queryCalculationUnsupported,
-        });
-      }
+      // RFC 0026: a calculation the dataset cannot satisfy is the caller's to fix.
+      const { errors } = calculatedDatasetQueryErrors(target as never, query as never, context);
       if (errors.length > 0) throw new PortableExecutionInputError(`Invalid dataset query: ${errors.join('; ')}`);
     }
     return { target, query, context };

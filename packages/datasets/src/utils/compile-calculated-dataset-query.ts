@@ -29,8 +29,6 @@ import { planQueryCalculations, publicCalculationErrors, type QueryCalculationPl
 import { assertStageSupported, otherRankingSql, withOtherBucket } from './other-bucket-sql.js';
 import type { PreparedDatasetQuery, DatasetQueryMode } from './compile-dataset-query.js';
 
-export { UnsupportedQueryCalculationError } from './query-calculation-errors.js';
-import { UnsupportedQueryCalculationError } from './query-calculation-errors.js';
 
 /**
  * Every reason a calculated query cannot run, with the caller's names. The
@@ -41,11 +39,11 @@ export function calculatedDatasetQueryErrors(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
-): { errors: string[]; unsupported: readonly string[]; plan?: QueryCalculationPlan } {
+): { errors: string[]; plan?: QueryCalculationPlan } {
   // Plan on the selected time axis, as every inner planner will.
   const axis = selectedTimeKeyError(ds, query.timeKey) ? ds : datasetOnTimeKey(ds, query.timeKey);
   const result = planQueryCalculations(axis, query, context);
-  if (result.plan === undefined) return { errors: [...result.errors], unsupported: result.unsupported };
+  if (result.plan === undefined) return { errors: [...result.errors] };
   const { plan } = result;
   const validation = validateDatasetQueryInput(plan.dataset, {
     ...plan.inner,
@@ -53,14 +51,12 @@ export function calculatedDatasetQueryErrors(
   }, context);
   return {
     errors: publicCalculationErrors(validation.errors, plan.outputs),
-    unsupported: [],
     plan,
   };
 }
 
 function planOrThrow(ds: AnyDatasetInstance, query: DatasetQuery, context?: ExecutionContext): QueryCalculationPlan {
-  const { errors, unsupported, plan } = calculatedDatasetQueryErrors(ds, query, context);
-  if (unsupported.length > 0) throw new UnsupportedQueryCalculationError(unsupported);
+  const { errors, plan } = calculatedDatasetQueryErrors(ds, query, context);
   if (errors.length > 0 || plan === undefined) throw new Error(`Invalid dataset query: ${errors.join('; ')}`);
   return plan;
 }

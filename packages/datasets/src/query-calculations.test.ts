@@ -5,6 +5,11 @@ import { createInMemoryBackend } from './in-memory-backend.js';
 import { datasetCacheKey } from './cache/protocol-cache-keys.js';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import type { DatasetQuery } from './types.js';
+import { formulaMeasure } from './utils/query-calculation-formula.js';
+import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
+import { defineDatasetSqlDialectRules } from './utils/dataset-sql-dialect.js';
+import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
+import { calculationColumns } from './utils/query-calculation-outputs.js';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -139,11 +144,92 @@ describe('RFC 0026 calculations in the dataset client', () => {
 
   it.each([
     ['other on a non-string dimension', { dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 2, measure: 'revenue' } }, /groups a string dimension/],
+    ['other ranked by an unknown measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'nope' } }, /ranks by unknown measure "nope"/],
+    ['other beside a relationship field', { dimensions: ['country'], measures: ['revenue'], filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }], other: { dimension: 'country', n: 2, measure: 'revenue' } }, /cannot be combined with relationship fields/],
+    ['a rank of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 'r', rank: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
+    ['a share of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 's', share: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
     ['other ranked by a window measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenueRunning' } }, /depends on a shift or window/],
     ['a non-additive share of a time measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }, { name: 's', share: { measure: 'revenue_change_pct' } }] }, /not additive and depends on a shift or window/],
     ['limitBy without orderBy', { dimensions: ['country'], measures: ['revenue'], limitBy: { n: 2, by: ['country'] } }, /limitBy requires a non-empty orderBy/],
   ] as const)('refuses %s by name', (_name, query, message) => {
     expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
+  });
+
+  it.each([
+    ['a shift of an unknown measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'p', shift: { measure: 'nope', amount: 1, unit: 'month' } }] }, /reads unknown measure "nope"/],
+    ['a shift of a window measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'p', shift: { measure: 'revenueRunning', amount: 1, unit: 'month' } }] }, /cannot shift "revenueRunning", which already depends/],
+    ['a window of an unknown measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'w', window: { measure: 'nope', cumulative: true } }] }, /reads unknown measure "nope"/],
+    ['a window of a window measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'w', window: { measure: 'revenueRunning', cumulative: true } }] }, /must window a base measure/],
+    ['a formula over an unknown selected measure', { measures: ['revenue', 'nope'], calculations: [{ name: 'f', formula: { op: 'multiply', args: ['nope', 2] } }] }, /reads unknown measure "nope"/],
+    ['a compare of an unknown selected measure', { by: 'month', measures: ['nope'], filters: RANGE, calculations: [{ name: 'c', compare: { to: 'previousPeriod', measures: ['nope'] } }] }, /reads unknown measure "nope"/],
+    ['a compare of a window measure', { by: 'month', measures: ['revenueRunning'], filters: RANGE, calculations: [{ name: 'c', compare: { to: 'previousPeriod', measures: ['revenueRunning'] } }] }, /cannot compare "revenueRunning", which already depends/],
+  ] as const)('refuses %s by name, in the caller\'s words', (_name, query, message) => {
+    expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
+  });
+
+  it('reports planner errors under the caller\'s names', () => {
+    // A shift that cannot span whole buckets fails in the time planner, which
+    // only knows the internal names.
+    const message = errors({
+      by: 'month', measures: ['revenue'], filters: RANGE,
+      calculations: [
+        { name: 'web', filter: { measure: 'revenue', where: WEB } },
+        { name: 'late', shift: { measure: 'web', amount: 10, unit: 'day' } },
+      ],
+    }).join('\n');
+    expect(message).toContain('Shift measure "late"');
+    expect(message).not.toContain('_hq_calc_');
+  });
+
+  it('refuses a dataset that already uses the reserved calculation prefix', () => {
+    const Reserved = dataset('reserved', {
+      source: 'reserved', dimensions: { x: dimension.string() },
+      measures: { _hq_calc_0: measure.count('x') },
+    });
+    expect(recordingClient().client.validate(Reserved, {
+      measures: ['_hq_calc_0'], calculations: [{ name: 'y', formula: { op: 'multiply', args: ['_hq_calc_0', 2] } }],
+    }).errors.join('\n')).toMatch(/prefix is reserved/);
+  });
+
+  it('types rank and share outputs from the query alone', () => {
+    expect(calculationColumns({
+      calculations: [
+        { name: 'r', rank: { measure: 'revenue' } },
+        { name: 's', share: { measure: 'revenue', of: [] } },
+        { name: 'g', formula: { op: 'percentChange', args: ['revenue', 'r'] } },
+        { name: 'bad' } as never,
+      ],
+    })).toEqual([
+      { name: 'r', kind: 'rank', calculation: 'r', measure: 'revenue', type: 'integer' },
+      { name: 's', kind: 'share', calculation: 's', measure: 'revenue', type: 'number', format: 'ratio' },
+      { name: 'g', kind: 'formula', calculation: 'g', type: 'number', format: 'ratio' },
+    ]);
+  });
+
+  it('gives formula calculations a generic toSQL rendering', () => {
+    const definition = formulaMeasure({
+      op: 'round',
+      args: [{ op: 'percentChange', args: ['a', { op: 'nullIfZero', args: ['b'] }] }, 2],
+    }, name => name);
+    expect(definition.formula({ a: 'a', b: 'b' } as never).toSQL()).toBe('ROUND(((a) - (NULLIF(b, 0))) / (NULLIF(NULLIF(b, 0), 0)), 2)');
+  });
+
+  it('refuses limitBy, other and joined denominators on a dialect without them, by name', () => {
+    const dialect = defineDatasetSqlDialectRules({ ...clickhouseDatasetSqlDialect, name: 'elsewhere' });
+    const client = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: dialect } });
+    expect(() => client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['users'], orderBy: [{ field: 'users', direction: 'desc' }],
+      limitBy: { n: 1, by: ['country'] },
+      other: { dimension: 'country', n: 2, measure: 'revenue' },
+      calculations: [{ name: 's', share: { measure: 'users' } }],
+    }, TENANT)).toThrow(/"limitBy", "other", a share of a non-additive measure are not supported on the "elsewhere" dialect/);
+    expect(() => client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenue' },
+    }, TENANT)).toThrow(/"other" is not supported on the "elsewhere" dialect/);
+    // Additive shares and ranks are window functions every dialect has.
+    expect(client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['revenue'], calculations: [{ name: 's', share: { measure: 'revenue' } }],
+    }, TENANT)).toContain('OVER ()');
   });
 
   it('runs uncached and refuses the backend path', async () => {

@@ -92,8 +92,6 @@ export interface QueryCalculationPlan {
 export interface QueryCalculationPlanResult {
   readonly plan?: QueryCalculationPlan;
   readonly errors: readonly string[];
-  /** Kinds or fields this executor recognises but cannot run yet. */
-  readonly unsupported: readonly string[];
 }
 
 /** An earlier entry's output, as a later entry may read it. */
@@ -176,10 +174,8 @@ function envelopeHint(path: string, query: DatasetQuery): string {
 
 class CalculationPlanner {
   readonly errors: string[] = [];
-  readonly unsupported: string[] = [];
   private readonly available = new Map<string, Available>();
   private readonly added: Record<string, DatasetMeasureDefinition> = {};
-  private readonly selected: ReadonlySet<string>;
   readonly ranks: PlannedRank[] = [];
   readonly shares: PlannedShare[] = [];
 
@@ -187,55 +183,29 @@ class CalculationPlanner {
     private readonly ds: AnyDatasetInstance,
     private readonly query: DatasetQuery,
     private readonly context: ExecutionContext | undefined,
-    selectedMeasures: readonly string[],
-  ) {
-    this.selected = new Set(selectedMeasures);
-  }
+  ) {}
 
   /** The measures of the view: the dataset's, plus every calculation measure. */
   get measures(): Record<string, DatasetMeasureDefinition> {
     return { ...this.ds.measures, ...this.added };
   }
 
-  definition(name: string): DatasetMeasureDefinition | undefined {
-    if (Object.hasOwn(this.added, name)) return this.added[name];
-    return Object.hasOwn(this.ds.measures, name) ? this.ds.measures[name] : undefined;
-  }
-
-  /** A reference to an earlier output, or to a measure the dataset publishes. */
-  private input(
-    name: string,
-    label: string,
-    accepts: readonly QueryCalculationKind[],
-    published: 'any' | 'selected',
-  ): { internal: string; definition: DatasetMeasureDefinition; timed: boolean; additive: boolean } | undefined {
+  /**
+   * A reference to an earlier output, or to a measure the dataset publishes.
+   * The envelope has already refused forward references, earlier outputs of a
+   * kind this entry does not accept, relationship measures, and unselected
+   * measures where an entry reads selected ones; what is left is the contract.
+   */
+  private input(name: string, label: string): { internal: string; timed: boolean; additive: boolean } | undefined {
     const earlier = this.available.get(name);
-    if (earlier !== undefined) {
-      if (!accepts.includes(earlier.kind)) {
-        this.errors.push(`${label} cannot read "${name}", a ${earlier.kind} calculation.`);
-        return undefined;
-      }
-      return {
-        internal: earlier.internal, definition: this.definition(earlier.internal)!,
-        timed: earlier.timed, additive: earlier.additive,
-      };
-    }
-    if (name.includes('.')) {
-      this.errors.push(`${label} cannot read relationship measure "${name}"; calculations read local measures.`);
-      return undefined;
-    }
-    const definition = Object.hasOwn(this.ds.measures, name) ? this.ds.measures[name] : undefined;
-    if (definition === undefined) {
+    if (earlier !== undefined) return { internal: earlier.internal, timed: earlier.timed, additive: earlier.additive };
+    if (!Object.hasOwn(this.ds.measures, name)) {
       this.errors.push(`${label} reads unknown measure "${name}".`);
-      return undefined;
-    }
-    if (published === 'selected' && !this.selected.has(name)) {
-      this.errors.push(`${label} reads "${name}", which the query does not select.`);
       return undefined;
     }
     const timed = measureDependencyNames(this.ds.measures, [name])
       .some(dependency => isShiftMeasure(this.ds.measures[dependency]) || isWindowMeasure(this.ds.measures[dependency]));
-    return { internal: name, definition, timed, additive: isAdditive(this.ds.measures, name) };
+    return { internal: name, timed, additive: isAdditive(this.ds.measures, name) };
   }
 
   private add(
@@ -262,13 +232,12 @@ class CalculationPlanner {
       case 'compare': return this.compare(entry as Extract<DatasetQueryCalculation, { compare: unknown }>, internal, label);
       case 'rank': return this.rank(entry as Extract<DatasetQueryCalculation, { rank: unknown }>, internal, label);
       case 'share': return this.share(entry as Extract<DatasetQueryCalculation, { share: unknown }>, internal, label);
-      default: return;
     }
   }
 
   private filter(entry: Extract<DatasetQueryCalculation, { filter: unknown }>, internal: string, label: string): void {
     const { measure, where } = entry.filter;
-    const input = this.input(measure, label, [], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     const base = getBaseMeasure(this.ds.measures, measure);
     if (base === undefined) {
@@ -293,7 +262,7 @@ class CalculationPlanner {
 
   private shift(entry: Extract<DatasetQueryCalculation, { shift: unknown }>, internal: string, label: string): void {
     const { measure, amount, unit } = entry.shift;
-    const input = this.input(measure, label, ['filter', 'formula'], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     if (input.timed) {
       this.errors.push(`${label} cannot shift "${measure}", which already depends on a shift or window.`);
@@ -307,7 +276,7 @@ class CalculationPlanner {
 
   private window(entry: Extract<DatasetQueryCalculation, { window: unknown }>, internal: string, label: string): void {
     const { measure } = entry.window;
-    const input = this.input(measure, label, ['filter'], 'any');
+    const input = this.input(measure, label);
     if (input === undefined) return;
     if (getBaseMeasure(this.measures, input.internal) === undefined) {
       this.errors.push(`${label} must window a base measure; "${measure}" is not one.`);
@@ -324,7 +293,7 @@ class CalculationPlanner {
     const resolved = new Map<string, string>();
     let timed = false;
     for (const name of formulaReferences(entry.formula)) {
-      const input = this.input(name, label, ['filter', 'shift', 'window', 'formula', 'compare'], 'selected');
+      const input = this.input(name, label);
       if (input === undefined) return;
       resolved.set(name, input.internal);
       timed ||= input.timed;
@@ -334,13 +303,10 @@ class CalculationPlanner {
 
   private compare(entry: Extract<DatasetQueryCalculation, { compare: unknown }>, internal: string, label: string): void {
     const { to, measures } = entry.compare;
-    const unit = to === 'previousYear' ? 'year' : this.query.by;
-    if (unit === undefined) {
-      this.errors.push(`${label} needs "by": it compares each bucket with an earlier one.`);
-      return;
-    }
+    // The envelope requires `by` for every compare.
+    const unit = to === 'previousYear' ? 'year' : this.query.by!;
     measures.forEach((measure, at) => {
-      const input = this.input(measure, label, ['filter', 'formula'], 'selected');
+      const input = this.input(measure, label);
       if (input === undefined) return;
       if (input.timed) {
         this.errors.push(`${label} cannot compare "${measure}", which already depends on a shift or window.`);
@@ -360,7 +326,7 @@ class CalculationPlanner {
   }
 
   private rank(entry: Extract<DatasetQueryCalculation, { rank: unknown }>, internal: string, label: string): void {
-    const input = this.input(entry.rank.measure, label, ['filter', 'shift', 'window', 'formula', 'compare'], 'selected');
+    const input = this.input(entry.rank.measure, label);
     if (input === undefined) return;
     this.ranks.push({
       internal, column: input.internal, within: [...(entry.rank.within ?? [])], direction: entry.rank.direction ?? 'desc',
@@ -369,7 +335,7 @@ class CalculationPlanner {
   }
 
   private share(entry: Extract<DatasetQueryCalculation, { share: unknown }>, internal: string, label: string): void {
-    const input = this.input(entry.share.measure, label, ['filter', 'shift', 'window', 'formula', 'compare'], 'selected');
+    const input = this.input(entry.share.measure, label);
     if (input === undefined) return;
     const of = [...(entry.share.of ?? [])];
     this.available.set(entry.name, { internal, kind: 'share', timed: input.timed, additive: false });
@@ -450,7 +416,7 @@ export function planQueryCalculations(
   context?: ExecutionContext,
 ): QueryCalculationPlanResult {
   const errors = envelopeErrors(query);
-  if (errors.length > 0) return { errors, unsupported: [] };
+  if (errors.length > 0) return { errors };
 
   const reserved = [...Object.keys(ds.measures), ...Object.keys(ds.dimensions)]
     .filter(name => name.startsWith(CALCULATION_INTERNAL_PREFIX));
@@ -458,18 +424,15 @@ export function planQueryCalculations(
     return {
       errors: [`Dataset "${ds.name}" declares ${reserved.map(name => `"${name}"`).join(', ')}; `
         + `the "${CALCULATION_INTERNAL_PREFIX}" prefix is reserved for query calculations.`],
-      unsupported: [],
     };
   }
 
   const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
-  const planner = new CalculationPlanner(ds, query, context, selectedMeasures);
-  const unsupported: string[] = [];
+  const planner = new CalculationPlanner(ds, query, context);
   (query.calculations ?? []).forEach((entry, index) => planner.plan(entry, index));
   const other = planner.other();
-  unsupported.push(...planner.unsupported);
-  if (planner.errors.length > 0 || unsupported.length > 0) {
-    return { errors: planner.errors, unsupported };
+  if (planner.errors.length > 0) {
+    return { errors: planner.errors };
   }
 
   const outputs = calculationOutputs(query);
@@ -479,7 +442,7 @@ export function planQueryCalculations(
     validateShiftMeasures(ds.name, view.timeKey, measures);
     validateWindowMeasures(ds.name, view.timeKey, measures);
   } catch (error) {
-    return { errors: [publicMessage((error as Error).message, outputs)], unsupported: [] };
+    return { errors: [publicMessage((error as Error).message, outputs)] };
   }
 
   const {
@@ -492,11 +455,10 @@ export function planQueryCalculations(
   const inner: DatasetQuery = { ...rest, measures: [...selectedMeasures, ...planned.map(output => output.internal)] };
 
   const outerErrors = outerStageErrors(ds, query, selectedMeasures, outputs);
-  if (outerErrors.length > 0) return { errors: outerErrors, unsupported: [] };
+  if (outerErrors.length > 0) return { errors: outerErrors };
 
   return {
     errors: [],
-    unsupported: [],
     plan: {
       dataset: view,
       inner,
