@@ -18,6 +18,11 @@ export interface DatasetQueryExecutionOptions {
   executionLimit?: number;
   /** Internal: the grouped subquery is unordered; the derived outer query orders results. */
   skipDefaultOrderBy?: boolean;
+  /**
+   * Internal: the time-measure series budget when the planned statement is
+   * unpaged and an outer stage applies `query.limit` (RFC 0026 calculations).
+   */
+  seriesLimit?: number;
 }
 
 export function validateDatasetQuery(

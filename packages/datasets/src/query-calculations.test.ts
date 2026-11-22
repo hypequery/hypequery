@@ -89,6 +89,41 @@ describe('RFC 0026 calculations in the dataset client', () => {
     expect(sql).toContain('WHERE `_hq_calc_0_0_change_pct` > ?');
   });
 
+  it('checks calculation names and inputs against the default measure selection', () => {
+    // Omitting `measures` selects every base measure, so a calculation cannot
+    // take one of their names, and a formula may read any of them.
+    expect(errors({ calculations: [{ name: 'users', filter: { measure: 'revenue', where: WEB } }] }).join('\n'))
+      .toMatch(/HQ_EXPRESSION_INVALID_QUERY/);
+    const Unlimited = dataset('unlimited', {
+      source: 'orders', tenantKey: 'tenant_id',
+      dimensions: { userId: dimension.string({ column: 'user_id' }), amount: dimension.number() },
+      measures: { revenue: measure.sum('amount'), users: measure.countDistinct('userId') },
+    });
+    const sql = recordingClient().client.toSQL(Unlimited, {
+      calculations: [{ name: 'per_user', formula: { op: 'divide', args: ['revenue', { op: 'nullIfZero', args: ['users'] }] } }],
+    }, TENANT);
+    expect(sql).toMatch(/^SELECT `revenue`, `users`, `_hq_calc_0` AS `per_user` FROM \(/);
+  });
+
+  it('keeps the caller\'s limit as the exact time-series budget of an unpaged inner statement', () => {
+    const sql = recordingClient().client.toSQL(Orders, {
+      by: 'day', measures: ['revenue'], limit: 10,
+      filters: [{ field: 'createdAt', operator: 'between', value: ['2026-01-01', '2026-01-12'] }],
+      calculations: [{ name: 'p', shift: { measure: 'revenue', amount: 1, unit: 'day' } }],
+    }, TENANT);
+    expect(sql).toContain('exceeds the effective result limit of 10 buckets');
+    // Only the outer stage pages the rows.
+    expect(sql.match(/LIMIT 10/g)).toHaveLength(1);
+    expect(sql).toMatch(/LIMIT 10$/);
+  });
+
+  it.each([-1, 1.5])('refuses offset %s before building any SQL', offset => {
+    expect(errors({
+      measures: ['revenue'], offset,
+      calculations: [{ name: 'x', filter: { measure: 'revenue', where: WEB } }],
+    })).toContain('Invalid offset: expected a non-negative integer.');
+  });
+
   it.each([
     ['an unknown measure', { measures: ['revenue'], calculations: [{ name: 'x', filter: { measure: 'nope', where: WEB } }] }, /unknown measure "nope"/],
     ['an argMax filter', { measures: ['revenue'], calculations: [{ name: 'x', filter: { measure: 'latest', where: WEB } }] }, /argMax measures do not accept filters/],

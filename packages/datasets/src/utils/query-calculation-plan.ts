@@ -75,13 +75,17 @@ function entryLabel(entry: DatasetQueryCalculation, index: number): string {
   return `Calculation "${String(entry.name)}" (calculations[${index}])`;
 }
 
-/** The structural rules RFC 0026 makes decidable from the query, via the protocol validator. */
-function envelopeErrors(query: DatasetQuery): string[] {
+/**
+ * The structural rules RFC 0026 makes decidable from the query, via the
+ * protocol validator. It sees the measures the query actually selects, so an
+ * omitted `measures` is checked as the default selection it runs as.
+ */
+function envelopeErrors(query: DatasetQuery, selectedMeasures: readonly string[]): string[] {
   const probe = {
     kind: 'dataset',
     dataset: 'dataset',
     ...(query.dimensions === undefined ? {} : { dimensions: query.dimensions }),
-    ...(query.measures === undefined ? {} : { measures: query.measures }),
+    measures: selectedMeasures,
     ...(query.by === undefined ? {} : { by: 'day' }),
     ...(query.orderBy === undefined
       ? {}
@@ -290,7 +294,8 @@ export function planQueryCalculations(
   query: DatasetQuery,
   context?: ExecutionContext,
 ): QueryCalculationPlanResult {
-  const errors = envelopeErrors(query);
+  const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
+  const errors = envelopeErrors(query, selectedMeasures);
   if (errors.length > 0) return { errors, unsupported: [] };
 
   const reserved = [...Object.keys(ds.measures), ...Object.keys(ds.dimensions)]
@@ -303,7 +308,6 @@ export function planQueryCalculations(
     };
   }
 
-  const selectedMeasures = query.measures ?? baseMeasureNames(ds.measures);
   const planner = new CalculationPlanner(ds, query, context);
   const unsupported = [
     ...(query.limitBy === undefined ? [] : ['"limitBy" is not supported by this executor yet.']),
