@@ -32,12 +32,10 @@ from .deployment_nodes import (
     tenant,
 )
 from .deployment_primitives import (
-    APPROXIMATE_AGGREGATIONS,
     CUMULATIVE_AGGREGATIONS,
     DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
     GRAINS,
     SEMANTIC_METADATA_FIELDS,
-    SUB_DAY_GRAINS,
     ProtocolDeploymentLimits,
     array,
     bounded_text,
@@ -48,6 +46,7 @@ from .deployment_primitives import (
     semantic_metadata,
     unique_strings,
 )
+from .deployment_targets import contract_3_features
 from .deployment_v3_nodes import segment, time_measure
 from .errors import deployment_error
 from .row_resolution import row_resolution
@@ -592,18 +591,7 @@ def _alternate_time_fields(
 
 
 def _uses_contract_3_feature(dataset: dict[str, object]) -> bool:
-    measures = cast(list[dict[str, object]], dataset["measures"])
-    grain = cast(dict[str, object], dataset.get("defaults") or {}).get("timeGrain")
-    return (
-        bool(dataset.get("segments"))
-        or bool(dataset.get("alternateTimeFields"))
-        or any(
-            item.get("aggregation") in APPROXIMATE_AGGREGATIONS
-            or item.get("kind") in ("window", "shift")
-            for item in measures
-        )
-        or grain in SUB_DAY_GRAINS
-    )
+    return bool(contract_3_features(dataset))
 
 
 def validate_protocol_deployment_contract_v3(

@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from typing import cast
 
 from hypequery.protocol import (
+    contract_3_features,
     validate_protocol_dataset_contract,
     validate_protocol_deployment_contract,
     validate_protocol_deployment_contract_v3,
@@ -251,15 +252,14 @@ def validate_deployable(dataset: Dataset) -> None:
 def uses_contract_3_features(dataset: Dataset) -> bool:
     """True when the deployment holding *dataset* must be contract 3 (RFC 0015).
 
-    Mirrors TypeScript's ``usesContract3Features``. Python datasets have no
-    default grain, so a sub-day default cannot raise the version here.
+    The rule is the contract's own (``hypequery.protocol.contract_3_features``,
+    RFC 0030), applied to the dataset as contract 3 would publish it, so it
+    cannot drift from TypeScript or from the protocol validator. Any authoring
+    feature that publishes a contract 3 field, such as a future alternate time
+    key, raises the version without a change here.
     """
 
-    return bool(dataset.segments) or any(
-        isinstance(item, WindowMeasure | ShiftMeasure)
-        or (isinstance(item, Measure) and item.aggregation == "approxCountDistinct")
-        for item in dataset.measures.values()
-    )
+    return bool(contract_3_features(_contract_3_dataset(dataset, None)))
 
 
 def _derived_measures(dataset: Dataset, contract_version: int) -> list[dict[str, object]]:
