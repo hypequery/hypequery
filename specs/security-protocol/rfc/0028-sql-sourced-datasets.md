@@ -132,7 +132,10 @@ so the checker never has to decide whether a construct is harmless.
    `dependencies`: an undeclared reference is refused, and so is a declared
    dependency the SQL never reads. An unqualified name that resolves to a CTE
    in scope (`WITH name AS (…)` at the same or an enclosing parenthesis level)
-   is not a table reference. Names are compared after unquoting, exactly as
+   is not a table reference. A CTE is in scope after its body closes, so
+   later CTEs and the main query see it, but its own body doesn't: as in
+   ClickHouse, `WITH t AS (SELECT * FROM t)` reads the physical table `t`,
+   which must be declared. Names are compared after unquoting, exactly as
    written; `events` and `app.events` are different dependencies.
 
 The checker records whether the SQL contains the word `FINAL` outside literals.
