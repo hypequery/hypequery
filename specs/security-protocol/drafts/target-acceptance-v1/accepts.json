@@ -1,0 +1,316 @@
+{
+  "accepted": [
+    {
+      "id": "absent",
+      "expected": {
+        "deploymentContract": [
+          2
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "empty-object",
+      "value": {},
+      "expected": {
+        "deploymentContract": [
+          2
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "every-member",
+      "value": {
+        "deploymentContract": [
+          2,
+          3
+        ],
+        "semanticInvocation": [
+          1,
+          2
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2,
+          3
+        ],
+        "semanticInvocation": [
+          1,
+          2
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "contract-only",
+      "value": {
+        "deploymentContract": [
+          2,
+          3
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2,
+          3
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "invocation-only",
+      "value": {
+        "semanticInvocation": [
+          1,
+          2
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2
+        ],
+        "semanticInvocation": [
+          1,
+          2
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "bundle-narrower-than-default",
+      "value": {
+        "bundle": [
+          1
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "unknown-member-ignored",
+      "value": {
+        "deploymentContract": [
+          2
+        ],
+        "eventOperations": [
+          1
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "unknown-future-version",
+      "value": {
+        "deploymentContract": [
+          2,
+          3,
+          4
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          2,
+          3,
+          4
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "contract-3-only",
+      "value": {
+        "deploymentContract": [
+          3
+        ]
+      },
+      "expected": {
+        "deploymentContract": [
+          3
+        ],
+        "semanticInvocation": [
+          1
+        ],
+        "bundle": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "id": "null",
+      "value": null,
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$"
+    },
+    {
+      "id": "array",
+      "value": [
+        2,
+        3
+      ],
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$"
+    },
+    {
+      "id": "string",
+      "value": "2,3",
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$"
+    },
+    {
+      "id": "member-not-array",
+      "value": {
+        "deploymentContract": 3
+      },
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$.deploymentContract"
+    },
+    {
+      "id": "member-null",
+      "value": {
+        "semanticInvocation": null
+      },
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$.semanticInvocation"
+    },
+    {
+      "id": "member-empty",
+      "value": {
+        "deploymentContract": []
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.deploymentContract"
+    },
+    {
+      "id": "member-unsorted",
+      "value": {
+        "deploymentContract": [
+          3,
+          2
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.deploymentContract[1]"
+    },
+    {
+      "id": "member-repeated",
+      "value": {
+        "bundle": [
+          1,
+          1
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.bundle[1]"
+    },
+    {
+      "id": "version-zero",
+      "value": {
+        "semanticInvocation": [
+          0,
+          1
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.semanticInvocation[0]"
+    },
+    {
+      "id": "version-negative",
+      "value": {
+        "bundle": [
+          -1
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.bundle[0]"
+    },
+    {
+      "id": "version-fractional",
+      "value": {
+        "deploymentContract": [
+          2.5
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_INVALID_VALUE",
+      "path": "$.deploymentContract[0]"
+    },
+    {
+      "id": "version-string",
+      "value": {
+        "deploymentContract": [
+          "2"
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$.deploymentContract[0]"
+    },
+    {
+      "id": "version-boolean",
+      "value": {
+        "deploymentContract": [
+          true
+        ]
+      },
+      "code": "HQ_DEPLOYMENT_TYPE",
+      "path": "$.deploymentContract[0]"
+    }
+  ]
+}

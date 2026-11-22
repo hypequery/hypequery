@@ -198,6 +198,9 @@ export {
   validateProtocolSemanticInvocationFailure,
   validateProtocolSemanticInvocationResult,
   validateProtocolSemanticInvocationV2,
+  semanticInvocation2Features,
+  semanticInvocationVersion,
+  toSemanticInvocation,
 } from './invocations/index.js';
 
 export type {
@@ -216,6 +219,8 @@ export type {
   ProtocolSemanticInvocationRow,
   ProtocolSemanticInvocationTarget,
   ProtocolSemanticInvocationValue,
+  ProtocolSemanticInvocation2Feature,
+  ProtocolSemanticInvocationEnvelope,
 } from './invocations/index.js';
 
 export {
@@ -303,7 +308,30 @@ export {
   validateProtocolDeploymentContractAnyVersion,
   validateProtocolDeploymentContractAtLowestVersion,
   validateProtocolDeploymentContractV3,
+  // RFC 0030: version-neutral readers and the contract 3 feature registry.
+  PROTOCOL_CONTRACT_3_FEATURES,
+  datasetAllowedFilters,
+  datasetContract3Features,
+  datasetGrains,
+  datasetSegments,
+  datasetTimeAxes,
+  withDatasetAllowedFilters,
 } from './deployments/index.js';
+
+export {
+  DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS,
+  PROTOCOL_CONTRACT_3_FEATURE_LABELS,
+  checkProtocolDeploymentTargetAcceptance,
+  deploymentContract3Features,
+  validateProtocolDeploymentTargetAccepts,
+} from './deployment-targets/index.js';
+
+export type {
+  ProtocolDatasetContract3Features,
+  ProtocolDeploymentTargetAccepts,
+  ProtocolDeploymentTargetAcceptanceInput,
+  ProtocolDeploymentTargetRefusal,
+} from './deployment-targets/index.js';
 
 export type {
   ProtocolDatasetDerivedMeasure,
@@ -353,6 +381,8 @@ export type {
   ProtocolEndpointTenantPolicy,
   ProtocolMetricDerivation,
   ProtocolMetricInput,
+  ProtocolAnyVersionDataset,
+  ProtocolContract3Feature,
 } from './deployments/index.js';
 
 export type {

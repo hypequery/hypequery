@@ -1,0 +1,1839 @@
+[
+  {
+    "id": "segments",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [
+            {
+              "name": "enterprise",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "tier"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": "enterprise"
+                }
+              },
+              "description": "Enterprise-tier customers"
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "segment-logical-predicate",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [
+            {
+              "name": "bigPaid",
+              "predicate": {
+                "kind": "logical",
+                "operator": "and",
+                "operands": [
+                  {
+                    "kind": "comparison",
+                    "operator": "eq",
+                    "left": {
+                      "kind": "reference",
+                      "name": "status"
+                    },
+                    "right": {
+                      "kind": "literal",
+                      "value": "paid"
+                    }
+                  },
+                  {
+                    "kind": "logical",
+                    "operator": "not",
+                    "operand": {
+                      "kind": "comparison",
+                      "operator": "lt",
+                      "left": {
+                        "kind": "reference",
+                        "name": "amount"
+                      },
+                      "right": {
+                        "kind": "literal",
+                        "value": 100.5
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "segment-on-non-filterable-dimension",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": false,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [],
+          "segments": [
+            {
+              "name": "enterprise",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "tier"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": "enterprise"
+                }
+              },
+              "description": "Enterprise-tier customers"
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "approx-count-distinct",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "activeUsers",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            },
+            {
+              "name": "approxActiveFiltered",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "status"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": "paid"
+                  }
+                }
+              ],
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "approxCountDistinct"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "approximate-derived-measure",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "activeUsers",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            },
+            {
+              "name": "sessions",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "sessionsPerUser",
+              "uses": [
+                {
+                  "alias": "s",
+                  "measure": "sessions"
+                },
+                {
+                  "alias": "u",
+                  "measure": "activeUsers"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "s"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "u"
+                    }
+                  ]
+                }
+              },
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "approxCountDistinct"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sub-day-default-grain",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [],
+          "relationships": [],
+          "timeField": "created_at",
+          "defaults": {
+            "timeGrain": "hour"
+          }
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "subDayDefaultGrain"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tenant-dataset-segment",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "required",
+            "field": "tenant_id"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "tenantId",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tenant_id"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [
+            {
+              "name": "enterprise",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "tier"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": "enterprise"
+                }
+              },
+              "description": "Enterprise-tier customers"
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "window-and-shift-measures",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "kind": "window",
+              "requiresTimeRange": true,
+              "name": "revenue7d",
+              "measure": "revenue",
+              "trailing": {
+                "amount": 7,
+                "unit": "day"
+              }
+            },
+            {
+              "kind": "window",
+              "requiresTimeRange": true,
+              "name": "revenueMtd",
+              "measure": "revenue",
+              "toDate": "month"
+            },
+            {
+              "kind": "window",
+              "requiresTimeRange": true,
+              "name": "revenueRunning",
+              "measure": "revenue",
+              "cumulative": true
+            },
+            {
+              "kind": "shift",
+              "requiresTimeRange": true,
+              "name": "revenuePriorYear",
+              "measure": "revenue",
+              "interval": {
+                "amount": 1,
+                "unit": "year"
+              }
+            },
+            {
+              "kind": "derived",
+              "name": "revenueGrowth",
+              "uses": [
+                {
+                  "alias": "now",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "before",
+                  "measure": "revenuePriorYear"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "binary",
+                  "operator": "subtract",
+                  "left": {
+                    "kind": "reference",
+                    "name": "now"
+                  },
+                  "right": {
+                    "kind": "reference",
+                    "name": "before"
+                  }
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "before"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [],
+          "relationships": [],
+          "timeField": "created_at"
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "windowMeasures",
+          "shiftMeasures"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "approximate-window",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "activeUsers",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            },
+            {
+              "kind": "window",
+              "requiresTimeRange": true,
+              "name": "activeUsers7d",
+              "measure": "activeUsers",
+              "trailing": {
+                "amount": 7,
+                "unit": "day"
+              },
+              "approximate": true
+            },
+            {
+              "kind": "shift",
+              "requiresTimeRange": true,
+              "name": "activeUsersLastWeek",
+              "measure": "activeUsers",
+              "interval": {
+                "amount": 1,
+                "unit": "week"
+              },
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [],
+          "relationships": [],
+          "timeField": "created_at"
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "windowMeasures",
+          "shiftMeasures",
+          "approxCountDistinct"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "approx-count-distinct-without-segments",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "activeUsers",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            },
+            {
+              "name": "approxActiveFiltered",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "status"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": "paid"
+                  }
+                }
+              ],
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "approxCountDistinct"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "merge-measures",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "daily_active_users",
+          "source": "daily_active_users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "day",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "day"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "active_users",
+              "aggregation": "merge",
+              "field": "users",
+              "filters": [],
+              "stateFunction": "uniq",
+              "approximate": true
+            },
+            {
+              "name": "exact_users",
+              "aggregation": "merge",
+              "stateFunction": "uniqExact",
+              "field": "users",
+              "filters": []
+            },
+            {
+              "name": "approx_users",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "daily_active_users",
+        "features": [
+          "approxCountDistinct"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "null-checks",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "churnedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "churned_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "trial",
+              "type": "boolean",
+              "source": {
+                "kind": "column",
+                "column": "trial"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "churnedCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNotNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "activeCustomers",
+              "aggregation": "count",
+              "field": "id",
+              "filters": [
+                {
+                  "kind": "comparison",
+                  "operator": "isNull",
+                  "left": {
+                    "kind": "reference",
+                    "name": "churned_at"
+                  }
+                },
+                {
+                  "kind": "comparison",
+                  "operator": "eq",
+                  "left": {
+                    "kind": "reference",
+                    "name": "trial"
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "value": false
+                  }
+                }
+              ]
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "churnedAt",
+              "field": "churnedAt",
+              "operators": [
+                "gte",
+                "isNotNull",
+                "isNull"
+              ]
+            },
+            {
+              "name": "trial",
+              "field": "trial",
+              "operators": [
+                "eq",
+                "isNull"
+              ]
+            }
+          ],
+          "segments": [
+            {
+              "name": "churned",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "isNotNull",
+                "left": {
+                  "kind": "reference",
+                  "name": "churnedAt"
+                }
+              }
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "customers",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "event-dataset",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "activity",
+          "source": "analytics.activity",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "timeField": "occurredAt",
+          "events": {
+            "entity": "userId",
+            "event": "eventName"
+          },
+          "dimensions": [
+            {
+              "name": "userId",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "user_id"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "accountId",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "account_id"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "eventName",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "event_name"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "plan",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "plan"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "occurredAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "occurred_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "events",
+              "aggregation": "count",
+              "field": "userId",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [],
+          "relationships": [],
+          "segments": [
+            {
+              "name": "proPlan",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "eq",
+                "left": {
+                  "kind": "reference",
+                  "name": "plan"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": "pro"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "activity",
+        "features": [
+          "segments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "alternate-time-fields",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "timeField": "createdAt",
+          "alternateTimeFields": [
+            "shippedAt",
+            "deliveredAt"
+          ],
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "shippedAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "shipped_at"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "deliveredAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "delivered_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "alternateTimeFields"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "contract-2-derived-measures",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "averageOrderValue",
+              "uses": [
+                {
+                  "alias": "revenue",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "orders",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "orders"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "filters": [],
+          "relationships": []
+        }
+      ]
+    },
+    "expected": []
+  },
+  {
+    "id": "contract-2-composite-relationship-keys",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "customers",
+          "source": "customers",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [
+            {
+              "name": "customer",
+              "kind": "belongsTo",
+              "target": "customers",
+              "from": "customer_id",
+              "to": "id",
+              "queryable": true,
+              "keys": [
+                {
+                  "from": "customer_id",
+                  "to": "id"
+                },
+                {
+                  "from": "region_code",
+                  "to": "region"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected": []
+  },
+  {
+    "id": "contract-2-resolved-rows-replacing",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 2,
+      "datasets": [
+        {
+          "name": "users",
+          "source": "users",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [],
+          "filters": [],
+          "relationships": [],
+          "rowResolution": {
+            "kind": "final",
+            "engine": "replacing",
+            "deletedColumn": "is_deleted"
+          }
+        }
+      ]
+    },
+    "expected": []
+  },
+  {
+    "id": "every-feature-in-registry-order",
+    "contract": {
+      "kind": "hypequery-deployment",
+      "version": 3,
+      "datasets": [
+        {
+          "name": "aaa_plain",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            },
+            {
+              "name": "orders",
+              "aggregation": "count",
+              "field": "id",
+              "filters": []
+            },
+            {
+              "kind": "derived",
+              "name": "averageOrderValue",
+              "uses": [
+                {
+                  "alias": "revenue",
+                  "measure": "revenue"
+                },
+                {
+                  "alias": "orders",
+                  "measure": "orders"
+                }
+              ],
+              "expression": {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {
+                  "kind": "reference",
+                  "name": "revenue"
+                },
+                "right": {
+                  "kind": "call",
+                  "function": "nullIfZero",
+                  "args": [
+                    {
+                      "kind": "reference",
+                      "name": "orders"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "relationships": [],
+          "allowedFilters": []
+        },
+        {
+          "name": "orders",
+          "source": "orders",
+          "tenant": {
+            "kind": "not-required"
+          },
+          "dimensions": [
+            {
+              "name": "tier",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "tier"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "source": {
+                "kind": "column",
+                "column": "status"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "amount",
+              "type": "number",
+              "source": {
+                "kind": "column",
+                "column": "amount"
+              },
+              "filterable": true,
+              "groupable": true
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp",
+              "source": {
+                "kind": "column",
+                "column": "created_at"
+              },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "activeUsers",
+              "aggregation": "approxCountDistinct",
+              "field": "user_id",
+              "filters": [],
+              "approximate": true
+            },
+            {
+              "kind": "window",
+              "requiresTimeRange": true,
+              "name": "activeUsers7d",
+              "measure": "activeUsers",
+              "trailing": {
+                "amount": 7,
+                "unit": "day"
+              },
+              "approximate": true
+            },
+            {
+              "kind": "shift",
+              "requiresTimeRange": true,
+              "name": "activeUsersLastWeek",
+              "measure": "activeUsers",
+              "interval": {
+                "amount": 1,
+                "unit": "week"
+              },
+              "approximate": true
+            }
+          ],
+          "allowedFilters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": [
+                "eq",
+                "in"
+              ]
+            }
+          ],
+          "segments": [
+            {
+              "name": "big",
+              "predicate": {
+                "kind": "comparison",
+                "operator": "gt",
+                "left": {
+                  "kind": "reference",
+                  "name": "amount"
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": 100.5
+                }
+              }
+            }
+          ],
+          "relationships": [],
+          "timeField": "created_at",
+          "alternateTimeFields": [
+            "shipped_at"
+          ],
+          "defaults": {
+            "timeGrain": "minute"
+          }
+        }
+      ]
+    },
+    "expected": [
+      {
+        "dataset": "orders",
+        "features": [
+          "segments",
+          "windowMeasures",
+          "shiftMeasures",
+          "approxCountDistinct",
+          "subDayDefaultGrain",
+          "alternateTimeFields"
+        ]
+      }
+    ]
+  }
+]

@@ -137,6 +137,22 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolSemanticInvocationV2',
       'validateProtocolSemanticQuery',
       'validateProtocolSqlExpression',
+      // RFC 0030: target acceptance, version-neutral readers and invocation selection.
+      'DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS',
+      'PROTOCOL_CONTRACT_3_FEATURES',
+      'PROTOCOL_CONTRACT_3_FEATURE_LABELS',
+      'checkProtocolDeploymentTargetAcceptance',
+      'datasetAllowedFilters',
+      'datasetContract3Features',
+      'datasetGrains',
+      'datasetSegments',
+      'datasetTimeAxes',
+      'deploymentContract3Features',
+      'semanticInvocation2Features',
+      'semanticInvocationVersion',
+      'toSemanticInvocation',
+      'validateProtocolDeploymentTargetAccepts',
+      'withDatasetAllowedFilters',
     ].sort());
   });
 });
