@@ -95,9 +95,10 @@ so the checker never has to decide whether a construct is harmless.
    placeholders into the whole statement), and `{`, `}` and `$` outside literals
    (server-side `{name:Type}` parameters and `$$` heredoc strings). The SQL
    is static; a query's values bind only to the predicates the planner adds.
-5. **Read-only `SELECT`.** The first word is `SELECT` or `WITH`. The words
-   `SETTINGS`, `FORMAT`, `INTO` and `OUTFILE` are refused anywhere outside
-   literals and quoted identifiers. Settings belong to the runtime (and some,
+5. **Read-only `SELECT`.** The first word is `SELECT` or `WITH`, and no
+   parenthesized group starts with `EXPLAIN`, `DESCRIBE`, `DESC` or `SHOW`. The
+   words `SETTINGS`, `FORMAT`, `INTO`, `OUTFILE`, `EXPLAIN`, `DESCRIBE` and
+   `SHOW` are refused anywhere outside literals and quoted identifiers. Settings belong to the runtime (and some,
    like `readonly`, are the operator's isolation boundary); `FORMAT` and
    `INTO OUTFILE` change what the statement returns or where it writes. Since
    the statement starts with `SELECT`/`WITH` and is the only statement, no
@@ -108,8 +109,15 @@ so the checker never has to decide whether a construct is harmless.
    followed by `(` is a table function and is refused: `url`, `remote`,
    `remoteSecure`, `cluster`, `file`, `s3`, `hdfs`, `mysql`, `postgresql`,
    `jdbc`, `odbc`, `executable`, `merge`, `numbers`, `generateRandom` and every
-   other one. A name after `IN`/`NOT IN`/`GLOBAL IN` that isn't followed by `(`
-   reads a table too and is treated as a table reference.
+   other one. A parenthesized target must start a query (`SELECT`, `WITH` or a
+   further `(`), and a name has at most two parts; anything else is refused.
+   A comma after `JOIN`, `ON`, `USING` or `SAMPLE` at the same level also
+   starts a table reference, so write `USING (a, b)` rather than `USING a, b`.
+   A name after `IN` that isn't followed by `(` reads a table and is a table
+   reference wherever it appears, function arguments included. (This
+   refuses `position(a IN b)`; write `position(b, a)`.) `FROM` inside a
+   function call (`EXTRACT(… FROM …)`, `substring(… FROM …)`) isn't a table
+   position.
 7. **No out-of-band reads or blocking.** Calls to functions that read an object
    named in a string, the filesystem, or that sleep are refused: names starting
    with `dict` (`dictGet`, `dictHas`, …), `joinGet`, `joinGetOrNull`, `file`,
@@ -193,9 +201,17 @@ applies every rule in this RFC. Structural failures use the existing codes
 (`HQ_DEPLOYMENT_TYPE`, `HQ_DEPLOYMENT_UNKNOWN_FIELD`,
 `HQ_DEPLOYMENT_INVALID_IDENTIFIER`, `HQ_DEPLOYMENT_TOO_MANY_ITEMS`,
 `HQ_DEPLOYMENT_TOO_LARGE`); a SQL rule failure is `HQ_DEPLOYMENT_INVALID_VALUE`
-at `…source.sql`; a coverage failure is `HQ_DEPLOYMENT_INVALID_REFERENCE` at
-`…source.dependencies`; a field naming an undeclared column is
-`HQ_DEPLOYMENT_INVALID_REFERENCE` at that field.
+at `…source.sql` (including a dependency in a system database); a coverage
+failure is `HQ_DEPLOYMENT_INVALID_REFERENCE` at `…source.dependencies`.
+
+The contract validator checks the column references it can resolve without
+the dataset vocabulary: the tenant field, and each column-backed dimension's
+column and type (`HQ_DEPLOYMENT_INVALID_REFERENCE` at `…tenant.field` or
+`…dimensions[i].source.column`). `rowResolution` beside a SQL source is
+`HQ_DEPLOYMENT_INVALID_VALUE` at `…rowResolution`. The remaining references
+(measure fields, filters, time keys, relationship keys, raw-SQL dependencies)
+are checked by the definition rules above, which rehydration runs, so a
+portable executor refuses the dataset before it plans a query.
 
 Older validators read `source` as text and reject the object
 (`HQ_DEPLOYMENT_TYPE`). Consumers upgrade together; nothing strips the object or
@@ -208,10 +224,12 @@ executor queries a rehydrated SQL-sourced dataset like any other.
 ## Caching and identity
 
 The SQL source is part of the contract, so it is part of deployment identity
-with no further rule. The local semantic cache signature adds `sourceSha256`:
-the lowercase hex SHA-256 of the RFC 0012 canonical JSON of the contract form
-above. Editing the SQL, a dependency or a column changes the key. The field is
-omitted for table sources, so their keys don't change.
+with no further rule. Locally, the RFC 0013 preimage's definition identity
+describes the whole dataset instance, which carries the SQL source, so result
+cache keys change when the SQL, a dependency or a column does. The readable
+(deprecated) query signature adds `sourceSha256`: the lowercase hex SHA-256 of
+the sorted-key JSON of the contract form above. It is omitted for table
+sources, so their keys don't change.
 
 ## Exposure
 
@@ -263,7 +281,13 @@ RFC is accepted.
 
 ## Implementations
 
-TypeScript validates, publishes, rehydrates and plans SQL sources. Python
+TypeScript validates, publishes, rehydrates and plans SQL sources. Executable
+ClickHouse reconciliation is in
+`packages/datasets/src/tests/integration/sql-sources.test.ts`: per-step totals
+against independent SQL with unmerged ReplacingMergeTree versions under
+PREWHERE-unsafe client settings, colliding user ids across tenants, a join to a
+table dataset, a raw-SQL cumulative measure, and the rehydrated contract run by
+a `readonly = 2` user. Python
 doesn't implement them yet: its contract check reads `source` as text and
 rejects the object (`HQ_DEPLOYMENT_TYPE`), which fails closed. Parity is a
 follow-up before acceptance.
