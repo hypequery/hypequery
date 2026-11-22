@@ -14,7 +14,7 @@ import { renderStatement, type RenderedStatement } from './utils/statement-param
 import { statementRunner } from './utils/statement-runner.js';
 import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './utils/time-axis-bounds.js';
 import { isTimeKeyFilter } from './utils/query-timezone.js';
-import { filterLeaves } from './utils/filter-tree.js';
+import { filterLeafCount, filterLeaves } from './utils/filter-tree.js';
 import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
 import { funnelResultRows } from './utils/funnel-rows.js';
@@ -41,17 +41,25 @@ export function eventOperationErrors(
   ds: AnyDatasetInstance,
   spec: EventOperationSpec,
   context?: ExecutionContext,
+  /**
+   * Comparisons as the caller wrote them. A resolved `inDateRange` becomes two
+   * bounds, but counts once against `maxFilters`, as the data plane counts it.
+   */
+  authoredFilterCount?: number,
 ): string[] {
   if (!ds.events) return [`Dataset "${ds.name}" does not declare events.`];
   const shape = eventOperationShapeErrors(spec);
   if (shape.length > 0) return shape;
   const conditions = eventOperationConditions(spec);
   const conditionLeaves = filterLeaves(conditions);
-  const errors = [...validateDatasetQueryInput(ds, {
+  // The filter budget is checked below on the authored count, so the
+  // validator's own count of the resolved filters is set aside.
+  const errors = validateDatasetQueryInput(ds, {
     dimensions: [spec.entity, ...spec.breakdown],
     measures: [],
     filters: [...spec.filters, ...conditions],
-  }, context).errors];
+  }, context).errors.filter(error => !error.startsWith('Too many filters:'));
+  errors.push(...eventFilterBudgetErrors(ds, context, authoredFilterCount ?? filterLeafCount([...spec.filters, ...conditions])));
   for (const name of [spec.entity, ...spec.breakdown]) {
     if (ds.dimensions[name]?.fieldType === 'timestamp') errors.push(`"${name}" is a time dimension and can't be grouped on here.`);
   }
@@ -69,6 +77,17 @@ export function eventOperationErrors(
     errors.push('The time range must be non-empty and ordered.');
   }
   return errors;
+}
+
+/** `maxFilters`, less the call's enforced constraints, over the caller's comparisons. */
+function eventFilterBudgetErrors(ds: AnyDatasetInstance, context: ExecutionContext | undefined, count: number): string[] {
+  const maxFilters = ds.limits?.maxFilters;
+  if (!maxFilters) return [];
+  const constraints = Array.isArray(context?.runtime?.constraints) ? context.runtime.constraints.length : 0;
+  if (count <= maxFilters - constraints) return [];
+  return [constraints === 0
+    ? `Too many filters: ${count} (max ${maxFilters})`
+    : `Too many filters: ${count} (max ${maxFilters - constraints} under the enforced constraints)`];
 }
 
 export interface PrepareEventOperationOptions {
@@ -91,7 +110,8 @@ export function prepareEventOperation(
 ): PreparedEventOperation {
   const filters = resolveRelativeDateFilters(ds, [...input.filters], (options.now ?? (() => new Date()))(), input.timezone);
   const spec: EventOperationSpec = filters === undefined || filters === input.filters ? input : { ...input, filters };
-  const errors = eventOperationErrors(ds, spec, options.context);
+  const authored = filterLeafCount([...input.filters, ...eventOperationConditions(input)]);
+  const errors = eventOperationErrors(ds, spec, options.context, authored);
   if (errors.length > 0) throw new Error(`Invalid ${spec.kind}: ${errors.join('; ')}`);
   const readsFinal = (joinCtx: Parameters<typeof queryReadsFinal>[1]) => queryReadsFinal(ds, joinCtx);
   const planned = spec.kind === 'retention'

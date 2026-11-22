@@ -26,6 +26,7 @@ import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf
 import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 import {
   estimateEventBuckets,
+  estimatePlacementFreeBuckets,
   eventRangeDays,
   eventTimeRange,
   type EventTimeRange,
@@ -114,15 +115,20 @@ function conditionLists(operation: ProtocolEventOperation): { path: string; wher
  * options: cohorts × steps (funnel) or cohorts × periods (retention), per
  * breakdown group.
  */
-function estimatedRows(operation: ProtocolEventOperation, range: EventTimeRange): number {
+function estimatedRows(operation: ProtocolEventOperation, range: EventTimeRange, relativeDays?: number): number {
   const groups = operation.breakdown === undefined
     ? 1
     : operation.breakdownLimit ?? PROTOCOL_EVENT_OPERATION_LIMITS.defaultBreakdownLimit;
+  // A relative range is placed by the executor's clock, so its buckets are
+  // counted for the worst placement rather than for the anchored span.
+  const buckets = (grain: 'day' | 'week' | 'month') => (relativeDays === undefined
+    ? estimateEventBuckets(range, grain)
+    : estimatePlacementFreeBuckets(relativeDays, grain));
   if (operation.kind === 'retention') {
-    return estimateEventBuckets(range, operation.grain) * operation.periods * groups;
+    return buckets(operation.grain) * operation.periods * groups;
   }
-  const buckets = operation.by === undefined ? 1 : estimateEventBuckets(range, operation.by);
-  return buckets * groups * operation.steps.length;
+  const cohorts = operation.by === undefined ? 1 : buckets(operation.by);
+  return cohorts * groups * operation.steps.length;
 }
 
 /**
@@ -232,7 +238,7 @@ export function validateSemanticEventOperation(
   if (eventRangeDays(range) > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
     fail(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`, '$.operation.filters');
   }
-  const rows = estimatedRows(operation, range);
+  const rows = estimatedRows(operation, range, relative);
   if (rows > limits.maxRows) {
     fail(
       `This ${operation.kind} could return ${rows} rows; the limit is ${limits.maxRows}. `
