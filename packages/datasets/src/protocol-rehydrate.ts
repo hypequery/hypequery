@@ -1,3 +1,4 @@
+import { sqlSourceFromContract } from './utils/sql-dataset-source.js';
 /**
  * Rebuilds executable datasets from a portable deployment contract.
  *
@@ -26,7 +27,7 @@ import type {
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
+import { isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -492,7 +493,7 @@ export function rehydrateProtocolDatasets(
   for (const { base: contract, derived, timed, segments } of normalized) {
     const name = String(contract.name);
     const instance = dataset(name, {
-      source: contract.source,
+      source: isProtocolSqlSource(contract.source) ? sqlSourceFromContract(contract.source) : contract.source,
       ...(contract.rowResolution === undefined ? {} : { rowResolution: contract.rowResolution }),
       ...snapshotSemanticMetadata(contract),
       ...(contract.description !== undefined ? { description: contract.description } : {}),

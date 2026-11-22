@@ -1,3 +1,4 @@
+import { sqlSourceSha256 } from '../utils/sql-dataset-source.js';
 import { windowQuerySignature } from '../utils/window-query-signature.js';
 /**
  * Canonical cache keys for semantic queries.
@@ -150,6 +151,7 @@ export function buildDatasetQuerySignature(
     kind: 'dataset',
     target: ds.name,
     source: ds.source,
+    ...(ds.sqlSource ? { sourceSha256: sqlSourceSha256(ds.sqlSource) } : {}),
     // Omitted when false so existing datasets keep their cache keys.
     ...(ds.rowResolution ? { rowResolution: ds.rowResolution } : {}),
     dimensions: query.dimensions ?? null,
@@ -186,6 +188,7 @@ export function buildMetricQuerySignature(
     kind: 'metric',
     target: `${ref.dataset.name}.${ref.name}`,
     source: ref.dataset.source,
+    ...(ref.dataset.sqlSource ? { sourceSha256: sqlSourceSha256(ref.dataset.sqlSource) } : {}),
     ...(ref.dataset.rowResolution ? { rowResolution: ref.dataset.rowResolution } : {}),
     metricKind: ref.spec.__type,
     dimensions: query.dimensions ?? null,

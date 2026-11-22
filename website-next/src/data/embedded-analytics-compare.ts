@@ -43,7 +43,7 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     href: '/compare/embeddable-alternatives',
     title: 'Embeddable alternatives',
     description:
-      'Alternatives grouped by why teams leave Embeddable: owning the UI and data layer in the repo, giving customers a full BI tool, published pricing, or staying on ClickHouse without Cube.',
+      'Alternatives grouped by why teams leave Embeddable. Some want the UI and data layer in their repo, some want a full BI tool for customers, some want published pricing, and some want ClickHouse without Cube.',
   },
   {
     href: '/compare/hypequery-vs-embeddable',
@@ -56,6 +56,12 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
     title: 'hypequery vs Luzmo',
     description:
       'Hosted embedded BI with a dashboard editor, or a ClickHouse semantic layer in your repo: data model, tenant isolation, UI ownership, MCP and pricing.',
+  },
+  {
+    href: '/compare/hypequery-vs-querypanel',
+    title: 'hypequery vs QueryPanel',
+    description:
+      'Hosted text-to-SQL with tenant filters, or reviewed metric definitions compiled in your own backend: data flow, tenant isolation, ClickHouse support and pricing.',
   },
   {
     href: '/cube-js-alternative',

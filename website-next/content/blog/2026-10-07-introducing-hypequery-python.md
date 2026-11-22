@@ -16,7 +16,7 @@ tags:
   - Semantic layer
 ---
 
-Today we are launching the **hypequery for Python beta**: the same code-first semantic layer for ClickHouse that TypeScript teams use, now as a Python SDK.
+Today we are launching the **hypequery for Python beta**: the same code-first [semantic layer](/semantic-layer) for ClickHouse that TypeScript teams use, now as a Python SDK.
 
 You define datasets in Python: the dimensions people can group by, the measures they can aggregate, the relationships between tables, and the tenant rules every query must follow. Then you query those definitions by name from jobs, notebooks, and services, serve them over HTTP from the framework you already use (FastAPI, Django, Flask, or any ASGI or WSGI app) with authentication on by default, and use the same definitions from generated, type-safe React hooks and from AI agents over MCP.
 

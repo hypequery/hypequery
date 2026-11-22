@@ -1,4 +1,5 @@
 import { validateProtocolRowResolution } from './row-resolution.js';
+import { isProtocolSqlSource, validateProtocolSqlSource } from './sql-source.js';
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import {
@@ -38,6 +39,7 @@ import type {
   ProtocolDeploymentOptions,
   ProtocolEndpointPolicy,
   ProtocolEndpointTenantPolicy,
+  ProtocolSqlSource,
 } from './types.js';
 
 type DataRecord = Record<string, unknown>;
@@ -888,7 +890,11 @@ function validateDataset(
   // `field` is a plain call and the first failure throws.
   const result: Record<string, unknown> = {
     name: field(() => identifier(value.name, `${path}.name`)),
-    source: field(() => boundedText(value.source, `${path}.source`, limits.maxSourceBytes)),
+    source: field(() => (
+      typeof value.source === 'object' && value.source !== null
+        ? validateProtocolSqlSource(value.source, `${path}.source`, limits)
+        : boundedText(value.source, `${path}.source`, limits.maxSourceBytes)
+    )),
     tenant: field(() => validateTenant(value.tenant, `${path}.tenant`, limits)),
     dimensions: field(() => namedItems(
       value.dimensions, `${path}.dimensions`, limits.maxDatasetItems,
@@ -947,6 +953,9 @@ function validateDataset(
       value.alternateTimeFields, `${path}.alternateTimeFields`, value.timeField, limits,
     ));
   }
+  if (isProtocolSqlSource(result.source)) {
+    validateSqlSourceReferences(value, result, path, filtersKey, measureIndices, issues);
+  }
   field(() => optionalText(value.description, 'description', result, path, limits));
   field(() => optionalText(value.owner, 'owner', result, path, limits));
   validateSemanticMetadata(value, result, path, limits, issues);
@@ -987,6 +996,82 @@ function validateAlternateTimeFields(
   }));
 }
 
+/**
+ * RFC 0028: a SQL source's declared columns are the only addressable ones,
+ * and FINAL belongs inside its SQL rather than on the dataset. Column
+ * references are bare; SQL-expression dependencies may also qualify with the
+ * source's alias. Measure
+ * filters are expressions and are left to the runtime's definition checks.
+ */
+function validateSqlSourceReferences(
+  value: DataRecord,
+  result: Record<string, unknown>,
+  path: string,
+  filtersKey: string,
+  measureIndices: readonly number[] | undefined,
+  issues?: DeploymentErrorCollector,
+): void {
+  const source = result.source as ProtocolSqlSource;
+  const fail = (code: ProtocolDeploymentErrorCode, at: string) => attempt(issues, () => deploymentError(code, at));
+  if (value.rowResolution !== undefined) fail('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.rowResolution`);
+  const dimensions = (result.dimensions ?? []) as readonly ProtocolDatasetDimension[];
+  const relationships = (result.relationships ?? []) as readonly ProtocolDatasetRelationship[];
+  const dimensionNames = new Set<string>(dimensions.map(dimension => dimension.name));
+  const relationshipNames = new Set<string>(relationships.map(relationship => relationship.name));
+  const column = (reference: string) => {
+    const bare = reference.startsWith(`${source.alias}.`) ? reference.slice(source.alias.length + 1) : reference;
+    return source.columns.find(item => item.name === bare);
+  };
+  // Column-backed references are bare, as code-first datasets write them; only
+  // SQL-expression dependencies may qualify a column with the alias.
+  const requireColumn = (reference: string, at: string, qualified = false) => {
+    const found = qualified ? column(reference) : source.columns.find(item => item.name === reference);
+    if (found === undefined) fail('HQ_DEPLOYMENT_INVALID_REFERENCE', at);
+  };
+  // A field names a dimension, a relationship's field, or a source column.
+  const fieldOrColumn = (reference: string, at: string) => {
+    if (dimensionNames.has(reference)) return;
+    const dot = reference.indexOf('.');
+    if (dot > 0 && relationshipNames.has(reference.slice(0, dot))) return;
+    requireColumn(reference, at);
+  };
+  const dependencies = (expression: { readonly dependencies: readonly string[] } | undefined, at: string) => {
+    for (const [index, dependency] of (expression?.dependencies ?? []).entries()) {
+      requireColumn(dependency, `${at}.dependencies[${index}]`, true);
+    }
+  };
+
+  const tenant = result.tenant as ProtocolDatasetTenantPolicy | undefined;
+  if (tenant?.kind === 'required') requireColumn(tenant.field, `${path}.tenant.field`);
+  for (const [index, dimension] of dimensions.entries()) {
+    const at = `${path}.dimensions[${index}].source`;
+    if (dimension.source.kind !== 'column') {
+      dependencies(dimension.source, at);
+    } else if (source.columns.find(item => item.name === (dimension.source as { column: string }).column)?.type !== dimension.type) {
+      fail('HQ_DEPLOYMENT_INVALID_REFERENCE', `${at}.column`);
+    }
+  }
+  if (typeof result.timeField === 'string') fieldOrColumn(result.timeField, `${path}.timeField`);
+  for (const [index, measure] of ((result.measures ?? []) as readonly ProtocolDatasetMeasure[]).entries()) {
+    // Base measures are checked apart from composite ones; report the contract's index.
+    const at = `${path}.measures[${measureIndices?.[index] ?? index}]`;
+    if (measure.sql !== undefined) {
+      dependencies(measure.sql, `${at}.sql`);
+      continue;
+    }
+    fieldOrColumn(measure.field, `${at}.field`);
+    if (measure.argField !== undefined) fieldOrColumn(measure.argField, `${at}.argField`);
+  }
+  for (const [index, filter] of ((result[filtersKey] ?? []) as readonly ProtocolDatasetFilter[]).entries()) {
+    fieldOrColumn(filter.field, `${path}.${filtersKey}[${index}].field`);
+  }
+  for (const [index, relationship] of relationships.entries()) {
+    const at = `${path}.relationships[${index}]`;
+    requireColumn(relationship.from, `${at}.from`);
+    for (const [keyIndex, key] of (relationship.keys ?? []).entries()) requireColumn(key.from, `${at}.keys[${keyIndex}].from`);
+  }
+}
+
 export function validateProtocolDatasetContract(
   input: unknown,
   options: ProtocolDeploymentOptions = {},
@@ -1011,6 +1096,8 @@ function validateDatasetReferences(
   issues?: DeploymentErrorCollector,
 ): void {
   const names = new Set(datasets.map(dataset => dataset.name));
+  // RFC 0028 version 1: a derived table can't be joined in as a target.
+  const sqlSourced = new Set(datasets.filter(dataset => isProtocolSqlSource(dataset.source)).map(dataset => dataset.name));
   const reference = (path: string) => attempt(issues, () => deploymentError('HQ_DEPLOYMENT_INVALID_REFERENCE', path));
   for (const [index, dataset] of datasets.entries()) {
     if (dataset.defaults?.dimensions?.some(name => (
@@ -1022,7 +1109,7 @@ function validateDatasetReferences(
       reference(`$.datasets[${index}].defaults.timeGrain`);
     }
     for (const [relationshipIndex, relationship] of dataset.relationships.entries()) {
-      if (!names.has(relationship.target)) {
+      if (!names.has(relationship.target) || sqlSourced.has(relationship.target)) {
         reference(`$.datasets[${index}].relationships[${relationshipIndex}].target`);
       }
     }

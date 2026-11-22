@@ -343,6 +343,8 @@ export type {
   SemanticFiltersDefinition,
   DatasetConfig,
   RowResolution,
+  DatasetSqlSource,
+  ResolvedDatasetSqlSource,
   DatasetDefaults,
   DatasetFreshness,
   DatasetLimits,

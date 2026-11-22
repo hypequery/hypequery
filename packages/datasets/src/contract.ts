@@ -1,3 +1,4 @@
+import type { DatasetSqlSource } from './types.js';
 import type { RowResolution } from './types.js';
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
@@ -90,6 +91,8 @@ export interface ContractDataset extends SemanticMetadata {
   name: string;
   description?: string;
   source: string;
+  /** RFC 0028: the SQL source `source` aliases. Omitted with `includeSql: false`. */
+  sqlSource?: DatasetSqlSource;
   rowResolution?: RowResolution;
   freshness?: DatasetFreshness;
   owner?: string;
@@ -164,6 +167,14 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     ...(catalog.description !== undefined ? { description: catalog.description } : {}),
     ...snapshotSemanticMetadata(catalog),
     source: catalog.source,
+    ...(includeSql && catalog.sqlSource !== undefined ? {
+      sqlSource: {
+        sql: catalog.sqlSource.sql,
+        alias: catalog.sqlSource.alias,
+        dependencies: [...catalog.sqlSource.dependencies],
+        columns: { ...catalog.sqlSource.columns },
+      },
+    } : {}),
     ...(catalog.rowResolution === undefined ? {} : { rowResolution: { ...catalog.rowResolution } }),
     ...(catalog.freshness !== undefined ? { freshness: { ...catalog.freshness } } : {}),
     ...(catalog.owner !== undefined ? { owner: catalog.owner } : {}),

@@ -34,6 +34,10 @@ export function scopedDatasetSource(options: ScopedDatasetSourceOptions): QueryB
   const { ds, context, joinCtx, dialect, timezone } = options;
   // Validators report this too; checked here so no path can skip it.
   assertEnforcedConstraints(ds, context);
+  // RFC 0028's SQL rules are ClickHouse's.
+  if (ds.sqlSource && dialect.name !== 'clickhouse') {
+    throw new Error(`Dataset "${ds.name}" reads a ClickHouse SQL source, which the "${dialect.name}" datasets dialect cannot run.`);
+  }
   let qb = applyRelationshipJoins(datasetSourceBuilder(options.builderFactory, ds), joinCtx);
   // A resolved join target is read with FINAL even when this dataset isn't.
   if (queryReadsFinal(ds, joinCtx) && qb.settings) qb = qb.settings(FINAL_SAFETY_SETTINGS);

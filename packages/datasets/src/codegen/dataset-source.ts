@@ -1,3 +1,5 @@
+import { isProtocolSqlSource } from '@hypequery/protocol';
+import { sqlSourceFromContract } from '../utils/sql-dataset-source.js';
 import type {
   ProtocolDatasetDerivedMeasure,
   ProtocolDatasetDimension,
@@ -243,7 +245,7 @@ export function datasetSource(
   ];
 
   const config = {
-    source: dataset.source,
+    source: isProtocolSqlSource(dataset.source) ? sqlSourceFromContract(dataset.source) : dataset.source,
     description: dataset.description,
     ...metadata(dataset, 'the dataset'),
     rowResolution: dataset.rowResolution,
