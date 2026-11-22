@@ -26,17 +26,11 @@ import { statementRunner } from './statement-runner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
-import { buildCalculationStageSql } from './calculation-stage-sql.js';
+import { buildCalculationStageSql, withOtherTop } from './calculation-stage-sql.js';
 import { planQueryCalculations, publicCalculationErrors, type QueryCalculationPlan } from './query-calculation-plan.js';
+import { assertStageSupported, otherRankingSql, withOtherBucket } from './other-bucket-sql.js';
 import type { PreparedDatasetQuery, DatasetQueryMode } from './compile-dataset-query.js';
 
-/** Thrown when a calculation names a kind or field this executor cannot run yet. */
-export class UnsupportedQueryCalculationError extends Error {
-  constructor(readonly reasons: readonly string[]) {
-    super(reasons.join('; '));
-    this.name = 'UnsupportedQueryCalculationError';
-  }
-}
 
 /**
  * Every reason a calculated query cannot run, with the caller's names. The
@@ -48,15 +42,15 @@ export function calculatedDatasetQueryErrors(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
-): { errors: string[]; unsupported: readonly string[]; plan?: QueryCalculationPlan } {
+): { errors: string[]; plan?: QueryCalculationPlan } {
   // The syntax every dataset query gets, before the planner rewrites `orderBy`
   // and drops it from the inner query.
   const syntax = semanticQuerySyntaxErrors(query);
-  if (syntax.length > 0) return { errors: syntax, unsupported: [] };
+  if (syntax.length > 0) return { errors: syntax };
   // Plan on the selected time axis, as every inner planner will.
   const axis = selectedTimeKeyError(ds, query.timeKey) ? ds : datasetOnTimeKey(ds, query.timeKey);
   const result = planQueryCalculations(axis, query, context);
-  if (result.plan === undefined) return { errors: [...result.errors], unsupported: result.unsupported };
+  if (result.plan === undefined) return { errors: [...result.errors] };
   const { plan } = result;
   const validation = validateDatasetQueryInput(plan.dataset, {
     ...plan.inner,
@@ -65,14 +59,12 @@ export function calculatedDatasetQueryErrors(
   }, context);
   return {
     errors: publicCalculationErrors(validation.errors, plan.outputs),
-    unsupported: [],
     plan,
   };
 }
 
 function planOrThrow(ds: AnyDatasetInstance, query: DatasetQuery, context?: ExecutionContext): QueryCalculationPlan {
-  const { errors, unsupported, plan } = calculatedDatasetQueryErrors(ds, query, context);
-  if (unsupported.length > 0) throw new UnsupportedQueryCalculationError(unsupported);
+  const { errors, plan } = calculatedDatasetQueryErrors(ds, query, context);
   if (errors.length > 0 || plan === undefined) throw new Error(`Invalid dataset query: ${errors.join('; ')}`);
   return plan;
 }
@@ -84,8 +76,9 @@ export function prepareCalculatedDatasetQuery(
   mode: DatasetQueryMode,
 ): PreparedDatasetQuery {
   const plan = planOrThrow(dataset, query, options.context);
-  const view = plan.dataset;
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
+  assertStageSupported(plan, dialect);
+  const view = plan.other === undefined ? plan.dataset : withOtherBucket(plan.dataset, plan.other, dialect);
   const executionLimit = mode === 'execution' ? overfetchLimit(query.limit) : query.limit;
   // The inner statement is unpaged (the outer stage pages it), but the time
   // planner keeps the caller's limit as its exact series budget.
@@ -109,11 +102,22 @@ export function prepareCalculatedDatasetQuery(
     innerPlan = 'derived';
     planned = buildDerivedDatasetSql(view, plan.inner, innerOptions, buildDatasetQueryBuilder);
   }
-  const outer = buildCalculationStageSql(query, plan, planned, dialect, executionLimit);
+  // Each statement the stage embeds is planned and rendered on its own, with
+  // the same tenancy, filters and segments as the inner one.
+  const denominators = new Map(plan.shares.flatMap(share => (share.denominator === undefined ? [] : [[
+    share.internal,
+    renderStatement(buildDerivedDatasetSql(view, share.denominator, innerOptions, buildDatasetQueryBuilder)),
+  ] as const])));
+  const otherTop = plan.other === undefined
+    ? undefined
+    : renderStatement(otherRankingSql(plan.dataset, plan.other, innerOptions, dialect));
+  const outer = buildCalculationStageSql(query, plan, planned, dialect, executionLimit, {
+    denominators, ...(otherTop === undefined ? {} : { otherTop }),
+  });
   const statement = withFinalSafety(readsFinal, renderStatement(outer));
   const preflightStatements: DatasetCompiledStatement[] = preflight === undefined
     ? []
-    : [withFinalSafety(readsFinal, renderStatement(preflight))];
+    : [withFinalSafety(readsFinal, renderStatement(withOtherTop(preflight, otherTop, dialect)))];
 
   const description: DatasetCompilationDescription = Object.freeze({
     kind: 'dataset-compilation', version: 1, dataset: dataset.name, plan: innerPlan,

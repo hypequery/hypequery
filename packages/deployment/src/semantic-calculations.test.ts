@@ -51,8 +51,10 @@ function builderFactory() {
   return { factory, sql };
 }
 
-function wire(visibility?: unknown) {
-  const { factory, sql } = builderFactory();
+function wire(visibility?: unknown, dialect?: { name: string; quoteIdentifier(identifier: string): string }) {
+  const built = builderFactory();
+  const sql = built.sql;
+  const factory: QueryBuilderFactoryLike = dialect === undefined ? built.factory : { ...built.factory, datasetSqlDialect: dialect };
   const plane = createDeploymentSemanticDataPlane({
     deployment: deployment() as never,
     activationRevision: REVISION,
@@ -172,12 +174,36 @@ describe('RFC 0026 calculations through the data plane', () => {
     expect(sql).toHaveLength(0);
   });
 
-  it('refuses a calculation kind this executor does not run yet as unsupported-capability', async () => {
-    const { plane } = wire();
-    const error = await failure(invoke(plane, {
-      dimensions: ['plan'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }],
+  it.each([
+    ['rank', { dimensions: ['plan'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }] }, 'rank()', 1],
+    ['additive share', { dimensions: ['plan'], measures: ['revenue'], calculations: [{ name: 's', share: { measure: 'revenue' } }] }, 'OVER ()', 1],
+    ['non-additive share', { dimensions: ['plan'], measures: ['visitors'], calculations: [{ name: 's', share: { measure: 'visitors' } }] }, 'CROSS JOIN', 2],
+    ['limitBy', { dimensions: ['plan', 'status'], measures: ['revenue'], orderBy: [{ field: 'revenue', direction: 'desc' }], limitBy: { n: 2, by: ['plan'] } }, 'LIMIT 2 BY', 1],
+    ['other', { dimensions: ['plan'], measures: ['revenue'], other: { dimension: 'plan', n: 3, measure: 'revenue' } }, '_hq_other_top', 2],
+  ] as const)('executes %s, tenant-scoped in every embedded statement', async (_name, operation, marker, statements) => {
+    const { plane, sql } = wire();
+    await invoke(plane, operation as never);
+    const text = sql.join('\n');
+    expect(text).toContain(marker);
+    // The top-N and denominator statements carry tenancy too.
+    expect(text.match(/tenant_id/g)).toHaveLength(statements);
+  });
+
+  it('refuses other on a dimension that is not a string', async () => {
+    const error = await failure(invoke(wire().plane, {
+      dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 3, measure: 'revenue' },
     }));
-    expect(error.category).toBe('unsupported-capability');
-    expect(error.message).toMatch(/"rank"/);
+    expect([error.category, error.path]).toEqual(['input-invalid', '$.operation.other.dimension']);
+  });
+
+  it('refuses a stage feature the engine cannot run as unsupported-capability, with its reason', async () => {
+    const { plane, sql } = wire(undefined, { name: 'elsewhere', quoteIdentifier: identifier => `"${identifier}"` });
+    const error = await failure(invoke(plane, {
+      dimensions: ['plan', 'status'], measures: ['revenue'],
+      orderBy: [{ field: 'revenue', direction: 'desc' }], limitBy: { n: 2, by: ['plan'] },
+    }));
+    expect([error.category, error.code]).toEqual(['unsupported-capability', 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY']);
+    expect(error.message).toBe('"limitBy" is not supported on the "elsewhere" dialect.');
+    expect(sql).toHaveLength(0);
   });
 });

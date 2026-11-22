@@ -8,10 +8,12 @@ import { describe, expect, it } from 'vitest';
 import {
   createPortableSemanticRuntime,
   PortableExecutionInputError,
-  PortableExecutionUnsupportedError,
   type PortableSemanticExecutionInput,
 } from './portable-executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
+import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
+import { defineDatasetSqlDialectRules } from './utils/dataset-sql-dialect.js';
+import { UNSUPPORTED_CONTRACT_REASONS } from './utils/unsupported-contract-reasons.js';
 
 const REVISION = 'c'.repeat(64);
 
@@ -156,14 +158,41 @@ describe('RFC 0026 calculations through the portable runtime', () => {
     expect(error.message).toMatch(/unknown measure "nope"/);
   });
 
-  it('claims unsupported-capability for kinds it does not run yet', () => {
-    const runtime = createPortableSemanticRuntime({ queryBuilder: recordingFactory().factory });
-    for (const operation of [
-      { dimensions: ['status'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }] },
-      { dimensions: ['status'], measures: ['revenue'], orderBy: [{ field: 'revenue', direction: 'desc' }], limitBy: { n: 1, by: ['status'] } },
-      { dimensions: ['status'], measures: ['revenue'], other: { dimension: 'status', n: 2, measure: 'revenue' } },
-    ]) {
-      expect(() => runtime.compile(input(operation))).toThrow(PortableExecutionUnsupportedError);
-    }
+  it('executes rank, share, limitBy and other, with every output typed', async () => {
+    const { factory, sql } = recordingFactory();
+    const result = await createPortableSemanticRuntime({ queryBuilder: factory }).execute(input({
+      dimensions: ['status'], measures: ['revenue', 'orderCount'],
+      calculations: [
+        { name: 'r', rank: { measure: 'revenue' } },
+        { name: 's', share: { measure: 'revenue' } },
+      ],
+      orderBy: [{ field: 'r', direction: 'asc' }],
+      limitBy: { n: 1, by: ['status'] },
+      other: { dimension: 'status', n: 2, measure: 'orderCount' },
+    }));
+    expect(sql[0]).toMatch(/^WITH `_hq_other_top` AS /);
+    expect(sql[0]).toContain('LIMIT 1 BY `status`');
+    expect(result.meta.calculations?.map(column => [column.name, column.kind, column.type])).toEqual([
+      ['r', 'rank', 'integer'], ['s', 'share', 'number'],
+    ]);
+  });
+
+  it('claims unsupported-capability, with a reason, for stage features the dialect cannot run', async () => {
+    const { factory, sql } = recordingFactory();
+    const elsewhere = defineDatasetSqlDialectRules({ ...clickhouseDatasetSqlDialect, name: 'elsewhere' });
+    const runtime = createPortableSemanticRuntime({ queryBuilder: { ...factory, datasetSqlDialect: elsewhere } });
+    const error = await runtime.execute(input({
+      dimensions: ['status'], measures: ['revenue'], other: { dimension: 'status', n: 2, measure: 'revenue' },
+    })).catch(caught => caught as Error);
+    expect(error).toMatchObject({
+      category: 'unsupported-capability', code: 'HQ_SEMANTIC_UNSUPPORTED_CAPABILITY',
+      reason: UNSUPPORTED_CONTRACT_REASONS.queryCalculationDialect,
+      message: '"other" is not supported on the "elsewhere" dialect.',
+    });
+    expect(sql).toHaveLength(0);
+    // What the dialect does run is unaffected.
+    expect(runtime.compile(input({
+      dimensions: ['status'], measures: ['revenue'], calculations: [{ name: 's', share: { measure: 'revenue' } }],
+    })).sql).toContain('OVER ()');
   });
 });

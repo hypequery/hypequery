@@ -33,8 +33,8 @@ export function validateDatasetQueryInput(
 ): ValidationResult {
   // RFC 0026: a calculated query validates as the view and inner query it plans to.
   if (hasQueryCalculations(query)) {
-    const { errors, unsupported } = calculatedDatasetQueryErrors(dataset, query, context);
-    return { valid: errors.length === 0 && unsupported.length === 0, errors: [...errors, ...unsupported] };
+    const { errors } = calculatedDatasetQueryErrors(dataset, query, context);
+    return { valid: errors.length === 0, errors };
   }
   // Validate against the selected time axis, so grain and window checks see it.
   const timeKeyError = selectedTimeKeyError(dataset, query.timeKey);

@@ -209,7 +209,7 @@ describe('RFC 0026 calculations against ClickHouse', () => {
       .rejects.toThrow(/bounded time range/);
     await expect(execute({ measures: ['users'], calculations: [{ name: 'u', window: { measure: 'users', cumulative: true } }], by: 'month', filters: range }))
       .rejects.toThrow(/cannot accumulate countDistinct/);
-    await expect(execute({ dimensions: ['country'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }] }))
-      .rejects.toThrow(/"rank" calculations are not supported/);
+    await expect(execute({ dimensions: ['country'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue', within: ['channel'] } }] }))
+      .rejects.toThrow(/calculations\[0\]\.rank\.within\[0\]/);
   });
 });

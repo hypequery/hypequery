@@ -6,6 +6,9 @@ import { datasetCacheKey } from './cache/protocol-cache-keys.js';
 import { createQueryBuilder } from '../../clickhouse/src/index.js';
 import type { DatasetQuery } from './types.js';
 import { formulaMeasure } from './utils/query-calculation-formula.js';
+import { clickhouseDatasetSqlDialect } from './utils/clickhouse-dataset-sql-dialect.js';
+import { defineDatasetSqlDialectRules } from './utils/dataset-sql-dialect.js';
+import { createRenderingBuilderFactory } from './tests/support/sql-equality-harness.js';
 import { calculationColumns } from './utils/query-calculation-outputs.js';
 
 const Orders = dataset('orders', {
@@ -151,6 +154,51 @@ describe('RFC 0026 calculations in the dataset client', () => {
     expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
   });
 
+  it('ranks and shares over the grouped rows before having, and bounds Top-N per group', () => {
+    const sql = recordingClient().client.toSQL({ ...Orders, limits: undefined }, {
+      by: 'month', dimensions: ['country'], measures: ['revenue', 'users'], filters: RANGE,
+      calculations: [
+        { name: 'r', rank: { measure: 'revenue', within: ['period'] } },
+        { name: 's', share: { measure: 'revenue', of: ['period'] } },
+        { name: 'u', share: { measure: 'users', of: ['period'] } },
+      ],
+      having: [{ measure: 'r', operator: 'lte', value: 3 }],
+      orderBy: [{ field: 'revenue', direction: 'desc' }],
+      limitBy: { n: 2, by: ['period'] },
+    }, TENANT);
+    expect(sql).toContain('rank() OVER (PARTITION BY `_hq_calc`.`period` ORDER BY `_hq_calc`.`revenue` DESC NULLS LAST) AS `_hq_calc_0`');
+    expect(sql).toContain('(toFloat64(`_hq_calc`.`revenue`) / NULLIF(sum(`_hq_calc`.`revenue`) OVER (PARTITION BY `_hq_calc`.`period`), 0)) AS `_hq_calc_1`');
+    // countDistinct is re-aggregated at the coarser grain and joined, NULL keys matching.
+    expect(sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total`');
+    expect(sql).toContain('isNotDistinctFrom(`_hq_calc`.`period`, `_hq_share__hq_calc_2`.`period`)');
+    expect(sql).toMatch(/WHERE `_hq_calc_0` <= \? ORDER BY `revenue` DESC LIMIT 2 BY `period`$/);
+  });
+
+  it('regroups other from source rows through a top-N CTE, leaving filters on source values', () => {
+    const sql = recordingClient().client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['users'],
+      filters: [{ field: 'country', operator: 'neq', value: 'ES' }],
+      other: { dimension: 'country', n: 3, measure: 'revenue', label: "Rest o'world" },
+    }, TENANT);
+    expect(sql).toMatch(/^WITH `_hq_other_top` AS \(SELECT `country` FROM .+ WHERE `country` IS NOT NULL ORDER BY `revenue` DESC, `country` ASC LIMIT 3\)/);
+    expect(sql).toContain("if(orders.country IN (SELECT `country` FROM `_hq_other_top`), orders.country, 'Rest o''world') AS `country`");
+    expect(sql).toContain('orders.country != ?');
+  });
+
+  it.each([
+    ['other on a non-string dimension', { dimensions: ['amount'], measures: ['revenue'], other: { dimension: 'amount', n: 2, measure: 'revenue' } }, /groups a string dimension/],
+    ['other ranked by an unknown measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'nope' } }, /ranks by unknown measure "nope"/],
+    ['other beside a relationship field', { dimensions: ['country'], measures: ['revenue'], filters: [{ field: 'customer.tier', operator: 'eq', value: 'gold' }], other: { dimension: 'country', n: 2, measure: 'revenue' } }, /cannot be combined with relationship fields/],
+    ['other beside a relationship field inside a filter group', { dimensions: ['country'], measures: ['revenue'], filters: [{ or: [...WEB, { not: { field: 'customer.tier', operator: 'eq', value: 'gold' } }] }], other: { dimension: 'country', n: 2, measure: 'revenue' } }, /cannot be combined with relationship fields/],
+    ['a rank of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 'r', rank: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
+    ['a share of an unknown selected measure', { dimensions: ['country'], measures: ['nope'], calculations: [{ name: 's', share: { measure: 'nope' } }] }, /reads unknown measure "nope"/],
+    ['other ranked by a window measure', { dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenueRunning' } }, /depends on a shift or window/],
+    ['a non-additive share of a time measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }, { name: 's', share: { measure: 'revenue_change_pct' } }] }, /not additive and depends on a shift or window/],
+    ['limitBy without orderBy', { dimensions: ['country'], measures: ['revenue'], limitBy: { n: 2, by: ['country'] } }, /limitBy requires a non-empty orderBy/],
+  ] as const)('refuses %s by name', (_name, query, message) => {
+    expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
+  });
+
   it.each([
     ['a shift of an unknown measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'p', shift: { measure: 'nope', amount: 1, unit: 'month' } }] }, /reads unknown measure "nope"/],
     ['a shift of a window measure', { by: 'month', measures: ['revenue'], filters: RANGE, calculations: [{ name: 'p', shift: { measure: 'revenueRunning', amount: 1, unit: 'month' } }] }, /cannot shift "revenueRunning", which already depends/],
@@ -159,7 +207,6 @@ describe('RFC 0026 calculations in the dataset client', () => {
     ['a formula over an unknown selected measure', { measures: ['revenue', 'nope'], calculations: [{ name: 'f', formula: { op: 'multiply', args: ['nope', 2] } }] }, /reads unknown measure "nope"/],
     ['a compare of an unknown selected measure', { by: 'month', measures: ['nope'], filters: RANGE, calculations: [{ name: 'c', compare: { to: 'previousPeriod', measures: ['nope'] } }] }, /reads unknown measure "nope"/],
     ['a compare of a window measure', { by: 'month', measures: ['revenueRunning'], filters: RANGE, calculations: [{ name: 'c', compare: { to: 'previousPeriod', measures: ['revenueRunning'] } }] }, /cannot compare "revenueRunning", which already depends/],
-    ['limitBy without orderBy', { dimensions: ['country'], measures: ['revenue'], limitBy: { n: 2, by: ['country'] } }, /limitBy requires a non-empty orderBy/],
   ] as const)('refuses %s by name, in the caller\'s words', (_name, query, message) => {
     expect(errors(query as DatasetQuery).join('\n')).toMatch(message);
   });
@@ -188,12 +235,6 @@ describe('RFC 0026 calculations in the dataset client', () => {
     }).errors.join('\n')).toMatch(/prefix is reserved/);
   });
 
-  it('refuses kinds this release does not run, by name', () => {
-    expect(() => recordingClient().client.toSQL(Orders, {
-      dimensions: ['country'], measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }],
-    }, TENANT)).toThrow(/"rank" calculations are not supported/);
-  });
-
   it('types rank and share outputs from the query alone', () => {
     expect(calculationColumns({
       calculations: [
@@ -215,6 +256,57 @@ describe('RFC 0026 calculations in the dataset client', () => {
       args: [{ op: 'percentChange', args: ['a', { op: 'nullIfZero', args: ['b'] }] }, 2],
     }, name => name);
     expect(definition.formula({ a: 'a', b: 'b' } as never).toSQL()).toBe('ROUND(((a) - (NULLIF(b, 0))) / (NULLIF(NULLIF(b, 0), 0)), 2)');
+  });
+
+  it('keeps an ordinary period dimension in a non-additive share\'s denominator', () => {
+    const Sessions = dataset('sessions', {
+      source: 'sessions', tenantKey: 'tenant_id',
+      dimensions: { period: dimension.string(), country: dimension.string(), userId: dimension.string({ column: 'user_id' }) },
+      measures: { users: measure.countDistinct('userId') },
+    });
+    const sql = recordingClient().client.toSQL(Sessions, {
+      dimensions: ['period', 'country'], measures: ['users'],
+      calculations: [{ name: 's', share: { measure: 'users', of: ['period'] } }],
+    }, TENANT);
+    expect(sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total` FROM (');
+    expect(sql).toContain('ON isNotDistinctFrom(`_hq_calc`.`period`, `_hq_share__hq_calc_0`.`period`)');
+    expect(sql).toContain('sessions.period AS `period`, COUNT(DISTINCT sessions.user_id) AS `users` FROM sessions WHERE sessions.tenant_id = ? GROUP BY `period`)');
+  });
+
+  it('gives the time planner\'s axis preflight the same top-N CTE as the main statement', () => {
+    const compilation = recordingClient().client.compileDataset(Orders, {
+      by: 'month', dimensions: ['country'], measures: ['revenue'], filters: RANGE,
+      calculations: [{ name: 'mom', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+      other: { dimension: 'country', n: 2, measure: 'revenue' },
+    }, TENANT);
+    expect(compilation.describe().plan).toBe('time');
+    const [preflight] = compilation.preflightStatements;
+    for (const statement of [compilation, preflight]) {
+      expect(statement.sql).toMatch(/^WITH `_hq_other_top` AS \(SELECT `country` FROM /);
+      expect(statement.sql).toContain('FROM `_hq_other_top`), orders.country');
+    }
+    // The preflight's own WITH list is read as a subquery under the CTE.
+    expect(preflight.sql).toContain(') SELECT * FROM (WITH ');
+    // The ranking binds its own tenancy in each statement.
+    expect(preflight.parameters.filter(value => value === 't1').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('refuses limitBy, other and joined denominators on a dialect without them, by name', () => {
+    const dialect = defineDatasetSqlDialectRules({ ...clickhouseDatasetSqlDialect, name: 'elsewhere' });
+    const client = createDatasetClient({ queryBuilder: { ...createRenderingBuilderFactory(), datasetSqlDialect: dialect } });
+    expect(() => client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['users'], orderBy: [{ field: 'users', direction: 'desc' }],
+      limitBy: { n: 1, by: ['country'] },
+      other: { dimension: 'country', n: 2, measure: 'revenue' },
+      calculations: [{ name: 's', share: { measure: 'users' } }],
+    }, TENANT)).toThrow(/"limitBy", "other", a share of a non-additive measure are not supported on the "elsewhere" dialect/);
+    expect(() => client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['revenue'], other: { dimension: 'country', n: 2, measure: 'revenue' },
+    }, TENANT)).toThrow(/"other" is not supported on the "elsewhere" dialect/);
+    // Additive shares and ranks are window functions every dialect has.
+    expect(client.toSQL(Orders, {
+      dimensions: ['country'], measures: ['revenue'], calculations: [{ name: 's', share: { measure: 'revenue' } }],
+    }, TENANT)).toContain('OVER ()');
   });
 
   it('runs uncached and refuses the backend path', async () => {
@@ -252,6 +344,21 @@ describe('RFC 0026 calculations in the dataset client', () => {
       expect(compilation.describe().plan).toBe('time');
       expect(compilation.sql).toContain('`_hq_calc_0_0_change_pct` AS `revenue_change_pct`');
       expect(compilation.parameters).toEqual(expect.arrayContaining(['2026-01-01']));
+    });
+
+    it('fills a series bucketed by other, with the top-N CTE in both statements', () => {
+      const compilation = clockClient().compileDataset(Orders, {
+        dimensions: ['country'], measures: ['revenue', 'users'], by: 'day', fill: true, filters: [january],
+        other: { dimension: 'country', n: 2, measure: 'revenue' },
+        // An additive share, and a non-additive one with a joined denominator.
+        calculations: [{ name: 's', share: { measure: 'revenue', of: ['period'] } }, { name: 'u', share: { measure: 'users', of: ['period'] } }],
+      }, TENANT);
+      expect(compilation.sql).toContain('LEFT JOIN (SELECT `period`, `users` AS `_hq_total`');
+      expect(compilation.describe().plan).toBe('time');
+      expect(compilation.sql).toContain('_hq_series');
+      for (const statement of [compilation, ...compilation.preflightStatements]) {
+        expect(statement.sql).toMatch(/^WITH `_hq_other_top` AS /);
+      }
     });
 
     it('counts filter-group comparisons, not groups, toward the predicate budget', () => {

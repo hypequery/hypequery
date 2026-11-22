@@ -12,6 +12,8 @@ export {
 import { hasQueryCalculations } from './utils/query-calculation-outputs.js';
 import { withResolvedRelativeDates } from './utils/relative-date-filters.js';
 import { calculatedDatasetQueryErrors } from './utils/compile-calculated-dataset-query.js';
+import { unsupportedStageMessage } from './utils/other-bucket-sql.js';
+import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import { tenantRuntime, semanticQuery } from './utils/portable-semantic-query.js';
 import { bounded } from './utils/portable-result-budget.js';
 import { withDeadline } from './utils/portable-execution-deadline.js';
@@ -166,15 +168,19 @@ export function createPortableSemanticRuntime(
       // RFC 0029: resolve relative ranges at one reading of the clock, as the
       // client would, so this check and the run see the same absolute bounds.
       query = withResolvedRelativeDates(target, query as never, clock());
-      // RFC 0026: a calculation this executor cannot run is refused by name,
-      // and one it can run but the dataset cannot satisfy is the caller's to fix.
-      const { errors, unsupported } = calculatedDatasetQueryErrors(target as never, query as never, context);
-      if (unsupported.length > 0) {
-        throw new PortableExecutionUnsupportedError(unsupported.join('; '), {
-          reason: UNSUPPORTED_CONTRACT_REASONS.queryCalculationUnsupported,
+      // RFC 0026: a calculation the dataset cannot satisfy is the caller's to fix.
+      const { errors, plan } = calculatedDatasetQueryErrors(target as never, query as never, context);
+      if (errors.length > 0 || plan === undefined) {
+        throw new PortableExecutionInputError(`Invalid dataset query: ${errors.join('; ')}`);
+      }
+      // A valid query this engine cannot run is a capability the caller can
+      // route elsewhere, not an executor failure.
+      const unsupported = unsupportedStageMessage(plan, resolveDatasetSqlDialect(options.queryBuilder));
+      if (unsupported !== undefined) {
+        throw new PortableExecutionUnsupportedError(unsupported, {
+          reason: UNSUPPORTED_CONTRACT_REASONS.queryCalculationDialect,
         });
       }
-      if (errors.length > 0) throw new PortableExecutionInputError(`Invalid dataset query: ${errors.join('; ')}`);
     }
     return { target, query, context };
   }
