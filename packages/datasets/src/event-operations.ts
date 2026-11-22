@@ -12,8 +12,8 @@ import { validateDatasetQueryInput } from './utils/dataset-query-validation.js';
 import { queryReadsFinal, withFinalSafety } from './utils/dataset-source.js';
 import { renderStatement, type RenderedStatement } from './utils/statement-parameters.js';
 import { statementRunner } from './utils/statement-runner.js';
-import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange } from './utils/time-axis-bounds.js';
-import { isTimeKeyFilter } from './utils/query-timezone.js';
+import { resolveTimeAxisRange, isDefinitelyEmptyTimeRange, isTimeAxisFilter } from './utils/time-axis-bounds.js';
+import { PROTOCOL_EVENT_OPERATION_LIMITS } from '@hypequery/protocol';
 import { filterLeafCount, filterLeaves } from './utils/filter-tree.js';
 import { resolveRelativeDateFilters } from './utils/relative-date-filters.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
@@ -60,9 +60,17 @@ export function eventOperationErrors(
   for (const name of [spec.entity, ...spec.breakdown]) {
     if (ds.dimensions[name]?.fieldType === 'timestamp') errors.push(`"${name}" is a time dimension and can't be grouped on here.`);
   }
+  // Only the event timestamp is off limits to a condition: an alternate time
+  // axis is an ordinary timestamp field here, as the data plane treats it.
   for (const condition of conditionLeaves) {
-    if (condition.field.includes('.') || isTimeKeyFilter(ds, condition.field)) {
+    if (condition.field.includes('.') || isTimeAxisFilter(ds, condition)) {
       errors.push(`Step conditions may not use "${condition.field}"; put the time range in filters.`);
+    }
+  }
+  // RFC 0027 events are read from the dataset alone: no relationship joins.
+  for (const filter of filterLeaves([...spec.filters])) {
+    if (filter.field.includes('.')) {
+      errors.push(`Filter "${filter.field}" is relationship-qualified; event operations filter only the dataset's own fields.`);
     }
   }
   // Only top-level comparisons bound the range (RFC 0029): a time comparison
@@ -72,6 +80,9 @@ export function eventOperationErrors(
     errors.push(`A ${spec.kind} requires exactly one bounded time range on "${ds.timeKey}" as top-level filters: between, inDateRange, or gt/gte with lt/lte, using ISO timestamps.`);
   } else if (isDefinitelyEmptyTimeRange(range)) {
     errors.push('The time range must be non-empty and ordered.');
+  } else if ((range.end.milliseconds - range.start.milliseconds) / 86_400_000 > PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays) {
+    // The same ceiling the data plane applies, here for direct callers too.
+    errors.push(`The time range may span at most ${PROTOCOL_EVENT_OPERATION_LIMITS.maxRangeDays} days.`);
   }
   return errors;
 }

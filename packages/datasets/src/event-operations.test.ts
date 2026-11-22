@@ -306,3 +306,42 @@ describe('RFC 0029 filters in funnels', () => {
     }), context).join(' ')).toMatch(/bounded time range on "occurredAt" as top-level filters/);
   });
 });
+
+describe('review regressions after main (RFC 0027)', () => {
+  const Axes = dataset('axes_activity', {
+    source: 'analytics.activity', tenantKey: 'tenantId', timeKey: 'occurredAt', timeKeys: ['receivedAt'],
+    events: { entity: 'userId', event: 'eventName' },
+    dimensions: {
+      userId: dimension.string(), eventName: dimension.string(),
+      occurredAt: dimension.timestamp(), receivedAt: dimension.timestamp(),
+    },
+  });
+
+  it('lets a step compare an alternate time axis, but not the event timestamp', () => {
+    const at = (field: string) => ({ field, operator: 'gte', value: '2026-10-02T00:00:00Z' }) as const;
+    expect(eventOperationErrors(Axes, spec({
+      steps: [{ name: 'a', where: [at('receivedAt')] }, { name: 'b', where: [{ field: 'eventName', operator: 'eq', value: 'y' }] }],
+    }), context)).toEqual([]);
+    expect(eventOperationErrors(Axes, spec({
+      steps: [{ name: 'a', where: [at('occurredAt')] }, { name: 'b', where: [{ field: 'eventName', operator: 'eq', value: 'y' }] }],
+    }), context).join(' ')).toMatch(/may not use "occurredAt"/);
+  });
+
+  it('applies the 731-day ceiling to direct calls, including relative ranges', () => {
+    expect(eventOperationErrors(Activity, spec({
+      filters: [{ field: 'occurredAt', operator: 'between', value: ['2023-01-01', '2026-01-01'] }],
+    }), context)).toContain('The time range may span at most 731 days.');
+    expect(() => prepareEventOperation(Activity, spec({
+      filters: [{ field: 'occurredAt', operator: 'inDateRange', value: 'last 3 years' }],
+    }), { builderFactory: capturingFactory().factory, context, now: () => new Date('2026-11-22T00:00:00Z') }))
+      .toThrow(/may span at most 731 days/);
+  });
+
+  it('refuses a relationship-qualified filter on direct calls', () => {
+    expect(eventOperationErrors(Activity, spec({
+      filters: [RANGE, { or: [{ field: 'account.plan', operator: 'eq', value: 'pro' }, { field: 'plan', operator: 'eq', value: 'x' }] }],
+    }), context)).toContain(
+      'Filter "account.plan" is relationship-qualified; event operations filter only the dataset\'s own fields.',
+    );
+  });
+});

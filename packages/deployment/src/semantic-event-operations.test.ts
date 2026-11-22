@@ -329,6 +329,43 @@ describe('funnel filters and conditions under RFC 0029', () => {
   });
 });
 
+describe('review regressions after main (RFC 0027)', () => {
+  it('lets a step compare an alternate time axis, but not the event timestamp', async () => {
+    const v3 = contract({ alternateTimeFields: ['receivedAt'] }) as Record<string, unknown> & { datasets: Record<string, unknown>[] };
+    v3.version = 3;
+    const dataset = v3.datasets[0]!;
+    dataset.allowedFilters = dataset.filters;
+    delete dataset.filters;
+    (dataset.dimensions as unknown[]).push(dimension('receivedAt', 'timestamp'));
+    const { instance, calls } = plane({}, v3 as never);
+    const at = (field: string) => ({ ...eq(field, '2026-10-02T00:00:00Z'), operator: 'gte' });
+    await instance.invoke({ invocation: invocation(funnel({
+      steps: [{ name: 'a', where: [eq('eventName', 'x'), at('receivedAt')] }, { name: 'b', where: [eq('eventName', 'y')] }],
+    })) });
+    expect(calls).toHaveLength(1);
+    const error = await failure(plane({}, v3 as never).instance.invoke({ invocation: invocation(funnel({
+      steps: [{ name: 'a', where: [at('occurredAt')] }, { name: 'b', where: [eq('eventName', 'y')] }],
+    })) }));
+    expect(error.message).toMatch(/put the time range in filters/);
+  });
+
+  it('refuses a relationship-qualified filter, which a dataset query could join', async () => {
+    const joined = contract({
+      relationships: [{ name: 'account', kind: 'belongsTo', target: 'accounts', from: 'accountId', to: 'id', queryable: true }],
+    }) as { datasets: unknown[] };
+    joined.datasets.push({
+      name: 'accounts', source: 'analytics.accounts', tenant: { kind: 'not-required' },
+      dimensions: [dimension('id', 'number'), dimension('plan', 'string')],
+      measures: [], filters: [], relationships: [],
+    });
+    const error = await failure(plane({}, joined as never).instance.invoke({ invocation: invocation(funnel({
+      filters: [RANGE, eq('account.plan', 'pro')],
+    })) }));
+    expect(error).toMatchObject({ category: 'input-invalid', path: '$.operation.filters[1]' });
+    expect(error.message).toBe('Filter "account.plan" is relationship-qualified; event operations filter only the dataset\'s own fields.');
+  });
+});
+
 describe('funnel invocations end to end with the portable executor', () => {
   it('plans one tenant-scoped statement from the contract alone', async () => {
     const statements: { sql: string; parameters: unknown[] }[] = [];
