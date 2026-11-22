@@ -449,3 +449,96 @@ page snippet, type-checked against @hypequery/datasets 0.30.0 and @hypequery/ser
 | /clickhouse-mcp | `codex mcp add <name> -- <command>` writes an `[mcp_servers.<name>]` entry to `~/.codex/config.toml` | Run locally with codex-cli 0.166.0 against a temporary `CODEX_HOME` | 2026-11-18 |
 
 Not claimed: per-tenant scoping in either ClickHouse server beyond ClickHouse user grants (neither page describes one).
+
+
+## Compare and semantic layer push (checked 2026-11-22)
+
+New and re-verified pages. The QueryPanel, Explo and Metabase rows are also stored with each page's data
+(`sources` in `src/data/comparisons/*.ts` and the `hypequery-vs-metabase` entry in `src/data/compare-pages.ts`).
+
+| # | Page | URL |
+|---|---|---|
+| P6 | ClickHouse embedded analytics (retitled) | /clickhouse-saas-analytics |
+| P7 | hypequery vs QueryPanel | /compare/hypequery-vs-querypanel |
+| P8 | hypequery vs Explo | /compare/hypequery-vs-explo |
+| P9 | hypequery vs Metabase (re-verified) | /compare/hypequery-vs-metabase |
+
+hypequery code samples on P7, P8 and /semantic-layer were type-checked on 2026-11-22 against the published
+`@hypequery/datasets@0.32.0`, `@hypequery/serve@0.26.1` and `@hypequery/clickhouse@2.15.1`.
+
+| Page | Claim | Source | Checked |
+|---|---|---|---|
+| P6 | Sparse primary index has one entry per granule (8,192 rows by default); a filter on the leading key column skips granules | https://clickhouse.com/docs/guides/best-practices/sparse-primary-indexes | 2026-11-22 |
+| P6 | Projections are hidden tables with another sort order or aggregates, kept in sync on insert and chosen automatically at query time | https://clickhouse.com/docs/data-modeling/projections | 2026-11-22 |
+| P6 | Incremental materialized views run on inserts into the source table; SummingMergeTree/AggregatingMergeTree targets | https://clickhouse.com/docs/materialized-view/incremental-materialized-view | 2026-11-22 |
+| P6 | CREATE ROW POLICY syntax; permissive policies are combined with OR; once a table has policies, users with none see all rows by default | https://clickhouse.com/docs/sql-reference/statements/create/row-policy | 2026-11-22 |
+| P6 | CREATE SETTINGS PROFILE with MIN/MAX constraints; SET outside them throws | https://clickhouse.com/docs/sql-reference/statements/create/settings-profile ; https://clickhouse.com/docs/operations/settings/constraints-on-settings | 2026-11-22 |
+| P6 | CREATE QUOTA intervals and limits incl. queries, read_rows, queries_per_normalized_hash | https://clickhouse.com/docs/sql-reference/statements/create/quota | 2026-11-22 |
+| P6 | max_execution_time, max_rows_to_read, max_bytes_to_read, max_result_rows, max_memory_usage exist | https://clickhouse.com/docs/operations/settings/query-complexity | 2026-11-22 |
+| P6 | readonly = 1 blocks per-query settings; readonly = 2 also allows SET | https://clickhouse.com/docs/operations/settings/permissions-for-queries | 2026-11-22 |
+| P7 | QueryPanel turns plain-English questions into tenant-safe SQL and live charts on your existing database | https://querypanel.io | 2026-11-22 |
+| P7 | Supported databases: PostgreSQL, Redshift, ClickHouse, BigQuery, MySQL; Snowflake "Soon" | https://querypanel.io | 2026-11-22 |
+| P7 | Pricing tiers Free/Starter $49/Growth $249/Scale $999/Enterprise, metered on tenants and AI charts | https://querypanel.io/#pricing | 2026-11-22 |
+| P7 | MCP included from Starter | https://querypanel.io/#pricing | 2026-11-22 |
+| P7 | Node SDK: ask() returns sql, params, rows, chart.vegaLiteSpec, rationale; attachClickhouse adapter; syncSchema; createJwt; Node 18+, Deno, Bun | https://querypanel.io/docs/node-sdk | 2026-11-22 |
+| P7 | Tenant column isolation (tenantFieldName, enforceTenantIsolation) or schema-per-tenant for Postgres and Redshift only | https://querypanel.io/docs/tenant-isolation | 2026-11-22 |
+| P7 | React embed renders as React in your app tree, not an iframe | https://querypanel.io/docs/react-embed | 2026-11-22 |
+| P7 | React SDK is MIT per package README | https://querypanel.io/docs/react-sdk | 2026-11-22 |
+| P7 | Headful embed: QueryPanel API resolves vault-backed credentials and executes queries; headless keeps rows and credentials in customer infrastructure | https://querypanel.io/blog/semantic-layer-ai-agents-multi-tenant-analytics | 2026-11-22 |
+| P7 | Not a LookML, MetricFlow or Cube-style metrics engine; tenant field bound by instructing the SQL model, then verified | https://querypanel.io/blog/semantic-layer-ai-agents-multi-tenant-analytics | 2026-11-22 |
+| P7 | ClickHouse adapter passes query_params and clickhouse_settings to an @clickhouse/client callback | https://querypanel.io/blog/clickhouse-embedded-analytics-saas-2026 | 2026-11-22 |
+| P7 | Hosted MCP server at mcp.querypanel.io with OAuth; plugin repo MIT | https://github.com/querypanel/mcp-plugin | 2026-11-22 |
+| P7 | Node SDK package.json licence UNLICENSED | https://github.com/querypanel/node-sdk | 2026-11-22 |
+| P8 | Omni announced acquiring Explo on 2025-10-22; Explo product to function as today during transition | https://omni.co/blog/omni-acquires-explo/ | 2026-11-22 |
+| P8 | Existing customers keep full access for 12 months; migrate before the sunset date; pricing unchanged until contract end | https://omni.co/explo | 2026-11-22 |
+| P8 | Explo homepage banner "Explo is joining Omni!"; products Dashboard, Report Builder AI, Data Share, Explo AI | https://www.explo.co/ | 2026-11-22 |
+| P8 | Latest changelog entry 2025-09-30 | https://www.explo.co/changelog | 2026-11-22 |
+| P8 | explo.co/pricing returns 404 | https://www.explo.co/pricing | 2026-11-22 |
+| P8 | Explo queries your database each time and stores no customer data | https://docs.explo.co/faqs | 2026-11-22 |
+| P8 | Isolated connectivity regions for enterprise customers | https://docs.explo.co/data-sources/connecting-to-data-sources/connectivity-regions | 2026-11-22 |
+| P8 | 17 data sources listed, ClickHouse among them | https://www.explo.co/integrations | 2026-11-22 |
+| P8 | ClickHouse via native protocol over SSL; FIDO connector also uses HTTPS 8443 | https://docs.explo.co/data-sources/connecting-to-data-sources/data-source-types/clickhouse | 2026-11-22 |
+| P8 | Customer groups; dataset SQL variables like {{customer_id}} | https://docs.explo.co/customers/overview | 2026-11-22 |
+| P8 | Schemas map each customer to a data source | https://docs.explo.co/data-sources/data-sources-and-schema/multiple-data-sources | 2026-11-22 |
+| P8 | Embed secrets are expiring JWTs with an encrypted body | https://docs.explo.co/embedding-documentation/embed-secrets/intro | 2026-11-22 |
+| P8 | Security FAQ recommends JWTs over the non-expiring customer token | https://docs.explo.co/security/security-faqs | 2026-11-22 |
+| P8 | Global Datasets function as a semantic layer, SQL-defined with commit history | https://docs.explo.co/data-sources/data-library/global-datasets | 2026-11-22 |
+| P8 | REST API covers customers, resources, exports and embed JWTs | https://docs.explo.co/api-reference/overview | 2026-11-22 |
+| P8 | Report Builder AI chat for end users | https://docs.explo.co/report-builder-features/report-builder-ai | 2026-11-22 |
+| P8 | Web component <explo-dashboard> works in React, Vue, Angular | https://docs.explo.co/embedding-documentation/dashboard/option-1-web-component | 2026-11-22 |
+| P8 | Iframe and web component embedding options compared | https://docs.explo.co/embedding-documentation/web-component-vs-iframe | 2026-11-22 |
+| P8 | Omni embedded analytics: semantic model, APIs and MCP server | https://omni.co/embedded-analytics | 2026-11-22 |
+| P8 | Omni embeds use signed URLs; entity and userAttributes for row-level permissions | https://docs.omni.co/embed/setup/url-parameters/entity.md | 2026-11-22 |
+| P8 | Omni supports ClickHouse | https://docs.omni.co/connect-data/setup/clickhouse.md | 2026-11-22 |
+| P9 | Official ClickHouse driver built in since v54.1, maintained by Metabase; ClickHouse 23.3+; partner driver archived | https://www.metabase.com/docs/latest/databases/connections/clickhouse | 2026-11-22 |
+| P9 | 18 official drivers maintained by the Metabase team; community drivers listed separately | https://www.metabase.com/docs/latest/databases/connecting | 2026-11-22 |
+| P9 | Guest embeds: web components authorized by a server-signed JWT, locked parameters, every plan, Powered by Metabase on OSS and Starter | https://www.metabase.com/docs/latest/embedding/guest-embedding | 2026-11-22 |
+| P9 | Modular embedding with SSO is Pro and Enterprise only | https://www.metabase.com/docs/latest/embedding/modular-embedding | 2026-11-22 |
+| P9 | React SDK is Pro and Enterprise only; React 18 and 19; no SSR | https://www.metabase.com/docs/latest/embedding/sdk/introduction | 2026-11-22 |
+| P9 | Full app embedding is the whole app in an iframe, Pro and Enterprise | https://www.metabase.com/docs/latest/embedding/full-app-embedding | 2026-11-22 |
+| P9 | Static embedding deprecated in favor of guest embeds; public links | https://www.metabase.com/docs/latest/embedding/introduction | 2026-11-22 |
+| P9 | Tenants feature: tenant users and groups, tenant attributes, @tenant JWT claim, database routing (Pro and Enterprise) | https://www.metabase.com/docs/latest/embedding/tenants | 2026-11-22 |
+| P9 | Row and column security (formerly data sandboxing) maps user attributes to filters, Pro and Enterprise | https://www.metabase.com/docs/latest/permissions/row-and-column-security | 2026-11-22 |
+| P9 | Remote sync stores collections in a Git repository as YAML, with branch and pull-request review (Pro and Enterprise) | https://www.metabase.com/docs/latest/installation-and-operation/remote-sync | 2026-11-22 |
+| P9 | Metrics are built in a query-builder editor and only available to the query builder | https://www.metabase.com/docs/latest/data-modeling/metrics | 2026-11-22 |
+| P9 | REST API with API keys; the API is not versioned | https://www.metabase.com/docs/latest/people-and-groups/api-keys | 2026-11-22 |
+| P9 | Metabot is available on every plan | https://www.metabase.com/docs/latest/ai/metabot | 2026-11-22 |
+| P9 | MCP server on every plan, OAuth 2.0, runs with the signed-in user’s permissions | https://www.metabase.com/docs/latest/ai/mcp | 2026-11-22 |
+| P9 | Plans, prices, deployment and licence per plan: OSS free/AGPL/self-hosted; Starter $100/mo 5 users cloud; Pro $575/mo 10 users; Enterprise min $20,000/yr | https://www.metabase.com/pricing | 2026-11-22 |
+| P9 | Code outside enterprise/ is AGPL; enterprise/ is under the Metabase Commercial License | https://github.com/metabase/metabase/blob/master/LICENSE.txt | 2026-11-22 |
+
+### Corrected on P9 (Metabase)
+
+- "Queries aren't code" and "In your repo / code review: No" were out of date: Pro and Enterprise have Remote sync to
+  Git (YAML) with branch and pull-request review. Now "not by default; Remote sync on Pro and Enterprise". The point
+  about no compile-time types against the ClickHouse schema stands.
+- The multi-tenancy rows omitted Metabase's Tenants feature (Pro and Enterprise). Added.
+
+### Not claimed (could not verify on the vendor's own site, 2026-11-22)
+
+- QueryPanel: a self-hosted deployment (one passing mention only), a security or SOC 2 page, and a consistent list of
+  LLM providers (the home page grid and the FAQ disagree).
+- Explo: an exact sunset date, whether the platform has shut down, whether new signups are accepted, self-host or
+  on-prem deployment, licence terms, any pricing, an MCP server, a React package.
+- Omni: pricing (omni.co/pricing returned 404) and the full list of supported databases.
+- Metabase: whether row and column security or database routing work on ClickHouse.

@@ -58,7 +58,7 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
       { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
       { label: 'Real-time analytics', href: '/clickhouse-real-time-analytics' },
-      { label: 'Embedded analytics for SaaS', href: '/clickhouse-saas-analytics' },
+      { label: 'ClickHouse embedded analytics', href: '/clickhouse-saas-analytics' },
       { label: 'Product analytics', href: '/clickhouse-product-analytics' },
     ],
   },

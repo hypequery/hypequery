@@ -214,7 +214,8 @@ export default function SnowflakeSemanticViewsPage() {
             <p>
               A semantic view is a Snowflake schema object that stores a semantic model: logical tables, how they join,
               and named facts, dimensions and metrics with descriptions and synonyms. You query it by naming the
-              dimensions and metrics you want, and Snowflake writes the joins and aggregation.
+              dimensions and metrics you want, and Snowflake writes the joins and aggregation. In other words, it is a
+              <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> that lives inside the warehouse.
             </p>
             <p>
               It is the model behind Cortex Analyst and Cortex Agents, Snowflake&rsquo;s natural-language and agent

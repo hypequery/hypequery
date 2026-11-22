@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import CodeWindow from '@/components/CodeWindow';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
@@ -178,6 +181,7 @@ export default function HypequeryVsEmbeddablePage() {
       primaryCta={{ href: '#at-a-glance', label: 'At a glance', target: 'vs_embeddable_table' }}
       secondaryCta={{ href: '/compare/embedded-analytics-platforms', label: 'All platforms', target: 'vs_embeddable_listicle' }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -396,9 +400,14 @@ export default function HypequeryVsEmbeddablePage() {
               <Link href="/compare/embedded-analytics-platforms" className={inlineLink}>
                 the best embedded analytics platforms
               </Link>
-              . For hypequery’s own approach end to end, see{' '}
+              .{' '}
+              If you are new to the category, start with{' '}
+              <Link href="/embedded-analytics" className={inlineLink}>
+                embedded analytics
+              </Link>{' '}
+              for developers: architecture, tenancy and the three kinds of tool. For hypequery’s own approach end to end, see{' '}
               <Link href="/clickhouse-saas-analytics" className={inlineLink}>
-                embedded analytics for SaaS on ClickHouse
+                ClickHouse embedded analytics
               </Link>
               .
             </p>
@@ -432,6 +441,8 @@ export default function HypequeryVsEmbeddablePage() {
           </div>
         </div>
       </section>
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={VERIFIED_ON} sources={sources} />
     </HubShell>

@@ -6,6 +6,11 @@ import { notFound } from 'next/navigation';
 import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
+import { DeployWaitlist } from '@/components/home/DeployWaitlist';
+import { HubSources } from '@/components/hub-page';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import { chooseAlternativeHeading, getCompareArticle } from '@/lib/compare-article';
 import { compareLinksFor } from '@/lib/compare-links';
 import { faqPageSchema } from '@/lib/faq-schema';
@@ -127,6 +132,10 @@ export default async function ComparePage({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({ '@context': 'https://schema.org', ...softwareApplicationSchema }) }}
+        />
         <section className="border-b border-border">
           <div className={`${marketing.container} pb-14 pt-12 sm:pb-16 sm:pt-16`}>
             <p className="font-mono text-xs text-accent">Compare</p>
@@ -248,6 +257,22 @@ export default async function ComparePage({
           </div>
         </section>
 
+        {comparePage.chooseHypequeryWhen ? (
+          <section className={`${marketing.container} pb-14 sm:pb-20`}>
+            <div className="rounded-xl border border-border-strong bg-bg-card p-6 shadow-card sm:p-8">
+              <h2 className={marketing.sectionTitle}>When to choose hypequery</h2>
+              <ul className="mt-6 space-y-3">
+                {comparePage.chooseHypequeryWhen.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm leading-6 text-text-muted">
+                    <span aria-hidden="true" className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
+
         <section className={marketing.band}>
           <div className="mx-auto max-w-4xl px-4 py-16 lg:px-6">
             <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -326,7 +351,12 @@ export default async function ComparePage({
                 {links.nextStep.title}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
-                {links.nextStep.description}
+                {links.nextStep.description} Want it hosted instead? hypequery Cloud is in early access:{' '}
+                <DeployWaitlist
+                  location={`compare-${comparePage.slug}-next-step`}
+                  className="font-medium text-text underline decoration-border-strong underline-offset-4 hover:text-accent"
+                />
+                .
               </p>
             </div>
             <div className="mt-6 flex shrink-0 flex-wrap gap-3 md:mt-0">
@@ -348,6 +378,15 @@ export default async function ComparePage({
             </div>
           </div>
         </section>
+
+        <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(comparePage.href)} />
+
+        {comparePage.sources ? (
+          <HubSources
+            checkedOn={formatLongDate(comparePage.sources[0].checkedAt)}
+            sources={[{ vendor: comparePage.alternativeName, urls: Array.from(new Set(comparePage.sources.map((source) => source.url))) }]}
+          />
+        ) : null}
     </PageWrapper>
   );
 }

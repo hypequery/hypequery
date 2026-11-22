@@ -58,6 +58,18 @@ export const embeddedAnalyticsComparePages: EmbeddedAnalyticsComparePage[] = [
       'Hosted embedded BI with a dashboard editor, or a ClickHouse semantic layer in your repo: data model, tenant isolation, UI ownership, MCP and pricing.',
   },
   {
+    href: '/compare/hypequery-vs-querypanel',
+    title: 'hypequery vs QueryPanel',
+    description:
+      'Hosted text-to-SQL with tenant filters, or reviewed metric definitions compiled in your own backend: data flow, tenant isolation, ClickHouse support and pricing.',
+  },
+  {
+    href: '/compare/hypequery-vs-explo',
+    title: 'hypequery vs Explo',
+    description:
+      'Explo is being folded into Omni. The three ways out, how Explo scoped customers, and what rebuilding an Explo dashboard on ClickHouse involves.',
+  },
+  {
     href: '/cube-js-alternative',
     title: 'Cube alternatives',
     description:
