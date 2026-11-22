@@ -33,6 +33,11 @@ function filters(expressions: readonly ProtocolExpression[], path: string): Metr
   ));
 }
 
+/** Enforced constraints (RFC 0019) as the dataset layer's trusted filters. */
+export function eventConstraintFilters(expressions: readonly ProtocolExpression[]): MetricFilter[] {
+  return filters(expressions, 'constraints');
+}
+
 /** Resolve a validated protocol operation against the dataset that serves it. */
 export function eventOperationSpec(operation: ProtocolEventOperation, dataset: AnyDatasetInstance): EventOperationSpec {
   if (!dataset.events) {

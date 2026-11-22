@@ -17,6 +17,7 @@ import { isTimeKeyFilter } from './utils/query-timezone.js';
 import { buildFunnelSql } from './utils/funnel-sql.js';
 import { funnelResultRows, type EventResultRow } from './utils/funnel-rows.js';
 import type { EventOperationSpec } from './utils/event-operation-spec.js';
+import { eventOperationShapeErrors } from './utils/event-operation-shape.js';
 
 export type { EventOperationSpec, FunnelSpec } from './utils/event-operation-spec.js';
 export type { EventResultRow, EventResultValue } from './utils/funnel-rows.js';
@@ -37,6 +38,8 @@ export function eventOperationErrors(
   context?: ExecutionContext,
 ): string[] {
   if (!ds.events) return [`Dataset "${ds.name}" does not declare events.`];
+  const shape = eventOperationShapeErrors(spec);
+  if (shape.length > 0) return shape;
   const conditions = spec.steps.flatMap(step => step.where);
   const errors = [...validateDatasetQueryInput(ds, {
     dimensions: [spec.entity, ...spec.breakdown],

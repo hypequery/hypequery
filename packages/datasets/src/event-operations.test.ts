@@ -8,6 +8,7 @@ import { rehydrateProtocolDatasets } from './protocol-rehydrate.js';
 import { eventOperationSpec, type FunnelSpec } from './utils/event-operation-spec.js';
 import { funnelResultRows } from './utils/funnel-rows.js';
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import { createPortableSemanticRuntime } from './portable-executor.js';
 
 const Activity = dataset('activity', {
   source: 'analytics.activity',
@@ -173,5 +174,73 @@ describe('funnel result rows', () => {
 
   it('refuses a count that is not a non-negative integer', () => {
     expect(() => funnelResultRows(spec(), [], [{ _hq_r1: -1, _hq_r2: 0 }])).toThrow(/non-negative integer/);
+  });
+});
+
+describe('review regressions (RFC 0027)', () => {
+  const Received = dataset('received', {
+    source: 'analytics.received',
+    tenantKey: 'tenantId',
+    timeKey: 'occurredAt',
+    events: { entity: 'userId', event: 'eventName' },
+    dimensions: {
+      userId: dimension.string({ column: 'user_id' }),
+      eventName: dimension.string({ column: 'event' }),
+      step: dimension.string(),
+      receivedAt: dimension.timestamp({ column: 'received_at' }),
+      occurredAt: dimension.timestamp({ column: 'at' }),
+    },
+  });
+
+  it('compares a timestamp step condition with an instant in UTC, like a caller filter', () => {
+    const { factory } = capturingFactory();
+    const { sql, parameters } = prepareEventOperation(Received, spec({
+      steps: [
+        { name: 'signed_up', where: [{ field: 'receivedAt', operator: 'gte', value: '2026-10-01T09:30:00+02:00' }] },
+        { name: 'queried', where: [{ field: 'eventName', operator: 'eq', value: 'query' }] },
+      ],
+      timezone: 'America/New_York',
+    }), { builderFactory: factory, context }).statement;
+    expect(sql).toContain("toDateTime64(_hq_f0, 9, 'UTC') >= ?");
+    expect(parameters).toContain('2026-10-01 07:30:00');
+    expect(parameters).not.toContain('2026-10-01T09:30:00+02:00');
+  });
+
+  it('refuses a direct spec whose breakdown would overwrite an output column', () => {
+    expect(eventOperationErrors(Received, spec({ breakdown: ['step'] }), context))
+      .toEqual(['Breakdown dimension "step" collides with the "step" output column.']);
+    const shape = eventOperationErrors(Received, spec({
+      breakdown: ['eventName', 'eventName'], breakdownLimit: 0, windowMs: 0, by: 'hour' as never,
+      steps: [{ name: 'a', where: [] }, { name: 'a', where: [{ field: 'eventName', operator: 'eq', value: 'x' }] }],
+    }), context).join(' ');
+    for (const message of [/must be unique/, /breakdownLimit must be/, /Step names must be unique/, /needs 1 to 10 conditions/, /window must be/, /not day, week or month/]) {
+      expect(shape).toMatch(message);
+    }
+    expect(eventOperationErrors(Received, spec({ steps: [spec().steps[0]!] }), context).join(' ')).toMatch(/2 to 10 steps/);
+    expect(eventOperationErrors(Received, spec({ breakdown: ['a', 'b', 'c', 'd'] }), context).join(' ')).toMatch(/At most 3 breakdown/);
+  });
+
+  it('applies enforced constraints as trusted context, not as a second caller range', async () => {
+    const { factory, calls } = capturingFactory([{ _hq_r1: 1, _hq_r2: 0 }]);
+    const deployment = buildProtocolDeploymentContract([Activity], {
+      endpoints: { activity: { access: { kind: 'public' }, tenant: { kind: 'required', mode: 'auto-inject', column: 'tenant_id' } } },
+    });
+    const where = (value: string) => [{ kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: 'eventName' }, right: { kind: 'literal', value } }];
+    const operation = validateProtocolEventOperation({
+      kind: 'funnel', dataset: 'activity', window: '1 day',
+      steps: [{ name: 'a', where: where('signup') }, { name: 'b', where: where('query') }],
+      filters: [{
+        kind: 'comparison', operator: 'between', left: { kind: 'reference', name: 'occurredAt' },
+        right: { kind: 'literal', value: { $hypequery: { type: 'tuple', version: 1, values: ['2026-10-01', '2026-11-01'] } } },
+      }],
+    });
+    const result = await createPortableSemanticRuntime({ queryBuilder: factory }).executeEventOperation({
+      deployment, dataset: deployment.datasets[0]!, operation, tenant: 'acme',
+      constraints: [{ kind: 'comparison', operator: 'gte', left: { kind: 'reference', name: 'occurredAt' }, right: { kind: 'literal', value: '2026-10-15' } }],
+      budget: { maxRows: 100 }, activationRevision: 'c'.repeat(64),
+    });
+    expect(result.data[0]).toMatchObject({ step: 'a', entities: 1 });
+    expect(calls[0]!.sql).toMatch(/toDateTime64\(analytics\.activity\.at, 9, 'UTC'\) >= \?/);
+    expect(calls[0]!.parameters).toContain('2026-10-15');
   });
 });

@@ -90,8 +90,14 @@ export interface DeploymentSemanticExecutionInput {
 
 /** What an RFC 0027 executor receives: the execution input, with a funnel or retention operation. */
 export interface DeploymentSemanticEventExecutionInput extends Omit<DeploymentSemanticExecutionInput, 'operation'> {
-  /** Enforced constraints are already ANDed onto `filters`. */
+  /** The caller's operation, exactly as validated: its `filters` hold only caller filters. */
   readonly operation: ProtocolEventOperation;
+  /**
+   * The provider's enforced constraints (RFC 0019), kept apart from the
+   * operation so a trusted time cutoff never reads as a second caller time
+   * range. The executor applies them to the event scan, ANDed with filters.
+   */
+  readonly constraints: readonly ProtocolExpression[];
 }
 
 export interface DeploymentSemanticInvocationRequest {
@@ -387,7 +393,11 @@ export function createDeploymentSemanticDataPlane(
     const maxFilters = tighten(dataset.limits?.maxFilters, configured.maxFilters) - constraints.length;
     const eventOperation = isProtocolEventOperationKind(operation.kind) ? operation as ProtocolEventOperation : undefined;
     const violations = eventOperation !== undefined
-      ? validateSemanticEventOperation(eventOperation, dataset, datasets, { maxRows: budget.maxRows, maxFilters }, visible)
+      ? validateSemanticEventOperation(eventOperation, dataset, datasets, {
+        maxRows: budget.maxRows,
+        maxFilters,
+        maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
+      }, visible)
       : validateSemanticOperation(operation as ProtocolSemanticQuery, dataset, datasets, {
         maxRows: budget.maxRows,
         maxOffset: configured.maxOffset,
@@ -426,12 +436,7 @@ export function createDeploymentSemanticDataPlane(
         ...(request.signal === undefined ? {} : { signal: request.signal }),
       };
       output = eventOperation !== undefined
-        ? await options.executeEventOperation!({
-          ...shared,
-          operation: constraints.length === 0
-            ? eventOperation
-            : Object.freeze({ ...eventOperation, filters: [...eventOperation.filters, ...constraints] }),
-        })
+        ? await options.executeEventOperation!({ ...shared, operation: eventOperation, constraints })
         : await options.execute({
           ...shared,
           operation: constraints.length === 0

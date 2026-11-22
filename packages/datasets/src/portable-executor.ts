@@ -23,11 +23,12 @@ import { withDeadline } from './utils/portable-execution-deadline.js';
 import type {
   ProtocolDeploymentDatasetAnyVersion,
   ProtocolEventOperation,
+  ProtocolExpression,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
 import { prepareEventOperation } from './event-operations.js';
-import { eventOperationSpec } from './utils/event-operation-spec.js';
+import { eventConstraintFilters, eventOperationSpec } from './utils/event-operation-spec.js';
 import { createDatasetClient } from './executor.js';
 import type { DatasetCompilation, DatasetCompilationDescription } from './dataset-compilation.js';
 import type { ExecutionContext } from './types.js';
@@ -64,10 +65,12 @@ export interface PortableSemanticExecutionInput {
 
 /**
  * The data plane's RFC 0027 execution input: the same fields, with a funnel
- * operation whose `filters` already carry any enforced constraints.
+ * operation and, apart from it, the provider's enforced constraints.
  */
 export interface PortableEventExecutionInput extends Omit<PortableSemanticExecutionInput, 'operation'> {
   readonly operation: ProtocolEventOperation;
+  /** RFC 0019 enforced constraints, applied to the scan as trusted context. */
+  readonly constraints?: readonly ProtocolExpression[];
 }
 
 export interface PortableSemanticExecutorOptions {
@@ -163,10 +166,16 @@ export function createPortableSemanticRuntime(
   async function executeEventOperation(input: PortableEventExecutionInput): Promise<ProtocolSemanticInvocationResult> {
     const { target, context } = resolveTarget(input);
     const spec = eventOperationSpec(input.operation, target as never);
+    // Trusted context, like a local client's `runtime.constraints`, so they
+    // scope the scan without counting as caller filters.
+    const constraints = eventConstraintFilters(input.constraints ?? []);
+    const scoped: ExecutionContext = constraints.length === 0
+      ? context
+      : { ...context, runtime: { ...context.runtime, constraints } };
     const rows = await withDeadline(input.budget, input.signal, async signal => (
       prepareEventOperation(target as never, spec, {
         builderFactory: toQueryBuilderFactory(options.queryBuilder),
-        context: { ...context, abortSignal: signal },
+        context: { ...scoped, abortSignal: signal },
       }).execute()
     ));
     return bounded(Object.freeze({
