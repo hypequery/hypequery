@@ -1,4 +1,4 @@
-import type { RowResolution } from './types.js';
+import type { DatasetEvents, RowResolution } from './types.js';
 import type { RelationshipKey } from './types.js';
 import { windowCatalogMetadata, type WindowCatalogMetadata } from './utils/window-catalog-metadata.js';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -97,6 +97,8 @@ export interface ContractDataset extends SemanticMetadata {
   tenantKey?: string;
   timeKey?: string;
   timeKeys?: string[];
+  /** Present when rows are events (RFC 0027). */
+  events?: DatasetEvents;
   requiresTenant: boolean;
   supportedGrains: string[];
   dimensions: Record<string, ContractDimension>;
@@ -182,6 +184,7 @@ function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): Contra
     ...(catalog.tenantKey !== undefined ? { tenantKey: catalog.tenantKey } : {}),
     ...(catalog.timeKey !== undefined ? { timeKey: catalog.timeKey } : {}),
     ...(catalog.timeKeys?.length ? { timeKeys: uniqueSorted(catalog.timeKeys) } : {}),
+    ...(catalog.events === undefined ? {} : { events: { ...catalog.events } }),
     requiresTenant: catalog.requiresTenant,
     supportedGrains: uniqueSorted(catalog.supportedGrains),
     dimensions: sortedRecord(

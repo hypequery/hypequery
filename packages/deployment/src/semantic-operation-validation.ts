@@ -302,3 +302,31 @@ export function validateSemanticConstraints(
   });
   return violations;
 }
+
+/** What a principal may group and filter by on a dataset (RFC 0027 reuses this). */
+export interface SemanticAllowedFields {
+  readonly groupable: ReadonlySet<string>;
+  /** Filter name -> allowed operators. */
+  readonly filters: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+/**
+ * The dataset's groupable and filterable fields, narrowed to what the
+ * principal may see, by exactly the rules dataset queries use.
+ */
+export function resolveSemanticAllowedFields(
+  dataset: ProtocolDeploymentDatasetAnyVersion,
+  datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>,
+  visible?: ProtocolVisibleDatasetFields,
+): SemanticAllowedFields {
+  const published = resolveDataset(dataset, datasets);
+  const allowed = visible === undefined ? published : narrowResolvedToVisible(published, visible);
+  return { groupable: allowed.groupable, filters: allowed.filters };
+}
+
+/** The field and operator of a plain `field <operator> literal` comparison, else null. */
+export function semanticComparisonField(
+  expression: ProtocolExpression,
+): { field: string; operator: string } | null {
+  return comparisonField(expression);
+}

@@ -174,6 +174,15 @@ export type ProtocolRowResolution =
   | { readonly kind: 'final'; readonly engine: 'replacing'; readonly deletedColumn?: ProtocolIdentifier }
   | { readonly kind: 'final'; readonly engine: 'collapsing' | 'versioned-collapsing'; readonly signColumn: ProtocolIdentifier };
 
+/**
+ * RFC 0027: the dataset's rows are events. `entity` names who acted, `event`
+ * optionally names what happened; the timestamp is always `timeField`.
+ */
+export interface ProtocolDatasetEvents {
+  readonly entity: ProtocolIdentifier;
+  readonly event?: ProtocolIdentifier;
+}
+
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly name: ProtocolIdentifier;
   readonly description?: string;
@@ -184,6 +193,8 @@ export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
   readonly defaults?: ProtocolDatasetDefaults;
   readonly tenant: ProtocolDatasetTenantPolicy;
   readonly timeField?: ProtocolQualifiedIdentifier;
+  /** Present when the dataset's rows are events (RFC 0027). */
+  readonly events?: ProtocolDatasetEvents;
   readonly dimensions: readonly ProtocolDatasetDimension[];
   readonly measures: readonly ProtocolDatasetMeasure[];
   readonly filters: readonly ProtocolDatasetFilter[];

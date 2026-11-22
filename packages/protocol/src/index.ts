@@ -102,6 +102,25 @@ export type {
   ProtocolValueComparisonOperator,
 } from './expressions/index.js';
 
+export {
+  PROTOCOL_EVENT_OPERATION_LIMITS,
+  PROTOCOL_FUNNEL_COLUMNS,
+  isProtocolEventOperationKind,
+  isProtocolPredicate,
+  parseProtocolEventWindow,
+  validateProtocolEventOperation,
+} from './event-operations/index.js';
+
+export type {
+  ProtocolEventCohortGrain,
+  ProtocolEventOperation,
+  ProtocolEventOperationKind,
+  ProtocolEventWindow,
+  ProtocolEventWindowUnit,
+  ProtocolFunnelOperation,
+  ProtocolFunnelStep,
+} from './event-operations/index.js';
+
 export type {
   DeriveProtocolCacheKeyOptions,
   ProtocolCacheKeyErrorCode,
@@ -167,6 +186,7 @@ export type {
   ProtocolSemanticInvocationFailureCategory,
   ProtocolSemanticInvocationLimits,
   ProtocolSemanticInvocationMeta,
+  ProtocolSemanticInvocationOperation,
   ProtocolSemanticInvocationOptions,
   ProtocolSemanticInvocationPagination,
   ProtocolSemanticInvocationResult,
@@ -272,6 +292,7 @@ export type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolRowResolution,
+  ProtocolDatasetEvents,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -340,6 +361,7 @@ export type {
 } from './visibility/index.js';
 
 export { validateProtocolRowResolution } from './deployments/row-resolution.js';
+export { validateProtocolDatasetEvents } from './deployments/events.js';
 export {
   PROTOCOL_AGGREGATE_STATE_FUNCTIONS,
   PROTOCOL_APPROXIMATE_STATE_FUNCTIONS,

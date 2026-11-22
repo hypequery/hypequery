@@ -1,5 +1,6 @@
 import { ProtocolExpressionError, validateProtocolSemanticQuery } from '../expressions/index.js';
 import type { ProtocolSemanticQuery } from '../expressions/index.js';
+import { isProtocolEventOperationKind, validateProtocolEventOperation } from '../event-operations/index.js';
 import { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './failure-messages.js';
 import { invocationError } from './errors.js';
 import { resolveSemanticInvocationLimits } from './limits.js';
@@ -262,7 +263,14 @@ function validateInvocation(
 }
 
 function semanticQuery(input: unknown, path: string, version: 1 | 2) {
+  const kind = typeof input === 'object' && input !== null ? (input as { kind?: unknown }).kind : undefined;
+  // RFC 0027 operations use no extension 2 feature, so under the
+  // lowest-version rule they are invocation 1 only.
+  if (isProtocolEventOperationKind(kind) && version === 2) {
+    invocationError('HQ_INVOCATION_INVALID_VERSION', '$.version');
+  }
   try {
+    if (isProtocolEventOperationKind(kind)) return validateProtocolEventOperation(input);
     // Invocation 2 carries expression extension 2 (RFC 0015).
     return validateProtocolSemanticQuery(input, { extension: version });
   } catch (error) {

@@ -1,4 +1,11 @@
 import type { ProtocolSemanticQuery } from '../expressions/index.js';
+import type { ProtocolEventOperation } from '../event-operations/index.js';
+
+/**
+ * What an invocation asks for: an RFC 0003 dataset or metric query, or an
+ * RFC 0027 funnel or retention operation (semantic invocation 1 only).
+ */
+export type ProtocolSemanticInvocationOperation = ProtocolSemanticQuery | ProtocolEventOperation;
 
 export interface ProtocolSemanticInvocationTarget {
   readonly project: string;
@@ -34,7 +41,7 @@ export interface ProtocolSemanticInvocation {
   readonly target: ProtocolSemanticInvocationTarget;
   /** Pins execution to one activation. Omit to accept whichever is active. */
   readonly activationRevision?: string;
-  readonly operation: ProtocolSemanticQuery;
+  readonly operation: ProtocolSemanticInvocationOperation;
   readonly budget?: ProtocolSemanticInvocationBudget;
   /** External correlation only; never authoritative. */
   readonly correlationId?: string;
@@ -45,8 +52,10 @@ export interface ProtocolSemanticInvocation {
  * that `operation` is validated under expression extension 2, so it may name
  * segments, sub-day grains, and relationship measures.
  */
-export interface ProtocolSemanticInvocationV2 extends Omit<ProtocolSemanticInvocation, 'version'> {
+export interface ProtocolSemanticInvocationV2 extends Omit<ProtocolSemanticInvocation, 'version' | 'operation'> {
   readonly version: 2;
+  /** RFC 0027 operations use no extension 2 feature, so they are version 1 only. */
+  readonly operation: ProtocolSemanticQuery;
 }
 
 /**

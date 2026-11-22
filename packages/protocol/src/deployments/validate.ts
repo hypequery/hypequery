@@ -1,4 +1,6 @@
 import { validateProtocolRowResolution } from './row-resolution.js';
+import { validateProtocolDatasetEvents } from './events.js';
+import type { ProtocolQualifiedIdentifier } from '../identifiers/index.js';
 import { ProtocolExpressionError, validateProtocolExpression } from '../expressions/index.js';
 import type { ProtocolExpression } from '../expressions/index.js';
 import {
@@ -878,7 +880,7 @@ function validateDataset(
     [
       'description', 'freshness', 'owner', 'defaults', 'rowResolution',
       ...SEMANTIC_METADATA_FIELDS,
-      'timeField', 'limits', 'endpoint',
+      'timeField', 'events', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ],
     path,
@@ -941,6 +943,15 @@ function validateDataset(
   }
   if (value.timeField !== undefined) {
     result.timeField = field(() => identifier(value.timeField, `${path}.timeField`, true));
+  }
+  // RFC 0027: resolved against this dataset's own dimensions and time field.
+  if (value.events !== undefined && result.dimensions !== undefined) {
+    result.events = field(() => validateProtocolDatasetEvents(
+      value.events,
+      `${path}.events`,
+      result.dimensions as readonly ProtocolDatasetDimension[],
+      result.timeField as ProtocolQualifiedIdentifier | undefined,
+    ));
   }
   field(() => optionalText(value.description, 'description', result, path, limits));
   field(() => optionalText(value.owner, 'owner', result, path, limits));
@@ -1162,7 +1173,7 @@ function validateDeploymentDataset(
     ],
     [
       'description', 'freshness', 'owner', 'defaults', 'rowResolution',
-      ...SEMANTIC_METADATA_FIELDS, 'timeField', 'limits', 'endpoint',
+      ...SEMANTIC_METADATA_FIELDS, 'timeField', 'events', 'limits', 'endpoint',
       ...(version === 3 ? ['segments'] : []),
     ], path, issues);
   // When collecting, a malformed measure list is reported and the rest of the

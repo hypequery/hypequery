@@ -635,6 +635,17 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
   description?: string;
 }
 
+/**
+ * Declares that a dataset's rows are events (RFC 0027), so funnel and
+ * retention operations can run on it. The event timestamp is `timeKey`.
+ */
+export interface DatasetEvents {
+  /** The dimension identifying who acted, such as `userId` or `accountId`. */
+  readonly entity: string;
+  /** The dimension naming what happened, such as `eventName`. Optional. */
+  readonly event?: string;
+}
+
 export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
@@ -697,6 +708,8 @@ export interface DatasetConfig<
    * may use dimensions that are not exposed as filters.
    */
   segments?: TSegments;
+  /** Rows are events: enables funnel and retention operations (RFC 0027). */
+  events?: DatasetEvents;
 }
 
 export interface DatasetInstance<
@@ -746,6 +759,8 @@ export interface DatasetInstance<
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
   segments: TSegments;
+  /** See `DatasetConfig.events`. */
+  events?: DatasetEvents;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,

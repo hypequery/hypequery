@@ -100,6 +100,7 @@ export type {
   DeploymentSemanticBudget,
   DeploymentSemanticDataPlane,
   DeploymentSemanticDataPlaneOptions,
+  DeploymentSemanticEventExecutionInput,
   DeploymentSemanticExecutionInput,
   DeploymentSemanticInvocationRequest,
   DeploymentSemanticContextInput,

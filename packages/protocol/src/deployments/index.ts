@@ -33,6 +33,7 @@ export type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolRowResolution,
+  ProtocolDatasetEvents,
   ProtocolDatasetDefaults,
   ProtocolDatasetDimension,
   ProtocolDatasetFieldSource,
@@ -70,3 +71,4 @@ export type {
 } from './types.js';
 
 export { validateProtocolRowResolution } from './row-resolution.js';
+export { validateProtocolDatasetEvents } from './events.js';

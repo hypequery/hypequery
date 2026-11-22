@@ -22,9 +22,12 @@ import { withDeadline } from './utils/portable-execution-deadline.js';
 
 import type {
   ProtocolDeploymentDatasetAnyVersion,
+  ProtocolEventOperation,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
 } from '@hypequery/protocol';
+import { prepareEventOperation } from './event-operations.js';
+import { eventOperationSpec } from './utils/event-operation-spec.js';
 import { createDatasetClient } from './executor.js';
 import type { DatasetCompilation, DatasetCompilationDescription } from './dataset-compilation.js';
 import type { ExecutionContext } from './types.js';
@@ -34,7 +37,7 @@ import {
   UnsupportedContractFeatureError,
   type RehydratedDataset,
 } from './protocol-rehydrate.js';
-import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
+import { toQueryBuilderFactory, type QueryBuilderFactoryInput } from './query-builder-protocol.js';
 /** Ceilings the data plane already reduced to the most restrictive value. */
 export interface PortableSemanticBudget {
   readonly maxRows: number;
@@ -57,6 +60,14 @@ export interface PortableSemanticExecutionInput {
   /** Identifies the immutable generation, and keys the rebuilt catalog. */
   readonly activationRevision: string;
   readonly signal?: AbortSignal;
+}
+
+/**
+ * The data plane's RFC 0027 execution input: the same fields, with a funnel
+ * operation whose `filters` already carry any enforced constraints.
+ */
+export interface PortableEventExecutionInput extends Omit<PortableSemanticExecutionInput, 'operation'> {
+  readonly operation: ProtocolEventOperation;
 }
 
 export interface PortableSemanticExecutorOptions {
@@ -84,6 +95,8 @@ export interface PortableSemanticRuntime {
    */
   compile(input: PortableSemanticExecutionInput): PortableDatasetCompilation;
   execute(input: PortableSemanticExecutionInput): Promise<ProtocolSemanticInvocationResult>;
+  /** RFC 0027 funnels; wire into the data plane's `executeEventOperation`. */
+  executeEventOperation(input: PortableEventExecutionInput): Promise<ProtocolSemanticInvocationResult>;
 }
 
 /** Shared portable runtime for provider-side authoring preview and execution. */
@@ -115,8 +128,8 @@ export function createPortableSemanticRuntime(
     return registry;
   }
 
-  function resolve(input: PortableSemanticExecutionInput) {
-    const registry = registryFor(input);
+  function resolveTarget(input: Omit<PortableSemanticExecutionInput, 'operation'>) {
+    const registry = registryFor(input as PortableSemanticExecutionInput);
     const rebuilt = registry[String(input.dataset.name)];
     if (rebuilt === undefined) {
       throw new PortableExecutionUnsupportedError(
@@ -138,9 +151,31 @@ export function createPortableSemanticRuntime(
         + 'cannot be applied to it.',
       );
     }
-    const query = semanticQuery(input.operation, input.budget.maxRows);
     const context: ExecutionContext = tenant === undefined ? {} : { runtime: { tenant } };
-    return { target, query, context };
+    return { target, context };
+  }
+
+  function resolve(input: PortableSemanticExecutionInput) {
+    const { target, context } = resolveTarget(input);
+    return { target, query: semanticQuery(input.operation, input.budget.maxRows), context };
+  }
+
+  async function executeEventOperation(input: PortableEventExecutionInput): Promise<ProtocolSemanticInvocationResult> {
+    const { target, context } = resolveTarget(input);
+    const spec = eventOperationSpec(input.operation, target as never);
+    const rows = await withDeadline(input.budget, input.signal, async signal => (
+      prepareEventOperation(target as never, spec, {
+        builderFactory: toQueryBuilderFactory(options.queryBuilder),
+        context: { ...context, abortSignal: signal },
+      }).execute()
+    ));
+    return bounded(Object.freeze({
+      kind: 'hypequery-semantic-invocation-result',
+      version: 1,
+      activationRevision: input.activationRevision,
+      data: rows,
+      meta: { rowCount: rows.length },
+    }) as unknown as ProtocolSemanticInvocationResult, input.budget);
   }
 
   async function execute(input: PortableSemanticExecutionInput): Promise<ProtocolSemanticInvocationResult> {
@@ -185,6 +220,7 @@ export function createPortableSemanticRuntime(
       });
     },
     execute,
+    executeEventOperation,
   };
 }
 

@@ -70,6 +70,7 @@ import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { validateSemanticMetadata } from './utils/semantic-metadata-validation.js';
 import { derivedMeasuresView, getBaseMeasure } from './utils/dataset-measures.js';
 import { normalizeSegments } from './utils/segments.js';
+import { datasetEventsErrors, snapshotDatasetEvents } from './utils/dataset-events.js';
 
 // Inferred calls: an omitted timeKey or timeKeys narrows to "none", so a
 // query's timeKey is checked against exactly the declared axes.
@@ -119,6 +120,8 @@ export function dataset<
   // model fails at definition time rather than on the first query that reaches
   // the broken part of it.
   validateDatasetDefinition(name, config);
+  const eventErrors = datasetEventsErrors(config);
+  if (eventErrors.length > 0) throw new Error(`Invalid dataset "${name}": ${eventErrors.join(' ')}`);
 
   const dimensions = normalizeDimensions(config);
   // The spread copies the authored keys, but TypeScript widens them through
@@ -198,6 +201,7 @@ export function dataset<
     limits: config.limits,
     cache: config.cache,
     segments: normalizeSegments(name, { tenantKey: config.tenantKey, dimensions }, config.segments) as TSegments,
+    ...snapshotDatasetEvents(config.events),
     metric,
   };
 

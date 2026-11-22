@@ -16,6 +16,7 @@ export type {
   ProtocolSemanticInvocationFailureCategory,
   ProtocolSemanticInvocationLimits,
   ProtocolSemanticInvocationMeta,
+  ProtocolSemanticInvocationOperation,
   ProtocolSemanticInvocationOptions,
   ProtocolSemanticInvocationPagination,
   ProtocolSemanticInvocationResult,

@@ -507,6 +507,12 @@ export function rehydrateProtocolDatasets(
       ...(contract.timeField !== undefined
         ? { timeKey: String(contract.timeField), timeGrains: PUBLISHED_TIME_GRAINS }
         : {}),
+      ...(contract.events === undefined ? {} : {
+        events: {
+          entity: String(contract.events.entity),
+          ...(contract.events.event === undefined ? {} : { event: String(contract.events.event) }),
+        },
+      }),
       dimensions: rehydrateDimensions(contract),
       measures: Object.fromEntries([
         ...contract.measures.map(measure => [

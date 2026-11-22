@@ -148,7 +148,18 @@ export type {
   PortableDatasetCompilation,
   PortableSemanticExecutionInput,
   PortableSemanticExecutorOptions,
+  PortableEventExecutionInput,
 } from './portable-executor.js';
+
+// RFC 0027 event operations (funnel) over event datasets.
+export { eventOperationErrors, prepareEventOperation } from './event-operations.js';
+export type {
+  EventOperationSpec,
+  EventResultRow,
+  EventResultValue,
+  FunnelSpec,
+  PreparedEventOperation,
+} from './event-operations.js';
 
 // SQL portability compiler (R1A-07)
 export {
@@ -342,6 +353,7 @@ export type {
   DatasetConfig,
   RowResolution,
   DatasetDefaults,
+  DatasetEvents,
   DatasetFreshness,
   DatasetLimits,
   DatasetCachePolicy,

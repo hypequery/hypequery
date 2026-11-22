@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal, cast
 
+from .dataset_events import dataset_events
 from .deployment_nodes import (
     dataset_filter,
     dataset_limits,
@@ -62,6 +63,7 @@ _DATASET_OPTIONAL = (
     "defaults",
     *SEMANTIC_METADATA_FIELDS,
     "timeField",
+    "events",
     "limits",
     "endpoint",
 )
@@ -354,6 +356,14 @@ def _dataset(
         result["rowResolution"] = row_resolution(node["rowResolution"], f"{path}.rowResolution")
     if "timeField" in node:
         result["timeField"] = identifier(node["timeField"], f"{path}.timeField", qualified=True)
+    # RFC 0027: resolved against this dataset's own dimensions and time field.
+    if "events" in node:
+        result["events"] = dataset_events(
+            node["events"],
+            f"{path}.events",
+            cast(list[dict[str, object]], result["dimensions"]),
+            result.get("timeField"),
+        )
     optional_text(node, "description", result, path, limits)
     optional_text(node, "owner", result, path, limits)
     semantic_metadata(node, result, path, limits)
