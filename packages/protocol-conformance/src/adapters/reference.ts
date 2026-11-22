@@ -23,6 +23,7 @@ import {
   validateProtocolDeploymentContract,
   validateProtocolDeploymentContractV3,
   validateProtocolDeploymentReleaseEnvelope,
+  validateProtocolEventOperation,
   validateProtocolExpression,
   validateProtocolQueryDiagnostics,
   validateProtocolQueryEvent,
@@ -117,6 +118,7 @@ export const REFERENCE_FAMILIES = [
   'business-context-v1',
   'semantic-invocations-v1',
   'semantic-invocations-v2',
+  'event-operations-v1',
 ] as const;
 
 export function referenceHandle(
@@ -169,6 +171,11 @@ export function referenceHandle(
       return handleSemanticInvocation(c, 1);
     case 'semantic-invocations-v2':
       return handleSemanticInvocation(c, 2);
+    case 'event-operations-v1':
+      return attempt(() => {
+        validateProtocolEventOperation(c.value);
+        return ACCEPT;
+      });
     case 'cache-keys-v1':
       return handleCacheKey(role, c);
     case 'cache-preimages-v1':

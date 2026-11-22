@@ -676,6 +676,17 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
 }
 
 /**
+ * Declares that a dataset's rows are events (RFC 0027), so funnel and
+ * retention operations can run on it. The event timestamp is `timeKey`.
+ */
+export interface DatasetEvents {
+  /** The dimension identifying who acted, such as `userId` or `accountId`. */
+  readonly entity: string;
+  /** The dimension naming what happened, such as `eventName`. Optional. */
+  readonly event?: string;
+}
+
+/**
  * A dataset source that is a query instead of a table (RFC 0028): one
  * read-only ClickHouse `SELECT`, read as a derived table named after the
  * dataset. Checked when the dataset is defined.
@@ -777,6 +788,8 @@ export interface DatasetConfig<
    * may use dimensions that are not exposed as filters.
    */
   segments?: TSegments;
+  /** Rows are events: enables funnel and retention operations (RFC 0027). */
+  events?: DatasetEvents;
 }
 
 export interface DatasetInstance<
@@ -832,6 +845,8 @@ export interface DatasetInstance<
   limits?: DatasetLimits;
   cache?: DatasetCachePolicy;
   segments: TSegments;
+  /** See `DatasetConfig.events`. */
+  events?: DatasetEvents;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<BaseMeasures<TMeasures>>,

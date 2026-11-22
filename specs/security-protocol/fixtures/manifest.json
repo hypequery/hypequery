@@ -356,6 +356,23 @@
       ]
     },
     {
+      "name": "event-operations-v1",
+      "rfc": "0027",
+      "codePrefixes": [
+        "HQ_EXPRESSION_"
+      ],
+      "files": [
+        {
+          "path": "event-operations-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "event-operations-v1/rejections.json",
+          "role": "rejection"
+        }
+      ]
+    },
+    {
       "name": "client-contract-v1",
       "rfc": "0018",
       "codePrefixes": [

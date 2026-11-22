@@ -1,0 +1,1 @@
+- `hypequery.protocol` accepts the RFC 0027 dataset `events` declaration (`entity`, optional `event`) in deployment contracts 2 and 3, with the same checks and canonical identity as TypeScript. Funnel and retention execution in Python is not available yet.

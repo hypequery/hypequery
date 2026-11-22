@@ -509,6 +509,12 @@ export function rehydrateProtocolDatasets(
       ...(contract.timeField !== undefined
         ? { timeKey: String(contract.timeField), timeGrains: PUBLISHED_TIME_GRAINS }
         : {}),
+      ...(contract.events === undefined ? {} : {
+        events: {
+          entity: String(contract.events.entity),
+          ...(contract.events.event === undefined ? {} : { event: String(contract.events.event) }),
+        },
+      }),
       // RFC 0029: contract 3 alternate axes are the dataset's `timeKeys`.
       ...alternateTimeKeys(contract),
       dimensions: rehydrateDimensions(contract),

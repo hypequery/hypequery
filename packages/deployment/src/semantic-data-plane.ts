@@ -15,15 +15,18 @@ import type {
   ProtocolDeploymentContractAnyVersion,
   ProtocolDeploymentDatasetAnyVersion,
   ProtocolEndpointPolicy,
+  ProtocolEventOperation,
   ProtocolExpression,
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationV2,
+  ProtocolSemanticInvocationOperation,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticQuery,
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import {
   ProtocolSemanticInvocationError,
+  isProtocolEventOperationKind,
   resolveProtocolVisibleDatasetFields,
   validateProtocolDeploymentContractAnyVersion,
   validateProtocolExpression,
@@ -38,6 +41,7 @@ import {
   validateSemanticOperation,
   type SemanticOperationLimits,
 } from './semantic-operation-validation.js';
+import { validateSemanticEventOperation } from './semantic-event-operation-validation.js';
 import { DeploymentSemanticInvocationError, fail, throwIfAborted } from './semantic-invocation-errors.js';
 import { missing } from './utils/required-access.js';
 import { definedLimits, lowest, tighten } from './utils/semantic-budget-limits.js';
@@ -84,6 +88,18 @@ export interface DeploymentSemanticExecutionInput {
   readonly signal?: AbortSignal;
 }
 
+/** What an RFC 0027 executor receives: the execution input, with a funnel or retention operation. */
+export interface DeploymentSemanticEventExecutionInput extends Omit<DeploymentSemanticExecutionInput, 'operation'> {
+  /** The caller's operation, exactly as validated: its `filters` hold only caller filters. */
+  readonly operation: ProtocolEventOperation;
+  /**
+   * The provider's enforced constraints (RFC 0019), kept apart from the
+   * operation so a trusted time cutoff never reads as a second caller time
+   * range. The executor applies them to the event scan, ANDed with filters.
+   */
+  readonly constraints: readonly ProtocolExpression[];
+}
+
 export interface DeploymentSemanticInvocationRequest {
   /** An unvalidated invocation record; validated before anything else runs. */
   readonly invocation: unknown;
@@ -116,6 +132,12 @@ export interface DeploymentSemanticDataPlaneOptions {
    */
   readonly resolveConstraints?: (input: DeploymentSemanticContextInput) => Promise<unknown>;
   readonly execute: (input: DeploymentSemanticExecutionInput) => Promise<unknown>;
+  /**
+   * Runs RFC 0027 funnel and retention operations. Kept apart from `execute`
+   * so an executor written for dataset queries never receives one. Without
+   * it, those operations are refused with `unsupported-capability`.
+   */
+  readonly executeEventOperation?: (input: DeploymentSemanticEventExecutionInput) => Promise<unknown>;
   /** Server-side ceilings, applied on top of contract and caller limits. */
   readonly limits?: Partial<SemanticOperationLimits> & {
     readonly deadlineMs?: number;
@@ -171,7 +193,7 @@ export function createDeploymentSemanticDataPlane(
   // against everything. A caller that omits a limit gets the default.
   const configured: SemanticOperationLimits = { ...DEFAULT_LIMITS, ...definedLimits(options.limits) };
 
-  function resolveTarget(operation: ProtocolSemanticQuery): {
+  function resolveTarget(operation: ProtocolSemanticInvocationOperation): {
     dataset: ProtocolDeploymentDatasetAnyVersion;
     endpoint: ProtocolEndpointPolicy;
   } {
@@ -368,22 +390,35 @@ export function createDeploymentSemanticDataPlane(
     // are published in the contract precisely so a gateway can apply them
     // without loading the authoring package, and a set of ceilings where only
     // one of the four binds is not a set of ceilings.
-    const violations = validateSemanticOperation(operation, dataset, datasets, {
-      maxRows: budget.maxRows,
-      maxOffset: configured.maxOffset,
-      maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
-      maxMeasures: tighten(dataset.limits?.maxMeasures, configured.maxMeasures),
-      maxFilters: tighten(dataset.limits?.maxFilters, configured.maxFilters) - constraints.length,
-    }, visible);
+    const maxFilters = tighten(dataset.limits?.maxFilters, configured.maxFilters) - constraints.length;
+    const eventOperation = isProtocolEventOperationKind(operation.kind) ? operation as ProtocolEventOperation : undefined;
+    const violations = eventOperation !== undefined
+      ? validateSemanticEventOperation(eventOperation, dataset, datasets, {
+        maxRows: budget.maxRows,
+        maxFilters,
+        maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
+      }, visible)
+      : validateSemanticOperation(operation as ProtocolSemanticQuery, dataset, datasets, {
+        maxRows: budget.maxRows,
+        maxOffset: configured.maxOffset,
+        maxDimensions: tighten(dataset.limits?.maxDimensions, configured.maxDimensions),
+        maxMeasures: tighten(dataset.limits?.maxMeasures, configured.maxMeasures),
+        maxFilters,
+      }, visible);
     if (violations.length > 0) {
       const [first] = violations;
       fail('input-invalid', 'HQ_SEMANTIC_INPUT_INVALID', first.message, { path: first.path });
     }
     throwIfAborted(request.signal);
 
-    const selected = withVisibleDefaultMeasures(operation, dataset, visible);
+    if (eventOperation !== undefined && !options.executeEventOperation) {
+      fail('unsupported-capability', 'HQ_SEMANTIC_UNSUPPORTED_OPERATION',
+        `This deployment cannot run ${eventOperation.kind} operations.`, { path: '$.operation.kind' });
+    }
+    const query = operation as ProtocolSemanticQuery;
+    const selected = eventOperation !== undefined ? query : withVisibleDefaultMeasures(query, dataset, visible);
     const maxMeasures = tighten(dataset.limits?.maxMeasures, configured.maxMeasures);
-    if (selected !== operation && selected.kind === 'dataset' && (selected.measures?.length ?? 0) > maxMeasures) {
+    if (selected !== query && selected.kind === 'dataset' && (selected.measures?.length ?? 0) > maxMeasures) {
       // The caller asked for the default selection; it narrowed to more
       // measures than one query may select, so the caller has to choose.
       fail('input-invalid', 'HQ_SEMANTIC_INPUT_INVALID',
@@ -391,18 +426,23 @@ export function createDeploymentSemanticDataPlane(
     }
     let output: unknown;
     try {
-      output = await options.execute({
+      const shared = {
         deployment,
         dataset,
-        operation: constraints.length === 0
-          ? selected
-          : Object.freeze({ ...selected, filters: [...(selected.filters ?? []), ...constraints] }),
         principal,
         tenant,
         budget,
         activationRevision: options.activationRevision,
         ...(request.signal === undefined ? {} : { signal: request.signal }),
-      });
+      };
+      output = eventOperation !== undefined
+        ? await options.executeEventOperation!({ ...shared, operation: eventOperation, constraints })
+        : await options.execute({
+          ...shared,
+          operation: constraints.length === 0
+            ? selected
+            : Object.freeze({ ...selected, filters: [...(selected.filters ?? []), ...constraints] }),
+        });
     } catch (error) {
       if (error instanceof DeploymentSemanticInvocationError) throw error;
       if (request.signal?.aborted) {
@@ -447,7 +487,7 @@ export function createDeploymentSemanticDataPlane(
     // validation already proved it is no larger than the budget. An executor
     // that returns more rows than were requested widened the request just as
     // surely as one that exceeded the budget.
-    const maxRows = Math.min(budget.maxRows, operation.limit ?? budget.maxRows);
+    const maxRows = Math.min(budget.maxRows, (eventOperation === undefined ? query.limit : undefined) ?? budget.maxRows);
     if (result.data.length > maxRows) {
       fail('budget-exceeded', 'HQ_SEMANTIC_BUDGET_EXCEEDED',
         `The result has ${result.data.length} rows; the effective limit is ${maxRows}.`);

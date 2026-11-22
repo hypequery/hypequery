@@ -14,7 +14,8 @@ interface SuccessFixture { id: string; record: Record; value: unknown }
 interface RejectionFixture {
   id: string;
   record: Record;
-  generator: { type: string };
+  generator?: { type: string };
+  value?: unknown;
   error: string;
 }
 
@@ -198,9 +199,9 @@ describe('semantic invocation v1', () => {
     expect(Object.isFrozen(validated)).toBe(true);
   });
 
-  it.each(rejections)('rejects $id with its stable code', ({ record, generator, error }) => {
+  it.each(rejections)('rejects $id with its stable code', ({ record, generator, value, error }) => {
     try {
-      VALIDATORS[record](materialize(generator.type));
+      VALIDATORS[record](generator ? materialize(generator.type) : value);
       throw new Error('Expected semantic invocation validation to fail');
     } catch (thrown) {
       expect(thrown).toBeInstanceOf(ProtocolSemanticInvocationError);
@@ -210,7 +211,9 @@ describe('semantic invocation v1', () => {
 
   it('covers every fixture generator', () => {
     for (const fixture of rejections) {
-      expect(() => materialize(fixture.generator.type)).not.toThrow(/Unknown fixture generator/);
+      const { generator } = fixture;
+      if (!generator) continue;
+      expect(() => materialize(generator.type)).not.toThrow(/Unknown fixture generator/);
     }
   });
 

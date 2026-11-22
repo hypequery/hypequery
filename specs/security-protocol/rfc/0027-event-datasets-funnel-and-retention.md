@@ -121,13 +121,24 @@ does for dataset queries.
 | `timezone` | no | RFC 0025: an IANA name from the pinned registry. It moves bucket boundaries and the bounds of the time range. Absent means `UTC`. |
 
 A **condition list** (`where`) is a non-empty array of at most 10 RFC 0003
-predicates, AND-combined. It follows the same grammar as `filters`.
+predicates, AND-combined. Like `filters`, an entry may be an `and`/`or`/`not`
+tree of comparisons (RFC 0029). Unlike `filters`, a condition can't carry
+`inDateRange` (`HQ_EXPRESSION_INVALID_OPERATOR`), since conditions never test
+the time field.
+
+Events whose `entity` value is NULL are ignored: they can't be tied to anyone,
+so they never join another anonymous event in a sequence or a cohort.
 
 **The time range.** `filters` must contain exactly one bounded range on the
-dataset's `timeField`: either one `between`, or one `gt`/`gte` together with
-one `lt`/`lte`. The bounds are ISO 8601 date or timestamp strings. This is the
-rule window measures already follow, and an RFC 0029 relative range resolves
-to the same shape. The data plane refuses a missing, half-open or doubled
+dataset's `timeField`, as top-level comparisons (or inside a top-level
+`and`): one `between`, one `inDateRange` (RFC 0029), or one `gt`/`gte`
+together with one `lt`/`lte`. Bounds are ISO 8601 date or timestamp strings,
+and an offset-free bound is a wall clock in the operation's `timezone`. A time
+comparison under `or` or `not` filters events but bounds nothing. This is the
+rule window measures and filled series follow. The executor resolves a
+relative range against its own clock in the operation's zone; the data plane,
+which has no clock, bounds its span by the longest the unit can be (31-day
+months, 92-day quarters, 366-day years). The data plane refuses a missing, half-open or doubled
 range with `input-invalid`. The span may be at most 731 days. Every event outside the range is ignored, including later steps and
 returns, so a call never scans an unbounded table.
 
@@ -296,19 +307,25 @@ refuses with `input-invalid` when:
 - the dataset declares no `events`;
 - `entity` or a breakdown dimension isn't groupable, isn't visible to the
   caller (RFC 0019), or is a time dimension;
-- a step, start or return condition, or a filter, is not a plain
+- a leaf of a step, start or return condition, or of a filter, is not a plain
   `field <operator> literal` comparison on a filterable, visible field of the
-  dataset with an operator that field allows (the rule dataset-query filters
-  follow), or a condition names the time field (the range belongs in
-  `filters`). A relationship-qualified field is refused;
+  dataset, or applies an operator that field doesn't allow once `not` is
+  pushed down to it (RFC 0029 effective operators: the rule dataset-query
+  filters follow), or a condition leaf names the time field (the range
+  belongs in `filters`), or an `inDateRange` names any field but the time
+  field. A relationship-qualified field is refused;
 - the time range rule above is broken;
-- `filters`, every condition in every `where`, and the enforced constraints
-  together exceed the dataset's `maxFilters`;
+- the comparison leaves of `filters` and of every `where`, plus the enforced
+  constraints, together exceed the dataset's `maxFilters`;
+- the entity plus the breakdown dimensions exceed the dataset's
+  `maxDimensions`;
 - the estimated row count exceeds the effective row budget. For a funnel it
   is `(by ? buckets : 1) × (breakdown ? breakdownLimit : 1) × steps`, and for
   retention it is `buckets × periods × (breakdown ? breakdownLimit : 1)`.
-  Buckets are estimated from the range span in UTC, rounded up. The caller
-  narrows the range, grain or `breakdownLimit`, and is told so.
+  Buckets are counted in the query zone, including partly covered ones: day
+  and week buckets as the span rounded up plus one, months from the local
+  calendar months the bounds fall in. The caller narrows the range, grain or
+  `breakdownLimit`, and is told so.
 
 A hidden field fails exactly like an unknown one. Tenant, row-policy and
 constraint predicates apply to the event scan before any per-entity
@@ -319,6 +336,8 @@ An executor that can't run an operation kind refuses it with
 `unsupported-capability`. It never approximates one with dataset queries. The
 TypeScript data plane takes a separate, optional `executeEventOperation`
 executor, so an executor written for dataset queries never receives a funnel.
+It passes the enforced constraints beside the operation, never inside its
+`filters`, so a provider's time cutoff can't read as a second caller range.
 Without one, the data plane refuses event operations with
 `unsupported-capability` (`HQ_SEMANTIC_UNSUPPORTED_OPERATION`).
 

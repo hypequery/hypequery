@@ -122,6 +122,25 @@ export type {
   ProtocolWindowCalculation,
 } from './expressions/index.js';
 
+export {
+  PROTOCOL_EVENT_OPERATION_LIMITS,
+  PROTOCOL_FUNNEL_COLUMNS,
+  isProtocolEventOperationKind,
+  isProtocolPredicate,
+  parseProtocolEventWindow,
+  validateProtocolEventOperation,
+} from './event-operations/index.js';
+
+export type {
+  ProtocolEventCohortGrain,
+  ProtocolEventOperation,
+  ProtocolEventOperationKind,
+  ProtocolEventWindow,
+  ProtocolEventWindowUnit,
+  ProtocolFunnelOperation,
+  ProtocolFunnelStep,
+} from './event-operations/index.js';
+
 export type {
   DeriveProtocolCacheKeyOptions,
   ProtocolCacheKeyErrorCode,
@@ -187,6 +206,7 @@ export type {
   ProtocolSemanticInvocationFailureCategory,
   ProtocolSemanticInvocationLimits,
   ProtocolSemanticInvocationMeta,
+  ProtocolSemanticInvocationOperation,
   ProtocolSemanticInvocationOptions,
   ProtocolSemanticInvocationPagination,
   ProtocolSemanticInvocationResult,
@@ -292,6 +312,7 @@ export type {
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolRowResolution,
+  ProtocolDatasetEvents,
   ProtocolDatasetSource,
   ProtocolSqlSource,
   ProtocolSqlSourceColumn,
@@ -363,6 +384,7 @@ export type {
 } from './visibility/index.js';
 
 export { validateProtocolRowResolution } from './deployments/row-resolution.js';
+export { validateProtocolDatasetEvents } from './deployments/events.js';
 export { isProtocolSqlSource, validateProtocolSqlSource } from './deployments/sql-source.js';
 export {
   PROTOCOL_SQL_SOURCE_MAX_BYTES,

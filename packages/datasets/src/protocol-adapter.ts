@@ -207,6 +207,8 @@ export function protocolDatasetRecord(
       ? { kind: 'required', field: dataset.tenantKey }
       : { kind: 'not-required' },
     ...(dataset.timeKey !== undefined ? { timeField: dataset.timeKey } : {}),
+    // RFC 0027: published as declared; the contract validator re-checks it.
+    ...(dataset.events === undefined ? {} : { events: { ...dataset.events } }),
     dimensions: Object.entries(dataset.dimensions).map(([name, dimension]) => ({
       name,
       type: dimension.fieldType,

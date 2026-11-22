@@ -253,6 +253,7 @@ export function datasetSource(
     owner: dataset.owner,
     tenantKey: dataset.tenant.kind === 'required' ? dataset.tenant.field : undefined,
     timeKey: dataset.timeField === undefined ? undefined : String(dataset.timeField),
+    events: dataset.events,
     defaults: dataset.defaults,
     dimensions: Object.fromEntries(dataset.dimensions.map(item => [String(item.name), dimension(item)])),
     measures: measures.length > 0 ? Object.fromEntries(measures) : undefined,

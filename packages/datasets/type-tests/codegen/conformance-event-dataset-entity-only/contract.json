@@ -1,0 +1,91 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 2,
+  "datasets": [
+    {
+      "name": "activity",
+      "source": "analytics.activity",
+      "tenant": {
+        "kind": "not-required"
+      },
+      "dimensions": [
+        {
+          "name": "userId",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "user_id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "accountId",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "account_id"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "eventName",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "event_name"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "plan",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "plan"
+          },
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "occurredAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "occurred_at"
+          },
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "events",
+          "aggregation": "count",
+          "field": "userId",
+          "filters": []
+        }
+      ],
+      "filters": [],
+      "relationships": [],
+      "timeField": "occurredAt",
+      "events": {
+        "entity": "accountId"
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [],
+          "scopes": []
+        },
+        "tenant": {
+          "kind": "not-required"
+        },
+        "maxLimit": 1000,
+        "path": "/api/analytics/datasets/activity/query"
+      }
+    }
+  ]
+}
