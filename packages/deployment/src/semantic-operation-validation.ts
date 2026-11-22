@@ -16,6 +16,12 @@ import type {
   ProtocolVisibleDatasetFields,
 } from '@hypequery/protocol';
 import { protocolFilterCapabilities } from './semantic-filter-capabilities.js';
+import { comparisonField } from './utils/semantic-comparison-field.js';
+import {
+  calculationConditionCount,
+  calculationOutputNames,
+  validateSemanticCalculations,
+} from './semantic-calculation-validation.js';
 import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
 import { timeSeriesRangeViolation } from './utils/time-series-range.js';
 import { fieldBackingColumn, isTimeAxisVisible } from './utils/field-backing-column.js';
@@ -131,24 +137,6 @@ function narrowResolvedToVisible(allowed: Resolved, visible: ProtocolVisibleData
 }
 
 /**
- * The field a filter expression addresses, or null when it is not a plain
- * comparison.
- *
- * Both operands are checked. A right-hand side that is anything but a literal —
- * another reference, an aggregate, a nested comparison — addresses something
- * this validator never matched against the contract's allowlist, so accepting
- * it would leave a published-surface check to whichever executor happens to be
- * injected. It is also a caller mistake rather than a deployment capability
- * gap, and only a violation raised here reports it as one.
- */
-function comparisonField(expression: ProtocolExpression): { field: string; operator: string } | null {
-  if (expression.kind !== 'comparison' || expression.left.kind !== 'reference') return null;
-  // A null check (RFC 0023) has no right operand; any other comparison needs a literal one.
-  if ('right' in expression && expression.right.kind !== 'literal') return null;
-  return { field: String(expression.left.name), operator: expression.operator };
-}
-
-/**
  * Validates one semantic operation against the contract that will serve it.
  *
  * Returns every violation rather than the first, so a caller correcting an
@@ -192,6 +180,14 @@ export function validateSemanticOperation(
   if (measures.length > limits.maxMeasures) {
     fail(`At most ${limits.maxMeasures} measures may be selected.`, '$.operation.measures');
   }
+  // RFC 0026: every calculation output is a column, as a selected measure is.
+  const outputs = calculationOutputNames(operation);
+  if (measures.length <= limits.maxMeasures && measures.length + outputs.length > limits.maxMeasures) {
+    fail(
+      `At most ${limits.maxMeasures} measures and calculation outputs may be selected together.`,
+      '$.operation.calculations',
+    );
+  }
   measures.forEach((name, index) => {
     if (!allowed.measures.has(String(name))) {
       fail(`Unknown measure "${String(name)}".`, `$.operation.measures[${index}]`);
@@ -220,6 +216,20 @@ export function validateSemanticOperation(
       '$.operation.having',
     );
   }
+  // RFC 0026: a filter calculation's conditions share the same budget.
+  const conditions = calculationConditionCount(operation);
+  if (conditions > 0 && filters.length + having.length <= limits.maxFilters
+    && filters.length + having.length + conditions > limits.maxFilters) {
+    fail(
+      `At most ${limits.maxFilters} filters, having and filter-calculation conditions may be applied together.`,
+      '$.operation.calculations',
+    );
+  }
+  for (const violation of validateSemanticCalculations(operation, dataset, {
+    measures: allowed.measures,
+    filters: allowed.filters,
+    hasTimeField: allowed.grains.size > 0,
+  })) fail(violation.message, violation.path);
   filters.forEach(({ expression, path, negated }) => {
     const comparison = comparisonField(expression);
     if (comparison === null) {
@@ -326,6 +336,7 @@ export function validateSemanticOperation(
   const orderable = new Set<string>([
     ...allowed.groupable,
     ...allowed.measures,
+    ...outputs,
     ...(operation.by === undefined ? [] : ['period']),
   ]);
   orderBy.forEach((entry, index) => {

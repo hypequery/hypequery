@@ -1,4 +1,3 @@
-import { relativeDateFilterError } from './relative-date-filters.js';
 import { notGroupableError } from './groupable.js';
 import { resolveRelationshipMeasure } from './relationship-measures.js';
 import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
@@ -9,35 +8,34 @@ import type {
   DatasetQuery,
   ExecutionContext,
 } from '../types.js';
-import { validateFilterValue, type ValidationResult } from '../validation.js';
+import type { ValidationResult } from '../validation.js';
 import { unsupportedTimeGrainError } from './dataset-time-grains.js';
-import {
-  getRuntimeTenantPredicate,
-  validateTenantRuntime,
-} from './tenant-runtime.js';
+import { validateTenantRuntime } from './tenant-runtime.js';
 import {
   isQualifiedField,
   resolveQualifiedField,
 } from './relationship-fields.js';
-import {
-  validateQualifiedFilter,
-  validateRelationshipTenantRuntime,
-} from './relationship-validation.js';
+import { validateRelationshipTenantRuntime } from './relationship-validation.js';
 import { segmentSelectionErrors } from './segments.js';
-import { filterAllowsOperator } from './filter-operator-policy.js';
-import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { analyzeTimeMeasureAxis } from './time-measure-axis.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
-import { effectiveFilters } from './effective-filters.js';
-import { effectiveFilterLeaves, filterLeafCount, filterTreeErrors } from './filter-tree.js';
+import { queryFilterErrors } from './query-filter-errors.js';
+import { hasQueryCalculations } from './query-calculation-outputs.js';
+import { calculatedDatasetQueryErrors } from './compile-calculated-dataset-query.js';
+import { filterLeafCount, filterTreeErrors } from './filter-tree.js';
 
 export function validateDatasetQueryInput(
   dataset: AnyDatasetInstance,
   query: DatasetQuery,
   context?: ExecutionContext,
 ): ValidationResult {
+  // RFC 0026: a calculated query validates as the view and inner query it plans to.
+  if (hasQueryCalculations(query)) {
+    const { errors, unsupported } = calculatedDatasetQueryErrors(dataset, query, context);
+    return { valid: errors.length === 0 && unsupported.length === 0, errors: [...errors, ...unsupported] };
+  }
   // Validate against the selected time axis, so grain and window checks see it.
   const timeKeyError = selectedTimeKeyError(dataset, query.timeKey);
   const ds = timeKeyError ? dataset : datasetOnTimeKey(dataset, query.timeKey);
@@ -55,8 +53,6 @@ export function validateDatasetQueryInput(
       errors.push(`Output "${name}" cannot be selected as both a dimension and a measure. Select one or give the definitions distinct names.`);
     }
   }
-  const filters = effectiveFilters(ds);
-  const filterNames = Object.keys(filters);
   const orderableFields = new Set<string>([
     ...selectedDimensions,
     ...selectedMeasures,
@@ -109,59 +105,9 @@ export function validateDatasetQueryInput(
     }
   }
 
-  const filterLeavesValid = filterTreeErrors(query.filters).length === 0;
-  if (query.filters && filterLeavesValid) {
-    for (const { filter, operators } of effectiveFilterLeaves(query.filters)) {
-      // The client resolves every valid relative range first (RFC 0029); one
-      // still here could not be resolved, and says why.
-      if (filter.operator === 'inDateRange') {
-        errors.push(relativeDateFilterError(ds, filter) ?? `Filter "${filter.field}": "inDateRange" was not resolved before validation.`);
-        continue;
-      }
-      if (isQualifiedField(filter.field)) {
-        const filterError = validateQualifiedFilter(ds, filter, context, operators);
-        if (filterError) {
-          errors.push(filterError);
-        }
-        continue;
-      }
-
-      if (!filterNames.includes(filter.field)) {
-        errors.push(`Unknown filter fields: ${filter.field}. Available: ${filterNames.join(', ')}`);
-        continue;
-      }
-
-      const filterDefinition = filters[filter.field];
-      const refused = operators.find(operator => !filterAllowsOperator(filterDefinition, operator));
-      if (refused) {
-        errors.push(
-          `Filter "${filter.field}" does not allow operator "${refused}"${refused === filter.operator ? '' : ` (the negation of "${filter.operator}")`}. Allowed: ${(filterDefinition?.operators ?? SEMANTIC_FILTER_OPERATORS).join(', ')}`,
-        );
-        continue;
-      }
-
-      const resolvedField = filterDefinition.field;
-      const resolvedDimension = ds.dimensions[resolvedField];
-      const resolvedColumn = resolvedDimension?.sql
-        ? undefined
-        : resolvedDimension?.column ?? resolvedField;
-      if (getRuntimeTenantPredicate(context) && ds.tenantKey && resolvedColumn === ds.tenantKey) {
-        errors.push(
-          `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
-        );
-        continue;
-      }
-
-      const fieldType = resolvedDimension?.fieldType;
-      if (!fieldType) {
-        continue;
-      }
-
-      const filterError = validateFilterValue(filter, fieldType);
-      if (filterError) {
-        errors.push(filterError);
-      }
-    }
+  // A malformed tree is reported once, by the syntax check; its leaves are not read.
+  if (query.filters && filterTreeErrors(query.filters).length === 0) {
+    errors.push(...queryFilterErrors(ds, query.filters, context));
   }
 
   if (query.orderBy) {

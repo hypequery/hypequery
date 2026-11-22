@@ -441,5 +441,90 @@
     },
     "rowLimit": null,
     "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-calculations-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "country"
+      ],
+      "measures": [
+        "revenue"
+      ],
+      "calculations": [
+        {
+          "name": "revenue_rank",
+          "rank": {
+            "measure": "revenue"
+          }
+        }
+      ]
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-limit-by-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "country"
+      ],
+      "measures": [
+        "revenue"
+      ],
+      "orderBy": [
+        {
+          "field": "revenue",
+          "direction": "desc"
+        }
+      ],
+      "limitBy": {
+        "n": 2,
+        "by": [
+          "country"
+        ]
+      }
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
+  },
+  {
+    "id": "query-other-uncacheable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "definitionIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "query": {
+      "kind": "dataset",
+      "dataset": "orders",
+      "dimensions": [
+        "country"
+      ],
+      "measures": [
+        "revenue"
+      ],
+      "other": {
+        "dimension": "country",
+        "n": 2,
+        "measure": "revenue"
+      }
+    },
+    "tenant": {
+      "mode": "none"
+    },
+    "rowLimit": null,
+    "error": "HQ_CACHE_PREIMAGE_INVALID_QUERY"
   }
 ]

@@ -29,6 +29,8 @@ export const UNSUPPORTED_CONTRACT_REASONS = {
   segmentPredicateNotConjunction: 'HQ_PORTABLE_SEGMENT_PREDICATE_NOT_CONJUNCTION',
   /** The invoked dataset is not part of the activated contract. */
   datasetNotActivated: 'HQ_PORTABLE_DATASET_NOT_ACTIVATED',
+  /** A query calculation kind or field (RFC 0026) this executor does not run. */
+  queryCalculationUnsupported: 'HQ_PORTABLE_QUERY_CALCULATION_UNSUPPORTED',
 } as const;
 
 export type UnsupportedContractReason =

@@ -36,7 +36,9 @@ export function buildTimeMeasureDatasetSql(
   const query = input.measures === undefined ? { ...input, measures: baseMeasureNames(ds.measures) } : input;
   const dialect = resolveDatasetSqlDialect(options.builderFactory);
   assertRawSqlForDialect(ds, dialect);
-  const { axis } = analyzeTimeMeasureAxis(ds, query);
+  const { axis } = analyzeTimeMeasureAxis(
+    ds, options.seriesLimit === undefined ? query : { ...query, limit: options.seriesLimit },
+  );
   if (!axis || !ds.timeKey) throw new Error('Window measures require a bounded time axis.');
 
   const dependencies = measureDependencyNames(queryMeasureDefinitions(ds, query.measures ?? []), query.measures ?? []);

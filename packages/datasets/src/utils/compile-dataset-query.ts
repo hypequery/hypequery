@@ -17,6 +17,8 @@ import { filterLeaves } from './filter-tree.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { statementRunner, type StatementRunner, type StatementTarget } from './statement-runner.js';
+import { hasQueryCalculations } from './query-calculation-outputs.js';
+import { prepareCalculatedDatasetQuery } from './compile-calculated-dataset-query.js';
 
 export interface PreparedDatasetQuery extends StatementRunner {
   readonly compilation: DatasetCompilation;
@@ -43,6 +45,8 @@ export function prepareDatasetQuery(
     ...input,
     limit: mode === 'logical' ? input.limit : resolveResultLimit(input.limit, dataset.limits).limit,
   });
+  // RFC 0026: calculations plan against a view of the dataset, under an outer stage.
+  if (hasQueryCalculations(query)) return prepareCalculatedDatasetQuery(dataset, query, options, mode);
   // Preserve omission while validating/planning: maxMeasures constrains an
   // explicit selection, not the dataset's default set of base measures.
   const measures = query.measures ?? baseMeasureNames(dataset.measures);

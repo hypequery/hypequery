@@ -9,6 +9,12 @@ import { ProtocolValueError, validateCanonicalValue } from '../values/index.js';
 import { expressionError } from './errors.js';
 import { resolveExpressionLimits } from './limits.js';
 import { isProtocolNullCheckOperator } from './null-checks.js';
+import {
+  validateLimitBy,
+  validateOtherBucket,
+  validateQueryCalculations,
+  type CalculationValidationKit,
+} from './validate-calculations.js';
 import type {
   ProtocolAggregation,
   ProtocolExpression,
@@ -353,6 +359,8 @@ export function validateProtocolSemanticQuery(
         'filters',
         ...(v2 ? ['segments'] : []),
         ...(metric ? [] : ['having']),
+        // RFC 0026: query-scoped calculations, extension 2 dataset queries only.
+        ...(metric || !v2 ? [] : ['calculations', 'limitBy', 'other']),
         'orderBy', 'limit', 'offset', 'by', 'timeKey', 'timezone',
         ...(metric ? [] : ['fill']),
         'includeMeta',
@@ -383,8 +391,25 @@ export function validateProtocolSemanticQuery(
       }
     }
     if (value.segments !== undefined) result.segments = validateSegments(value.segments, state);
+    const calculationShape = {
+      dimensions: (result.dimensions as readonly string[] | undefined) ?? [],
+      measures: (result.measures as readonly string[] | undefined) ?? [],
+      hasBy: value.by !== undefined,
+    };
+    const kit = calculationKit(state);
+    let outputs: readonly string[] = [];
+    if (value.calculations !== undefined) {
+      const calculations = validateQueryCalculations(kit, value.calculations, calculationShape);
+      result.calculations = calculations.entries;
+      outputs = calculations.outputs;
+    }
     if (value.having !== undefined) {
-      result.having = validateHaving(value.having, result.measures as readonly string[] | undefined, v2, state);
+      result.having = validateHaving(
+        value.having,
+        [...((result.measures as readonly string[] | undefined) ?? []), ...outputs],
+        v2,
+        state,
+      );
     }
     if (value.orderBy !== undefined) result.orderBy = validateOrderBy(value.orderBy, state);
     copyInteger(value, result, 'limit', 0);
@@ -403,6 +428,10 @@ export function validateProtocolSemanticQuery(
       if (!CLIENT_TIMEZONE_NAMES.has(timezone)) expressionError('HQ_EXPRESSION_INVALID_QUERY', '$.timezone');
       result.timezone = timezone;
     }
+    if (value.limitBy !== undefined) {
+      result.limitBy = validateLimitBy(kit, value.limitBy, calculationShape, ((result.orderBy as unknown[] | undefined)?.length ?? 0) > 0);
+    }
+    if (value.other !== undefined) result.other = validateOtherBucket(kit, value.other, calculationShape, outputs);
     if (value.fill !== undefined) {
       if (typeof value.fill !== 'boolean') expressionError('HQ_EXPRESSION_TYPE', '$.fill');
       // RFC 0029: periods to fill exist only under a grain.
@@ -417,6 +446,21 @@ export function validateProtocolSemanticQuery(
   } finally {
     state.active.delete(value);
   }
+}
+
+/** The validator primitives RFC 0026's module shares, bound to one state. */
+function calculationKit(state: State): CalculationValidationKit {
+  return {
+    requireRecord,
+    exactFields,
+    stringValue,
+    identifier,
+    enter: (value, depth, path) => enter(value, depth, state, path),
+    leave: value => state.active.delete(value),
+    arrayValue: (value, path) => arrayValue(value, path, state),
+    freezeRecord,
+    predicate: (input, path) => validatePredicate(input, path, 4, state, 'HQ_EXPRESSION_INVALID_QUERY'),
+  };
 }
 
 function validatePredicate(

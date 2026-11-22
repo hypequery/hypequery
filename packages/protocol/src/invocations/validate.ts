@@ -220,7 +220,11 @@ function usesExtension2(operation: ProtocolSemanticQuery): boolean {
   return (operation.segments?.length ?? 0) > 0
     || operation.by === 'minute'
     || operation.by === 'hour'
-    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')));
+    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')))
+    // RFC 0026: query-scoped calculations are extension 2 only.
+    || (operation.kind === 'dataset' && (
+      (operation.calculations?.length ?? 0) > 0 || operation.limitBy !== undefined || operation.other !== undefined
+    ));
 }
 
 function validateInvocation(
@@ -309,7 +313,7 @@ function meta(
   rowCount: number,
 ): ProtocolSemanticInvocationMeta {
   const value = requireRecord(input, path);
-  exactFields(value, ['rowCount'], ['pagination'], path);
+  exactFields(value, ['rowCount'], ['pagination', 'calculations'], path);
   const declared = nonNegativeInteger(value.rowCount, `${path}.rowCount`, limits.maxRows);
   // A rowCount that disagrees with the rows it describes is a broken result,
   // not a hint — the caller would page or aggregate on a false total.
@@ -330,7 +334,44 @@ function meta(
       hasMore: requireBoolean(pagination.hasMore, `${paginationPath}.hasMore`),
     });
   }
+  if (value.calculations !== undefined) {
+    result.calculations = calculationColumns(value.calculations, `${path}.calculations`);
+  }
   return freezeRecord(result) as unknown as ProtocolSemanticInvocationMeta;
+}
+
+const CALCULATION_COLUMN_KINDS: ReadonlySet<string> = new Set(['filter', 'shift', 'window', 'formula', 'rank', 'share']);
+const MAX_CALCULATION_COLUMNS = 1000;
+const MAX_CALCULATION_NAME = 512;
+
+/** RFC 0026 `meta.calculations`: the typed output columns calculations added. */
+function calculationColumns(input: unknown, path: string): readonly DataRecord[] {
+  const values = requireArray(input, path, MAX_CALCULATION_COLUMNS);
+  const seen = new Set<string>();
+  return Object.freeze(values.map((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    const value = requireRecord(item, itemPath);
+    exactFields(value, ['name', 'kind', 'calculation', 'type'], ['measure', 'format'], itemPath);
+    const name = boundedText(value.name, `${itemPath}.name`, MAX_CALCULATION_NAME);
+    if (seen.has(name)) invocationError('HQ_INVOCATION_INVALID_VALUE', `${itemPath}.name`);
+    seen.add(name);
+    const kind = boundedText(value.kind, `${itemPath}.kind`, MAX_CALCULATION_NAME);
+    if (!CALCULATION_COLUMN_KINDS.has(kind)) invocationError('HQ_INVOCATION_INVALID_VALUE', `${itemPath}.kind`);
+    const type = boundedText(value.type, `${itemPath}.type`, MAX_CALCULATION_NAME);
+    if (type !== 'number' && type !== 'integer') invocationError('HQ_INVOCATION_INVALID_VALUE', `${itemPath}.type`);
+    const column: Record<string, unknown> = {
+      name,
+      kind,
+      calculation: boundedText(value.calculation, `${itemPath}.calculation`, MAX_CALCULATION_NAME),
+    };
+    if (value.measure !== undefined) column.measure = boundedText(value.measure, `${itemPath}.measure`, MAX_CALCULATION_NAME);
+    column.type = type;
+    if (value.format !== undefined) {
+      if (value.format !== 'ratio') invocationError('HQ_INVOCATION_INVALID_VALUE', `${itemPath}.format`);
+      column.format = value.format;
+    }
+    return freezeRecord(column);
+  }));
 }
 
 /** Validate a successful invocation result before it is returned or cached. */

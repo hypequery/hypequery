@@ -1,5 +1,17 @@
-import { PortableExecutionUnsupportedError, PortableExecutionTenantError } from './portable-execution-errors.js';
-export { PortableExecutionUnsupportedError, PortableExecutionBudgetError, PortableExecutionTenantError } from './portable-execution-errors.js';
+import {
+  PortableExecutionInputError,
+  PortableExecutionUnsupportedError,
+  PortableExecutionTenantError,
+} from './portable-execution-errors.js';
+export {
+  PortableExecutionInputError,
+  PortableExecutionUnsupportedError,
+  PortableExecutionBudgetError,
+  PortableExecutionTenantError,
+} from './portable-execution-errors.js';
+import { hasQueryCalculations } from './utils/query-calculation-outputs.js';
+import { withResolvedRelativeDates } from './utils/relative-date-filters.js';
+import { calculatedDatasetQueryErrors } from './utils/compile-calculated-dataset-query.js';
 import { tenantRuntime, semanticQuery } from './utils/portable-semantic-query.js';
 import { bounded } from './utils/portable-result-budget.js';
 import { withDeadline } from './utils/portable-execution-deadline.js';
@@ -96,6 +108,7 @@ export interface PortableSemanticRuntime {
 export function createPortableSemanticRuntime(
   options: PortableSemanticExecutorOptions,
 ): PortableSemanticRuntime {
+  const clock = options.now ?? (() => new Date());
   const client = createDatasetClient({
     queryBuilder: options.queryBuilder,
     ...(options.now === undefined ? {} : { now: options.now }),
@@ -147,8 +160,22 @@ export function createPortableSemanticRuntime(
         + 'cannot be applied to it.',
       );
     }
-    const query = semanticQuery(input.operation, input.budget.maxRows);
     const context: ExecutionContext = tenant === undefined ? {} : { runtime: { tenant } };
+    let query = semanticQuery(input.operation, input.budget.maxRows);
+    if (hasQueryCalculations(query)) {
+      // RFC 0029: resolve relative ranges at one reading of the clock, as the
+      // client would, so this check and the run see the same absolute bounds.
+      query = withResolvedRelativeDates(target, query as never, clock());
+      // RFC 0026: a calculation this executor cannot run is refused by name,
+      // and one it can run but the dataset cannot satisfy is the caller's to fix.
+      const { errors, unsupported } = calculatedDatasetQueryErrors(target as never, query as never, context);
+      if (unsupported.length > 0) {
+        throw new PortableExecutionUnsupportedError(unsupported.join('; '), {
+          reason: UNSUPPORTED_CONTRACT_REASONS.queryCalculationUnsupported,
+        });
+      }
+      if (errors.length > 0) throw new PortableExecutionInputError(`Invalid dataset query: ${errors.join('; ')}`);
+    }
     return { target, query, context };
   }
 
@@ -160,7 +187,7 @@ export function createPortableSemanticRuntime(
         abortSignal: signal,
         ...context,
       } as never)
-    )) as { data?: readonly Record<string, unknown>[]; meta?: { pagination?: unknown } };
+    )) as { data?: readonly Record<string, unknown>[]; meta?: { pagination?: unknown; calculations?: unknown } };
 
     const rows = output.data ?? [];
     const pagination = output.meta?.pagination as
@@ -175,6 +202,8 @@ export function createPortableSemanticRuntime(
       meta: {
         rowCount: rows.length,
         ...(pagination === undefined ? {} : { pagination }),
+        // RFC 0026: the typed output columns, only when the query had calculations.
+        ...(output.meta?.calculations === undefined ? {} : { calculations: output.meta.calculations }),
       },
     }) as unknown as ProtocolSemanticInvocationResult, input.budget);
   }
