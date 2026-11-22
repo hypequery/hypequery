@@ -390,8 +390,26 @@ export type MetricFilter<
     value?: undefined;
   });
 
+/**
+ * A nested caller filter group (RFC 0029). A query's `filters` list is an
+ * implicit AND; a group combines its items with AND or OR, or negates one.
+ */
+export type DatasetFilterGroup<TFilter = MetricFilter> =
+  | { and: readonly DatasetFilterNode<TFilter>[]; or?: never; not?: never }
+  | { or: readonly DatasetFilterNode<TFilter>[]; and?: never; not?: never }
+  | { not: DatasetFilterNode<TFilter>; and?: never; or?: never };
+
+/** A comparison, or an `and` / `or` / `not` group of them (RFC 0029). */
+export type DatasetFilterNode<TFilter = MetricFilter> = TFilter | DatasetFilterGroup<TFilter>;
+
 /** Operators that compare a field with a value. */
-export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
+export type MetricValueFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like'
+  /**
+   * A relative date range on a time axis, such as `'last 30 days'` (RFC 0029).
+   * Query filters only; the client resolves it to `gte`/`lt` bounds in the
+   * query timezone. Measure filters, segments and constraints refuse it.
+   */
+  | 'inDateRange';
 
 /** Operators that test a field for NULL and take no value (RFC 0023). */
 export type MetricNullCheckOperator = 'isNull' | 'isNotNull';
@@ -399,7 +417,7 @@ export type MetricNullCheckOperator = 'isNull' | 'isNotNull';
 export type MetricFilterOperator = MetricValueFilterOperator | MetricNullCheckOperator;
 
 /** Operators a `having` condition may apply to an aggregated measure value. */
-export type DatasetHavingOperator = Exclude<MetricValueFilterOperator, 'like'>;
+export type DatasetHavingOperator = Exclude<MetricValueFilterOperator, 'like' | 'inDateRange'>;
 
 /**
  * A condition on an aggregated measure value, applied after grouping (SQL
@@ -426,7 +444,8 @@ export interface SegmentDefinition {
 
 export interface MetricQuery {
   dimensions?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
   /** Segment names declared on the dataset, combined with `filters` by AND. */
   segments?: string[];
   orderBy?: MetricOrderBy[];
@@ -445,7 +464,8 @@ export interface MetricQuery {
 export interface DatasetQuery {
   dimensions?: string[];
   measures?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
   /**
    * Conditions on aggregated measure values, combined with AND and applied
    * after grouping. Each condition must reference a selected measure.
@@ -470,6 +490,12 @@ export interface DatasetQuery {
   limitBy?: DatasetQueryLimitBy;
   /** Top-N of one dimension plus a remainder bucket (RFC 0026). */
   other?: DatasetQueryOtherBucket;
+  /**
+   * Return every `by` period of the query's bounded time range, empty ones
+   * included (RFC 0029): count measures read 0 and the rest null, as in a
+   * window query. Requires `by` and a top-level time range.
+   */
+  fill?: boolean;
 }
 
 export interface MetricResultMeta {
@@ -649,6 +675,45 @@ export interface DerivedMetricConfig<TDatasetName extends string = string> exten
   description?: string;
 }
 
+/**
+ * A dataset source that is a query instead of a table (RFC 0028): one
+ * read-only ClickHouse `SELECT`, read as a derived table named after the
+ * dataset. Checked when the dataset is defined.
+ *
+ * @example
+ * ```ts
+ * source: {
+ *   sql: 'SELECT tenant_id, user_id, ts FROM app.signups UNION ALL SELECT tenant_id, user_id, ts FROM app.events',
+ *   dependencies: ['app.signups', 'app.events'],
+ *   columns: { tenant_id: 'string', user_id: 'string', ts: 'timestamp' },
+ * }
+ * ```
+ */
+export interface DatasetSqlSource {
+  /** One `SELECT` (or `WITH … SELECT`): no settings, table functions, comments, parameters or second statement. */
+  sql: string;
+  /**
+   * The derived table's alias, which field SQL may qualify columns with
+   * (`activity.step`). Defaults to the dataset name; publishing under another
+   * name keeps it, so qualified field SQL stays valid.
+   */
+  alias?: string;
+  /** Every table the SQL reads, as `table` or `database.table`, spelled as in the SQL. */
+  dependencies: readonly string[];
+  /** The derived table's columns: the only ones the dataset may reference. */
+  columns: Readonly<Record<string, FieldType>>;
+}
+
+/** A SQL source as a dataset instance holds it: frozen, with what the checker found. */
+export interface ResolvedDatasetSqlSource {
+  readonly sql: string;
+  readonly alias: string;
+  readonly dependencies: readonly string[];
+  readonly columns: Readonly<Record<string, FieldType>>;
+  /** The SQL reads a table with `FINAL`, so queries pin the FINAL safety setting. */
+  readonly readsFinal: boolean;
+}
+
 export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, DatasetMeasureDefinition> = Record<string, MeasureDefinition>,
@@ -658,7 +723,8 @@ export interface DatasetConfig<
   TTimeKey extends string | undefined = string | undefined,
   TTimeKeys extends readonly string[] = readonly string[],
 > extends SemanticMetadata {
-  source: string;
+  /** A table (`orders`, `analytics.orders`), or a SQL source (RFC 0028). */
+  source: string | DatasetSqlSource;
   /**
    * Read the source with ClickHouse `FINAL`, so queries see one row per
    * sorting key: the latest version in a ReplacingMergeTree (deleted keys
@@ -726,7 +792,13 @@ export interface DatasetInstance<
 > {
   __type: 'dataset';
   name: TDatasetName;
+  /**
+   * The name queries qualify base columns with: the table, or for a SQL
+   * source the dataset name, which aliases the derived table.
+   */
   source: string;
+  /** Set when the dataset reads a SQL source (RFC 0028) rather than a table. */
+  sqlSource?: ResolvedDatasetSqlSource;
   /**
    * True whenever `rowResolution` is set.
    *
@@ -905,7 +977,7 @@ export type DatasetOrderableNames<TDataset extends DatasetInstance<any, any, any
 export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any, any>> {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
   measures?: readonly DatasetMeasureNames<TDataset>[];
-  filters?: readonly DatasetFilterFor<TDataset>[];
+  filters?: readonly DatasetFilterNode<DatasetFilterFor<TDataset>>[];
   /**
    * Conditions on aggregated measure values, applied after grouping. Each
    * condition must reference a measure selected by this query.
@@ -924,6 +996,8 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   timeKey?: DatasetTimeKeyNames<TDataset>;
   /** IANA timezone for buckets and local time-key bounds; overrides the client default. */
   timezone?: string;
+  /** Return every `by` period of the bounded time range (RFC 0029). */
+  fill?: boolean;
   includeMeta?: boolean;
 }
 
@@ -979,7 +1053,7 @@ export interface MetricQueryFor<
   TMetricName extends string,
 > {
   dimensions?: readonly DatasetDimensionNames<TDataset>[];
-  filters?: readonly DatasetFilterFor<TDataset>[];
+  filters?: readonly DatasetFilterNode<DatasetFilterFor<TDataset>>[];
   /** Segment names declared on the dataset. */
   segments?: readonly DatasetSegmentNames<TDataset>[];
   orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];

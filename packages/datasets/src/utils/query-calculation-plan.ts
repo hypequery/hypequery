@@ -27,6 +27,7 @@ import { validateShiftMeasures } from './shift-measure-validation.js';
 import { validateWindowMeasures } from './window-measure-validation.js';
 import { queryFilterErrors } from './query-filter-errors.js';
 import { effectiveFilters } from './effective-filters.js';
+import { filterLeafCount } from './filter-tree.js';
 import { datasetHavingErrors } from './dataset-having.js';
 import { measureDependencyNames } from './measure-dependencies.js';
 import { formulaMeasure, formulaReferences } from './query-calculation-formula.js';
@@ -508,7 +509,8 @@ function outerStageErrors(
     errors.push(`Too many measures and calculation outputs: ${values.length} (max ${maxMeasures})`);
   }
   const maxFilters = ds.limits?.maxFilters;
-  const predicates = (query.filters?.length ?? 0) + (query.having?.length ?? 0)
+  // RFC 0029: a filter tree costs its comparisons; and/or/not groups cost nothing.
+  const predicates = filterLeafCount(query.filters) + (query.having?.length ?? 0)
     + (query.calculations ?? []).reduce((count, entry) => (
       count + ('filter' in entry && Array.isArray(entry.filter?.where) ? entry.filter.where.length : 0)
     ), 0);

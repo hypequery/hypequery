@@ -67,6 +67,8 @@ function contract3Dataset(
     measures: [...base.measures, ...protocolTimeMeasures(dataset), ...derivedMeasures(dataset, 3)],
     allowedFilters: filters,
     ...(segments.length > 0 ? { segments } : {}),
+    // RFC 0029: alternate time axes, in authored order.
+    ...((dataset.timeKeys?.length ?? 0) > 0 ? { alternateTimeFields: [...dataset.timeKeys!] } : {}),
   };
 }
 
@@ -74,7 +76,7 @@ function contract3Dataset(
  * Build the deployment contract; local metrics are not carried.
  *
  * The version follows RFC 0015's lowest-version rule. A deployment is contract
- * 2 unless a dataset uses segments, window or shift measures,
+ * 2 unless a dataset uses segments, window or shift measures, alternate time keys,
  * `approxCountDistinct`, or a sub-day default grain, so a deployment that uses
  * none keeps the bytes and identity it had before contract 3.
  */

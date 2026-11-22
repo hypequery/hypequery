@@ -38,7 +38,7 @@ One shared ClickHouse table per event type, one read-only database user with a t
 
 ## Multi-Tenant Embedded Analytics Architecture
 
-A multi-tenant embedded analytics stack on ClickHouse has four layers, and each one has a single job:
+A multi-tenant [embedded analytics](/embedded-analytics) stack on ClickHouse has four layers, and each one has a single job:
 
 1. **Storage.** One shared table per event type, with `tenant_id` first in the sort key, so a tenant's query reads only that tenant's part of the data. See [the schema that scales](#the-schema-that-scales).
 2. **Database guard.** A read-only role with a row policy that reads the tenant from a per-query setting, plus settings profiles and keyed quotas per plan tier, so a bug or a heavy tenant can't reach other tenants' rows or starve them. See [row-level security done right](#row-level-security-done-right) and [resource isolation](#resource-isolation-and-noisy-neighbors).
@@ -584,4 +584,4 @@ ORDER BY rows_read DESC;
 
 ## Closing
 
-Four decisions carry most of the weight: a shared table with `tenant_id` first in the sort key, a tenant resolved from the session and injected by one API layer, a custom-setting row policy as the backstop, and per-tenant limits through profiles and keyed quotas. For the architecture overview, see [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) and the [multi-tenant SaaS use case](/use-cases/multi-tenant-saas). For how one tenant-scoped model serves in-app dashboards, customer APIs and agents together, see [embedded analytics for SaaS on ClickHouse](/clickhouse-saas-analytics).
+Four decisions carry most of the weight: a shared table with `tenant_id` first in the sort key, a tenant resolved from the session and injected by one API layer, a custom-setting row policy as the backstop, and per-tenant limits through profiles and keyed quotas. For the architecture overview, see [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) and the [multi-tenant SaaS use case](/use-cases/multi-tenant-saas). For how one tenant-scoped model serves in-app dashboards, customer APIs and agents together, see [ClickHouse embedded analytics](/clickhouse-saas-analytics).

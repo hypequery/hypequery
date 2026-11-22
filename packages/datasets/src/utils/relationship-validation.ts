@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
 import { effectiveFilters } from './effective-filters.js';
@@ -46,7 +47,7 @@ export function validateRelationshipTenantRuntime(
   const referenced = [
     ...(query.dimensions ?? []),
     ...(query.measures ?? []),
-    ...(query.filters ?? []).map((filter) => filter.field),
+    ...filterLeaves(query.filters).map((filter) => filter.field),
     ...(query.orderBy ?? []).map((order) => order.field),
     ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);
@@ -73,6 +74,8 @@ export function validateQualifiedFilter(
   ds: AnyDatasetInstance,
   filter: MetricFilter,
   context?: ExecutionContext,
+  /** Operators the allowlist must permit: the negation's under `not` (RFC 0029). */
+  operators: readonly string[] = [filter.operator],
 ): string | null {
   const resolution = resolveQualifiedField(ds, filter.field);
   if (!resolution) {
@@ -96,8 +99,9 @@ export function validateQualifiedFilter(
     || definition.field !== targetDimensionName) {
     return `Filter "${filter.field}" is not exposed by target dataset "${target.name}".`;
   }
-  if (!filterAllowsOperator(definition, filter.operator)) {
-    return `Filter "${filter.field}" does not allow operator "${filter.operator}".`;
+  const refused = operators.find(operator => !filterAllowsOperator(definition, operator));
+  if (refused) {
+    return `Filter "${filter.field}" does not allow operator "${refused}".`;
   }
 
   return validateFilterValue(filter, targetDimension.fieldType);

@@ -22,6 +22,9 @@ import {
   calculationOutputNames,
   validateSemanticCalculations,
 } from './semantic-calculation-validation.js';
+import { effectiveFilterOperators, protocolFilterLeaves, type ProtocolFilterLeaf } from './utils/filter-leaves.js';
+import { timeSeriesRangeViolation } from './utils/time-series-range.js';
+import { fieldBackingColumn, isTimeAxisVisible } from './utils/field-backing-column.js';
 
 export interface SemanticOperationViolation {
   readonly message: string;
@@ -194,7 +197,11 @@ export function validateSemanticOperation(
     fail('At least one dimension or measure must be selected.', '$.operation');
   }
 
-  const filters = operation.filters ?? [];
+  // RFC 0029: the budget counts comparisons. A filter may be an and/or/not
+  // tree; each leaf is checked as a top-level comparison is.
+  const filters = (operation.filters ?? []).flatMap((expression, index) => (
+    protocolFilterLeaves(expression, `$.operation.filters[${index}]`)
+  ));
   if (filters.length > limits.maxFilters) {
     fail(`At most ${limits.maxFilters} filters may be applied.`, '$.operation.filters');
   }
@@ -223,8 +230,7 @@ export function validateSemanticOperation(
     filters: allowed.filters,
     hasTimeField: allowed.grains.size > 0,
   })) fail(violation.message, violation.path);
-  filters.forEach((expression, index) => {
-    const path = `$.operation.filters[${index}]`;
+  filters.forEach(({ expression, path, negated }) => {
     const comparison = comparisonField(expression);
     if (comparison === null) {
       // Only `field <operator> value` is expressible against a contract; a
@@ -238,13 +244,85 @@ export function validateSemanticOperation(
       fail(`Unknown or unfilterable field "${comparison.field}".`, path);
       return;
     }
-    if (!operators.has(comparison.operator)) {
+    // Under `not`, the negation is what runs, so it is what must be allowed.
+    const refused = effectiveFilterOperators(comparison.operator, negated)
+      .find(operator => !operators.has(operator));
+    if (refused !== undefined) {
       fail(
-        `Operator "${comparison.operator}" is not allowed on "${comparison.field}".`,
+        refused === comparison.operator
+          ? `Operator "${comparison.operator}" is not allowed on "${comparison.field}".`
+          : `Operator "${refused}" (the negation of "${comparison.operator}") is not allowed on "${comparison.field}".`,
         `${path}.operator`,
       );
     }
   });
+
+  // RFC 0029: a relative range filters a time axis; the executor resolves it.
+  const namedFilters = protocolFilterCapabilities(dataset).named;
+  const fieldOf = (leaf: ProtocolFilterLeaf) => {
+    const comparison = comparisonField(leaf.expression);
+    if (comparison === null) return undefined;
+    return String(namedFilters.get(comparison.field)?.field ?? comparison.field);
+  };
+  // RFC 0029: the time axes a caller may use, in contract order. A hidden
+  // alternate reads exactly like an undeclared one.
+  const axes = dataset.timeField === undefined || allowed.grains.size === 0
+    ? []
+    : [
+        String(dataset.timeField),
+        ...((dataset as ProtocolDeploymentDatasetV3).alternateTimeFields ?? [])
+          .map(String)
+          .filter(name => visible === undefined || isTimeAxisVisible(dataset, name, visible.dimensions)),
+      ];
+  let timeAxis: string | undefined = axes[0];
+  if (operation.timeKey !== undefined) {
+    if (axes.includes(String(operation.timeKey))) {
+      timeAxis = String(operation.timeKey);
+    } else {
+      timeAxis = undefined;
+      fail(
+        axes.length === 0
+          ? 'This dataset has no time field, so a timeKey does not apply.'
+          : `Unknown time key "${String(operation.timeKey)}". Available: ${axes.join(', ')}.`,
+        '$.operation.timeKey',
+      );
+    }
+  }
+  // Axes and filters are compared by backing column: an axis may name the
+  // column that a differently named dimension reads.
+  const columnOf = (leaf: ProtocolFilterLeaf) => {
+    const field = fieldOf(leaf);
+    return field === undefined ? undefined : fieldBackingColumn(dataset, field);
+  };
+  const axisColumns = new Set(axes.map(axis => fieldBackingColumn(dataset, axis)));
+  const selectedColumn = timeAxis === undefined ? undefined : fieldBackingColumn(dataset, timeAxis);
+  const onAxis = (leaf: ProtocolFilterLeaf) => {
+    const column = columnOf(leaf);
+    return column !== undefined && column === selectedColumn;
+  };
+  filters.forEach(leaf => {
+    if (comparisonField(leaf.expression)?.operator !== 'inDateRange') return;
+    const column = columnOf(leaf);
+    if (column === undefined || !axisColumns.has(column)) {
+      fail(
+        axes.length === 0
+          ? 'This dataset has no time field, so "inDateRange" does not apply.'
+          : `"inDateRange" applies only to a time axis: ${axes.join(', ')}.`,
+        leaf.path,
+      );
+    }
+  });
+  // A filled series, like a window or shift measure, needs a bounded range.
+  const timeMeasures = new Set((dataset.measures as readonly { name: string; kind?: string }[])
+    .filter(measure => measure.kind === 'window' || measure.kind === 'shift')
+    .map(measure => String(measure.name)));
+  const series = operation.fill === true
+    ? 'Filled queries'
+    : measures.some(name => timeMeasures.has(String(name))) ? 'Window and shift measures' : undefined;
+  if (series !== undefined && timeAxis !== undefined) {
+    const violation = timeSeriesRangeViolation(filters, onAxis, timeAxis, series);
+    if (violation) fail(violation.message, violation.path);
+  }
 
   // RFC 0015: an unknown segment is refused like an unknown dimension, and a
   // hidden one reads exactly like an unknown one.

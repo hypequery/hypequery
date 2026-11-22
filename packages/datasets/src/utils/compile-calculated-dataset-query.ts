@@ -19,7 +19,8 @@ import { measureDependencyNames } from './measure-dependencies.js';
 import { queryMeasureDefinitions } from './relationship-measures.js';
 import { overfetchLimit } from './pagination.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
-import { selectedTimeMeasures } from './time-query-measures.js';
+import { usesTimeSeriesPlan } from './time-query-measures.js';
+import { filterLeaves } from './filter-tree.js';
 import { renderStatement, type PlannedStatement } from './statement-parameters.js';
 import { statementRunner } from './statement-runner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
@@ -86,7 +87,8 @@ export function prepareCalculatedDatasetQuery(
   let planned: PlannedStatement;
   let preflight: PlannedStatement | undefined;
   let innerPlan: DatasetCompilationDescription['plan'];
-  if (selectedTimeMeasures(view, plan.inner).size > 0) {
+  // A time measure or a filled series (RFC 0029) runs on the time-series planner.
+  if (usesTimeSeriesPlan(view, plan.inner)) {
     innerPlan = 'time';
     const time = buildTimeMeasureDatasetSql(view, plan.inner, innerOptions);
     planned = time.statement;
@@ -119,7 +121,7 @@ export function prepareCalculatedDatasetQuery(
     measureDependencies: Object.freeze(measureDependencyNames(
       queryMeasureDefinitions(dataset, [...plan.selectedMeasures]), [...plan.selectedMeasures],
     )),
-    filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
+    filters: Object.freeze(filterLeaves(query.filters).map(({ field, operator }) => Object.freeze({ field, operator }))),
     having: Object.freeze((query.having ?? []).map(({ measure, operator }) => Object.freeze({ measure, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
     by: query.by, timeKey: query.timeKey, timezone: query.timezone,

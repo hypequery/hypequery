@@ -14,7 +14,20 @@ from .values import CanonicalValue
 ProtocolBinaryOperator: TypeAlias = Literal["add", "subtract", "multiply", "divide"]
 ProtocolFunctionName: TypeAlias = Literal["nullIfZero", "coalesce", "round", "floor", "ceil"]
 ProtocolComparisonOperator: TypeAlias = Literal[
-    "eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like", "isNull", "isNotNull"
+    "eq",
+    "neq",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "in",
+    "notIn",
+    "between",
+    "like",
+    "isNull",
+    "isNotNull",
+    # A relative date range; query filters only (RFC 0029).
+    "inDateRange",
 ]
 #: Comparison operators that test ``left`` for NULL and take no ``right`` (RFC 0023).
 ProtocolNullCheckOperator: TypeAlias = Literal["isNull", "isNotNull"]
@@ -177,6 +190,10 @@ class ProtocolDatasetQuery:
     having: tuple[ProtocolHavingCondition, ...] | None = None
     #: RFC 0018 registry zone for grains and time-key bounds; absent means UTC (RFC 0025).
     timezone: str | None = None
+    #: Return every ``by`` period of the bounded time range (RFC 0029).
+    fill: bool | None = None
+    #: The time axis: ``timeField`` or a contract 3 alternate; absent is ``timeField`` (RFC 0029).
+    time_key: ProtocolIdentifier | None = None
     kind: Literal["dataset"] = dataclass_field(init=False, default="dataset")
 
 
@@ -194,6 +211,8 @@ class ProtocolMetricQuery:
     segments: tuple[ProtocolIdentifier, ...] | None = None
     #: RFC 0018 registry zone for grains and time-key bounds; absent means UTC (RFC 0025).
     timezone: str | None = None
+    #: The time axis: ``timeField`` or a contract 3 alternate; absent is ``timeField`` (RFC 0029).
+    time_key: ProtocolIdentifier | None = None
     kind: Literal["metric"] = dataclass_field(init=False, default="metric")
 
 
@@ -302,10 +321,16 @@ def semantic_query_to_data(query: ProtocolSemanticQuery) -> dict[str, object]:
         result["orderBy"] = [
             {"field": item.field, "direction": item.direction} for item in query.order_by
         ]
-    for key in ("limit", "offset", "by", "timezone"):
+    for key in ("limit", "offset", "by"):
         value = getattr(query, key)
         if value is not None:
             result[key] = value
+    if query.time_key is not None:
+        result["timeKey"] = query.time_key
+    if query.timezone is not None:
+        result["timezone"] = query.timezone
+    if isinstance(query, ProtocolDatasetQuery) and query.fill is not None:
+        result["fill"] = query.fill
     if query.include_meta is not None:
         result["includeMeta"] = query.include_meta
     return result

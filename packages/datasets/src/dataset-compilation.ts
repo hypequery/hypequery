@@ -15,6 +15,7 @@ export interface DatasetCompilationDescription {
   readonly dimensions: readonly string[];
   readonly measures: readonly string[];
   readonly measureDependencies: readonly string[];
+  /** Every caller comparison, depth first; `and`/`or`/`not` groups are not shown. */
   readonly filters: readonly { readonly field: string; readonly operator: string }[];
   /** Post-aggregation conditions, without their values. */
   readonly having: readonly { readonly measure: string; readonly operator: string }[];

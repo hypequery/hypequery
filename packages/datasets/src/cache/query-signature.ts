@@ -1,3 +1,4 @@
+import { sqlSourceSha256 } from '../utils/sql-dataset-source.js';
 import { windowQuerySignature } from '../utils/window-query-signature.js';
 /**
  * Canonical cache keys for semantic queries.
@@ -19,11 +20,12 @@ import type {
   DatasetQuery,
   ExecutionContext,
   GrainedMetricRef,
-  MetricFilter,
+  DatasetFilterNode,
   MetricOrderBy,
   MetricQuery,
   MetricRef,
 } from '../types.js';
+import { isFilterGroup } from '../utils/filter-tree.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
 import { runtimeConstraints } from '../utils/row-scope.js';
@@ -44,12 +46,16 @@ function scopeSignature(context?: ExecutionContext): string | null {
   return cache ? cache.scope ?? null : null;
 }
 
-function filterSignature(filters: MetricFilter[] | undefined) {
-  return (filters ?? []).map((filter) => ({
-    field: filter.field,
-    operator: filter.operator,
-    value: filter.value ?? null,
-  }));
+function filterSignature(filters: DatasetFilterNode[] | undefined): unknown[] {
+  return (filters ?? []).map((filter): unknown => {
+    if (!isFilterGroup(filter)) {
+      return { field: filter.field, operator: filter.operator, value: filter.value ?? null };
+    }
+    if ('not' in filter && filter.not !== undefined) return { not: filterSignature([filter.not])[0] };
+    return 'and' in filter && filter.and !== undefined
+      ? { and: filterSignature([...filter.and]) }
+      : { or: filterSignature([...filter.or!]) };
+  });
 }
 
 function havingSignature(having: readonly DatasetHavingCondition[]) {
@@ -145,6 +151,7 @@ export function buildDatasetQuerySignature(
     kind: 'dataset',
     target: ds.name,
     source: ds.source,
+    ...(ds.sqlSource ? { sourceSha256: sqlSourceSha256(ds.sqlSource) } : {}),
     // Omitted when false so existing datasets keep their cache keys.
     ...(ds.rowResolution ? { rowResolution: ds.rowResolution } : {}),
     dimensions: query.dimensions ?? null,
@@ -158,6 +165,8 @@ export function buildDatasetQuerySignature(
     orderBy: orderBySignature(query.orderBy),
     by: query.by ?? null,
     ...(query.timezone === undefined ? {} : { timezone: query.timezone }),
+    // Omitted unless set, so unfilled queries keep their keys (RFC 0029).
+    ...(query.fill === true ? { fill: true } : {}),
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ds, query, context),
@@ -179,6 +188,7 @@ export function buildMetricQuerySignature(
     kind: 'metric',
     target: `${ref.dataset.name}.${ref.name}`,
     source: ref.dataset.source,
+    ...(ref.dataset.sqlSource ? { sourceSha256: sqlSourceSha256(ref.dataset.sqlSource) } : {}),
     ...(ref.dataset.rowResolution ? { rowResolution: ref.dataset.rowResolution } : {}),
     metricKind: ref.spec.__type,
     dimensions: query.dimensions ?? null,

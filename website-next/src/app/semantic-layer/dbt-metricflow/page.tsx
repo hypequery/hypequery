@@ -235,7 +235,7 @@ export default function DbtMetricFlowPage() {
         body: (
           <>
             <p>
-              The <strong className="text-text">dbt Semantic Layer</strong> is dbt Labs&rsquo; service for defining
+              The <strong className="text-text">dbt Semantic Layer</strong> is dbt Labs&rsquo; hosted <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link>, a service for defining
               metrics in YAML next to your dbt models and querying them by name, from BI tools, spreadsheets, notebooks
               and AI agents. You ask for revenue by customer country; it writes the joins and the SQL.
             </p>

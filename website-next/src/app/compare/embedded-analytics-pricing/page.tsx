@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { RelatedPages } from '@/components/related-pages';
+import { softwareApplicationSchema } from '@/data/product';
+import { compareRelatedLinks } from '@/data/related-pages';
 import Link from 'next/link';
 import { HubFaq, HubSection, HubShell, HubSources, HubTable } from '@/components/hub-page';
 import { marketing } from '@/components/ui/marketing';
@@ -153,6 +156,7 @@ export default function EmbeddedAnalyticsPricingPage() {
       primaryCta={{ href: '#scenario', label: 'See the worked scenario', target: 'pricing_scenario' }}
       secondaryCta={{ href: '/compare/embedded-analytics-platforms', label: 'Compare platforms', target: 'pricing_listicle' }}
       jsonLd={[
+        { '@context': 'https://schema.org', ...softwareApplicationSchema },
         techArticleJsonLd({ path: PATH, headline: TITLE, description: DESCRIPTION, datePublished: PUBLISHED, dateModified: UPDATED }),
         faqJsonLd(faqItems),
       ]}
@@ -304,9 +308,13 @@ export default function EmbeddedAnalyticsPricingPage() {
               for is hosting and the engineering time to build the UI. There is no hosted price to compare yet, because
               hypequery cloud has not launched. See{' '}
               <Link href="/clickhouse-saas-analytics" className={inlineLink}>
-                embedded analytics for SaaS
-              </Link>
-              .
+                ClickHouse embedded analytics
+              </Link>{' '}
+              and, for the build-or-buy question,{' '}
+              <Link href="/embedded-analytics" className={inlineLink}>
+                embedded analytics
+              </Link>{' '}
+              for developers.
             </p>
           </Note>
         </div>
@@ -355,6 +363,8 @@ export default function EmbeddedAnalyticsPricingPage() {
           </p>
         }
       />
+
+      <RelatedPages band title="Related comparisons and docs" pages={compareRelatedLinks(PATH)} />
 
       <HubSources checkedOn={VERIFIED_ON} sources={sources} />
     </HubShell>

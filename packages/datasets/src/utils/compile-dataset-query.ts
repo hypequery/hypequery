@@ -12,7 +12,8 @@ import { measureDependencyNames } from './measure-dependencies.js';
 import { overfetchLimit } from './pagination.js';
 import { resolveResultLimit } from './result-limits.js';
 import { buildTimeMeasureDatasetSql } from './time-measure-dataset-sql.js';
-import { selectedTimeMeasures } from './time-query-measures.js';
+import { usesTimeSeriesPlan } from './time-query-measures.js';
+import { filterLeaves } from './filter-tree.js';
 import { renderStatement } from './statement-parameters.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { statementRunner, type StatementRunner, type StatementTarget } from './statement-runner.js';
@@ -44,10 +45,10 @@ export function prepareDatasetQuery(
     ...input,
     limit: mode === 'logical' ? input.limit : resolveResultLimit(input.limit, dataset.limits).limit,
   });
-  // Preserve omission while validating/planning: maxMeasures constrains an
-  // explicit selection, not the dataset's default set of base measures.
   // RFC 0026: calculations plan against a view of the dataset, under an outer stage.
   if (hasQueryCalculations(query)) return prepareCalculatedDatasetQuery(dataset, query, options, mode);
+  // Preserve omission while validating/planning: maxMeasures constrains an
+  // explicit selection, not the dataset's default set of base measures.
   const measures = query.measures ?? baseMeasureNames(dataset.measures);
   const executionLimit = mode === 'execution' ? overfetchLimit(query.limit) : query.limit;
   const executionOptions = { ...options, executionLimit };
@@ -63,8 +64,10 @@ export function prepareDatasetQuery(
     buildRelationshipBuilderContext(dataset, query, options.context, resolveDatasetSqlDialect(options.builderFactory)),
   );
 
-  if (selectedTimeMeasures(dataset, query).size) {
+  if (usesTimeSeriesPlan(dataset, query)) {
     plan = 'time';
+    // The planner validates the selection as written, then fills the default
+    // measures itself when they were omitted.
     const planned = buildTimeMeasureDatasetSql(dataset, query, executionOptions);
     const main = withFinalSafety(readsFinal(), renderStatement(planned.statement));
     const preflight = withFinalSafety(readsFinal(), renderStatement(planned.preflight));
@@ -89,7 +92,7 @@ export function prepareDatasetQuery(
     dimensions: Object.freeze([...(query.dimensions ?? [])]),
     measures: Object.freeze([...measures]),
     measureDependencies: Object.freeze(measureDependencyNames(queryMeasureDefinitions(dataset, measures), measures)),
-    filters: Object.freeze((query.filters ?? []).map(({ field, operator }) => Object.freeze({ field, operator }))),
+    filters: Object.freeze(filterLeaves(query.filters).map(({ field, operator }) => Object.freeze({ field, operator }))),
     having: Object.freeze((query.having ?? []).map(({ measure, operator }) => Object.freeze({ measure, operator }))),
     segments: Object.freeze([...(query.segments ?? [])]),
     by: query.by, timeKey: query.timeKey, timezone: query.timezone,
