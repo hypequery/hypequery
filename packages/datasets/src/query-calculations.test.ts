@@ -120,6 +120,14 @@ describe('RFC 0026 calculations in the dataset client', () => {
     expect(sql).toMatch(/LIMIT 10$/);
   });
 
+  it('refuses an invalid orderBy direction as validation does for any query', () => {
+    const query = {
+      measures: ['revenue'], calculations: [{ name: 'x', filter: { measure: 'revenue', where: WEB } }],
+      orderBy: [{ field: 'x', direction: 'sideways' }],
+    } as unknown as DatasetQuery;
+    expect(errors(query)).toEqual(['Invalid order direction: expected "asc" or "desc".']);
+  });
+
   it.each([-1, 1.5])('refuses offset %s before building any SQL', offset => {
     expect(errors({
       measures: ['revenue'], offset,

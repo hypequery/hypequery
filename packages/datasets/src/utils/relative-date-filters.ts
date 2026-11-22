@@ -2,7 +2,7 @@ import { isProtocolRelativeDateRange } from '@hypequery/protocol';
 import type { AnyDatasetInstance, DatasetFilterNode, MetricFilter } from '../types.js';
 import { filterTreeErrors, isFilterGroup } from './filter-tree.js';
 import { datasetTimeKeys } from './dataset-time-keys.js';
-import { isTimeKeyFilter } from './query-timezone.js';
+import { isTimeKeyFilter, queryTimezoneErrors } from './query-timezone.js';
 import { resolveRelativeDateRange } from './relative-date-range.js';
 
 /**
@@ -78,4 +78,19 @@ export function resolveRelativeDateFilters(
   };
   const resolved = conjunction(filters);
   return changed ? resolved : filters;
+}
+
+/**
+ * `query` with every relative range resolved against `now` in the query's
+ * zone (UTC by default), as the dataset client prepares it. A query with an
+ * invalid zone is returned as written, for validation to report.
+ */
+export function withResolvedRelativeDates<T extends { filters?: DatasetFilterNode[]; timezone?: string }>(
+  ds: AnyDatasetInstance,
+  query: T,
+  now: Date,
+): T {
+  if (!Array.isArray(query.filters) || queryTimezoneErrors(query.timezone).length > 0) return query;
+  const filters = resolveRelativeDateFilters(ds, query.filters, now, query.timezone);
+  return filters === query.filters ? query : { ...query, filters };
 }

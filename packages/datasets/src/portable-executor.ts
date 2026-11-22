@@ -10,6 +10,7 @@ export {
   PortableExecutionTenantError,
 } from './portable-execution-errors.js';
 import { hasQueryCalculations } from './utils/query-calculation-outputs.js';
+import { withResolvedRelativeDates } from './utils/relative-date-filters.js';
 import { calculatedDatasetQueryErrors } from './utils/compile-calculated-dataset-query.js';
 import { unsupportedStageMessage } from './utils/other-bucket-sql.js';
 import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
@@ -109,6 +110,7 @@ export interface PortableSemanticRuntime {
 export function createPortableSemanticRuntime(
   options: PortableSemanticExecutorOptions,
 ): PortableSemanticRuntime {
+  const clock = options.now ?? (() => new Date());
   const client = createDatasetClient({
     queryBuilder: options.queryBuilder,
     ...(options.now === undefined ? {} : { now: options.now }),
@@ -160,9 +162,12 @@ export function createPortableSemanticRuntime(
         + 'cannot be applied to it.',
       );
     }
-    const query = semanticQuery(input.operation, input.budget.maxRows);
     const context: ExecutionContext = tenant === undefined ? {} : { runtime: { tenant } };
+    let query = semanticQuery(input.operation, input.budget.maxRows);
     if (hasQueryCalculations(query)) {
+      // RFC 0029: resolve relative ranges at one reading of the clock, as the
+      // client would, so this check and the run see the same absolute bounds.
+      query = withResolvedRelativeDates(target, query as never, clock());
       // RFC 0026: a calculation the dataset cannot satisfy is the caller's to fix.
       const { errors, plan } = calculatedDatasetQueryErrors(target as never, query as never, context);
       if (errors.length > 0 || plan === undefined) {

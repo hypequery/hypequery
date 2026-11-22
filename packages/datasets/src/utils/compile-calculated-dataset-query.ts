@@ -24,6 +24,7 @@ import { filterLeaves } from './filter-tree.js';
 import { renderStatement, type PlannedStatement } from './statement-parameters.js';
 import { statementRunner } from './statement-runner.js';
 import { validateDatasetQueryInput } from './dataset-query-validation.js';
+import { semanticQuerySyntaxErrors } from './semantic-query-syntax.js';
 import { datasetOnTimeKey, selectedTimeKeyError } from './dataset-time-keys.js';
 import { buildCalculationStageSql, withOtherTop } from './calculation-stage-sql.js';
 import { planQueryCalculations, publicCalculationErrors, type QueryCalculationPlan } from './query-calculation-plan.js';
@@ -42,6 +43,10 @@ export function calculatedDatasetQueryErrors(
   query: DatasetQuery,
   context?: ExecutionContext,
 ): { errors: string[]; plan?: QueryCalculationPlan } {
+  // The syntax every dataset query gets, before the planner rewrites `orderBy`
+  // and drops it from the inner query.
+  const syntax = semanticQuerySyntaxErrors(query);
+  if (syntax.length > 0) return { errors: syntax };
   // Plan on the selected time axis, as every inner planner will.
   const axis = selectedTimeKeyError(ds, query.timeKey) ? ds : datasetOnTimeKey(ds, query.timeKey);
   const result = planQueryCalculations(axis, query, context);
