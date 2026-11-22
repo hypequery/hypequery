@@ -1,0 +1,39 @@
+name: Release health
+
+# Daily: the npm `canary` dist-tag of @hypequery/datasets must be no more than
+# 3 days older than the newest main commit that touched a published package.
+# Every push to main publishes a canary, so a larger gap means canary
+# publishing has been failing or skipped. When stale, this opens or comments on
+# the `release-failure` issue and fails. Runbook: release-commands.md
+# ("Release guardrails").
+
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary-staleness:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # release-failure issue when stale
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          # Full history (without blobs) so `git log -- packages/...` finds the
+          # newest commit touching a published package.
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      - name: Check canary freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/release/check-canary-staleness.mjs --package @hypequery/datasets --threshold-days 3
