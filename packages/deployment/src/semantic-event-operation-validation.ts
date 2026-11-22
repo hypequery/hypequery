@@ -199,6 +199,11 @@ export function validateSemanticEventOperation(
   for (const leaf of filterLeaves) {
     leaves += 1;
     const comparison = checkLeaf(leaf, allowed, fail);
+    // RFC 0027: events are read from the dataset alone, so a relationship-
+    // qualified field never filters them, though dataset queries may join.
+    if (comparison?.field.includes('.')) {
+      fail(`Filter "${comparison.field}" is relationship-qualified; event operations filter only the dataset's own fields.`, leaf.path);
+    }
     if (comparison?.operator === 'inDateRange' && !isOnAxis(leaf)) {
       fail(`"inDateRange" applies only to the time field "${timeField ?? ''}".`, leaf.path);
     }
