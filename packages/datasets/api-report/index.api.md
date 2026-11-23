@@ -167,8 +167,7 @@ export interface AggregationSpec {
     argField?: string;
     // (undocumented)
     field: string;
-    // (undocumented)
-    filters?: MetricFilter[];
+    filters?: MeasureFilterNode[];
     level?: number;
     // (undocumented)
     sql?: string;
@@ -931,6 +930,7 @@ export interface DatasetEvents {
 
 // @public (undocumented)
 export interface DatasetExecutionCapabilities {
+    // @deprecated (undocumented)
     readonly cloudDeploymentVersion: 3;
     // (undocumented)
     readonly features: readonly DatasetFeatureSupport[];
@@ -943,9 +943,11 @@ export type DatasetFeature = 'baseMeasures' | 'derivedMeasures' | 'segments' | '
 
 // @public (undocumented)
 export interface DatasetFeatureSupport {
+    // @deprecated (undocumented)
     readonly cloud: boolean;
     // (undocumented)
     readonly feature: DatasetFeature;
+    readonly portable: boolean;
     readonly protocolVersions: readonly number[];
     // (undocumented)
     readonly python: {
@@ -1901,8 +1903,7 @@ export interface MeasureDefinition extends SemanticMetadata {
     description?: string;
     // (undocumented)
     field: string;
-    // (undocumented)
-    filters?: MetricFilter[];
+    filters?: MeasureFilterNode[];
     // (undocumented)
     label?: string;
     level?: number;
@@ -1911,13 +1912,15 @@ export interface MeasureDefinition extends SemanticMetadata {
     stateFunction?: AggregateStateFunction;
 }
 
+// @public
+export type MeasureFilterNode = DatasetFilterNode<MetricFilter>;
+
 // @public (undocumented)
 export interface MeasureOptions extends SemanticMetadata {
     dependencies?: readonly string[];
     // (undocumented)
     description?: string;
-    // (undocumented)
-    filters?: MetricFilter[];
+    filters?: MeasureFilterNode[];
     // (undocumented)
     label?: string;
     // (undocumented)

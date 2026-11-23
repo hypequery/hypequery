@@ -76,6 +76,9 @@ export function checkProtocolDeploymentContract(input: unknown, options?: Protoc
 export function checkProtocolDeploymentContractV3(input: unknown, options?: ProtocolDeploymentOptions): ProtocolDeploymentCheckResult<ProtocolDeploymentContractV3>;
 
 // @public
+export function checkProtocolDeploymentTargetAcceptance(input: ProtocolDeploymentTargetAcceptanceInput): readonly ProtocolDeploymentTargetRefusal[];
+
+// @public
 export const CLIENT_CONTRACT_FEATURES = "field-metadata";
 
 // @public
@@ -252,6 +255,21 @@ export type ClientWireType = 'string' | 'number' | 'boolean' | 'number-or-string
 // @public (undocumented)
 export function createProtocolSchemaValueParser(input: ProtocolSchema, options?: ProtocolSchemaValueOptions): ProtocolSchemaValueParser;
 
+// @public
+export function datasetAllowedFilters(dataset: ProtocolAnyVersionDataset): readonly ProtocolDatasetFilter[];
+
+// @public
+export function datasetContract3Features(dataset: ProtocolDeploymentDatasetAnyVersion): readonly ProtocolContract3Feature[];
+
+// @public
+export function datasetGrains(dataset: ProtocolAnyVersionDataset): readonly ProtocolQueryTimeGrain[];
+
+// @public
+export function datasetSegments(dataset: ProtocolAnyVersionDataset): readonly ProtocolDatasetSegment[];
+
+// @public
+export function datasetTimeAxes(dataset: ProtocolAnyVersionDataset): readonly (ProtocolQualifiedIdentifier | ProtocolIdentifier)[];
+
 // @public (undocumented)
 export type DateTaggedValue = TagEnvelope<VersionOneTag & {
     readonly type: 'date';
@@ -297,6 +315,9 @@ export const DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS: Readonly<ProtocolDeploymentLimi
 // @public (undocumented)
 export const DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS: Readonly<ProtocolDeploymentReleaseLimits>;
 
+// @public
+export const DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS: ProtocolDeploymentTargetAccepts;
+
 // @public (undocumented)
 export const DEFAULT_PROTOCOL_EXPRESSION_LIMITS: Readonly<ProtocolExpressionLimits>;
 
@@ -314,6 +335,9 @@ export const DEFAULT_PROTOCOL_SCHEMA_VALUE_LIMITS: Readonly<ProtocolSchemaValueL
 
 // @public (undocumented)
 export const DEFAULT_PROTOCOL_SEMANTIC_INVOCATION_LIMITS: Readonly<ProtocolSemanticInvocationLimits>;
+
+// @public
+export function deploymentContract3Features(contract: ProtocolDeploymentContractAnyVersion): readonly ProtocolDatasetContract3Features[];
 
 // @public
 export function deriveProtocolCacheKey(options: DeriveProtocolCacheKeyOptions): string;
@@ -559,6 +583,12 @@ export const PROTOCOL_CACHE_KEY_LIMITS: {
 // @public
 export const PROTOCOL_CALCULATION_KINDS: readonly ["filter", "shift", "window", "formula", "compare", "rank", "share"];
 
+// @public
+export const PROTOCOL_CONTRACT_3_FEATURE_LABELS: Readonly<Record<ProtocolContract3Feature, string>>;
+
+// @public
+export const PROTOCOL_CONTRACT_3_FEATURES: readonly ProtocolContract3Feature[];
+
 // @public (undocumented)
 export const PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN = "hypequery:deployment-bundle:v1\0";
 
@@ -629,6 +659,9 @@ export type ProtocolAggregateStateFunction = (typeof PROTOCOL_AGGREGATE_STATE_FU
 
 // @public
 export type ProtocolAggregation = 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max' | 'argMax' | 'argMin' | 'percentile' | 'stddev' | 'variance' | 'approxCountDistinct';
+
+// @public
+export type ProtocolAnyVersionDataset = ProtocolDeploymentDatasetAnyVersion | ProtocolDatasetContract;
 
 // @public (undocumented)
 export type ProtocolBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
@@ -797,6 +830,9 @@ export interface ProtocolCompareCalculation {
 // @public (undocumented)
 export type ProtocolComparisonOperator = ProtocolValueComparisonOperator | ProtocolNullCheckOperator;
 
+// @public
+export type ProtocolContract3Feature = 'segments' | 'windowMeasures' | 'shiftMeasures' | 'approxCountDistinct' | 'subDayDefaultGrain' | 'alternateTimeFields';
+
 // @public (undocumented)
 export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
     // (undocumented)
@@ -832,6 +868,14 @@ export interface ProtocolDatasetContract extends ProtocolSemanticMetadata {
     readonly tenant: ProtocolDatasetTenantPolicy;
     // (undocumented)
     readonly timeField?: ProtocolQualifiedIdentifier;
+}
+
+// @public (undocumented)
+export interface ProtocolDatasetContract3Features {
+    // (undocumented)
+    readonly dataset: string;
+    // (undocumented)
+    readonly features: readonly ProtocolContract3Feature[];
 }
 
 // @public (undocumented)
@@ -1323,6 +1367,34 @@ export interface ProtocolDeploymentReleaseTarget {
     // (undocumented)
     readonly project: string;
 }
+
+// @public (undocumented)
+export interface ProtocolDeploymentTargetAcceptanceInput {
+    // (undocumented)
+    readonly accepts: ProtocolDeploymentTargetAccepts;
+    readonly bundleVersion?: number;
+    // (undocumented)
+    readonly contract: ProtocolDeploymentContractAnyVersion;
+}
+
+// @public
+export interface ProtocolDeploymentTargetAccepts {
+    readonly bundle: readonly number[];
+    readonly deploymentContract: readonly number[];
+    readonly semanticInvocation: readonly number[];
+}
+
+// @public (undocumented)
+export type ProtocolDeploymentTargetRefusal = {
+    readonly kind: 'deploymentContract';
+    readonly version: number;
+    readonly accepted: readonly number[];
+    readonly forcedBy: readonly ProtocolDatasetContract3Features[];
+} | {
+    readonly kind: 'bundle';
+    readonly version: number;
+    readonly accepted: readonly number[];
+};
 
 // @public
 export type ProtocolDeploymentValidationError = ProtocolDeploymentError | ProtocolQueryImplementationError;
@@ -2024,6 +2096,9 @@ export interface ProtocolSemanticInvocation {
 }
 
 // @public
+export type ProtocolSemanticInvocation2Feature = 'segments' | 'subDayGrain' | 'relationshipMeasures' | 'calculations' | 'limitBy' | 'other';
+
+// @public
 export interface ProtocolSemanticInvocationBudget {
     // (undocumented)
     readonly deadlineMs?: number;
@@ -2031,6 +2106,18 @@ export interface ProtocolSemanticInvocationBudget {
     readonly maxResponseBytes?: number;
     // (undocumented)
     readonly maxRows?: number;
+}
+
+// @public
+export interface ProtocolSemanticInvocationEnvelope {
+    // (undocumented)
+    readonly activationRevision?: string;
+    // (undocumented)
+    readonly budget?: ProtocolSemanticInvocationBudget;
+    // (undocumented)
+    readonly correlationId?: string;
+    // (undocumented)
+    readonly target: ProtocolSemanticInvocationTarget;
 }
 
 // @public (undocumented)
@@ -2340,6 +2427,12 @@ export function resolveProtocolSchemaValueLimits(options?: ProtocolSchemaValueOp
 // @public
 export function resolveProtocolVisibleDatasetFields(dataset: ProtocolDeploymentDatasetAnyVersion, datasets: ReadonlyMap<string, ProtocolDeploymentDatasetAnyVersion>, visibility: ProtocolFieldVisibility): ProtocolVisibleDatasetFields | null;
 
+// @public
+export function semanticInvocation2Features(operation: ProtocolSemanticInvocationOperation): readonly ProtocolSemanticInvocation2Feature[];
+
+// @public
+export function semanticInvocationVersion(operation: ProtocolSemanticInvocationOperation): 1 | 2;
+
 // @public (undocumented)
 export function splitProtocolQualifiedIdentifier(input: ProtocolQualifiedIdentifier): readonly ProtocolIdentifier[];
 
@@ -2351,6 +2444,9 @@ interface TagEnvelope<T> {
 
 // @public (undocumented)
 export type TaggedValue = IntegerTaggedValue | DecimalTaggedValue | DateTaggedValue | DatetimeTaggedValue | UuidTaggedValue | BytesTaggedValue | EnumTaggedValue | ArrayTaggedValue | TupleTaggedValue | MapTaggedValue;
+
+// @public
+export function toSemanticInvocation(operation: ProtocolSemanticInvocationOperation, envelope: ProtocolSemanticInvocationEnvelope, options?: ProtocolSemanticInvocationOptions): ProtocolSemanticInvocation | ProtocolSemanticInvocationV2;
 
 // @public (undocumented)
 export type TupleTaggedValue = TagEnvelope<VersionOneTag & {
@@ -2404,6 +2500,9 @@ export function validateProtocolDeploymentReleaseEnvelope(input: unknown, option
 export function validateProtocolDeploymentReleaseTarget(input: unknown, options?: ProtocolDeploymentReleaseOptions): ProtocolDeploymentReleaseTarget;
 
 // @public
+export function validateProtocolDeploymentTargetAccepts(input: unknown): ProtocolDeploymentTargetAccepts;
+
+// @public
 export function validateProtocolEventOperation(input: unknown): ProtocolEventOperation;
 
 // @public (undocumented)
@@ -2455,6 +2554,9 @@ interface VersionOneTag {
     // (undocumented)
     readonly version: 1;
 }
+
+// @public
+export function withDatasetAllowedFilters<TDataset extends ProtocolAnyVersionDataset>(dataset: TDataset, filters: readonly ProtocolDatasetFilter[]): TDataset;
 
 // @public
 export function withoutClientFieldMetadata(prepared: PreparedProtocolClientContract): PreparedProtocolClientContract;

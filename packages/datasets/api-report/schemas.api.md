@@ -23,8 +23,7 @@ interface AggregationSpec {
     argField?: string;
     // (undocumented)
     field: string;
-    // (undocumented)
-    filters?: MetricFilter[];
+    filters?: MeasureFilterNode[];
     level?: number;
     // (undocumented)
     sql?: string;
@@ -661,8 +660,7 @@ interface MeasureDefinition extends SemanticMetadata {
     description?: string;
     // (undocumented)
     field: string;
-    // (undocumented)
-    filters?: MetricFilter[];
+    filters?: MeasureFilterNode[];
     // (undocumented)
     label?: string;
     level?: number;
@@ -670,6 +668,9 @@ interface MeasureDefinition extends SemanticMetadata {
     sql?: string;
     stateFunction?: AggregateStateFunction;
 }
+
+// @public
+type MeasureFilterNode = DatasetFilterNode<MetricFilter>;
 
 // @public
 interface MeasureTimeInterval {
