@@ -148,7 +148,8 @@ export interface AggregationSpec {
   /** State function whose `-Merge` reads the column. Required when aggregation is 'merge'. */
   stateFunction?: AggregateStateFunction;
   sql?: string;
-  filters?: MetricFilter[];
+  /** An implicit AND of comparisons and `and` / `or` / `not` groups. */
+  filters?: MeasureFilterNode[];
 }
 
 export interface MeasureOptions extends SemanticMetadata {
@@ -157,7 +158,8 @@ export interface MeasureOptions extends SemanticMetadata {
   dependencies?: readonly string[];
   label?: string;
   description?: string;
-  filters?: MetricFilter[];
+  /** An implicit AND of comparisons and `and` / `or` / `not` groups. */
+  filters?: MeasureFilterNode[];
 }
 
 export interface MeasureDefinition extends SemanticMetadata {
@@ -175,8 +177,16 @@ export interface MeasureDefinition extends SemanticMetadata {
   dependencies?: readonly string[];
   label?: string;
   description?: string;
-  filters?: MetricFilter[];
+  /** An implicit AND of comparisons and `and` / `or` / `not` groups. */
+  filters?: MeasureFilterNode[];
 }
+
+/**
+ * A measure's fixed filter: a comparison, or an `and` / `or` / `not` group of
+ * them. Published as an RFC 0003 `logical` expression, so a contract authored
+ * elsewhere with one rehydrates to the same SQL.
+ */
+export type MeasureFilterNode = DatasetFilterNode<MetricFilter>;
 
 export type DerivedMeasureUses<TMeasureName extends string = string> =
   Readonly<Record<string, TMeasureName>>;

@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import type {
   AggregationSpec,
   AnyDatasetInstance,
@@ -63,7 +64,7 @@ export function validateBaseMetric(
     );
   }
 
-  for (const filter of spec.filters ?? []) {
+  for (const filter of filterLeaves(spec.filters)) {
     const filterDefinition = ds.filters[filter.field];
     const resolvedField = filterDefinition?.field ?? filter.field;
     const fieldType = ds.dimensions[resolvedField]?.fieldType;

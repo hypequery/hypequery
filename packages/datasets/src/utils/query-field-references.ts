@@ -32,7 +32,7 @@ export function queryFieldReferences(dataset: AnyDatasetInstance, query: Dataset
     const definition = dataset.measures[name];
     measureDependencies(definition).forEach(visit);
     if (isBaseMeasure(definition)) {
-      names.push(...(definition.filters ?? []).map(filter => filterField(dataset, filter)));
+      names.push(...filterLeaves(definition.filters).map(filter => filterField(dataset, filter)));
     }
   };
   (query.measures ?? baseMeasureNames(dataset.measures)).forEach(visit);

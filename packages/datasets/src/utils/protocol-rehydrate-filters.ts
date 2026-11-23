@@ -1,5 +1,6 @@
 import type { ProtocolExpression } from '@hypequery/protocol';
-import type { MetricFilter } from '../types.js';
+import type { MeasureFilterNode, MetricFilter } from '../types.js';
+import { MAX_FILTER_GROUP_DEPTH } from './filter-tree.js';
 
 /**
  * A measure's fixed filters cross the contract boundary as RFC 0003
@@ -24,6 +25,26 @@ export function rehydrateMeasureFilter(
     operator,
     value: fromCanonicalValue(right.value, unsupported),
   } as MetricFilter;
+}
+
+/**
+ * A measure's fixed filter as the node it was authored as: a comparison, or a
+ * `logical` `and` / `or` / `not` of them as the matching group, in authored
+ * order, so the rebuilt measure renders the same SQL as the authored one.
+ * Anything else is refused, as `rehydrateMeasureFilter` refuses it.
+ */
+export function rehydrateMeasureFilterNode(
+  expression: ProtocolExpression,
+  unsupported: () => Error,
+  depth = 1,
+): MeasureFilterNode {
+  if (expression.kind !== 'logical') return rehydrateMeasureFilter(expression, unsupported);
+  if (depth > MAX_FILTER_GROUP_DEPTH) throw unsupported();
+  if (expression.operator === 'not') {
+    return { not: rehydrateMeasureFilterNode(expression.operand, unsupported, depth + 1) };
+  }
+  const items = expression.operands.map(operand => rehydrateMeasureFilterNode(operand, unsupported, depth + 1));
+  return expression.operator === 'and' ? { and: items } : { or: items };
 }
 
 /**

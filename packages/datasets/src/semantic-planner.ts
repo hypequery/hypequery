@@ -345,7 +345,7 @@ function buildDerivedMetricPlan(
       field: resolveField(metric.dataset, baseSpec.field),
       argField: baseSpec.argField != null ? resolveField(metric.dataset, baseSpec.argField) : undefined,
       level: baseSpec.level,
-      filters: baseSpec.filters,
+      filters: baseSpec.filters === undefined ? undefined : flatFilters(baseSpec.filters),
     };
   });
 

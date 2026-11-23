@@ -1,9 +1,10 @@
+import { isFilterGroup } from './filter-tree.js';
 import {
   parseProtocolIdentifier, parseProtocolQualifiedIdentifier, validateCanonicalValue,
   type CanonicalValue, type ProtocolExpression, type ProtocolMetricDerivation,
 } from '@hypequery/protocol';
 import type { SemanticExpression } from '../semantic-plan.js';
-import type { AggregationSpec, DerivedMeasureDefinition, DerivedMetricSpec, MetricFilter } from '../types.js';
+import type { AggregationSpec, DerivedMeasureDefinition, DerivedMetricSpec, MeasureFilterNode, MetricFilter } from '../types.js';
 import { requirePortableAggregation } from './portable-aggregations.js';
 
 type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
@@ -69,6 +70,21 @@ export function filterExpression(filter: MetricFilter): ProtocolExpression {
   return result;
 }
 
+/**
+ * A measure's fixed filter node as an RFC 0003 predicate: a comparison as
+ * `filterExpression` writes it, and an `and` / `or` / `not` group as the
+ * matching `logical` expression, in authored order.
+ */
+export function measureFilterExpression(node: MeasureFilterNode): ProtocolExpression {
+  if (!isFilterGroup(node)) return filterExpression(node);
+  if ('not' in node && node.not !== undefined) {
+    return { kind: 'logical', operator: 'not', operand: measureFilterExpression(node.not) } as ProtocolExpression;
+  }
+  const operator = 'and' in node && node.and !== undefined ? 'and' : 'or';
+  const items = (operator === 'and' ? node.and : node.or) ?? [];
+  return { kind: 'logical', operator, operands: items.map(measureFilterExpression) } as ProtocolExpression;
+}
+
 function aggregationExpression(spec: AggregationSpec): ProtocolExpression {
   const result: ProtocolAggregateExpression = {
     kind: 'aggregate',
@@ -79,7 +95,7 @@ function aggregationExpression(spec: AggregationSpec): ProtocolExpression {
       : {}),
     ...(spec.level !== undefined ? { level: spec.level } : {}),
     ...(spec.filters?.length
-      ? { filters: spec.filters.map(filterExpression) }
+      ? { filters: spec.filters.map(measureFilterExpression) }
       : {}),
   };
   return result;

@@ -73,6 +73,13 @@ const Orders = dataset('orders', {
     minAmount: measure.min('amount'),
     maxAmount: measure.max('amount'),
     paidRevenue: measure.sum('amount', { filters: [eq('status', 'paid')] }),
+    // And/or/not fixed filters publish as `logical` expressions and must
+    // rebuild to the same conditional aggregate.
+    settledRevenue: measure.sum('amount', { filters: [{ or: [eq('status', 'paid'), eq('status', 'refunded')] }] }),
+    largePaidUnits: measure.sum('units', {
+      filters: [{ and: [eq('status', 'paid'), { field: 'amount', operator: 'gt', value: 100 }] }, eq('channel', 'web')],
+    }),
+    unrefundedOrders: measure.count('status', { filters: [{ not: { or: [eq('status', 'refunded'), { field: 'region', operator: 'isNull' }] } }] }),
     topRegion: measure.argMax('region', 'amount'),
     bottomRegion: measure.argMin('region', 'amount'),
     p95Amount: measure.percentile('amount', 0.95),

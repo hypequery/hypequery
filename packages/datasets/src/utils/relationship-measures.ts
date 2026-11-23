@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import type { AnyDatasetInstance, MeasureDefinition, RelationshipDefinition } from '../types.js';
 import { isBaseMeasure } from './dataset-measures.js';
 import { parseQualifiedField, resolveQualifiedField } from './relationship-fields.js';
@@ -28,7 +29,7 @@ export function resolveRelationshipMeasure(ds: AnyDatasetInstance, name: string)
   if (relationship.kind === 'belongsTo' && !DUPLICATE_INSENSITIVE.has(definition.aggregation)) {
     throw new Error(`Measure "${name}" cannot use ${definition.aggregation} through belongsTo: repeated target rows would inflate the aggregation. Use a duplicate-insensitive measure or query the target dataset.`);
   }
-  const referenced = [definition.field, definition.argField, ...(definition.filters ?? []).map(filter => target.filters[filter.field]?.field ?? filter.field)];
+  const referenced = [definition.field, definition.argField, ...filterLeaves(definition.filters).map(filter => target.filters[filter.field]?.field ?? filter.field)];
   if (definition.sql || referenced.some(field => field && target.dimensions[field]?.sql)) {
     throw new Error(`SQL-backed measure "${name}" or its inputs cannot be traversed through relationships.`);
   }
