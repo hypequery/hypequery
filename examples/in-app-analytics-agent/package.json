@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-examples/in-app-analytics-agent",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "A tenant-safe analytics agent in your own Next.js app: an AI SDK chat with hypequery's tenant tools, from hypequery Cloud or in your own backend",
   "type": "module",

@@ -1,5 +1,14 @@
 # @hypequery/deployment
 
+## 0.15.1
+
+### Patch Changes
+
+- 7bad2d0: The authorized contract projection no longer breaks discovery when a visibility policy hides a field an event dataset's `events` declaration names (RFC 0027, RFC 0019). Before, the narrowed contract kept `events` pointing at the hidden entity, event dimension or time field, its own validator rejected it, and the caller got no catalog. Now a hidden entity or time field drops `events`, so the dataset stays discoverable without event operations for that caller. A hidden event dimension narrows the declaration to `{ entity }`. A dataset retained only to support a join no longer carries `events`.
+- 7bad2d0: The data plane, the authorized contract projection and the visibility projection read and write a dataset's filter allow-list, segments and time axes through `@hypequery/protocol`'s version-neutral readers (RFC 0030). Behaviour is unchanged. A new test pins that the data plane runs semantic invocation 2 against a contract 2 release.
+- Updated dependencies [7bad2d0]
+  - @hypequery/protocol@0.30.0
+
 ## 0.15.0
 
 ### Minor Changes
