@@ -19,14 +19,9 @@ For a package’s first release, `changeset publish` can publish the version alr
 
 ## Consumer-breaking changes
 
-A changeset that can break a downstream consumer such as hypequery Cloud
-carries a line beginning `Consumer-breaking:` that names what the consumer or
-deployment target must change. Use it, even in a minor or patch, when a change:
-
-- widens a public type, for example a return type becoming a union of
-  contract versions, or a union gaining a member;
-- renames a public field, type or export; or
-- makes content that used to produce one artifact version produce a higher
-  one, such as a new feature that forces deployment contract 3.
-
-See [RFC 0030](../specs/security-protocol/rfc/0030-deployment-target-capability-advertisement.md#5-compatibility-policy).
+A changeset whose package's public API report changed needs a
+`Consumer-breaking:` line (decision 0030; see `CLAUDE.md`, "Public API
+reports"). Under [RFC 0030](../specs/security-protocol/rfc/0030-deployment-target-capability-advertisement.md#5-compatibility-policy),
+a change that makes existing content produce a higher artifact version, such
+as a new feature that forces deployment contract 3, carries the line too, even
+when no API report changes.

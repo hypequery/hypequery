@@ -305,14 +305,17 @@ semantic invocation version from this RFC on.
    version can stay live, or be restored, indefinitely. A reader's support for
    a version is removed only in a planned major, and only after no target
    advertises that version.
-4. **Consumer-breaking changes are labelled.** A changeset that widens a
-   public type (a return type becoming a union of versions, a union gaining a
-   member), renames a public field or type, or makes content that used to
-   produce one version produce a higher one (a new forcing feature), carries a
-   line beginning `Consumer-breaking:`. The line names what downstream code
-   or targets must change. Core 0.34's time-keys change would have carried
-   one: "`timeKeys` now publish as contract 3. Targets that accept only
-   contract 2 refuse such deployments."
+4. **Consumer-breaking changes are labelled.** [Decision
+   0030](../decisions/0030-release-guardrails.md) requires a
+   `Consumer-breaking:` line in the changeset of any package whose public API
+   report changes, and CI enforces it. The line is `no` for additive changes,
+   or else what breaks and how to migrate. This RFC adds one case that no API
+   report shows: a change that makes content which used to produce one
+   artifact version produce a higher one (a new forcing feature) also carries
+   the line, naming the targets that must accept the new version. Core 0.34's
+   time-keys change would have carried "Consumer-breaking: `timeKeys` now
+   publish as contract 3. Targets that accept only contract 2 refuse such
+   deployments."
 
 ## Reference implementation
 
