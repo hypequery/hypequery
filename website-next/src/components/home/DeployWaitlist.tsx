@@ -27,19 +27,30 @@ const AUTHORING_OPTIONS = [
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
+/** What the visitor wants to try. `csv` asks for an invite that lands on Cloud's CSV upload step. */
+export type WaitlistIntent = 'deploy' | 'csv';
+
+type OpenDetail = { location: string; intent: WaitlistIntent };
+
 /** A button that opens the shared waitlist dialog. `location` records where it was opened from. */
-export function DeployWaitlist({ location, className, children = 'Join the cloud waitlist' }: { location: string; className?: string; children?: ReactNode }) {
+export function DeployWaitlist({ location, intent = 'deploy', className, children = 'Join the cloud waitlist' }: { location: string; intent?: WaitlistIntent; className?: string; children?: ReactNode }) {
   return (
-    <button type="button" className={className} onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: location }))}>
+    <button type="button" className={className} onClick={() => window.dispatchEvent(new CustomEvent<OpenDetail>(OPEN_EVENT, { detail: { location, intent } }))}>
       {children}
     </button>
   );
+}
+
+/** "Try it with a CSV". During the beta it requests access, tagged `csv`. */
+export function TryWithCsv({ location, className, children = 'Try it with a CSV' }: { location: string; className?: string; children?: ReactNode }) {
+  return <DeployWaitlist location={location} intent="csv" className={className}>{children}</DeployWaitlist>;
 }
 
 /** The one waitlist dialog for the whole site, rendered from the root layout. */
 export function WaitlistDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [source, setSource] = useState('');
+  const [intent, setIntent] = useState<WaitlistIntent>('deploy');
   const [status, setStatus] = useState<Status>('idle');
 
   useEffect(() => {
@@ -47,9 +58,11 @@ export function WaitlistDialog() {
       // Records the page and button, e.g. `homepage-deploy-hero` or `docs-deploy-cloud-notice`.
       const { pathname } = window.location;
       const page = pathname === '/' ? 'homepage' : pathname.split('/')[1];
-      const openedFrom = `${page}-deploy-${(event as CustomEvent<string>).detail}`;
+      const detail = (event as CustomEvent<OpenDetail>).detail;
+      const openedFrom = `${page}-${detail.intent}-${detail.location}`;
       setSource(openedFrom);
-      trackEvent('waitlist_opened', { source: openedFrom, page: pathname });
+      setIntent(detail.intent);
+      trackEvent('waitlist_opened', { source: openedFrom, page: pathname, intent: detail.intent });
       setStatus('idle');
       dialogRef.current?.showModal();
     };
@@ -64,6 +77,7 @@ export function WaitlistDialog() {
     const data = new FormData(form);
     const details = {
       source,
+      intent,
       page: window.location.pathname,
       design_partner: data.get('design_partner') === 'yes',
     };
@@ -84,7 +98,7 @@ export function WaitlistDialog() {
     <dialog ref={dialogRef} aria-labelledby="waitlist-title" className="m-auto max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,560px)] overflow-hidden rounded-2xl border border-border-strong bg-bg-card p-0 text-left text-base font-normal text-text shadow-2xl backdrop:bg-black/40" onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current.close(); }}>
       <div className="flex max-h-[calc(100dvh-2rem-2px)] flex-col">
         <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8">
-          <h2 id="waitlist-title" className="text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : 'Get early access to hypequery cloud.'}</h2>
+          <h2 id="waitlist-title" className="text-2xl font-semibold tracking-tight">{status === 'sent' ? "You're on the list." : intent === 'csv' ? 'Try hypequery with a CSV.' : 'Get early access to hypequery cloud.'}</h2>
           <button type="button" aria-label="Close waitlist form" className="text-text-muted" onClick={() => dialogRef.current?.close()}>✕</button>
         </div>
         {status === 'sent' ? (
@@ -94,7 +108,7 @@ export function WaitlistDialog() {
           </div>
         ) : (
           <>
-            <p className="mt-3 shrink-0 px-6 text-sm leading-6 text-text-muted sm:px-8">Cloud hosts the same model you run in your backend, with a managed API and MCP server, versions, and rollback. We&apos;re letting teams in a few at a time. Join the waitlist and we&apos;ll reach out when your project can go live.</p>
+            <p className="mt-3 shrink-0 px-6 text-sm leading-6 text-text-muted sm:px-8">{intent === 'csv' ? "Upload a CSV and ask questions of it, with no ClickHouse setup. Cloud is in private beta, so request access and we'll send an invite that opens on the upload step." : <>Cloud hosts the same model you run in your backend, with a managed API and MCP server, versions, and rollback. We&apos;re letting teams in a few at a time. Join the waitlist and we&apos;ll reach out when your project can go live.</>}</p>
             <form action={FORM_ACTION} method="POST" onSubmit={handleSubmit} className="mt-6 flex min-h-0 flex-col">
               <div className="overflow-y-auto px-6 pb-6 sm:px-8">
               <label htmlFor="waitlist-email" className="text-sm font-semibold">Work email</label>
@@ -143,11 +157,12 @@ export function WaitlistDialog() {
               <label htmlFor="waitlist-context" className="mt-6 block text-sm font-semibold">Anything else we should know? <span className="font-normal text-text-muted">(Optional)</span></label>
               <textarea id="waitlist-context" name="additional_context" rows={3} placeholder="Your use case, or what you picked &quot;Something else&quot; for…" className="mt-2 w-full resize-y rounded-lg border border-border-strong bg-bg px-4 py-3 text-sm outline-none placeholder:text-text-dim focus:border-accent" />
               <input type="hidden" name="source" value={source} />
+              <input type="hidden" name="intent" value={intent} />
               </div>
               <div className="shrink-0 border-t border-border bg-bg-card px-6 py-4 sm:px-8">
                 <p className="mb-3 text-xs text-text-muted">Only your email is required. All other questions are optional.</p>
                 {status === 'error' && <p role="alert" className="mb-3 text-sm text-[#dc2626]">Something went wrong. Please try again, or <a href="/contact-us" className="underline underline-offset-2">contact us</a>.</p>}
-                <button type="submit" disabled={status === 'sending'} className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 dark:text-[#0c0e14]">{status === 'sending' ? 'Joining…' : 'Join the cloud waitlist →'}</button>
+                <button type="submit" disabled={status === 'sending'} className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 dark:text-[#0c0e14]">{status === 'sending' ? 'Joining…' : intent === 'csv' ? 'Request access →' : 'Join the cloud waitlist →'}</button>
               </div>
             </form>
           </>
