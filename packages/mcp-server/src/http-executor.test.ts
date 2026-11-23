@@ -82,6 +82,29 @@ describe('authorized HTTP MCP executor', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  // Client contract 1 has no member for RFC 0026 or 0029 fields, so the bridge
+  // neither advertises them nor forwards them: each is refused, never dropped.
+  it.each([
+    [{ filters: [{ or: [{ field: 'country', operator: 'eq', value: 'UK' }, { field: 'country', operator: 'eq', value: 'US' }] }] }, 'Invalid client query at /filters/0.'],
+    [{ filters: [{ not: { field: 'country', operator: 'eq', value: 'UK' } }] }, 'Invalid client query at /filters/0.'],
+    [{ grain: 'day', fill: true }, 'Invalid client tool arguments.'],
+    [{ timeKey: 'createdAt' }, 'Invalid client tool arguments.'],
+    [{ calculations: [{ name: 'share', share: { measure: 'revenue' } }] }, 'Invalid client tool arguments.'],
+    [{ limitBy: { n: 1, by: ['country'] } }, 'Invalid client tool arguments.'],
+    [{ other: { dimension: 'country', n: 1, measure: 'revenue' } }, 'Invalid client tool arguments.'],
+  ])('refuses analysis fields the client contract cannot describe, before posting (%j)', async (extra, message) => {
+    // Python's bridge refuses the same calls with the same messages.
+    const fetchFn = backend();
+    const executor = await createMCPHttpExecutor({ url, fetchFn: fetchFn as typeof fetch });
+    const { tools } = await executor.listTools();
+    const advertised = JSON.stringify(tools.find(tool => tool.name === 'query_dataset')!.inputSchema);
+    for (const field of ['calculations', 'limitBy', '"other"', '"fill"', 'timeKey', 'inDateRange', '"or"']) expect(advertised).not.toContain(field);
+    const result = await executor.callTool('query_dataset', { ...args, ...extra });
+    expect(code(result)).toBe('MCP_INVALID_ARGUMENTS');
+    expect((result.structuredContent as any).error.message).toBe(message);
+    expect(fetchFn.mock.calls.some(call => call[1]?.method === 'POST')).toBe(false);
+  });
+
   it('names the argument that failed, never the value sent', async () => {
     const executor = await createMCPHttpExecutor({ url, fetchFn: backend() as typeof fetch });
     const message = async (input: object) => (await executor.callTool('query_dataset', input)).structuredContent as any;

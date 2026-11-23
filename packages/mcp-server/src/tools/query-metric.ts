@@ -18,6 +18,7 @@ import {
 import { buildMCPQueryResult } from './utils/query-result.js';
 import { createMCPToolResponse } from './utils/tool-response.js';
 import { tenantFieldFilterError } from './utils/tenant-filter.js';
+import { queryValidationError } from './utils/query-validation-error.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
@@ -27,7 +28,7 @@ export async function queryMetricTool(
 ): Promise<MCPToolResponse> {
   const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets, options.limits).queryMetric;
   const validatedArgs = parseToolArgs(inputSchema, 'query_metric', args);
-  const { dataset: datasetName, metric: metricName, dimensions, filters, segments, grain, timezone, orderBy } = validatedArgs;
+  const { dataset: datasetName, metric: metricName, dimensions, filters, segments, grain, timeKey, timezone, orderBy } = validatedArgs;
 
   if (!datasetName) {
     throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
@@ -65,6 +66,7 @@ export async function queryMetricTool(
   };
 
   if (timezone !== undefined) query.timezone = timezone;
+  if (timeKey !== undefined) query.timeKey = timeKey;
 
   if (grain) {
     query.by = grain;
@@ -90,7 +92,7 @@ export async function queryMetricTool(
     executionBudget,
     options.signal,
   ).catch((error: unknown) => {
-    throw tenantFieldFilterError(error, options.tenantId) ?? error;
+    throw tenantFieldFilterError(error, options.tenantId) ?? queryValidationError(error, 'query_metric') ?? error;
   });
 
   // Format the response with proper types

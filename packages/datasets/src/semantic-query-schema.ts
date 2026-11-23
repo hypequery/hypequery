@@ -11,7 +11,7 @@ import {
   type DatasetCatalogSource,
   type MetricCatalogEntry,
 } from './catalog.js';
-import { isNullCheckFilterOperator, SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS } from './constants.js';
+import { SEMANTIC_FILTER_OPERATORS, SEMANTIC_HAVING_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
 import type { AnyDatasetInstance } from './types.js';
 import type { ProtocolSchema } from '@hypequery/protocol';
@@ -21,6 +21,20 @@ import { zodToDraft7JsonSchema } from './utils/zod-json-schema.js';
 import type { AnyZodSchema } from './utils/zod-schema-version.js';
 import { datasetTimeKeys } from './utils/dataset-time-keys.js';
 import { effectiveFilters, type FilterPolicy } from './utils/effective-filters.js';
+import {
+  fieldEnum,
+  filterItemSchema,
+  filterLeafVariants,
+  isTimeAxisFilter,
+  isTimestampFilter,
+  relativeDateFilterFields,
+} from './utils/query-schema-filters.js';
+import {
+  calculationMeasures,
+  calculationShape,
+  referenceSchema,
+  refineCalculationReferences,
+} from './utils/query-schema-calculations.js';
 
 export interface SemanticQuerySchemaLimits {
   defaultResultSize?: number;
@@ -47,6 +61,24 @@ export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
    * field through to the dataset client.
    */
   timeKey?: boolean;
+  /**
+   * Accept `and` / `or` / `not` filter groups beside flat comparisons (RFC
+   * 0029). Each comparison keeps its field's operators. Off by default: enable
+   * it on surfaces whose executor runs groups rather than flattening them.
+   * Turning it on also compacts comparisons into one shape per operator set.
+   */
+  filterGroups?: boolean;
+  /** Accept `inDateRange` relative ranges on time-axis filters (RFC 0029). Off by default. */
+  relativeDates?: boolean;
+  /** Accept `fill` on dataset queries over a dataset with a time axis (RFC 0029). Off by default. */
+  fill?: boolean;
+  /**
+   * Accept query-scoped `calculations`, `limitBy` and `other` on dataset
+   * queries (RFC 0026), and let `orderBy` and `having` name calculation
+   * outputs. Off by default: these need an executor that plans them, which on
+   * the wire means expression extension 2.
+   */
+  calculations?: boolean;
   /** Include Serve's opt-in result metadata flag. */
   includeMeta?: boolean;
   /** Require at least one dimension or measure for dataset queries. */
@@ -137,50 +169,9 @@ function lowerLimit(...values: Array<number | undefined>): number | undefined {
   return finite.length > 0 ? Math.min(...finite) : undefined;
 }
 
-function fieldEnum(values: string[]): ZodTypeAny {
-  const unique = uniqueSorted(values);
-  return unique.length > 0
-    ? z.enum(unique as [string, ...string[]])
-    : z.never();
-}
-
 function boundedArray(item: ZodTypeAny, maximum?: number): ZodTypeAny {
   const array = z.array(item);
   return (maximum === undefined ? array : array.max(maximum)).optional();
-}
-
-function filterSchema(
-  localFilters: Readonly<Record<string, FilterPolicy>>,
-  fields: string[],
-  relationshipOperators: ReadonlyMap<string, string[]>,
-): ZodTypeAny {
-  const filterValue = z.unknown().refine(value => value !== undefined, 'Required');
-  // A null check takes no value (RFC 0023), so it gets its own value-free shape.
-  const variants: ZodTypeAny[] = uniqueSorted(fields).flatMap((field) => {
-    const operators = relationshipOperators.has(field)
-      ? relationshipOperators.get(field) ?? []
-      : localFilters[field]?.operators ?? [...SEMANTIC_FILTER_OPERATORS];
-    const valueOperators = operators.filter(operator => !isNullCheckFilterOperator(operator));
-    const nullChecks = operators.filter(isNullCheckFilterOperator);
-    return [
-      ...(valueOperators.length > 0 || nullChecks.length === 0
-        ? [z.object({ field: z.literal(field), operator: fieldEnum(valueOperators), value: filterValue }).strict()]
-        : []),
-      ...(nullChecks.length > 0
-        ? [z.object({ field: z.literal(field), operator: fieldEnum(nullChecks) }).strict()]
-        : []),
-    ];
-  });
-
-  if (variants.length === 0) {
-    return z.object({
-      field: z.never(),
-      operator: z.enum(SEMANTIC_FILTER_OPERATORS),
-      value: filterValue,
-    }).strict();
-  }
-  if (variants.length === 1) return variants[0];
-  return z.union(variants as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
 }
 
 /**
@@ -188,8 +179,9 @@ function filterSchema(
  * *selected* measure depends on the rest of the input, so it is enforced by
  * query validation rather than expressed here.
  */
-function havingSchema(measures: string[], maximum?: number): ZodTypeAny {
-  const measure = fieldEnum(measures);
+function havingSchema(measures: string[], maximum?: number, outputs = false): ZodTypeAny {
+  // With calculations, a condition may also name one of their outputs.
+  const measure = outputs ? z.union([fieldEnum(measures), referenceSchema()]) : fieldEnum(measures);
   const number = z.number().finite();
   const comparisons = SEMANTIC_HAVING_OPERATORS.filter(
     operator => operator !== 'between' && operator !== 'in' && operator !== 'notIn',
@@ -213,7 +205,7 @@ function queryShape(
   localFilters: Readonly<Record<string, FilterPolicy>> = effectiveFilters(catalog),
   metric?: SemanticMetricQueryContract,
   localRelationshipFields: string[] = [],
-): Record<string, ZodTypeAny> {
+): QueryShape {
   const limits = { ...DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS, ...options };
   const relationshipFields = getQueryableRelationshipFields(catalog);
   const filterableRelationshipFields = [...relationshipOperators.keys()];
@@ -277,7 +269,18 @@ function queryShape(
     ? z.number().int().positive()
     : z.number().int().positive().max(maxResultSize);
 
-  return {
+  const calculations = !metricName && options.calculations === true;
+  const maxFilters = lowerLimit(catalog.limits?.maxFilters, limits.maxFilters);
+  const relativeDateFields = options.relativeDates
+    ? relativeDateFilterFields(catalog, localFilters, filterFields)
+    : [];
+  const compact = options.filterGroups === true;
+  const filterItem = filterItemSchema(
+    filterLeafVariants(localFilters, filterFields, relationshipOperators, { compact, relativeDateFields }),
+    { groups: options.filterGroups },
+  );
+
+  const shape: Record<string, ZodTypeAny> = {
     dimensions: boundedArray(
       fieldEnum(dimensions),
       lowerLimit(catalog.limits?.maxDimensions, limits.maxDimensions),
@@ -288,22 +291,37 @@ function queryShape(
         lowerLimit(catalog.limits?.maxMeasures, limits.maxMeasures),
       ),
     }),
-    filters: boundedArray(
-      filterSchema(localFilters, filterFields, relationshipOperators),
-      lowerLimit(catalog.limits?.maxFilters, limits.maxFilters),
-    ),
+    filters: boundedArray(filterItem, maxFilters),
     // Opt-in, so existing schemas and manifest hashes are unchanged and a
     // surface only advertises conditions its executor can run.
     ...(!metricName && options.having ? {
-      having: havingSchema(selectableMeasures, lowerLimit(catalog.limits?.maxFilters, limits.maxFilters)),
+      having: havingSchema(selectableMeasures, maxFilters, calculations),
     } : {}),
     // Only datasets that declare segments accept the field, so every other
     // schema, including hosted catalogs, is unchanged.
     ...(Object.keys(catalog.segments ?? {}).length > 0 ? {
       segments: boundedArray(fieldEnum(uniqueSorted(Object.keys(catalog.segments ?? {})))),
     } : {}),
+    ...(calculations ? calculationShape({
+      dimensions,
+      hasTime: catalog.supportedGrains.length > 0,
+      ...calculationMeasures(catalog),
+      bucketDimensions: dimensions.filter(name => catalog.dimensions[name]?.type === 'string'),
+      // A filter calculation conditions on local, non-time fields only: the
+      // planner refuses every timestamp field, time axis or not.
+      whereVariants: filterLeafVariants(
+        localFilters,
+        filterFields.filter(field => !field.includes('.')
+          && !isTimeAxisFilter(catalog, localFilters, field)
+          && !isTimestampFilter(catalog, localFilters, field)),
+        relationshipOperators,
+        { compact: true },
+      ),
+      maxCalculations: lowerLimit(catalog.limits?.maxMeasures, limits.maxMeasures),
+    }) : {}),
     orderBy: boundedArray(z.object({
-      field: fieldEnum(orderable),
+      // With calculations, an order may also name one of their outputs.
+      field: calculations ? z.union([fieldEnum(orderable), referenceSchema()]) : fieldEnum(orderable),
       direction: z.enum(['asc', 'desc']),
     }).strict(), limits.maxOrderBy),
     limit: defaultResultSize === undefined
@@ -321,23 +339,64 @@ function queryShape(
       ),
     } : {}),
     timezone: z.string().max(100).refine(isQueryTimezone, 'Use an IANA timezone such as UTC or America/New_York.').optional(),
+    // RFC 0029 puts `fill` after `timezone`. It needs a grain, so a dataset
+    // without a time axis has no use for it.
+    ...(!metricName && options.fill && catalog.supportedGrains.length > 0 ? {
+      fill: z.boolean().optional().describe(
+        'Return every grain period in the filtered time range, empty ones included. Needs grain and a time range filter.',
+      ),
+    } : {}),
     ...(options.includeMeta ? { includeMeta: z.boolean().optional() } : {}),
   };
+  return calculations
+    ? { shape, references: { orderable: new Set(orderable), measures: new Set(selectableMeasures) } }
+    : { shape };
+}
+
+/** A query input's fields, and what a calculation output may stand in for. */
+interface QueryShape {
+  readonly shape: Record<string, ZodTypeAny>;
+  /** Present when calculations are accepted: the published names `orderBy` and `having` may use. */
+  readonly references?: { readonly orderable: ReadonlySet<string>; readonly measures: ReadonlySet<string> };
+}
+
+/**
+ * The object schema for a query shape: strict, with the checks a shape cannot
+ * express. A calculation output is named by the query, so that `orderBy` and
+ * `having` only name outputs that exist is checked against the call.
+ */
+function queryObject(
+  { shape, references }: QueryShape,
+  selectors: Record<string, ZodTypeAny>,
+  selectionRequired: boolean,
+): ZodTypeAny {
+  const object = z.object({ ...selectors, ...shape }).strict();
+  const referenced = references === undefined ? object : object.superRefine((input, context) => {
+    refineCalculationReferences(input as Parameters<typeof refineCalculationReferences>[0], references, context);
+  });
+  return selectionRequired ? requireSelection(referenced) : referenced;
 }
 
 export function buildDatasetInputSchema(
   dataset: SemanticQuerySchemaSource,
   options: SemanticQuerySchemaOptions = {},
 ): ZodTypeAny {
-  const schema = z.object(queryShape(
+  return datasetInputSchema(dataset, options, {}, options.requireSelection !== false);
+}
+
+function datasetInputSchema(
+  dataset: SemanticQuerySchemaSource,
+  options: SemanticQuerySchemaOptions,
+  selectors: Record<string, ZodTypeAny>,
+  selectionRequired: boolean,
+): ZodTypeAny {
+  return queryObject(queryShape(
     resolveCatalog(dataset),
     undefined,
     options,
     relationshipFilterPolicy(dataset),
     localFilterPolicy(dataset),
-  )).strict();
-  if (options.requireSelection === false) return schema;
-  return requireSelection(schema);
+  ), selectors, selectionRequired);
 }
 
 export function buildMetricInputSchema(
@@ -346,12 +405,22 @@ export function buildMetricInputSchema(
   options: SemanticQuerySchemaOptions = {},
   metricContract?: SemanticMetricQueryContract,
 ): ZodTypeAny {
+  return metricInputSchema(dataset, metricName, options, metricContract, {});
+}
+
+function metricInputSchema(
+  dataset: SemanticQuerySchemaSource,
+  metricName: string,
+  options: SemanticQuerySchemaOptions,
+  metricContract: SemanticMetricQueryContract | undefined,
+  selectors: Record<string, ZodTypeAny>,
+): ZodTypeAny {
   const catalog = resolveCatalog(dataset);
   const metric = metricContract ?? catalog.metrics[metricName];
   const localRelationshipFields = isDatasetCatalog(dataset)
     ? []
     : getQueryableRelationshipFields(catalog);
-  return z.object(queryShape(
+  return queryObject(queryShape(
     catalog,
     metricName,
     options,
@@ -359,7 +428,7 @@ export function buildMetricInputSchema(
     localFilterPolicy(dataset),
     metric,
     localRelationshipFields,
-  )).strict();
+  ), selectors, false);
 }
 
 function unionSchemas(schemas: ZodTypeAny[], emptyShape: Record<string, ZodTypeAny>): ZodTypeAny {
@@ -368,22 +437,14 @@ function unionSchemas(schemas: ZodTypeAny[], emptyShape: Record<string, ZodTypeA
   return z.union(schemas as [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]);
 }
 
-function requireSelection(schema: z.ZodObject): ZodTypeAny {
+function requireSelection(schema: ZodTypeAny): ZodTypeAny {
   return schema.refine(
-    (input: { dimensions?: unknown[]; measures?: unknown[] }) =>
-      (input.dimensions?.length ?? 0) > 0 || (input.measures?.length ?? 0) > 0,
+    (input) => {
+      const { dimensions, measures } = input as { dimensions?: unknown[]; measures?: unknown[] };
+      return (dimensions?.length ?? 0) > 0 || (measures?.length ?? 0) > 0;
+    },
     { message: 'At least one dimension or measure must be specified' },
   );
-}
-
-function withSelectors(
-  schema: ZodTypeAny,
-  selectors: Record<string, ZodTypeAny>,
-  selectionRequired: boolean,
-): ZodTypeAny {
-  // Zod 4 keeps refinements on the object itself, so its shape is readable.
-  const selected = z.object({ ...selectors, ...(schema as z.ZodObject).shape }).strict();
-  return selectionRequired ? requireSelection(selected) : selected;
 }
 
 export function toSemanticJsonSchema(
@@ -433,18 +494,21 @@ export function buildCanonicalSemanticQuerySchemas(
   for (const [datasetName, dataset] of Object.entries(datasets)
     .sort(([left], [right]) => compareStrings(left, right))) {
     if (queryable === undefined || queryable.has(datasetName)) {
-      datasetSchemas.push(withSelectors(
-        buildDatasetInputSchema(dataset, { ...options, requireSelection: false }),
+      datasetSchemas.push(datasetInputSchema(
+        dataset,
+        options,
         { dataset: z.literal(datasetName) },
         options.requireSelection !== false,
       ));
     }
     const catalog = resolveCatalog(dataset);
     for (const metricName of Object.keys(catalog.metrics).sort(compareStrings)) {
-      metricSchemas.push(withSelectors(
-        buildMetricInputSchema(dataset, metricName, options, catalog.metrics[metricName]),
+      metricSchemas.push(metricInputSchema(
+        dataset,
+        metricName,
+        options,
+        catalog.metrics[metricName],
         { dataset: z.literal(datasetName), metric: z.literal(metricName) },
-        false,
       ));
     }
   }
@@ -492,7 +556,24 @@ export function buildDatasetInputProtocolSchema(
   options: SemanticQuerySchemaOptions = {},
   path = 'dataset.input',
 ): ProtocolSchema {
+  assertProtocolSchemaOptions(options);
   return zodToProtocolSchema(buildDatasetInputSchema(dataset, options), path);
+}
+
+/**
+ * RFC 0004 schemas have no self-reference and no string patterns, so filter
+ * groups (which nest), relative ranges and calculations (which carry a
+ * grammar) can't be described in one. Refused by name rather than converted
+ * into a schema that accepts something else.
+ */
+function assertProtocolSchemaOptions(options: SemanticQuerySchemaOptions): void {
+  const unsupported = (['filterGroups', 'relativeDates', 'calculations'] as const).filter(option => options[option]);
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Protocol query schemas cannot describe ${unsupported.join(', ')}: RFC 0004 has no recursive or pattern types. `
+      + 'Build the protocol schema without them.',
+    );
+  }
 }
 
 /** The metric form of {@link buildDatasetInputProtocolSchema}. */
@@ -503,6 +584,7 @@ export function buildMetricInputProtocolSchema(
   metricContract?: SemanticMetricQueryContract,
   path = 'metric.input',
 ): ProtocolSchema {
+  assertProtocolSchemaOptions(options);
   return zodToProtocolSchema(
     buildMetricInputSchema(dataset, metricName, options, metricContract),
     path,

@@ -41,6 +41,7 @@ export type {
   MCPExecutionBudget,
   MCPCatalogBudget,
   MCPQueryLimits,
+  MCPQueryFeatures,
   SchemaToolOptions,
   GetDatasetSchemaArgs,
   MCPToolResponse,

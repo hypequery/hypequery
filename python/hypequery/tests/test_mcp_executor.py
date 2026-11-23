@@ -226,6 +226,60 @@ def test_invalid_calls_are_correctable_tool_errors(
     assert backend.seen == []
 
 
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (
+            {
+                "filters": [
+                    {
+                        "or": [
+                            {"field": "country", "operator": "eq", "value": "UK"},
+                            {"field": "country", "operator": "eq", "value": "US"},
+                        ]
+                    }
+                ]
+            },
+            "Invalid client query at /filters/0.",
+        ),
+        (
+            {"filters": [{"not": {"field": "country", "operator": "eq", "value": "UK"}}]},
+            "Invalid client query at /filters/0.",
+        ),
+        ({"fill": True}, "Invalid client tool arguments."),
+        ({"timeKey": "createdAt"}, "Invalid client tool arguments."),
+        (
+            {"calculations": [{"name": "part", "share": {"measure": "total"}}]},
+            "Invalid client tool arguments.",
+        ),
+        ({"limitBy": {"n": 1, "by": ["country"]}}, "Invalid client tool arguments."),
+        (
+            {"other": {"dimension": "country", "n": 1, "measure": "total"}},
+            "Invalid client tool arguments.",
+        ),
+    ],
+)
+def test_analysis_fields_the_client_contract_cannot_describe_are_refused(
+    arguments: dict[str, object], message: str
+) -> None:
+    """RFC 0026 and 0029 fields: the bridge refuses them as TypeScript's does, never drops them.
+
+    `@hypequery/mcp` offers them on dataset-backed servers; client contract 1
+    has no member for them, so neither bridge advertises or forwards them.
+    """
+
+    executor, backend = connect()
+    tools = cast(list[dict[str, object]], run(executor.list_tools)["tools"])
+    advertised = json.dumps(next(t for t in tools if t["name"] == "query_dataset")["inputSchema"])
+    for field in ("calculations", "limitBy", '"other"', '"fill"', "timeKey", "inDateRange"):
+        assert field not in advertised
+    result = call(executor, "query_dataset", {"dataset": "orders", **arguments})
+    assert error_code(result) == "MCP_INVALID_ARGUMENTS"
+    error = cast(dict[str, dict[str, object]], result["structuredContent"])["error"]
+    assert error["message"] == message
+    assert backend.seen == []
+
+
 def test_an_unknown_credential_cannot_connect() -> None:
     api, _ = build_api()
     backend = ApiContractBackend(api, headers={"Authorization": "Bearer stranger"})

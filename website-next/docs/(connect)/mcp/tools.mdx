@@ -130,6 +130,67 @@ Two arguments depend on how the server runs:
 | `includeMeta` | Rejected | Returns `meta` with the request id, row count and pagination |
 | `query_dataset` without `measures` | No measures: dimensions only | The endpoint's default measures |
 
+## Analysis arguments
+
+A server over datasets, local or hosted, also offers the analysis features of the semantic query protocol. Each one is in the tool's input schema only when the server can run it, so an agent never sees an option every call would fail.
+
+| Argument | Tools | What it does |
+| --- | --- | --- |
+| `filters` groups | both | `{ "and": [...] }`, `{ "or": [...] }` and `{ "not": ... }` beside flat filters, nested freely. Each filter inside keeps its field's operators. |
+| `inDateRange` | both | A relative range on a time field, resolved by the server in the query `timezone`. |
+| `timeKey` | both | The time axis for `grain`, on a dataset with more than one. |
+| `fill` | `query_dataset` | Every `grain` period of the filtered time range, empty ones included. |
+| `calculations` | `query_dataset` | Query-scoped variants of measures: `filter`, `shift`, `window`, `formula`, `compare`, `rank` and `share`. |
+| `limitBy` | `query_dataset` | The first `n` rows of each group, in `orderBy` order. |
+| `other` | `query_dataset` | The top `n` values of a dimension, with the rest grouped under one label. |
+
+The flat filter list still works and still means AND, so existing calls are unchanged.
+
+<CodeBlock>
+```json
+{
+  "name": "query_dataset",
+  "arguments": {
+    "dataset": "orders",
+    "dimensions": ["country"],
+    "measures": ["revenue", "orderCount"],
+    "filters": [
+      { "or": [
+        { "field": "country", "operator": "eq", "value": "US" },
+        { "field": "country", "operator": "eq", "value": "CA" }
+      ] },
+      { "not": { "field": "status", "operator": "eq", "value": "refunded" } },
+      { "field": "createdAt", "operator": "inDateRange", "value": "last 3 months" }
+    ],
+    "grain": "month",
+    "calculations": [
+      { "name": "aov", "formula": { "op": "divide", "args": ["revenue", { "op": "nullIfZero", "args": ["orderCount"] }] } },
+      { "name": "vs_prior", "compare": { "to": "previousPeriod", "measures": ["revenue"] } }
+    ],
+    "orderBy": [{ "field": "revenue_change_pct", "direction": "desc" }]
+  }
+}
+```
+</CodeBlock>
+
+`inDateRange` takes `today`, `yesterday`, `this <unit>`, `last <unit>`, `last <N> <unit>s` and `month to date`, `quarter to date` or `year to date`, where the unit is `day`, `week`, `month`, `quarter` or `year`. `this` ranges include the whole current period; `last` ranges end where the current period starts, so `last 7 days` ends yesterday. A filter allows `inDateRange` when its field is a time axis and it allows both `gte` and `lt`.
+
+`shift`, `window` and `compare` calculations, and `fill`, need `grain` and one bounded range on the time axis: a top-level `inDateRange`, `between`, or a lower and an upper bound. `compare` adds `<measure>_previous`, `<measure>_change` and `<measure>_change_pct` columns. `orderBy` and `having` can name any calculation output. A result with calculations carries `meta.calculations`, which types each output column and marks ratios with `format: "ratio"`.
+
+A rule the schema can't express, such as a missing time range or a trailing window that doesn't fit the grain, comes back as `MCP_INVALID_ARGUMENTS` with the reason, so the agent can fix the call.
+
+A server turns features off with `queryFeatures` on `createMCPExecutor` or `createMCPDiscoveryExecutor`. Every feature is on by default. A gateway whose data plane validates under expression extension 1 sets `calculations: false`, which removes `calculations`, `limitBy` and `other`:
+
+<CodeBlock>
+```typescript
+createMCPDiscoveryExecutor({ datasets, queryFeatures: { calculations: false } });
+```
+</CodeBlock>
+
+The other switches are `having`, `filterGroups`, `relativeDates`, `fill` and `timeKey`. Filter groups and formulas nest, so the schema describes them with `$ref`s to its root `definitions`. If a model API you target can't read `$ref`, set `filterGroups: false` and `calculations: false` for a schema without any.
+
+When bridging a backend (`--client-contract-url`), none of these are offered: a client contract does not describe them yet. Sending one anyway is refused with `MCP_INVALID_ARGUMENTS`, never ignored.
+
 ## Pagination
 
 `query_metric` and `query_dataset` both accept `limit` and `offset` for paging through large result sets. `offset` skips the given number of rows before returning results.
@@ -189,7 +250,7 @@ Filter operators, as limited by each field's type:
 | number | all except `like` |
 | boolean | `eq`, `neq`, `in`, `notIn` |
 
-A dataset's named filter can declare a narrower list, which `get_dataset_schema` reports per filter. `in` and `notIn` take a non-empty list, and `between` takes two values. There is no null operator.
+A dataset's named filter can declare a narrower list, which `get_dataset_schema` reports per filter. `in` and `notIn` take a non-empty list, and `between` takes two values. `isNull` and `isNotNull` take no value, and are allowed only where a filter lists them. `inDateRange` is described under [Analysis arguments](#analysis-arguments).
 
 - `eq`
 - `neq`

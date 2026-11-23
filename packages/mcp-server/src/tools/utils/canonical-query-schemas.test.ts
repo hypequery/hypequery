@@ -111,6 +111,11 @@ describe('MCP canonical query schemas', () => {
       grainField: 'grain',
       ...resolveQueryLimits(),
       having: true,
+      filterGroups: true,
+      relativeDates: true,
+      fill: true,
+      timeKey: true,
+      calculations: true,
     });
     const mcp = buildMCPQuerySchemas(registry);
 

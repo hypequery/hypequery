@@ -4,10 +4,11 @@
  * Executes an ad-hoc dataset query with custom dimensions and measures.
  */
 
-import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
+import type { DatasetClient } from '@hypequery/datasets';
 import { MCPToolError } from '../errors.js';
-import type { DatasetRegistry, MCPToolResponse, QueryToolOptions } from '../types.js';
-import { parseToolArgs, toMetricFilters } from './args.js';
+import type { DatasetRegistry, MCPToolResponse, QueryDatasetArgs, QueryToolOptions } from '../types.js';
+import { parseToolArgs } from './args.js';
+import { datasetQueryFromArgs } from './utils/dataset-query-args.js';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
 import { applyQueryLimits } from './utils/query-limits.js';
 import {
@@ -18,6 +19,7 @@ import {
 import { buildMCPQueryResult } from './utils/query-result.js';
 import { createMCPToolResponse } from './utils/tool-response.js';
 import { tenantFieldFilterError } from './utils/tenant-filter.js';
+import { queryValidationError } from './utils/query-validation-error.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
@@ -26,8 +28,8 @@ export async function queryDatasetTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets, options.limits).queryDataset;
-  const validatedArgs = parseToolArgs(inputSchema, 'query_dataset', args);
-  const { dataset: datasetName, dimensions, measures, filters, having, segments, grain, timezone, orderBy } = validatedArgs;
+  const validatedArgs = parseToolArgs<QueryDatasetArgs>(inputSchema, 'query_dataset', args);
+  const { dataset: datasetName, dimensions, measures } = validatedArgs;
 
   if (!datasetName) {
     throw new MCPToolError('MCP_INVALID_ARGUMENTS', 'dataset parameter is required');
@@ -49,32 +51,7 @@ export async function queryDatasetTool(
   const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);
   const executionBudget = resolveExecutionBudget(options.executionBudget);
 
-  // Build the query with proper types
-  const query: DatasetQuery = {
-    dimensions: dimensions || [],
-    measures: measures || [],
-    filters: toMetricFilters(filters),
-    orderBy: orderBy || [],
-    limit: pagination.limit,
-  };
-
-  if (timezone !== undefined) query.timezone = timezone;
-
-  if (grain) {
-    query.by = grain;
-  }
-
-  if (segments?.length) {
-    query.segments = segments;
-  }
-
-  if (having?.length) {
-    query.having = having;
-  }
-
-  if (pagination.offset !== undefined) {
-    query.offset = pagination.offset;
-  }
+  const query = datasetQueryFromArgs(validatedArgs, pagination);
 
   const result = await executeWithinBudget(
     signal => analytics.execute(dataset as any, query, {
@@ -87,7 +64,7 @@ export async function queryDatasetTool(
     executionBudget,
     options.signal,
   ).catch((error: unknown) => {
-    throw tenantFieldFilterError(error, options.tenantId) ?? error;
+    throw tenantFieldFilterError(error, options.tenantId) ?? queryValidationError(error, 'query_dataset') ?? error;
   });
 
   // Format the response with proper types

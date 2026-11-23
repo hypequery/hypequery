@@ -36,6 +36,12 @@ export type JsonSchema = {
   anyOf?: JsonSchema[];
   allOf?: JsonSchema[];
   const?: string;
+  /** String grammar, such as a relative date range's counted form. */
+  pattern?: string;
+  /** A subschema in `definitions`, for the parts of a query that nest (filter groups, formulas). */
+  $ref?: string;
+  /** Subschemas `$ref` points at, kept at the document root. */
+  definitions?: Record<string, JsonSchema>;
 };
 
 export interface SemanticToolDefinition<TInput = Record<string, unknown>, TResult = unknown> {

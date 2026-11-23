@@ -46,7 +46,7 @@ import {
   type EffectiveCatalogBudget,
 } from './tools/utils/catalog-budget.js';
 import { createMCPErrorResponse } from './tools/utils/tool-response.js';
-import type { DatasetRegistry, MCPCatalogBudget, MCPQueryLimits } from './types.js';
+import type { DatasetRegistry, MCPCatalogBudget, MCPQueryFeatures, MCPQueryLimits } from './types.js';
 import { resolveMCPBusinessContext, type MCPBusinessContext } from './utils/business-context.js';
 
 /**
@@ -79,6 +79,13 @@ export interface MCPDiscoveryExecutorConfig {
   queryableDatasets?: readonly string[];
   /** Server-side query ceilings, so advertised schemas match what will run. */
   queryLimits?: MCPQueryLimits;
+  /**
+   * Analysis features to advertise, each on by default as on the local
+   * executor. Turn off what the data plane behind the gateway cannot run, so
+   * no listed option is one every call is refused for: a data plane that
+   * validates under expression extension 1 has no `calculations`.
+   */
+  queryFeatures?: MCPQueryFeatures;
   /**
    * Tool-count and manifest-byte ceilings.
    *
@@ -137,6 +144,7 @@ export class HypequeryMCPDiscoveryExecutor implements MCPToolExecutor {
       config.datasets ?? {},
       config.queryLimits,
       config.queryableDatasets,
+      config.queryFeatures,
     );
     this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
     this.meta = metaEntries(config.meta);

@@ -20,6 +20,8 @@ export function buildMCPQueryResult(
             ...(cache.stale === undefined ? {} : { stale: cache.stale }),
           }
         : { status: 'bypass' },
+      // RFC 0026: what each calculation column is, so an agent reads a ratio as a ratio.
+      ...(result.meta?.calculations?.length ? { calculations: result.meta.calculations.map(column => ({ ...column })) } : {}),
     },
   };
 }

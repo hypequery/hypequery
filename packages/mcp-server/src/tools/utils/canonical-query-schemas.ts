@@ -6,10 +6,12 @@ import {
   type CanonicalSemanticQuerySchemas,
 } from '@hypequery/datasets/schemas';
 import { z, type ZodTypeAny } from 'zod';
-import type { DatasetRegistry, MCPQueryLimits } from '../../types.js';
+import type { DatasetRegistry, MCPQueryFeatures, MCPQueryLimits } from '../../types.js';
 import { queryDatasetArgsSchema, queryMetricArgsSchema } from '../args.js';
 import { resolveQueryLimits } from './query-limits.js';
 import { advertiseDatasetQueryLimits } from './query-schema.js';
+import { hoistDefinitions } from './json-schema-definitions.js';
+import { semanticQueryFeatureOptions } from './query-features.js';
 
 function withLegacyDirectMetrics(
   datasets: DatasetRegistry,
@@ -49,12 +51,13 @@ export function buildMCPQuerySchemas(
    */
   queryableDatasets?: readonly string[],
   /**
-   * Advertise and accept `having` on `query_dataset`. On by default for every
-   * MCP surface: CORE-03 requires the hosted gateway to list exactly what the
-   * local executor runs, so hosted execution must support it too.
+   * The analysis features to advertise and accept; each defaults to on. CORE-03
+   * requires the hosted gateway to list exactly what the local executor runs,
+   * so a host turns a feature off only when its executor cannot run it.
    */
-  features: { readonly having?: boolean } = { having: true },
+  features: MCPQueryFeatures = {},
 ): CanonicalSemanticQuerySchemas {
+  const featureOptions = semanticQueryFeatureOptions(features);
   const limits = resolveQueryLimits(undefined, configured);
   const queryable = queryableDatasets === undefined ? undefined : new Set(queryableDatasets);
   const entries = Object.entries(datasets).sort(([left], [right]) => (
@@ -84,7 +87,7 @@ export function buildMCPQuerySchemas(
         grainField: 'grain',
         ...limits,
         ...(queryableDatasets === undefined ? {} : { queryableDatasets }),
-        ...(features.having ? { having: true } : {}),
+        ...featureOptions,
       },
     );
   }
@@ -98,7 +101,7 @@ export function buildMCPQuerySchemas(
     if (isCanonicalSchemaSource(dataset)) {
       const exact = buildCanonicalSemanticQuerySchemas(
         withLegacyDirectMetrics({ [name]: dataset }),
-        { grainField: 'grain', ...limits, ...(features.having ? { having: true } : {}) },
+        { grainField: 'grain', ...limits, ...featureOptions },
       );
       if (queryable === undefined || queryable.has(name)) {
         datasetSchemas.push(exact.queryDataset);
@@ -138,11 +141,15 @@ export function buildMCPQuerySchemas(
     metricSchemas,
     z.object({ dataset: z.never(), metric: z.never() }).strict(),
   );
+  // Each exact schema was compiled alone, so their definitions are renamed
+  // apart before they share one document.
   const queryDatasetJsonSchema = unionJsonSchemas(
-    datasetJsonSchemas, toSemanticJsonSchema(queryDataset),
+    datasetJsonSchemas.map((schema, index) => hoistDefinitions(schema, `d${index}_`)),
+    toSemanticJsonSchema(queryDataset),
   );
   const queryMetricJsonSchema = unionJsonSchemas(
-    metricJsonSchemas, toSemanticJsonSchema(queryMetric),
+    metricJsonSchemas.map((schema, index) => hoistDefinitions(schema, `m${index}_`)),
+    toSemanticJsonSchema(queryMetric),
   );
   const manifestHash = createHash('sha256').update(JSON.stringify({
     query_dataset: queryDatasetJsonSchema,
@@ -175,11 +182,12 @@ function unionSchemas(schemas: ZodTypeAny[], empty: ZodTypeAny): ZodTypeAny {
 }
 
 function unionJsonSchemas(
-  schemas: CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'][],
+  hoisted: ReturnType<typeof hoistDefinitions>[],
   empty: CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'],
 ): CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'] {
-  if (schemas.length === 0) return empty;
-  return schemas.length === 1
-    ? schemas[0]
-    : { type: 'object', anyOf: schemas };
+  if (hoisted.length === 0) return empty;
+  const definitions = Object.assign({}, ...hoisted.map(item => item.definitions));
+  const schemas = hoisted.map(item => item.schema);
+  const union = schemas.length === 1 ? schemas[0] : { type: 'object', anyOf: schemas };
+  return Object.keys(definitions).length === 0 ? union : { ...union, definitions };
 }

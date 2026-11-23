@@ -10,8 +10,13 @@ import type {
   AgentCatalogMetric,
   AgentCatalogRelationship,
   AnyDatasetInstance,
+  DatasetCalculationColumn,
+  DatasetFilterNode,
+  DatasetHavingCondition,
+  DatasetQueryCalculation,
+  DatasetQueryLimitBy,
+  DatasetQueryOtherBucket,
   DatasetSegmentNames,
-  MetricFilter,
   TimeGrain,
   MetricOrderBy,
 } from '@hypequery/datasets';
@@ -30,9 +35,13 @@ export interface QueryMetricArgs<TDataset extends AnyDatasetInstance = AnyDatase
   dataset: TDataset['name'];
   metric: string;
   dimensions?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
   segments?: DatasetSegmentNames<TDataset>[];
   grain?: TimeGrain;
+  /** Time axis for `grain`, on a dataset with alternate time keys. */
+  timeKey?: string;
+  timezone?: string;
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -46,9 +55,20 @@ export interface QueryDatasetArgs<TDataset extends AnyDatasetInstance = AnyDatas
   dataset: TDataset['name'];
   dimensions?: string[];
   measures?: string[];
-  filters?: MetricFilter[];
+  /** Comparisons and `and` / `or` / `not` groups, combined with AND. */
+  filters?: DatasetFilterNode[];
+  having?: DatasetHavingCondition[];
   segments?: DatasetSegmentNames<TDataset>[];
+  /** Query-scoped calculations (RFC 0026). */
+  calculations?: DatasetQueryCalculation[];
+  limitBy?: DatasetQueryLimitBy;
+  other?: DatasetQueryOtherBucket;
   grain?: TimeGrain;
+  /** Time axis for `grain`, on a dataset with alternate time keys. */
+  timeKey?: string;
+  timezone?: string;
+  /** Return every period of the filtered time range, empty ones included. */
+  fill?: boolean;
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
@@ -117,6 +137,31 @@ export interface MCPQueryLimits {
   maxFilters?: number;
   /** Maximum order clauses. Cannot exceed 50. */
   maxOrderBy?: number;
+}
+
+/**
+ * Which analysis features `query_dataset` (and, for filters and `timeKey`,
+ * `query_metric`) advertise and accept. Every feature defaults to on: the
+ * local executor runs them all through the dataset client.
+ *
+ * A host whose executor cannot run a feature turns it off, so the tool never
+ * offers what a call would be refused for. A gateway in front of a semantic
+ * data plane that validates under expression extension 1 sets
+ * `calculations: false`; RFC 0026 calculations are extension 2 only.
+ */
+export interface MCPQueryFeatures {
+  /** `having` conditions on aggregated measures (RFC 0025). */
+  readonly having?: boolean;
+  /** `and` / `or` / `not` filter groups (RFC 0029). */
+  readonly filterGroups?: boolean;
+  /** `inDateRange` relative ranges on time-axis filters, such as `last 30 days` (RFC 0029). */
+  readonly relativeDates?: boolean;
+  /** `fill`, every period of the time range including empty ones (RFC 0029). */
+  readonly fill?: boolean;
+  /** `timeKey`, on datasets that declare alternate time axes (RFC 0029). */
+  readonly timeKey?: boolean;
+  /** Query-scoped `calculations`, `limitBy` and `other` (RFC 0026, expression extension 2). */
+  readonly calculations?: boolean;
 }
 
 export interface SchemaToolOptions {
@@ -222,6 +267,8 @@ export interface QueryResultMeta {
     ageMs?: number;
     stale?: boolean;
   };
+  /** The typed output columns the query's calculations added, in output order (RFC 0026). */
+  calculations?: DatasetCalculationColumn[];
 }
 
 /**

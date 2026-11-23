@@ -33,6 +33,7 @@ import type {
   DatasetRegistry,
   MCPCatalogBudget,
   MCPExecutionBudget,
+  MCPQueryFeatures,
   MCPQueryLimits,
 } from './types.js';
 import { resolveMCPBusinessContext, type MCPBusinessContext } from './utils/business-context.js';
@@ -60,6 +61,11 @@ export interface MCPExecutorConfig {
   includeSql?: boolean;
   /** Server-side query ceilings applied in addition to Dataset limits. */
   queryLimits?: MCPQueryLimits;
+  /**
+   * Analysis features `query_dataset` and `query_metric` advertise and accept.
+   * All on by default; the dataset client runs every one of them.
+   */
+  queryFeatures?: MCPQueryFeatures;
   /** Query deadline and serialized-result byte ceilings. */
   executionBudget?: MCPExecutionBudget;
   /** Tool-count and manifest-byte ceilings applied when listing tools. */
@@ -103,7 +109,12 @@ export class HypequeryMCPExecutor implements MCPToolExecutor {
     resolveQueryLimits(undefined, config.queryLimits);
     this.executionBudget = resolveExecutionBudget(config.executionBudget);
     this.catalogBudget = resolveCatalogBudget(config.catalogBudget);
-    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
+    this.querySchemas = buildMCPQuerySchemas(
+      config.datasets ?? {},
+      config.queryLimits,
+      undefined,
+      config.queryFeatures,
+    );
     this.businessContext = resolveMCPBusinessContext(config.businessContext);
   }
 
