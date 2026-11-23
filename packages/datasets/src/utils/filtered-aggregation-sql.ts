@@ -1,4 +1,5 @@
-import type { AggregationSpec, AnyDatasetInstance, MetricFilter } from '../types.js';
+import type { AggregationSpec, AnyDatasetInstance, MeasureFilterNode, MetricFilter } from '../types.js';
+import { isFilterGroup } from './filter-tree.js';
 import { resolveFilterField } from '../query-planner.js';
 import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
 import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
@@ -55,6 +56,27 @@ function renderMeasureFilterCondition(
   }
 }
 
+/** A comparison, or an `and` / `or` / `not` group of them, as one SQL condition. */
+function renderMeasureFilterNode(
+  ds: DatasetShape,
+  node: MeasureFilterNode,
+  joinCtx: RelationshipBuilderContext | undefined,
+  dialect: DatasetSqlDialectRules,
+): string {
+  if (!isFilterGroup(node)) return renderMeasureFilterCondition(ds, node, joinCtx, dialect);
+  if ('not' in node && node.not !== undefined) {
+    return `NOT (${renderMeasureFilterNode(ds, node.not, joinCtx, dialect)})`;
+  }
+  const or = 'or' in node && node.or !== undefined;
+  const items = (or ? node.or : node.and) ?? [];
+  // A one-item group is its item, exactly as it publishes, so an authored and
+  // a rehydrated measure render the same SQL.
+  if (items.length === 1) return renderMeasureFilterNode(ds, items[0]!, joinCtx, dialect);
+  return items
+    .map(item => `(${renderMeasureFilterNode(ds, item, joinCtx, dialect)})`)
+    .join(or ? ' OR ' : ' AND ');
+}
+
 export function applyFilteredAggregationExpression(
   ds: DatasetShape,
   spec: AggregationSpec,
@@ -67,7 +89,7 @@ export function applyFilteredAggregationExpression(
   }
 
   const combinedCondition = spec.filters
-    .map(filter => renderMeasureFilterCondition(ds, filter, joinCtx, dialect))
+    .map(filter => renderMeasureFilterNode(ds, filter, joinCtx, dialect))
     .map(condition => `(${condition})`)
     .join(' AND ');
 

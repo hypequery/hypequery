@@ -1,3 +1,4 @@
+import { datasetAllowedFilters, withDatasetAllowedFilters } from '@hypequery/protocol';
 import type {
   ProtocolDeploymentDataset,
   ProtocolDeploymentDatasetAnyVersion,
@@ -39,7 +40,7 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
   dataset: TDataset,
   visible: ProtocolVisibleDatasetFields,
 ): TDataset {
-  const { defaults, timeField, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
+  const { defaults, timeField, events, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
   const { alternateTimeFields, ...withoutAlternates } = rest as typeof rest & { alternateTimeFields?: readonly string[] };
   // RFC 0029: an alternate axis shows only beside a visible default axis, and
   // only when a dimension naming it or reading its column is visible, so a
@@ -48,15 +49,24 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     ? alternateTimeFields?.filter(name => isTimeAxisVisible(dataset, String(name), visible.dimensions))
     : undefined;
   const defaultDimensions = defaults?.dimensions?.filter(name => visible.dimensions.has(String(name)));
+  // RFC 0027: event operations need the entity and the event time. Without
+  // either, the dataset stays discoverable without them; a hidden event
+  // dimension only narrows the declaration, as the field is optional.
+  const visibleEvents = events === undefined || !visible.timeField || !visible.dimensions.has(String(events.entity))
+    ? undefined
+    : events.event === undefined || visible.dimensions.has(String(events.event))
+      ? events
+      : { entity: events.entity };
   const narrowedDefaults = {
     ...(defaultDimensions === undefined || defaultDimensions.length === 0
       ? {}
       : { dimensions: defaultDimensions }),
     ...(defaults?.timeGrain === undefined || !visible.timeField ? {} : { timeGrain: defaults.timeGrain }),
   };
-  return {
+  return withDatasetAllowedFilters({
     ...withoutAlternates,
     ...(visible.timeField && timeField !== undefined ? { timeField } : {}),
+    ...(visibleEvents === undefined ? {} : { events: visibleEvents }),
     ...(visibleAlternates === undefined || visibleAlternates.length === 0 ? {} : { alternateTimeFields: visibleAlternates }),
     // An empty `defaults` object is not a valid contract value.
     ...(Object.keys(narrowedDefaults).length === 0 ? {} : { defaults: narrowedDefaults }),
@@ -65,11 +75,6 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     )),
     measures: (dataset.measures as readonly { readonly name: unknown }[])
       .filter(measure => visible.measures.has(String(measure.name))),
-    // Contract 3 renames the allow-list `allowedFilters` (RFC 0015).
-    ...('allowedFilters' in dataset && dataset.allowedFilters !== undefined
-      ? { allowedFilters: dataset.allowedFilters.filter(filter => visible.filters.has(String(filter.name))) }
-      : { filters: (dataset as ProtocolDeploymentDataset).filters
-        .filter(filter => visible.filters.has(String(filter.name))) }),
     ...((dataset as ProtocolDeploymentDatasetV3).segments === undefined ? {} : {
       segments: (dataset as ProtocolDeploymentDatasetV3).segments!
         .filter(segment => visible.segments?.has(String(segment.name)) ?? true),
@@ -77,5 +82,5 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     relationships: dataset.relationships.filter(relationship => (
       visible.relationships.has(String(relationship.name))
     )),
-  } as unknown as TDataset;
+  } as unknown as TDataset, datasetAllowedFilters(dataset).filter(filter => visible.filters.has(String(filter.name))));
 }

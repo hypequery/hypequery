@@ -29,6 +29,8 @@ import type {
   DerivedMetricRef,
   ExecutionContext,
   MeasureOptions,
+  MeasureFilterNode,
+  DatasetFilterNode,
   MetricFilter,
   MetricQueryFor,
   QueryBuilderFactoryLike,
@@ -276,7 +278,10 @@ type _MeasureOptionsIncludeFilters = Assert<
   Equal<HasKey<MeasureOptions, 'filters'>, true>
 >;
 type _MeasureFilterType = Assert<
-  Equal<MeasureOptions['filters'], MetricFilter[] | undefined>
+  Equal<MeasureOptions['filters'], MeasureFilterNode[] | undefined>
+>;
+type _MeasureFilterNodeIsAGroupOrComparison = Assert<
+  Equal<MeasureFilterNode, DatasetFilterNode<MetricFilter>>
 >;
 type _TenantRuntimeShape = Assert<
   Equal<NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, string | { id: string } | { in: string[] } | { scope: 'all' }>

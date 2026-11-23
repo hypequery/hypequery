@@ -6,7 +6,11 @@ export {
   validateProtocolSemanticInvocationFailure,
   validateProtocolSemanticInvocationResult,
   validateProtocolSemanticInvocationV2,
+  toSemanticInvocation,
 } from './validate.js';
+export type { ProtocolSemanticInvocationEnvelope } from './validate.js';
+export { semanticInvocation2Features, semanticInvocationVersion } from './version.js';
+export type { ProtocolSemanticInvocation2Feature } from './version.js';
 export type {
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationV2,

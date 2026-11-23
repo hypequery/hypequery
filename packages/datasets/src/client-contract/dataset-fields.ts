@@ -1,3 +1,4 @@
+import { filterLeaves } from '../utils/filter-tree.js';
 import type { ClientDimension, ClientFilter, ClientMeasure } from '@hypequery/protocol';
 import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 import type {
@@ -81,7 +82,7 @@ function measureFilterFields(dataset: AnyDatasetInstance, name: string): string[
     const measure = dataset.measures[current];
     if (isDerivedMeasure(measure)) pending.push(...Object.values(measure.uses));
     else if (isBaseMeasure(measure)) {
-      for (const filter of measure.filters ?? []) {
+      for (const filter of filterLeaves(measure.filters)) {
         fields.push(Object.hasOwn(dataset.filters, filter.field) ? dataset.filters[filter.field].field : filter.field);
       }
     }

@@ -298,6 +298,12 @@ function withLineItems(patch: (contract: typeof lineItems) => unknown) {
     index === lineItemsIndex ? patch(structuredClone(lineItems)) : contract) as never;
 }
 
+/** A valid RFC 0003 comparison no authored measure filter produces: column against column. */
+function columnComparison(filter: unknown): unknown {
+  const comparison = filter as { left: unknown };
+  return { kind: 'comparison', operator: 'eq', left: comparison.left, right: comparison.left };
+}
+
 const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
   readonly reason: UnsupportedContractReason;
   readonly scenario: string;
@@ -305,12 +311,10 @@ const REHYDRATION_EXCLUSIONS: ReadonlyArray<{
 }> = [
   {
     reason: UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison,
-    scenario: 'refunded GMV filtered by a logical expression instead of a comparison',
+    scenario: 'refunded GMV filtered by comparing two columns instead of a column with a value',
     contracts: () => withLineItems(contract => {
       const refunded = contract.measures.find(item => String(item.name) === 'refundedGmv')!;
-      (refunded as { filters: unknown[] }).filters = [
-        { kind: 'logical', operator: 'not', operand: refunded.filters[0] },
-      ];
+      (refunded as { filters: unknown[] }).filters = [columnComparison(refunded.filters[0])];
       return contract;
     }),
   },
@@ -384,12 +388,12 @@ describe('dataset-only portable execution exclusions', () => {
     }
 
     it('carries the rehydration reason to the unsupported-capability failure', async () => {
-      // A release whose refunded-GMV filter arrived as a logical expression.
+      // A release whose refunded-GMV filter compares two columns.
       const contract = structuredClone(deployment());
       const refunded = contract.datasets
         .find(item => String(item.name) === 'lineItems')!.measures
         .find(item => String(item.name) === 'refundedGmv') as { filters: unknown[] };
-      refunded.filters = [{ kind: 'logical', operator: 'not', operand: refunded.filters[0] }];
+      refunded.filters = [columnComparison(refunded.filters[0])];
       await expect(refusal(invoke({}, contract as never)))
         .resolves.toBe(UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison);
     });

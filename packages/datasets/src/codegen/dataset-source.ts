@@ -165,7 +165,12 @@ export function datasetSource(
     }
   };
 
-  const measureFilter = (expression: ProtocolExpression, subject: string, index: number) => {
+  // And/or/not fixed filters become the matching `{ and }` / `{ or }` / `{ not }` group.
+  const measureFilter = (expression: ProtocolExpression, subject: string, index: number): unknown => {
+    if (expression.kind === 'logical') {
+      if (expression.operator === 'not') return { not: measureFilter(expression.operand, subject, index) };
+      return { [expression.operator]: expression.operands.map(operand => measureFilter(operand, subject, index)) };
+    }
     if (expression.kind !== 'comparison' || expression.left.kind !== 'reference') {
       throw refuse(subject, `fixed filter ${index} is not a field/operator/value comparison`);
     }

@@ -29,6 +29,7 @@ from hypequery.datasets.query_helpers import (
 from hypequery.datasets.time_measures import ShiftMeasure, WindowMeasure
 from hypequery.protocol import (
     validate_protocol_deployment_contract_v3,
+    validate_protocol_deployment_target_accepts,
     validate_protocol_semantic_query,
 )
 from hypequery.protocol.errors import ProtocolExpressionError
@@ -59,9 +60,12 @@ def test_shared_deployment_authoring_fixture() -> None:
     expected = json.loads((ROOT / "specs/datasets/common-authoring-v1.json").read_text())
     actual = build_protocol_deployment_contract(create_dataset_registry(orders()))
     assert actual == expected
-    # The lowest-version rule keeps this contract 2; Cloud executes up to its version.
+    # The lowest-version rule keeps this contract 2, which a target that
+    # advertises nothing accepts (RFC 0030). The matrix makes no Cloud claim.
     assert actual["version"] == 2
-    assert actual["version"] <= MATRIX["cloudDeploymentVersion"]
+    assert actual["version"] in validate_protocol_deployment_target_accepts()["deploymentContract"]
+    assert "cloudDeploymentVersion" not in MATRIX
+    assert all("cloud" not in entry for entry in MATRIX["features"])
 
 
 @pytest.mark.parametrize("entry", MATRIX["features"], ids=lambda entry: entry["feature"])

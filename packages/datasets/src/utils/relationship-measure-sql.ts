@@ -1,3 +1,4 @@
+import { filterLeaves } from './filter-tree.js';
 import { assertTableSource } from './sql-dataset-source.js';
 import { currentRowPredicate } from './dataset-source.js';
 import type { AnyDatasetInstance, AggregationSpec } from '../types.js';
@@ -25,7 +26,7 @@ export function relationshipJoinSource(target: AnyDatasetInstance, to: readonly 
   for (const name of names) {
     const measure = target.measures[name];
     if (measure.__type !== 'measure_definition') continue;
-    for (const field of [measure.field, measure.argField, ...(measure.filters ?? []).map(filter => target.filters[filter.field]?.field ?? filter.field)]) {
+    for (const field of [measure.field, measure.argField, ...filterLeaves(measure.filters).map(filter => target.filters[filter.field]?.field ?? filter.field)]) {
       if (field && field !== '*') columns.add(target.dimensions[field]?.column ?? field);
     }
   }

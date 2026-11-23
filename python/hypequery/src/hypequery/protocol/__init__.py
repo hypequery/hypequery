@@ -108,6 +108,13 @@ from .deployment_primitives import (
     DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
     ProtocolDeploymentLimits,
 )
+from .deployment_targets import (
+    DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS,
+    PROTOCOL_CONTRACT_3_FEATURES,
+    ProtocolContract3Feature,
+    contract_3_features,
+    validate_protocol_deployment_target_accepts,
+)
 from .deployments import (
     validate_protocol_dataset_contract,
     validate_protocol_deployment_contract,
@@ -269,6 +276,7 @@ __all__ = [
     "DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS",
     "DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS",
+    "DEFAULT_PROTOCOL_DEPLOYMENT_TARGET_ACCEPTS",
     "DEFAULT_PROTOCOL_EXPRESSION_LIMITS",
     "DEFAULT_PROTOCOL_QUERY_EVENT_LIMITS",
     "DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS",
@@ -279,6 +287,7 @@ __all__ = [
     "MIN_CACHE_KEY_SECRET_BYTES",
     "MIN_CACHE_KEY_VERSION",
     "PROTOCOL_BUSINESS_CONTEXT_IDENTITY_DOMAIN",
+    "PROTOCOL_CONTRACT_3_FEATURES",
     "PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN",
     "PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN",
     "PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN",
@@ -327,6 +336,7 @@ __all__ = [
     "ProtocolComparisonExpression",
     "ProtocolComparisonOperator",
     "ProtocolCompiledSqlImplementation",
+    "ProtocolContract3Feature",
     "ProtocolDatasetQuery",
     "ProtocolDeploymentBundleError",
     "ProtocolDeploymentBundleErrorCode",
@@ -402,6 +412,7 @@ __all__ = [
     "build_client_contract_tool_schemas",
     "build_protocol_cache_preimage",
     "bytes_value",
+    "contract_3_features",
     "date_value",
     "datetime_value",
     "decimal_value",
@@ -465,6 +476,7 @@ __all__ = [
     "validate_protocol_deployment_contract_v3",
     "validate_protocol_deployment_release_envelope",
     "validate_protocol_deployment_release_target",
+    "validate_protocol_deployment_target_accepts",
     "validate_protocol_expression",
     "validate_protocol_query_diagnostics",
     "validate_protocol_query_event",

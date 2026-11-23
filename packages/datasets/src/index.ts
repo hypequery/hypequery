@@ -350,6 +350,7 @@ export type {
   MetricFilter,
   DatasetFilterGroup,
   DatasetFilterNode,
+  MeasureFilterNode,
   MetricFilterOperator,
   MetricNullCheckOperator,
   MetricValueFilterOperator,

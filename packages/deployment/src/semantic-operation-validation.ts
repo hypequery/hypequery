@@ -7,9 +7,9 @@
  * invocation without any of the deploying application's code.
  */
 
+import { datasetSegments, datasetTimeAxes } from '@hypequery/protocol';
 import type {
   ProtocolDeploymentDatasetAnyVersion,
-  ProtocolDeploymentDatasetV3,
   ProtocolExpression,
   ProtocolQueryTimeGrain,
   ProtocolSemanticQuery,
@@ -110,7 +110,7 @@ function resolveDataset(
     impliedFilters,
     measures: new Set((dataset.measures as readonly { readonly name: string }[]).map(measure => String(measure.name))),
     grains: new Set(dataset.timeField === undefined ? [] : ALL_GRAINS),
-    segments: new Set(((dataset as ProtocolDeploymentDatasetV3).segments ?? []).map(segment => String(segment.name))),
+    segments: new Set(datasetSegments(dataset).map(segment => String(segment.name))),
   };
 }
 
@@ -266,14 +266,11 @@ export function validateSemanticOperation(
   };
   // RFC 0029: the time axes a caller may use, in contract order. A hidden
   // alternate reads exactly like an undeclared one.
-  const axes = dataset.timeField === undefined || allowed.grains.size === 0
+  const axes = allowed.grains.size === 0
     ? []
-    : [
-        String(dataset.timeField),
-        ...((dataset as ProtocolDeploymentDatasetV3).alternateTimeFields ?? [])
-          .map(String)
-          .filter(name => visible === undefined || isTimeAxisVisible(dataset, name, visible.dimensions)),
-      ];
+    : datasetTimeAxes(dataset)
+      .map(String)
+      .filter((name, index) => index === 0 || visible === undefined || isTimeAxisVisible(dataset, name, visible.dimensions));
   let timeAxis: string | undefined = axes[0];
   if (operation.timeKey !== undefined) {
     if (axes.includes(String(operation.timeKey))) {

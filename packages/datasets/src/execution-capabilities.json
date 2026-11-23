@@ -1,13 +1,12 @@
 {
   "version": 1,
-  "cloudDeploymentVersion": 3,
   "features": [
-    { "feature": "baseMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "derivedMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "segments", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "windowMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "shiftMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "approxCountDistinct", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true },
-    { "feature": "subDayGrains", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "cloud": true }
+    { "feature": "baseMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "derivedMeasures", "protocolVersions": [2, 3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "segments", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "windowMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "shiftMeasures", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "approxCountDistinct", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true },
+    { "feature": "subDayGrains", "protocolVersions": [3], "typescript": { "local": true, "publish": true }, "python": { "local": true, "publish": true }, "portable": true }
   ]
 }

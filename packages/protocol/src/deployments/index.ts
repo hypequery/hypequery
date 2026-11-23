@@ -73,6 +73,16 @@ export type {
   ProtocolMetricInput,
 } from './types.js';
 
+export { PROTOCOL_CONTRACT_3_FEATURES, datasetContract3Features } from './contract-3-features.js';
+export type { ProtocolContract3Feature } from './contract-3-features.js';
+export {
+  datasetAllowedFilters,
+  datasetGrains,
+  datasetSegments,
+  datasetTimeAxes,
+  withDatasetAllowedFilters,
+} from './readers.js';
+export type { ProtocolAnyVersionDataset } from './readers.js';
 export { validateProtocolRowResolution } from './row-resolution.js';
 export { validateProtocolDatasetEvents } from './events.js';
 export { isProtocolSqlSource, validateProtocolSqlSource } from './sql-source.js';

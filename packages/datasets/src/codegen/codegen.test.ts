@@ -94,6 +94,8 @@ function cloudShapedContract(): ProtocolDeploymentContract {
 const CASES: readonly (readonly [string, () => ProtocolDeploymentContract])[] = [
   ['code-authored', codeAuthoredContract],
   ['cloud-shaped', cloudShapedContract],
+  // And/or/not fixed measure filters, as Cloud's editor can save them.
+  ['measure-filter-groups', measureFilterGroupsContract],
   // Built by Cloud's editor tools (apps/web lib/semantic-draft/tools.ts applyTool), as saved.
   ['cloud-editor', () => validateProtocolDeploymentContract(
     JSON.parse(readFileSync(path.join(fixtures, 'cloud-editor/input.json'), 'utf8')),
@@ -143,6 +145,27 @@ async function buildFromGenerated(
     .toBe(prepareProtocolDeploymentContract(expected).identity);
   expect(built.cloud).toEqual(expected);
   return built.cloud;
+}
+
+/** The code-authored contract with an `or`, a nested `and` and a `not` measure filter. */
+function measureFilterGroupsContract(): ProtocolDeploymentContract {
+  return changedInvoices(dataset => {
+    const text = dataset.dimensions.find(item => item.type === 'string')!;
+    const compare = (value: string) => ({
+      kind: 'comparison', operator: 'eq', left: { kind: 'reference', name: text.name }, right: { kind: 'literal', value },
+    });
+    const index = dataset.measures.findIndex(item => !('kind' in item) && item.aggregation === 'sum');
+    return {
+      ...dataset,
+      measures: dataset.measures.map((item, at) => (at === index ? {
+        ...item,
+        filters: [
+          { kind: 'logical', operator: 'or', operands: [compare('a'), { kind: 'logical', operator: 'and', operands: [compare('b'), compare('c')] }] },
+          { kind: 'logical', operator: 'not', operand: compare('d') },
+        ],
+      } : item)),
+    };
+  });
 }
 
 /** The code-authored contract with `change` applied to its `invoices` dataset. */

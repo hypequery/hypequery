@@ -1,3 +1,4 @@
+import { datasetAllowedFilters } from '@hypequery/protocol';
 import type { ProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 
 // Kept in step with Cloud's customer-scope review, so the CLI and onboarding flag the same columns.
@@ -57,7 +58,7 @@ function ownColumns(dataset: Dataset): string[] {
   return [
     ...dataset.dimensions.flatMap(sourceColumns),
     ...dataset.measures.flatMap((measure) => 'field' in measure ? resolve(String(measure.field)) : []),
-    ...(dataset.filters ?? ('allowedFilters' in dataset ? dataset.allowedFilters : [])).flatMap((filter) => resolve(String(filter.field))),
+    ...datasetAllowedFilters(dataset).flatMap((filter) => resolve(String(filter.field))),
   ];
 }
 

@@ -27,7 +27,7 @@ import type {
   ProtocolExpression,
   ProtocolMetricDerivation,
 } from '@hypequery/protocol';
-import { isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
+import { datasetAllowedFilters, datasetSegments, isProtocolSqlSource, validateProtocolDeploymentContractAnyVersion } from '@hypequery/protocol';
 import { dataset } from './dataset.js';
 import type {
   AnyDatasetInstance,
@@ -49,7 +49,7 @@ import { rehydrateCompositeRelationshipJoin } from './utils/relationship-keys.js
 import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 import { withContractCapabilities } from './utils/protocol-metric-capabilities.js';
 import { rehydrateDerivedFormula } from './utils/protocol-rehydrate-derivation.js';
-import { rehydrateMeasureFilter } from './utils/protocol-rehydrate-filters.js';
+import { rehydrateMeasureFilter, rehydrateMeasureFilterNode } from './utils/protocol-rehydrate-filters.js';
 import { PUBLISHED_TIME_GRAINS } from './utils/portable-grains.js';
 import { createShiftMeasure } from './utils/shift-measure-definition.js';
 import { createWindowMeasure } from './utils/window-measure-definition.js';
@@ -142,12 +142,12 @@ function rehydrateMeasure(
   datasetName: string,
   measure: ProtocolDatasetMeasure,
 ): MeasureDefinition {
-  const filters = measure.filters.map((expression, index) => rehydrateMeasureFilter(
+  const filters = measure.filters.map((expression, index) => rehydrateMeasureFilterNode(
     expression,
     () => new UnsupportedContractFeatureError(
       datasetName,
       `measure "${String(measure.name)}"`,
-      `fixed filter ${index} is not a field/operator/value comparison`,
+      `fixed filter ${index} is not a field/operator/value comparison or an and/or/not of them`,
       UNSUPPORTED_CONTRACT_REASONS.measureFilterNotComparison,
     ),
   ));
@@ -164,7 +164,7 @@ function rehydrateMeasure(
       : {}),
     ...(measure.label !== undefined ? { label: measure.label } : {}),
     ...(measure.description !== undefined ? { description: measure.description } : {}),
-    ...(filters.length > 0 ? { filters: filters as MetricFilter[] } : {}),
+    ...(filters.length > 0 ? { filters } : {}),
   };
 }
 
@@ -458,16 +458,13 @@ export function rehydrateProtocolDatasets(
     const timed = measures.filter(
       (measure): measure is ProtocolTimeMeasure => 'kind' in measure && measure.kind !== 'derived',
     );
-    // Contract 3 renames the filter allow-list `allowedFilters` (RFC 0015).
-    const v3 = contract as { readonly allowedFilters?: ProtocolDatasetContract['filters'];
-      readonly segments?: readonly ProtocolDatasetSegment[] };
     const base = {
       ...contract,
       measures: measures.filter((measure): measure is ProtocolDatasetMeasure => !('kind' in measure)),
-      filters: v3.allowedFilters ?? (contract as ProtocolDatasetContract).filters,
+      filters: datasetAllowedFilters(contract),
       metrics: (contract as ProtocolDatasetContract).metrics ?? [],
     } as ProtocolDatasetContract;
-    return { base, derived, timed, segments: v3.segments };
+    return { base, derived, timed, segments: datasetSegments(contract) };
   });
   const instances = new Map<string, AnyDatasetInstance>();
   const registry = new Map<string, RehydratedDataset>();

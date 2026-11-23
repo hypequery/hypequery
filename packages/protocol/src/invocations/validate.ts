@@ -1,9 +1,9 @@
 import { ProtocolExpressionError, validateProtocolSemanticQuery } from '../expressions/index.js';
-import type { ProtocolSemanticQuery } from '../expressions/index.js';
 import { isProtocolEventOperationKind, validateProtocolEventOperation } from '../event-operations/index.js';
 import { PROTOCOL_SEMANTIC_FAILURE_MESSAGES } from './failure-messages.js';
 import { invocationError } from './errors.js';
 import { resolveSemanticInvocationLimits } from './limits.js';
+import { semanticInvocationVersion } from './version.js';
 import type {
   ProtocolSemanticInvocation,
   ProtocolSemanticInvocationV2,
@@ -11,6 +11,7 @@ import type {
   ProtocolSemanticInvocationFailure,
   ProtocolSemanticInvocationLimits,
   ProtocolSemanticInvocationMeta,
+  ProtocolSemanticInvocationOperation,
   ProtocolSemanticInvocationOptions,
   ProtocolSemanticInvocationResult,
   ProtocolSemanticInvocationRow,
@@ -211,21 +212,42 @@ export function validateProtocolSemanticInvocationV2(
   options: ProtocolSemanticInvocationOptions = {},
 ): ProtocolSemanticInvocationV2 {
   const invocation = validateInvocation(input, options, 2) as ProtocolSemanticInvocationV2;
-  if (!usesExtension2(invocation.operation)) {
+  if (semanticInvocationVersion(invocation.operation) !== 2) {
     invocationError('HQ_INVOCATION_INVALID_VERSION', '$.version');
   }
   return invocation;
 }
 
-function usesExtension2(operation: ProtocolSemanticQuery): boolean {
-  return (operation.segments?.length ?? 0) > 0
-    || operation.by === 'minute'
-    || operation.by === 'hour'
-    || (operation.kind === 'dataset' && (operation.measures ?? []).some(measure => measure.includes('.')))
-    // RFC 0026: query-scoped calculations are extension 2 only.
-    || (operation.kind === 'dataset' && (
-      (operation.calculations?.length ?? 0) > 0 || operation.limitBy !== undefined || operation.other !== undefined
-    ));
+/** The envelope around an operation that `toSemanticInvocation` wraps. */
+export interface ProtocolSemanticInvocationEnvelope {
+  readonly target: ProtocolSemanticInvocationTarget;
+  readonly activationRevision?: string;
+  readonly budget?: ProtocolSemanticInvocationBudget;
+  readonly correlationId?: string;
+}
+
+/**
+ * Wrap `operation` in a validated semantic invocation at the lowest version
+ * that can carry it (RFC 0030): invocation 2 when it uses an expression
+ * extension 2 feature, invocation 1 otherwise.
+ */
+export function toSemanticInvocation(
+  operation: ProtocolSemanticInvocationOperation,
+  envelope: ProtocolSemanticInvocationEnvelope,
+  options: ProtocolSemanticInvocationOptions = {},
+): ProtocolSemanticInvocation | ProtocolSemanticInvocationV2 {
+  const record = {
+    kind: 'hypequery-semantic-invocation',
+    version: semanticInvocationVersion(operation),
+    target: envelope.target,
+    operation,
+    ...(envelope.activationRevision !== undefined ? { activationRevision: envelope.activationRevision } : {}),
+    ...(envelope.budget !== undefined ? { budget: envelope.budget } : {}),
+    ...(envelope.correlationId !== undefined ? { correlationId: envelope.correlationId } : {}),
+  };
+  return record.version === 2
+    ? validateProtocolSemanticInvocationV2(record, options)
+    : validateProtocolSemanticInvocation(record, options);
 }
 
 function validateInvocation(

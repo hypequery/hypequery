@@ -1,3 +1,4 @@
+import { filterLeaves, filterTreeErrors } from './filter-tree.js';
 import { validateShiftMeasures } from './shift-measure-validation.js';
 /**
  * Definition-time structural validation for `dataset()`.
@@ -28,7 +29,7 @@ import type {
   DatasetMeasureDefinition,
   DimensionDefinition,
   MeasureDefinition,
-  MetricFilter,
+  MeasureFilterNode,
   RelationshipDefinition,
   SemanticFiltersDefinition,
 } from '../types.js';
@@ -224,11 +225,12 @@ function validateFilters(
 function validateMeasureFilters(
   datasetName: string,
   measureName: string,
-  filters: readonly MetricFilter[],
+  filters: readonly MeasureFilterNode[],
   dimensions: AnyDimensions,
   declaredFilters: SemanticFiltersDefinition | undefined,
 ): void {
-  for (const filter of filters) {
+  for (const error of filterTreeErrors(filters)) fail(datasetName, `measure "${measureName}" filters: ${error}`);
+  for (const filter of filterLeaves(filters)) {
     const context = `measure "${measureName}" filter on "${String(filter.field)}"`;
     if (typeof filter.field !== 'string') {
       fail(datasetName, `${context} must name a field.`);
@@ -372,7 +374,7 @@ function validateSqlSourceReferences(
         if (field !== undefined) fieldOrColumn(field, `measure "${name}" field`);
       }
     }
-    for (const filter of definition.filters ?? []) {
+    for (const filter of filterLeaves(definition.filters)) {
       if (Object.hasOwn(config.filters ?? {}, filter.field)) continue;
       fieldOrColumn(filter.field, `measure "${name}" filter field`);
     }

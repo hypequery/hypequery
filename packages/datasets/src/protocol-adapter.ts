@@ -1,7 +1,7 @@
 import { sqlSourceToContract } from './utils/sql-dataset-source.js';
 import { byName } from './utils/by-name.js';
 import { splitDatasetMeasures } from './utils/dataset-measures.js';
-import { filterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
+import { measureFilterExpression, metricExpression, metricDerivation } from './utils/protocol-metric-expressions.js';
 import {
   parseProtocolIdentifier,
   parseProtocolQualifiedIdentifier,
@@ -245,7 +245,7 @@ export function protocolDatasetRecord(
             ),
           }
         : {}),
-      filters: (measure.filters ?? []).map(filterExpression),
+      filters: (measure.filters ?? []).map(measureFilterExpression),
       ...(contractVersion === 3 && isApproximateBaseMeasure(measure) ? { approximate: true as const } : {}),
       ...(measure.label !== undefined ? { label: measure.label } : {}),
       ...(measure.description !== undefined ? { description: measure.description } : {}),

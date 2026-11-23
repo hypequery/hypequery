@@ -15,6 +15,7 @@ import { DeploymentErrorCollector, attempt, collectErrors } from './collect.js';
 import { deploymentError } from './errors.js';
 import { expressionReferences, isSegmentPredicate, isSegmentReference } from './segments.js';
 import { resolveDeploymentLimits } from './limits.js';
+import { datasetContract3Features } from './contract-3-features.js';
 import { isApproximateStateFunction, isProtocolAggregateStateFunction } from './aggregate-states.js';
 import type {
   ProtocolAccessPolicy,
@@ -65,7 +66,6 @@ const OPERATORS = new Set([
 ]);
 const GRAINS = new Set(['day', 'week', 'month', 'quarter', 'year']);
 const GRAINS_V3 = new Set(['minute', 'hour', ...GRAINS]);
-const SUB_DAY_GRAINS = new Set(['minute', 'hour']);
 /** Aggregations a `cumulative` window may wrap: a running total of bucket partials. */
 const CUMULATIVE_AGGREGATIONS = new Set(['sum', 'count', 'min', 'max']);
 const SENSITIVITIES = new Set(['public', 'internal', 'confidential', 'restricted']);
@@ -1495,13 +1495,7 @@ export function validateProtocolDeploymentContractAtLowestVersion(
 
 /** True when a contract 3 dataset uses anything contract 2 cannot express. */
 function usesContract3Feature(dataset: ProtocolDeploymentDatasetV3): boolean {
-  return (dataset.segments?.length ?? 0) > 0
-    || (dataset.alternateTimeFields?.length ?? 0) > 0
-    || dataset.measures.some(measure => (
-      ('aggregation' in measure && APPROXIMATE_AGGREGATIONS.has(measure.aggregation))
-      || ('kind' in measure && (measure.kind === 'window' || measure.kind === 'shift'))
-    ))
-    || (dataset.defaults?.timeGrain !== undefined && SUB_DAY_GRAINS.has(dataset.defaults.timeGrain));
+  return datasetContract3Features(dataset).length > 0;
 }
 
 /**

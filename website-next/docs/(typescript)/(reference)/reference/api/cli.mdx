@@ -513,6 +513,19 @@ operand in a deployable formula`. See
 | `--draft <name>` | Save or update a named code draft without publishing Production |
 | `--no-source` | Leave project source files out of the bundle |
 
+### Versions the target accepts
+
+Before uploading, `deploy` reads which deployment contract and bundle versions
+the Cloud target accepts (RFC 0030). A deployment uses contract 3 only when a
+dataset needs it: segments, window or shift measures, `approxCountDistinct`, a
+sub-day default grain or alternate time keys. If the target doesn't accept that
+version, the command fails with `DEPLOYMENT_VERSION_UNSUPPORTED` before
+anything is uploaded. The error names the versions the target accepts and each
+dataset's features, for example `orders uses alternate time keys`. The CLI never
+lowers the version, because that would drop the features. Remove them, or
+deploy to a target that accepts the version. A Cloud that doesn't say what it
+accepts is treated as accepting contract 2 only.
+
 ### Named code drafts
 
 ```bash
@@ -710,6 +723,7 @@ With `--json`, a failure prints the same envelope as Cloud's `/v1` operations an
 | `JSON_NOT_SUPPORTED` | `correctable_input` | 1 | `mcp` serves over stdout; use `--self-test` with `--json` |
 | `OUT_OF_DATE` | `stale_contract` | 1 | `--check` or `--diff` found generated output missing or out of date |
 | `CLOUD_STATE_CHANGED` | `stale_contract` | 1 | The live deployment changed since the command read it |
+| `DEPLOYMENT_VERSION_UNSUPPORTED` | `correctable_input` | 1 | The deploy target doesn't accept the deployment's contract or bundle version; the message names the features that need it |
 | `CLOUD_REQUEST_FAILED` | `correctable_input` | 1 | Cloud rejected the request; its reason is in the message |
 | `CLOUD_ENDPOINT_WITHOUT_TOKEN` | `correctable_input` | 1 | An endpoint is set without `HYPEQUERY_API_TOKEN`; set both, or neither to use `hypequery login` |
 | `CLOUD_TOKEN_WITHOUT_ENDPOINT` | `correctable_input` | 1 | `HYPEQUERY_API_TOKEN` is not an `hqmt_` or `hqdp_` token and no endpoint is set |

@@ -24,6 +24,7 @@ import {
   type CloudDeploymentAccessDependencies,
 } from '../utils/cloud-deployment-access.js';
 import { fetchLiveDeployment } from '../utils/live-deployment.js';
+import { assertDeploymentTargetAccepts, liveTargetAccepts } from '../utils/deployment-target-acceptance.js';
 import {
   fetchHostedEndpoints,
 } from '../utils/hosted-endpoints.js';
@@ -197,6 +198,17 @@ export async function submitDeploymentCommand(
     target: release.release.target,
     resource: 'state',
   });
+  // RFC 0030: refuse a version the target doesn't take before asking anything
+  // or uploading. A draft reads no state, so Cloud's intake refusal covers it.
+  const accepts = live === null ? undefined : liveTargetAccepts(live, deploymentEndpoint, release.release.target);
+  if (accepts) {
+    assertDeploymentTargetAccepts({
+      target: release.release.target,
+      contract: bundle.contract,
+      bundleVersion: bundle.manifest.version,
+      accepts,
+    });
+  }
   if (live?.active?.restored
     && live.active.releaseIdentity !== release.identity
     && !options.replaceRestored) {
