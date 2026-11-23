@@ -1,6 +1,6 @@
 {
   "name": "@hypequery-recipes/p95-latency",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "p95 request latency per event type with a hypequery dataset: the dataset, the SQL it generates, and the output on the seed",
   "type": "module",

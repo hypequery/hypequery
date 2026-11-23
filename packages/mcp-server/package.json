@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/mcp",
-  "version": "0.15.2",
+  "version": "0.16.0",
   "mcpName": "io.github.hypequery/hypequery",
   "description": "ClickHouse MCP server for Claude Code, Cursor, Codex and AI agents: governed datasets and metrics as tools, never raw SQL.",
   "keywords": [
@@ -55,7 +55,7 @@
     "start": "node dist/bin.js"
   },
   "dependencies": {
-    "@hypequery/datasets": "^0.34.0",
+    "@hypequery/datasets": "^0.35.0",
     "@hypequery/protocol": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.6.6"

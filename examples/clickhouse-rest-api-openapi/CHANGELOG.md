@@ -1,5 +1,12 @@
 # @hypequery-examples/clickhouse-rest-api-openapi
 
+## 0.1.5
+
+### Patch Changes
+
+- @hypequery/clickhouse@2.15.2
+- @hypequery/serve@0.26.4
+
 ## 0.1.4
 
 ### Patch Changes

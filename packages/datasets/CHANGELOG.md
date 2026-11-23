@@ -1,5 +1,31 @@
 # @hypequery/datasets
 
+## 0.35.0
+
+### Minor Changes
+
+- 7bad2d0: A measure's fixed `filters` accept `{ and }`, `{ or }` and `{ not }` groups of comparisons, like query filters. They publish as RFC 0003 `logical` expressions, compile to one conditional-aggregate condition, and `rehydrateProtocolDatasets` rebuilds them. A release whose measure filter is a `logical` and/or/not, such as one saved by Cloud's model editor, therefore no longer fails to rehydrate, which had broken MCP discovery and execution for it. The rebuilt measure compiles the same SQL as the authored one, and the decision 0005 equality corpus now covers and, or and not filters. `generateDatasetSource` writes the groups back as code. A comparison that isn't field/operator/value is still refused with `HQ_PORTABLE_MEASURE_FILTER_NOT_COMPARISON`. Semantic (non-builder) backends refuse groups, as they do for query filters.
+
+  Consumer-breaking: `MeasureOptions['filters']`, `MeasureDefinition['filters']` and `AggregationSpec['filters']` widen from `MetricFilter[]` to `MeasureFilterNode[]` (`DatasetFilterNode<MetricFilter>`, newly exported). Code that reads a measure's filters as comparisons must handle groups, for example with a group check before reading `field`.
+
+- f896806: MCP query parity: `query_dataset` now offers the analysis features the semantic query protocol already runs.
+
+  - `@hypequery/mcp`: `query_dataset` and `query_metric` accept `and` / `or` / `not` filter groups beside flat filters (each comparison keeps its field's operators), `inDateRange` relative ranges on time fields (`last 30 days`, `this quarter`, ...), and `timeKey` on datasets with alternate time axes (RFC 0029). `query_dataset` also accepts `fill` and RFC 0026 `calculations` (`filter`, `shift`, `window`, `formula`, `compare`, `rank`, `share`), `limitBy` and `other`; `orderBy` and `having` may name calculation outputs, and results carry `meta.calculations`. The flat filter form is unchanged. A new `queryFeatures` option on `createMCPExecutor` and `createMCPDiscoveryExecutor` turns each feature off (all default on); a gateway whose data plane validates under expression extension 1 sets `calculations: false`. Host `maxFilters` ceilings count comparisons inside groups (and, on a calculated query, `having` and filter-calculation conditions), as the dataset client does. A query the dataset client refuses as invalid (for example `fill` without a time range) is now `MCP_INVALID_ARGUMENTS` with the client's reasons rather than a retryable `MCP_EXECUTION_FAILED`. Deeply nested arguments are refused before parsing. The HTTP bridge (`--client-contract-url`) is unchanged: client contract 1 cannot describe these fields, so it neither advertises nor forwards them, and refuses them as before.
+  - `@hypequery/datasets`: `buildCanonicalSemanticQuerySchemas`, `buildDatasetInputSchema` and `buildMetricInputSchema` take opt-in `filterGroups`, `relativeDates`, `fill` and `calculations` options (off by default, so existing schemas and manifest hashes are unchanged). With `filterGroups`, comparisons sharing an operator set share one schema shape, and groups and formulas are described once through `$ref`s to root `definitions`. New `toProtocolDatasetQuery` turns a dataset client query into the RFC 0003 dataset query envelope a semantic data plane validates. `JsonSchema` gains `pattern`, `$ref` and `definitions`. The protocol schema builders refuse `filterGroups`, `relativeDates` and `calculations` by name, since RFC 0004 schemas cannot describe them.
+
+  The datasets API change is additive: a new `toProtocolDatasetQuery` export, new optional `SemanticQuerySchemaOptions` inputs, and new optional `JsonSchema` members (`pattern`, `$ref`, `definitions`), which schemas built without the new options never set.
+
+  Consumer-breaking: no
+
+- 7bad2d0: `DATASET_EXECUTION_CAPABILITIES` no longer claims what hypequery Cloud accepts (RFC 0030). Each feature's `cloud` flag, which always meant Core's portable runtime, is now `portable`. `cloud` stays as a deprecated alias of it, and `cloudDeploymentVersion` stays deprecated at its last value until a major release. A deployment target advertises the versions it accepts, and `hypequery deploy` checks them. The catalog projection and contract rehydration read filters, segments and time keys through `@hypequery/protocol`'s version-neutral readers. Behaviour is unchanged.
+
+  Consumer-breaking: code that builds its own `DatasetFeatureSupport` objects must add `portable`.
+
+### Patch Changes
+
+- Updated dependencies [7bad2d0]
+  - @hypequery/protocol@0.30.0
+
 ## 0.34.0
 
 ### Minor Changes

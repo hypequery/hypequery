@@ -1,5 +1,16 @@
 # @hypequery-examples/multi-tenant-embedded-analytics
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [7bad2d0]
+- Updated dependencies [f896806]
+- Updated dependencies [7bad2d0]
+  - @hypequery/datasets@0.35.0
+  - @hypequery/clickhouse@2.15.2
+  - @hypequery/serve@0.26.4
+
 ## 0.1.4
 
 ### Patch Changes

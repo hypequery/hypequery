@@ -1,5 +1,17 @@
 # @hypequery-examples/in-app-analytics-agent
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [7bad2d0]
+- Updated dependencies [f896806]
+- Updated dependencies [7bad2d0]
+  - @hypequery/datasets@0.35.0
+  - @hypequery/mcp@0.16.0
+  - @hypequery/clickhouse@2.15.2
+  - @hypequery/agent@0.1.0
+
 ## 0.1.4
 
 ### Patch Changes
