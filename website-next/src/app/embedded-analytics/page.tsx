@@ -173,11 +173,6 @@ const faqItems: FaqItem[] = [
       'ClickHouse suits customer-facing analytics because it aggregates large tables quickly. Put the tenant column first in the table’s sorting key so single-tenant queries read only that tenant’s granules, and pre-aggregate heavy dashboards with materialized views or projections.',
   },
   {
-    question: 'What does embedded analytics cost?',
-    answer:
-      'Published starting prices run from free open-source editions to €1,995 a month for Luzmo, while several vendors quote only on request. Building costs engineering time instead of licence fees.',
-  },
-  {
     question: 'Which embedded analytics tools are open source?',
     answer:
       'Metabase has an AGPL open-source edition, while Cube Core, Apache Superset and hypequery are Apache 2.0.',
@@ -338,6 +333,10 @@ export default function EmbeddedAnalyticsPage() {
               For what each part costs, the risks on both sides and the middle path, read{' '}
               <Link href="/compare/build-vs-buy-embedded-analytics" className={inlineLink}>
                 build vs buy embedded analytics
+              </Link>
+              . For what each vendor charges, with a 1,000-viewer SaaS priced end to end, see{' '}
+              <Link href="/compare/embedded-analytics-pricing" className={inlineLink}>
+                embedded analytics pricing
               </Link>
               .
             </p>
