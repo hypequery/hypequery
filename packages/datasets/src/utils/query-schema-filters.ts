@@ -141,7 +141,17 @@ interface TimeAxisSource {
   readonly name?: string;
   readonly timeKey?: string;
   readonly timeKeys?: readonly string[];
-  readonly dimensions: Readonly<Record<string, { readonly column?: string }>>;
+  readonly dimensions: Readonly<Record<string, { readonly column?: string; readonly type?: string }>>;
+}
+
+/** Whether a local filter reads a timestamp dimension, through its own name or an alias. */
+export function isTimestampFilter(
+  source: TimeAxisSource,
+  localFilters: Readonly<Record<string, FilterPolicy>>,
+  field: string,
+): boolean {
+  const resolved = localFilters[field]?.field ?? field;
+  return source.dimensions[resolved]?.type === 'timestamp';
 }
 
 /**

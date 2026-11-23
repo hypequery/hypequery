@@ -26,6 +26,7 @@ import {
   filterItemSchema,
   filterLeafVariants,
   isTimeAxisFilter,
+  isTimestampFilter,
   relativeDateFilterFields,
 } from './utils/query-schema-filters.js';
 import {
@@ -306,10 +307,13 @@ function queryShape(
       hasTime: catalog.supportedGrains.length > 0,
       ...calculationMeasures(catalog),
       bucketDimensions: dimensions.filter(name => catalog.dimensions[name]?.type === 'string'),
-      // A filter calculation conditions on local, non-time fields only.
+      // A filter calculation conditions on local, non-time fields only: the
+      // planner refuses every timestamp field, time axis or not.
       whereVariants: filterLeafVariants(
         localFilters,
-        filterFields.filter(field => !field.includes('.') && !isTimeAxisFilter(catalog, localFilters, field)),
+        filterFields.filter(field => !field.includes('.')
+          && !isTimeAxisFilter(catalog, localFilters, field)
+          && !isTimestampFilter(catalog, localFilters, field)),
         relationshipOperators,
         { compact: true },
       ),

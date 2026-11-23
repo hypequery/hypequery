@@ -161,6 +161,27 @@ describe('canonical query schema analysis features', () => {
       expect(accepts({ calculations: [{ name: 'us', filter: { measure: 'revenue', where: [{ field: 'shippedAt', operator: 'gt', value: 'x' }] } }] })).toBe(false);
     });
 
+    it('refuses every timestamp field in a filter calculation, not only the time axes', () => {
+      const Audited = dataset('audited', {
+        source: 'audited', timeKey: 'createdAt',
+        dimensions: {
+          createdAt: dimension.timestamp(), updatedAt: dimension.timestamp(), country: dimension.string(), amount: dimension.number(),
+        },
+        filters: { lastTouched: { field: 'updatedAt' } },
+        measures: { revenue: measure.sum('amount') },
+      });
+      const audited = buildDatasetInputSchema(Audited, ALL);
+      const calc = (field: string) => audited.safeParse({
+        measures: ['revenue'],
+        calculations: [{ name: 'x', filter: { measure: 'revenue', where: [{ field, operator: 'gt', value: '2026-01-01' }] } }],
+      }).success;
+      expect(calc('country')).toBe(true);
+      // Neither the timestamp dimension nor a filter aliasing it is offered: the planner refuses both.
+      expect(calc('updatedAt')).toBe(false);
+      expect(calc('lastTouched')).toBe(false);
+      expect(calc('createdAt')).toBe(false);
+    });
+
     it('bounds shift amounts, window modes and formula arity', () => {
       expect(accepts({ calculations: [{ name: 's', shift: { measure: 'revenue', amount: 1001, unit: 'day' } }] })).toBe(false);
       expect(accepts({ calculations: [{ name: 'w', window: { measure: 'revenue' } }] })).toBe(false);

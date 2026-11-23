@@ -264,6 +264,36 @@ describe('query_dataset analysis features', () => {
       expect(refusal({ orderBy: [{ field: 'nope', direction: 'desc' }] })).not.toContain('nope');
     });
 
+    it('counts comparisons inside groups against the host filter budget, for both tools', async () => {
+      const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
+      const { db, sql } = recording();
+      const executor = new HypequeryMCPExecutor({
+        datasets: { orders: { ...Orders, metrics: { totalRevenue } } },
+        analytics: createDatasetClient({ queryBuilder: db, now: () => NOW }),
+        queryLimits: { maxFilters: 2 },
+      });
+      const three = { or: [
+        { field: 'country', operator: 'eq', value: 'US' },
+        { field: 'country', operator: 'eq', value: 'CA' },
+        { not: { field: 'status', operator: 'eq', value: 'refunded' } },
+      ] };
+      const dataset = errorOf(await executor.callTool('query_dataset', { dataset: 'orders', measures: ['revenue'], filters: [three] }));
+      expect(dataset).toMatchObject({ code: 'MCP_INVALID_ARGUMENTS', message: 'Invalid filters: 3 comparisons, maximum 2' });
+      const metric = errorOf(await executor.callTool('query_metric', { dataset: 'orders', metric: 'totalRevenue', filters: [three] }));
+      expect(metric.code).toBe('MCP_INVALID_ARGUMENTS');
+      // With calculations, having and filter-calculation conditions share the budget.
+      const calculated = errorOf(await executor.callTool('query_dataset', {
+        dataset: 'orders', measures: ['revenue'],
+        filters: [{ field: 'country', operator: 'eq', value: 'US' }],
+        calculations: [{ name: 'web', filter: { measure: 'revenue', where: [{ field: 'channel', operator: 'eq', value: 'web' }] } }],
+        having: [{ measure: 'web', operator: 'gt', value: 0 }],
+      }));
+      expect(calculated.message).toBe('Invalid filters: 3 comparisons, maximum 2 (filters, having and filter-calculation conditions combined)');
+      expect(sql).toHaveLength(0);
+      const within = await executor.callTool('query_dataset', { dataset: 'orders', measures: ['revenue'], filters: [{ or: three.or.slice(0, 2) }] });
+      expect(within.isError).toBeFalsy();
+    });
+
     it('bounds nesting before parsing', () => {
       let deep: Record<string, unknown> = { field: 'country', operator: 'eq', value: 'US' };
       for (let level = 0; level < 100; level += 1) deep = { not: deep };

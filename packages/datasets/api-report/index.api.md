@@ -1759,6 +1759,9 @@ export type JsonSchema = {
     anyOf?: JsonSchema[];
     allOf?: JsonSchema[];
     const?: string;
+    pattern?: string;
+    $ref?: string;
+    definitions?: Record<string, JsonSchema>;
 };
 
 // @public (undocumented)
@@ -3122,11 +3125,15 @@ export interface SemanticQuerySchemaLimits {
 
 // @public (undocumented)
 export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
+    calculations?: boolean;
     enforceResultLimit?: boolean;
+    fill?: boolean;
+    filterGroups?: boolean;
     grainField?: 'by' | 'grain';
     having?: boolean;
     includeMeta?: boolean;
     queryableDatasets?: readonly string[];
+    relativeDates?: boolean;
     requireSelection?: boolean;
     timeKey?: boolean;
 }
@@ -3311,6 +3318,11 @@ export const toOpenAITools: typeof schemas.toOpenAITools;
 
 // @public (undocumented)
 function toOpenAITools_2(tools: SemanticToolDefinition[]): OpenAIToolDefinition[];
+
+// @public
+export function toProtocolDatasetQuery(dataset: string, query: DatasetQuery & {
+    readonly includeMeta?: boolean;
+}): Record<string, unknown>;
 
 // @public
 export function toQueryBuilderFactory(factory: QueryBuilderFactoryInput): QueryBuilderFactoryLike;
