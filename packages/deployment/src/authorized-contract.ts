@@ -79,7 +79,8 @@ function narrowToJoin(
 ): ProtocolDeploymentDatasetAnyVersion {
   // `defaults` describes how to query the dataset directly, which is exactly
   // what this principal may not do. Segments select rows of a direct query too.
-  const { defaults: _defaults, endpoint: _endpoint, ...rest } = dataset;
+  // Event operations (RFC 0027) are direct queries too.
+  const { defaults: _defaults, endpoint: _endpoint, events: _events, ...rest } = dataset;
   // Alternate time axes, like segments, only shape a direct query.
   const { segments: _segments, alternateTimeFields: _alternates, ...withoutSegments } = rest as typeof rest & {
     segments?: unknown;

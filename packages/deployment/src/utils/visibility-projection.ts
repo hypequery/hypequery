@@ -40,7 +40,7 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
   dataset: TDataset,
   visible: ProtocolVisibleDatasetFields,
 ): TDataset {
-  const { defaults, timeField, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
+  const { defaults, timeField, events, ...rest } = dataset as TDataset & { alternateTimeFields?: readonly string[] };
   const { alternateTimeFields, ...withoutAlternates } = rest as typeof rest & { alternateTimeFields?: readonly string[] };
   // RFC 0029: an alternate axis shows only beside a visible default axis, and
   // only when a dimension naming it or reading its column is visible, so a
@@ -49,6 +49,14 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
     ? alternateTimeFields?.filter(name => isTimeAxisVisible(dataset, String(name), visible.dimensions))
     : undefined;
   const defaultDimensions = defaults?.dimensions?.filter(name => visible.dimensions.has(String(name)));
+  // RFC 0027: event operations need the entity and the event time. Without
+  // either, the dataset stays discoverable without them; a hidden event
+  // dimension only narrows the declaration, as the field is optional.
+  const visibleEvents = events === undefined || !visible.timeField || !visible.dimensions.has(String(events.entity))
+    ? undefined
+    : events.event === undefined || visible.dimensions.has(String(events.event))
+      ? events
+      : { entity: events.entity };
   const narrowedDefaults = {
     ...(defaultDimensions === undefined || defaultDimensions.length === 0
       ? {}
@@ -58,6 +66,7 @@ export function narrowDatasetToVisible<TDataset extends ProtocolDeploymentDatase
   return withDatasetAllowedFilters({
     ...withoutAlternates,
     ...(visible.timeField && timeField !== undefined ? { timeField } : {}),
+    ...(visibleEvents === undefined ? {} : { events: visibleEvents }),
     ...(visibleAlternates === undefined || visibleAlternates.length === 0 ? {} : { alternateTimeFields: visibleAlternates }),
     // An empty `defaults` object is not a valid contract value.
     ...(Object.keys(narrowedDefaults).length === 0 ? {} : { defaults: narrowedDefaults }),
