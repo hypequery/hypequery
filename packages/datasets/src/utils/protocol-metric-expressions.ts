@@ -73,7 +73,9 @@ export function filterExpression(filter: MetricFilter): ProtocolExpression {
 /**
  * A measure's fixed filter node as an RFC 0003 predicate: a comparison as
  * `filterExpression` writes it, and an `and` / `or` / `not` group as the
- * matching `logical` expression, in authored order.
+ * matching `logical` expression, in authored order. A one-item `and` or `or`
+ * means its item, and RFC 0003 requires two operands, so it publishes as the
+ * item; `renderMeasureFilterNode` renders it the same way.
  */
 export function measureFilterExpression(node: MeasureFilterNode): ProtocolExpression {
   if (!isFilterGroup(node)) return filterExpression(node);
@@ -82,6 +84,7 @@ export function measureFilterExpression(node: MeasureFilterNode): ProtocolExpres
   }
   const operator = 'and' in node && node.and !== undefined ? 'and' : 'or';
   const items = (operator === 'and' ? node.and : node.or) ?? [];
+  if (items.length === 1) return measureFilterExpression(items[0]!);
   return { kind: 'logical', operator, operands: items.map(measureFilterExpression) } as ProtocolExpression;
 }
 

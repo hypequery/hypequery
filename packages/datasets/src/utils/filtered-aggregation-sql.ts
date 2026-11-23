@@ -69,6 +69,9 @@ function renderMeasureFilterNode(
   }
   const or = 'or' in node && node.or !== undefined;
   const items = (or ? node.or : node.and) ?? [];
+  // A one-item group is its item, exactly as it publishes, so an authored and
+  // a rehydrated measure render the same SQL.
+  if (items.length === 1) return renderMeasureFilterNode(ds, items[0]!, joinCtx, dialect);
   return items
     .map(item => `(${renderMeasureFilterNode(ds, item, joinCtx, dialect)})`)
     .join(or ? ' OR ' : ' AND ');

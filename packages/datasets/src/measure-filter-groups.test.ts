@@ -101,6 +101,26 @@ describe('and/or/not measure filters', () => {
     } as never)).resolves.toBeDefined();
   });
 
+  it('publish a one-item and/or as its item, at any depth, and rebuild the same SQL', () => {
+    const Single = dataset('orders', {
+      source: 'analytics.orders',
+      dimensions: { status: dimension.string(), amount: dimension.number() },
+      measures: {
+        paid: measure.sum('amount', { filters: [{ or: [eq('status', 'paid')] }] }),
+        paidLarge: measure.sum('amount', { filters: [{ and: [eq('status', 'paid'), { or: [{ and: [{ field: 'amount', operator: 'gt', value: 1 }] }] }] }] }),
+        notPaid: measure.count('status', { filters: [{ not: { and: [eq('status', 'paid')] } }] }),
+      },
+    });
+    const published = buildProtocolDeploymentContract([Single], { endpoints: { orders: PUBLIC } });
+    const filters = Object.fromEntries((published.datasets[0]!.measures as unknown as { name: string; filters: unknown[] }[])
+      .map(entry => [entry.name, entry.filters]));
+    expect(filters.paid).toEqual([comparison('status', 'eq', 'paid')]);
+    expect(filters.paidLarge).toEqual([{ kind: 'logical', operator: 'and', operands: [comparison('status', 'eq', 'paid'), comparison('amount', 'gt', 1)] }]);
+    expect(filters.notPaid).toEqual([{ kind: 'logical', operator: 'not', operand: comparison('status', 'eq', 'paid') }]);
+    const all = ['paid', 'paidLarge', 'notPaid'];
+    expect(sqlOf(rehydrateProtocolDatasets(published.datasets), all)).toBe(sqlOf({ orders: Single }, all));
+  });
+
   it('refuse a malformed group when the dataset is defined', () => {
     expect(() => dataset('orders', {
       source: 'analytics.orders',
