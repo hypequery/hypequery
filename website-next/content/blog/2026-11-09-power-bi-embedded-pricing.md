@@ -215,7 +215,8 @@ All checked on 9 November 2026. Prices are East US, USD, list.
 
 ## Related
 
-- [Embedded analytics for developers: build vs buy](/embedded-analytics)
+- [Embedded analytics pricing compared](/compare/embedded-analytics-pricing)
+- [Embedded analytics for developers: architecture and tools](/embedded-analytics)
 - [Metabase alternative for embedded analytics](/compare/hypequery-vs-metabase)
 - [Embedded analytics with ClickHouse: multi-tenant dashboards](/blog/embedded-analytics-clickhouse-multi-tenant-dashboards)
 - [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics)

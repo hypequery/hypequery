@@ -359,7 +359,12 @@ export default function EmbeddedAnalyticsPricingPage() {
             <Link href="/compare/hypequery-vs-embeddable" className={inlineLink}>
               hypequery vs Embeddable
             </Link>{' '}
-            compares a code-first layer with a component platform.
+            compares a code-first layer with a component platform. If you are weighing licence fees against building it
+            yourself, read{' '}
+            <Link href="/compare/build-vs-buy-embedded-analytics" className={inlineLink}>
+              build vs buy embedded analytics
+            </Link>{' '}
+            for what each part costs to build.
           </p>
         }
       />
