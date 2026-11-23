@@ -36,6 +36,8 @@ pnpm build              # turbo build across workspaces
 pnpm test               # unit + type tests for all @hypequery/* packages
 pnpm lint               # eslint via turbo
 pnpm types              # declaration / project-reference builds
+pnpm api:report         # regenerate public API reports (protocol, datasets, deployment); build first
+pnpm api:check          # fail if a committed API report is stale (runs in CI)
 pnpm --filter @hypequery/<pkg> <script>   # per-package (build, test, test:unit, test:types, ...)
 pnpm test:integration   # ClickHouse integration tests — requires Docker
 pnpm conformance        # protocol conformance runner (build packages first)
@@ -67,6 +69,18 @@ pnpm examples:validate  # validate every example.json / recipe.json
   `@hypequery/mcp`, `@hypequery/protocol`,
   `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.
 - **Stable**: Changesets-driven. Any user-facing change to a published package needs a changeset (`pnpm changeset`) in the PR. Full flow in `release-commands.md`.
+- **Publishing** uses npm trusted publishing (OIDC). There is no npm token. Every publish is checked against the registry afterwards. A failed publish on `main`, or a canary more than 3 days stale, opens a `release-failure` issue. See "Release guardrails" in `release-commands.md`.
+
+## Public API reports
+
+`packages/{protocol,datasets,deployment}/api-report/*.api.md` are API Extractor reports of the public types, one per `exports` entry point. Downstream consumers (hypequery Cloud above all) compile against these types. A change to them can break consumers without breaking this repo. Two past examples: widening `ProtocolDatasetContract.source` to a union, and renaming `filters` to `allowedFilters`.
+
+- If you change public types in those packages, run `pnpm turbo run build --filter='@hypequery/*' && pnpm api:report` and commit the report diff. CI's `pnpm api:check` fails on a stale report.
+- **A PR that changes a report needs a changeset for that package with a `Consumer-breaking:` line.** CI enforces this in the `release-tooling` job.
+  - `Consumer-breaking: no` means the change is additive only: new exports, or new optional input fields.
+  - Anything else names what breaks and how to migrate, for example `Consumer-breaking: ProtocolDatasetContract.source may now be an object. Migration: narrow with typeof source === 'string' before using it as a table name.`
+  - Count these as breaking: widening an output type, narrowing an input type, renaming or removing a field or export, and making an optional field required.
+  - The line goes into the changelog, which is where consumers read it.
 
 ## Testing philosophy
 
