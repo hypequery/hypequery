@@ -1,5 +1,6 @@
 import type { DatasetLimits } from '@hypequery/datasets';
 import { filterBudgetUsed } from './filter-budget.js';
+import { measureBudgetUsed } from './measure-budget.js';
 import { MCPToolError } from '../../errors.js';
 import {
   DEFAULT_QUERY_LIMIT,
@@ -131,6 +132,14 @@ export function applyQueryLimits(
   assertCollectionLimit(query.measures, limits.maxMeasures, 'measures');
   assertCollectionLimit(query.filters, limits.maxFilters, 'filters');
   assertCollectionLimit(query.orderBy, limits.maxOrderBy, 'orderBy');
+  // Calculation outputs are result columns, so they share the measure budget.
+  const columns = measureBudgetUsed(query);
+  if (query.calculations?.length && columns > limits.maxMeasures) {
+    throw new MCPToolError(
+      'MCP_INVALID_ARGUMENTS',
+      `Invalid measures: ${columns} measures and calculation outputs, maximum ${limits.maxMeasures}`,
+    );
+  }
   // The budget bounds comparisons, not top-level entries: one `or` can hold many.
   const comparisons = filterBudgetUsed(query);
   if (comparisons > limits.maxFilters) {

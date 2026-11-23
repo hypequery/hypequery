@@ -269,11 +269,8 @@ def test_analysis_fields_the_client_contract_cannot_describe_are_refused(
     """
 
     executor, backend = connect()
-    advertised = json.dumps(
-        next(t for t in run(executor.list_tools)["tools"] if t["name"] == "query_dataset")[
-            "inputSchema"
-        ]
-    )
+    tools = cast(list[dict[str, object]], run(executor.list_tools)["tools"])
+    advertised = json.dumps(next(t for t in tools if t["name"] == "query_dataset")["inputSchema"])
     for field in ("calculations", "limitBy", '"other"', '"fill"', "timeKey", "inDateRange"):
         assert field not in advertised
     result = call(executor, "query_dataset", {"dataset": "orders", **arguments})

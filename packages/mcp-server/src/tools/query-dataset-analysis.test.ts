@@ -294,6 +294,31 @@ describe('query_dataset analysis features', () => {
       expect(within.isError).toBeFalsy();
     });
 
+    it('counts calculation outputs with selected measures against the host measure budget', async () => {
+      const { db, sql } = recording();
+      const executor = new HypequeryMCPExecutor({
+        datasets: { orders: Orders },
+        analytics: createDatasetClient({ queryBuilder: db, now: () => NOW }),
+        queryLimits: { maxMeasures: 2 },
+      });
+      const ranked = errorOf(await executor.callTool('query_dataset', {
+        dataset: 'orders', measures: ['revenue', 'orders'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }],
+      }));
+      expect(ranked).toMatchObject({ code: 'MCP_INVALID_ARGUMENTS', message: 'Invalid measures: 3 measures and calculation outputs, maximum 2' });
+      // One compare entry is three columns per compared measure.
+      const compared = errorOf(await executor.callTool('query_dataset', {
+        dataset: 'orders', measures: ['revenue'], grain: 'month',
+        filters: [{ field: 'createdAt', operator: 'inDateRange', value: 'this year' }],
+        calculations: [{ name: 'vs', compare: { to: 'previousPeriod', measures: ['revenue'] } }],
+      }));
+      expect(compared.message).toBe('Invalid measures: 4 measures and calculation outputs, maximum 2');
+      expect(sql).toHaveLength(0);
+      const within = await executor.callTool('query_dataset', {
+        dataset: 'orders', measures: ['revenue'], calculations: [{ name: 'r', rank: { measure: 'revenue' } }],
+      });
+      expect(within.isError).toBeFalsy();
+    });
+
     it('bounds nesting before parsing', () => {
       let deep: Record<string, unknown> = { field: 'country', operator: 'eq', value: 'US' };
       for (let level = 0; level < 100; level += 1) deep = { not: deep };
