@@ -118,21 +118,55 @@ export const api = serve({
   },
 });`;
 
-const reactCode = `// The hook posts to /api/analytics/datasets/usage/query
-const { data, isLoading } = useDataset('usage', {
-  by: 'day',
-  measures: ['activeUsers'],
+// Setup as in docs/(getting-started)/quick-start/api-and-dashboard.mdx.
+const reactSetupCode = `// lib/analytics.ts
+// Routes come from: npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '../analytics/api';
+import manifest from '../analytics/hypequery-manifest.json';
+
+export const { useDataset } = createAnalyticsHooks<InferApiType<typeof api>>({
+  baseUrl: '/api/analytics',
+  manifest,
+});`;
+
+const reactCode = `import { useDataset } from '../lib/analytics';
+
+export function ActiveUsers() {
+  // Posts to /api/analytics/datasets/usage/query; the tenant comes from the session
+  const { data, isLoading } = useDataset('usage', {
+    by: 'day',
+    measures: ['activeUsers'],
+  });
+
+  return <ActiveUsersChart rows={data?.data ?? []} loading={isLoading} />;
+}`;
+
+// From examples/postgres-app-clickhouse-analytics (analytics/datasets.ts and src/accounts.ts), trimmed.
+const joinCode = `// A staff-only dataset across accounts: no tenantKey, so never serve it to customers
+export const AccountUsage = dataset('account_usage', {
+  source: 'events',
+  timeKey: 'occurred_at',
+  dimensions: {
+    eventId: dimension.number({ column: 'event_id' }),
+    tenantId: dimension.number({ column: 'tenant_id', label: 'Account id' }),
+    userId: dimension.number({ column: 'user_id' }),
+    occurredAt: dimension.timestamp({ column: 'occurred_at' }),
+  },
+  measures: {
+    events: measure.count('eventId'),
+    activeUsers: measure.countDistinct('userId'),
+  },
 });
 
-return <ActiveUsersChart rows={data?.data ?? []} loading={isLoading} />;`;
-
-// From examples/postgres-app-clickhouse-analytics/src/accounts.ts, trimmed.
-const joinCode = `const rows = await pgdb
+// In an internal admin route
+const rows = await pgdb
   .select()
   .from(accounts)
   .where(eq(accounts.plan, plan));
 
-const usage = await analytics.execute(Usage, {
+const usage = await analytics.execute(AccountUsage, {
   dimensions: ['tenantId'],
   measures: ['events', 'activeUsers'],
   filters: [inList('tenantId', rows.map((a) => a.id)), gte('occurredAt', since)],
@@ -495,7 +529,20 @@ export default function SaasAnalyticsBackendPage() {
           </p>
         }
       >
-        <CodeWindow code={reactCode} filename="ActiveUsers.tsx" />
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <CodeWindow code={reactSetupCode} filename="lib/analytics.ts" />
+          <CodeWindow code={reactCode} filename="ActiveUsers.tsx" />
+        </div>
+        <div className="mt-6 max-w-[760px] space-y-4 text-body text-text-muted">
+          <p>
+            The hook’s types come from the API itself, and the routes from a generated manifest. Run{' '}
+            <code className={inlineCode}>generate:manifest</code> as a prebuild step so the two cannot drift apart. The{' '}
+            <Link href="/docs/quick-start/api-and-dashboard" className={inlineLink}>
+              API and dashboard quickstart
+            </Link>{' '}
+            covers the setup for an API in another repo.
+          </p>
+        </div>
       </HubSection>
 
       <HubSection
@@ -517,7 +564,9 @@ export default function SaasAnalyticsBackendPage() {
             <Link href="/examples/postgres-app-clickhouse-analytics" className={inlineLink}>
               Postgres + Drizzle example
             </Link>
-            , which runs with one command. On its million seed events, the per-account rollup took about 1.7 seconds in
+            , which runs with one command. It is a staff view across accounts, so it uses its own dataset without a
+            tenant key, and only internal routes call it. A screen a customer sees uses the tenant-scoped{' '}
+            <code className={inlineCode}>Usage</code> dataset instead. On its million seed events, the per-account rollup took about 1.7 seconds in
             Postgres 17 and 30 to 50 ms in ClickHouse. When you need to filter or sort by Postgres columns across every
             account, replicate that table into ClickHouse instead and join it there.
           </p>
