@@ -29,7 +29,8 @@ const subprocessors = [
   { name: 'Amazon Web Services', purpose: 'Encryption keys (KMS) and running queries against your ClickHouse', location: 'EU (eu-central-1, Frankfurt)' },
   { name: 'Anthropic', purpose: 'The AI assistant: chat messages and schema context are sent to it', location: 'United States' },
   { name: 'Resend', purpose: 'Sign-in links and other transactional email', location: 'EU' },
-  { name: 'PostHog', purpose: 'Product and website analytics', location: 'United States' },
+  { name: 'PostHog', purpose: 'Product analytics in the app', location: 'EU (Frankfurt)' },
+  { name: 'PostHog', purpose: 'Analytics on this website', location: 'United States' },
   { name: 'Google', purpose: 'Optional "Sign in with Google"; Google Analytics on this website, only with your consent', location: 'United States' },
   { name: 'Umami', purpose: 'Cookieless website analytics', location: 'EU' },
   { name: 'Leadfeeder', purpose: 'Identifying companies that visit this website, only with your consent', location: 'EU' },
@@ -182,7 +183,7 @@ export default function PrivacyPage() {
         </thead>
         <tbody>
           {subprocessors.map((row) => (
-            <tr key={row.name}>
+            <tr key={`${row.name}-${row.purpose}`}>
               <td>{row.name}</td>
               <td>{row.purpose}</td>
               <td>{row.location}</td>
@@ -191,8 +192,8 @@ export default function PrivacyPage() {
         </tbody>
       </table>
       <p>
-        hypequery Cloud is hosted in the EU. Where a provider processes data outside the EU or UK, such as Anthropic
-        and PostHog in the United States, we rely on Standard Contractual Clauses or an adequacy decision.
+        hypequery Cloud is hosted in the EU. Where a provider processes data outside the EU or UK, such as Anthropic, and
+        PostHog for this website&apos;s analytics, in the United States, we rely on Standard Contractual Clauses or an adequacy decision.
       </p>
 
       <h2 id="cookies">Cookies and analytics</h2>
@@ -203,8 +204,8 @@ export default function PrivacyPage() {
         your choice at any time from the banner&apos;s settings.
       </p>
       <p>
-        In the app, PostHog records page views and clicks against your user ID, without page text, what you type, or
-        session recordings.
+        In the app, PostHog (hosted in the EU) records page views and clicks against your user ID, without page text,
+        what you type, or session recordings.
       </p>
 
       <h2>Your rights</h2>
