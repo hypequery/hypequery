@@ -4,7 +4,7 @@
 
 import { createHash } from 'node:crypto';
 
-export const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 
 /** Delay before retry number `attempt` (1-based): 10s, 15s, 20s … capped at 30s. */
 export function retryDelayMs(attempt) {
