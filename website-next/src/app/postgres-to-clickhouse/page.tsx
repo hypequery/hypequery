@@ -134,12 +134,14 @@ WHERE _peerdb_is_deleted = 0
   AND status = 'active'
 GROUP BY plan;`;
 
-const batchSql = `-- Incremental pull on a schedule. Needs updated_at on every write,
--- and never sees rows deleted in Postgres.
+const batchSql = `-- Target: ENGINE = ReplacingMergeTree(updated_at) ORDER BY id,
+-- so a row copied twice keeps only its newest version.
+-- Re-read an overlap window each run: a transaction can commit after rows with
+-- later timestamps were already copied. Deletes in Postgres are never seen.
 INSERT INTO app.subscriptions_batch
 SELECT id, tenant_id, plan, status, mrr_cents, updated_at
 FROM postgresql('pg-host:5432', 'app', 'subscriptions', 'readonly_user', '<password>')
-WHERE updated_at > (SELECT max(updated_at) FROM app.subscriptions_batch);`;
+WHERE updated_at > (SELECT max(updated_at) FROM app.subscriptions_batch) - INTERVAL 15 MINUTE;`;
 
 const datasetCode = `import { dataset, dimension, measure } from '@hypequery/datasets';
 
@@ -373,8 +375,10 @@ export default function PostgresToClickHousePage() {
           <p>
             <strong className="text-text">Batch copies</strong> need no replication setup at all. ClickHouse reads
             from Postgres with the <code className={inlineCode}>postgresql()</code> table function. They are fine for
-            small or append-only tables, but a watermark on <code className={inlineCode}>updated_at</code> never sees a
-            hard delete.
+            small or append-only tables. Two limits come with a watermark on{' '}
+            <code className={inlineCode}>updated_at</code>. It never sees a hard delete, and a transaction that commits
+            late can carry an older timestamp than rows already copied. Re-read a window longer than your longest write transaction on every run into a
+            ReplacingMergeTree keyed on the primary key, as below, or reload small tables in full.
           </p>
           <p>
             <strong className="text-text">MaterializedPostgreSQL</strong> makes ClickHouse replicate from Postgres
