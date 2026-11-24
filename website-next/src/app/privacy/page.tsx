@@ -29,10 +29,9 @@ const subprocessors = [
   { name: 'Amazon Web Services', purpose: 'Encryption keys (KMS) and running queries against your ClickHouse', location: 'EU (eu-central-1, Frankfurt)' },
   { name: 'Anthropic', purpose: 'The AI assistant: chat messages and schema context are sent to it', location: 'United States' },
   { name: 'Resend', purpose: 'Sign-in links and other transactional email', location: 'EU' },
-  { name: 'Stripe', purpose: 'Payments, if you subscribe to a paid plan', location: '[STRIPE REGION]' },
   { name: 'PostHog', purpose: 'Product and website analytics', location: 'United States' },
   { name: 'Google', purpose: 'Optional "Sign in with Google"; Google Analytics on this website, only with your consent', location: 'United States' },
-  { name: 'Umami', purpose: 'Cookieless website analytics', location: '[UMAMI REGION]' },
+  { name: 'Umami', purpose: 'Cookieless website analytics', location: 'EU' },
   { name: 'Leadfeeder', purpose: 'Identifying companies that visit this website, only with your consent', location: 'EU' },
 ];
 
@@ -40,7 +39,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage eyebrow="Legal" title="Privacy policy" updated={UPDATED}>
       <p>
-        This policy explains what personal data <strong>[LEGAL ENTITY]</strong> (&quot;hypequery&quot;, &quot;we&quot;)
+        This policy explains what personal data hypequery (&quot;hypequery&quot;, &quot;we&quot;)
         collects when you use hypequery Cloud at app.hypequery.com and this website, hypequery.com. hypequery Cloud is in
         closed beta. We keep this page in line with how the product actually works, and update the date above when it
         changes.
@@ -52,7 +51,10 @@ export default function PrivacyPage() {
 
       <h2>Who we are</h2>
       <p>
-        [LEGAL ENTITY], [REGISTERED ADDRESS]. Contact us about privacy at [CONTACT EMAIL].
+        hypequery is run by <strong>Luke Reilly</strong>, a self-employed individual (autónomo) in Spain,
+        trading as hypequery. Contact us about privacy at{' '}
+        <a href="mailto:luke@hypequery.com">luke@hypequery.com</a>. When hypequery becomes a company, we will update this
+        page to name it.
       </p>
       <p>
         For your account data and website data, we are the controller. For data we handle inside your ClickHouse
@@ -95,10 +97,6 @@ export default function PrivacyPage() {
           <strong>Usage.</strong> Counts of queries and AI usage per organisation, for plan limits and billing.
         </li>
         <li>
-          <strong>Payment data.</strong> If you subscribe to a paid plan, Stripe processes your payment. We keep your
-          plan and subscription status, not your card number.
-        </li>
-        <li>
           <strong>Website and product analytics.</strong> Pages visited and clicks, without the text you type. See{' '}
           <a href="#cookies">cookies and analytics</a>.
         </li>
@@ -118,7 +116,7 @@ export default function PrivacyPage() {
         <li>To provide the service you signed up for: sign-in, running queries, the assistant, logs and usage pages. This is necessary to perform our contract with you.</li>
         <li>To keep the service secure, prevent abuse and fix problems. This is our legitimate interest.</li>
         <li>To understand how the product is used and improve it. This is our legitimate interest, and on this website, your consent where cookies are involved.</li>
-        <li>To bill paid plans and meet legal obligations such as tax records.</li>
+        <li>To meet our legal obligations.</li>
       </ul>
       <p>We do not sell your data, and we do not use your data or chats to train AI models.</p>
 
@@ -168,7 +166,8 @@ export default function PrivacyPage() {
       </table>
       <p>
         Deleting a project deletes everything in it. Deleted data can stay in database backups for up to [BACKUP
-        RETENTION WINDOW] before it is gone. To delete your account, email [CONTACT EMAIL].
+        RETENTION WINDOW] before it is gone. To delete your account, email{' '}
+        <a href="mailto:luke@hypequery.com">luke@hypequery.com</a>.
       </p>
 
       <h2>Who processes it</h2>
@@ -211,9 +210,11 @@ export default function PrivacyPage() {
       <h2>Your rights</h2>
       <p>
         You can ask to access, correct, delete or export your personal data, object to or restrict how we use it, and
-        withdraw consent. Email [CONTACT EMAIL] and we will reply within a month. If your data is in a customer&apos;s
+        withdraw consent. Email <a href="mailto:luke@hypequery.com">luke@hypequery.com</a> and we will reply within a
+        month. If your data is in a customer&apos;s
         hypequery project (for example, you are their end user), contact that customer first. You can also complain to
-        your local data protection authority.
+        a data protection authority: in Spain, the Agencia Española de Protección de Datos (AEPD), or the authority
+        where you live.
       </p>
 
       <h2>Security</h2>
