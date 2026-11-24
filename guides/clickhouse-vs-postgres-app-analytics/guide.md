@@ -66,6 +66,8 @@ If some of these hold but the dashboards are still slow, the [slow Postgres anal
 | **Query in place** with the `PostgreSQL` table engine | Live | Live | A table definition | Small dimension tables joined into ClickHouse queries |
 | **MaterializedPostgreSQL** database engine | Seconds | Replicated | Server-side replication | Only for experiments: it is experimental and disabled by default in 25.8 (`allow_experimental_database_materialized_postgresql = 0`) |
 
+For setup steps, pricing and the managed options (ClickPipes, PeerDB, Debezium, Fivetran, Estuary and others), see [Postgres to ClickHouse: every replication option compared](/postgres-to-clickhouse).
+
 Batch pulls are the quickest to try. ClickHouse pushes simple filters and the selected columns down to Postgres, including a scalar subquery evaluated first. This incremental pull ran against the Postgres above, and the Postgres log shows it received `COPY (SELECT "event_id", "tenant_id", "occurred_at" FROM "events" WHERE "event_id" > 400000) TO STDOUT`:
 
 ```sql
