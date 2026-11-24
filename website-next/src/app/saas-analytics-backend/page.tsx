@@ -247,6 +247,11 @@ const faqItems: FaqItem[] = [
 
 const nextLinks: HubLink[] = [
   {
+    href: '/postgres-to-clickhouse',
+    title: 'Postgres to ClickHouse: every replication option',
+    description: 'ClickPipes, PeerDB, Debezium and managed CDC compared, with the Postgres setup.',
+  },
+  {
     href: '/postgres-analytics',
     title: 'Postgres analytics getting slow?',
     description: 'The fixes to try before adding a second database, cheapest first.',
@@ -470,10 +475,10 @@ export default function SaasAnalyticsBackendPage() {
             and lands each change in a <code className={inlineCode}>ReplacingMergeTree</code> ordered by the primary key.
             PeerDB and ClickPipes, the managed version in ClickHouse Cloud, do this without Kafka; Debezium usually runs
             with it. The{' '}
-            <Link href="/guides/clickhouse-vs-postgres-app-analytics" className={inlineLink}>
-              ClickHouse vs Postgres guide
+            <Link href="/postgres-to-clickhouse" className={inlineLink}>
+              Postgres to ClickHouse comparison
             </Link>{' '}
-            compares CDC, dual writes and batch pulls, and shows the table CDC writes into.
+            covers each option, the Postgres setup it needs and the table CDC writes into.
           </p>
         </div>
       </HubSection>

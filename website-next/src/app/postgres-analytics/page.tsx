@@ -221,6 +221,11 @@ const faqItems: FaqItem[] = [
 
 const nextLinks: HubLink[] = [
   {
+    href: '/postgres-to-clickhouse',
+    title: 'Postgres to ClickHouse: every replication option',
+    description: 'ClickPipes, PeerDB, Debezium and managed CDC compared, and how to query the copy.',
+  },
+  {
     href: '/guides/clickhouse-vs-postgres-app-analytics',
     title: 'ClickHouse vs Postgres for app analytics',
     description: 'The benchmark behind the numbers on this page, and every way to move data across.',
@@ -473,7 +478,11 @@ export default function PostgresAnalyticsPage() {
               <Link href="/guides/clickhouse-vs-postgres-app-analytics" className={inlineLink}>
                 ClickHouse vs Postgres guide
               </Link>{' '}
-              has the full benchmark and compares the ways to copy data across, including CDC with PeerDB, ClickPipes or Debezium, dual writes and scheduled batch pulls.
+              has the full benchmark. To copy the tables across, the{' '}
+              <Link href="/postgres-to-clickhouse" className={inlineLink}>
+                Postgres to ClickHouse comparison
+              </Link>{' '}
+              covers ClickPipes, PeerDB, Debezium and managed CDC tools, with the Postgres setup each one needs.
             </p>
           </>
         }

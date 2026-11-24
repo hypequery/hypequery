@@ -225,6 +225,16 @@ const faqItems: FaqItem[] = [
 
 const nextLinks: HubLink[] = [
   {
+    href: '/postgres-analytics',
+    title: 'Slow Postgres analytics queries: what to try first',
+    description: 'Tuning, rollups, replicas and extensions to try before adding a second database.',
+  },
+  {
+    href: '/saas-analytics-backend',
+    title: 'Build a SaaS analytics backend in TypeScript',
+    description: 'Postgres for the app, ClickHouse for analytics, and a typed API between them.',
+  },
+  {
     href: '/guides/clickhouse-vs-postgres-app-analytics',
     title: 'ClickHouse vs Postgres for app analytics',
     description: 'When Postgres is enough, the benchmark, and the signs it is time to add ClickHouse.',
@@ -310,7 +320,12 @@ export default function PostgresToClickHousePage() {
         <p>
           Your app stays on Postgres and analytics moves to ClickHouse. That leaves two jobs. Keep ClickHouse in step
           with Postgres, and query the copy correctly, because updates and deletes arrive as new rows. This page
-          compares the ways to do the first and shows how to get the second right.
+          compares the ways to do the first and shows how to get the second right. Not sure you need ClickHouse yet?
+          Start with{' '}
+          <Link href="/postgres-analytics" className={inlineLink}>
+            the fixes to try in Postgres first
+          </Link>
+          .
         </p>
       }
       primaryCta={{ href: '#options', label: 'Compare the options', target: 'pg_to_ch_options' }}
@@ -464,6 +479,10 @@ export default function PostgresToClickHousePage() {
             . To serve these datasets to customers, see{' '}
             <Link href="/clickhouse-saas-analytics" className={inlineLink}>
               ClickHouse embedded analytics for SaaS
+            </Link>
+            , and for the whole stack from ingestion to React,{' '}
+            <Link href="/saas-analytics-backend" className={inlineLink}>
+              build a SaaS analytics backend in TypeScript
             </Link>
             .
           </p>
