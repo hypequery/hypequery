@@ -1,0 +1,535 @@
+---
+title: Dataset recipes
+description: Copy-paste dataset patterns for KPI tiles, conversion rates, MoM and YoY growth, rolling windows, DAU/WAU/MAU, segments and top N on ClickHouse.
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Each recipe answers one analytics question with a dataset definition and a single `execute` call. They all use the same three tables, so you can set them up once and run every recipe as you read.
+
+The recipes stay small on purpose. For complete apps, see [Examples](/examples). For deeper ClickHouse techniques such as `windowFunnel` funnels, retention cohorts, sessionization and `LIMIT BY`, see [Recipes](/recipes).
+
+| Recipe | Question it answers | Features used |
+| --- | --- | --- |
+| [KPI tiles](#kpi-tiles-and-average-order-value) | What were revenue, orders and AOV last month? | `measure.derived` |
+| [Rates](#conversion-and-refund-rates) | What share of orders were refunded? | Filtered measures |
+| [Growth](#month-over-month-and-year-over-year-growth) | How did revenue change vs last month and last year? | `measure.shift` |
+| [Rolling windows](#rolling-7-day-month-to-date-and-running-totals) | Trailing 7-day revenue, month to date, running total | `trailing`, `toDate`, `cumulative` |
+| [Active users](#daily-weekly-and-monthly-active-users) | DAU, WAU, MAU and stickiness | `countDistinct` + `trailing` |
+| [Breakdowns](#break-down-by-a-related-table) | Revenue by customer country | `belongsTo` |
+| [Segments](#named-populations-with-segments) | Revenue from large, completed orders only | `segments` |
+| [Top N](#top-n-with-a-minimum-threshold) | Top 5 customers with at least 140 orders | `having`, `limit` |
+| [Time axes](#report-on-a-different-date) | Revenue by ship month, and time to ship | `timeKeys` |
+| [Filter options](#values-for-a-filter-dropdown) | Distinct countries for a dropdown | `measures: []` |
+
+## Setup
+
+A small shop: customers, their orders, and product events.
+
+<CodeBlock>
+```sql
+CREATE TABLE shop.customers
+(
+    customer_id UInt32,
+    name        String,
+    country     LowCardinality(String),
+    tier        LowCardinality(String)   -- 'free' | 'pro' | 'enterprise'
+)
+ENGINE = MergeTree ORDER BY customer_id;
+
+CREATE TABLE shop.orders
+(
+    order_id    UInt64,
+    customer_id UInt32,
+    status      LowCardinality(String),  -- 'completed' | 'refunded' | 'cancelled'
+    amount      Decimal(12, 2),
+    created_at  DateTime('UTC'),
+    shipped_at  Nullable(DateTime('UTC'))
+)
+ENGINE = MergeTree ORDER BY (created_at, order_id);
+
+CREATE TABLE shop.events
+(
+    user_id     UInt32,
+    event_type  LowCardinality(String),
+    occurred_at DateTime('UTC')
+)
+ENGINE = MergeTree ORDER BY (occurred_at, user_id);
+```
+</CodeBlock>
+
+<Accordions type="single">
+  <Accordion title="Sample data (reproduces every result on this page)">
+
+```sql
+CREATE DATABASE IF NOT EXISTS shop;
+-- run the CREATE TABLE statements above, then:
+
+-- 200 customers across five countries and three tiers
+INSERT INTO shop.customers
+SELECT
+    number + 1,
+    concat('Customer ', toString(number + 1)),
+    ['US', 'UK', 'DE', 'FR', 'CA'][number % 5 + 1],
+    multiIf(cityHash64(number, 'tier') % 10 = 0, 'enterprise',
+            cityHash64(number, 'tier') % 10 < 4, 'pro', 'free')
+FROM numbers(200);
+
+-- 40,000 orders from 2025-01-01 to 2026-10-31, with volume growing over time
+INSERT INTO shop.orders
+SELECT
+    number + 1,
+    (cityHash64(number) % 200) + 1,
+    multiIf(number % 20 = 0, 'refunded', number % 13 = 0, 'cancelled', 'completed'),
+    toDecimal64(20 + (cityHash64(number, 'amount') % 18000) / 100, 2),
+    toDateTime('2025-01-01 00:00:00', 'UTC') + toIntervalSecond(toUInt64(sqrt(number / 40000) * 57801600)),
+    if(number % 13 = 0 AND number % 20 != 0, NULL,
+       toDateTime('2025-01-01 00:00:00', 'UTC') + toIntervalSecond(toUInt64(sqrt(number / 40000) * 57801600))
+         + toIntervalHour(12 + cityHash64(number, 'ship') % 96))
+FROM numbers(40000);
+
+-- 60,000 product events for 3,000 users over September and October 2026
+INSERT INTO shop.events
+SELECT
+    (cityHash64(number) % 3000) + 1,
+    ['page_view', 'page_view', 'page_view', 'search', 'checkout'][number % 5 + 1],
+    toDateTime('2026-09-01 00:00:00', 'UTC') + toIntervalSecond(number * 87)
+FROM numbers(60000);
+```
+
+  </Accordion>
+</Accordions>
+
+The base datasets and client. Each recipe adds measures to these definitions.
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { belongsTo, createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: 'shop',
+});
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+
+export const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    id: dimension.number({ column: 'customer_id' }),
+    name: dimension.string(),
+    country: dimension.string(),
+    tier: dimension.string(),
+  },
+  measures: {
+    customers: measure.countDistinct('id'),
+  },
+});
+
+export const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'createdAt',
+  dimensions: {
+    id: dimension.number({ column: 'order_id' }),
+    customerId: dimension.number({ column: 'customer_id' }),
+    status: dimension.string(),
+    amount: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+    shippedAt: dimension.timestamp({ column: 'shipped_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orders: measure.count('id'),
+    buyers: measure.countDistinct('customerId'),
+    // ...recipe measures go here
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'customer_id' }),
+  },
+});
+
+export const Events = dataset('events', {
+  source: 'events',
+  timeKey: 'occurredAt',
+  dimensions: {
+    userId: dimension.number({ column: 'user_id' }),
+    eventType: dimension.string({ column: 'event_type' }),
+    occurredAt: dimension.timestamp({ column: 'occurred_at' }),
+  },
+  measures: {
+    events: measure.count('userId'),
+    // ...recipe measures go here
+  },
+});
+```
+</CodeBlock>
+
+Measure values come back as strings, so decimals and 64-bit integers keep their precision. Results below are shown as tables.
+
+## KPI tiles and average order value
+
+**Use it for:** the row of numbers at the top of a dashboard.
+
+Ask for measures and no dimensions, and you get one row. Ratios like average order value belong on the dataset as derived measures, so every caller divides the same way.
+
+<CodeBlock>
+```typescript
+import { divide, nullIfZero, round } from '@hypequery/datasets';
+
+// Orders.measures
+averageOrderValue: measure.derived({
+  uses: { revenue: 'revenue', orders: 'orders' },
+  formula: ({ revenue, orders }) => round(divide(revenue, nullIfZero(orders)), 2),
+}),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+const { data } = await analytics.execute(Orders, {
+  measures: ['revenue', 'orders', 'buyers', 'averageOrderValue'],
+  filters: [
+    eq('status', 'completed'),
+    between('createdAt', '2026-10-01', '2026-10-31 23:59:59'),
+  ],
+});
+```
+</CodeBlock>
+
+| revenue | orders | buyers | averageOrderValue |
+| --- | --- | --- | --- |
+| 351887.29 | 3176 | 200 | 110.8 |
+
+`nullIfZero` makes an empty period return `null` instead of failing on a divide by zero. See [Derived measures](/docs/datasets/measures#derived-measures).
+
+## Conversion and refund rates
+
+**Use it for:** refund rate, trial-to-paid conversion, error rate, or any "X out of Y".
+
+Give the numerator a measure filter so it counts only matching rows. The denominator stays unfiltered, and a derived measure divides the two.
+
+<CodeBlock>
+```typescript
+// Orders.measures
+refundedOrders: measure.count('id', { filters: [eq('status', 'refunded')] }),
+refundRate: measure.derived({
+  uses: { refunded: 'refundedOrders', orders: 'orders' },
+  formula: ({ refunded, orders }) => round(divide(refunded, nullIfZero(orders)), 4),
+}),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'month',
+  measures: ['orders', 'refundedOrders', 'refundRate'],
+  filters: [between('createdAt', '2026-07-01', '2026-10-31 23:59:59')],
+});
+```
+</CodeBlock>
+
+| period | orders | refundedOrders | refundRate |
+| --- | --- | --- | --- |
+| 2026-07-01 | 3111 | 155 | 0.0498 |
+| 2026-08-01 | 3284 | 164 | 0.0499 |
+| 2026-09-01 | 3340 | 167 | 0.05 |
+| 2026-10-01 | 3621 | 181 | 0.05 |
+
+A query-level `eq('status', 'refunded')` filter would also narrow the denominator, and the rate would always be 1. A measure filter applies only inside its own aggregation.
+
+## Month-over-month and year-over-year growth
+
+**Use it for:** "vs last month" and "vs last year" columns on a report.
+
+`measure.shift` reads a measure from an earlier period. Positive intervals always look back.
+
+<CodeBlock>
+```typescript
+import { subtract } from '@hypequery/datasets';
+
+// Orders.measures
+revenueLastMonth: measure.shift('revenue', { amount: 1, unit: 'month' }),
+revenueLastYear: measure.shift('revenue', { amount: 1, unit: 'year' }),
+momGrowth: measure.derived({
+  uses: { current: 'revenue', prior: 'revenueLastMonth' },
+  formula: ({ current, prior }) => round(divide(subtract(current, prior), nullIfZero(prior)), 4),
+}),
+yoyGrowth: measure.derived({
+  uses: { current: 'revenue', prior: 'revenueLastYear' },
+  formula: ({ current, prior }) => round(divide(subtract(current, prior), nullIfZero(prior)), 4),
+}),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'month',
+  measures: ['revenue', 'revenueLastMonth', 'momGrowth', 'revenueLastYear', 'yoyGrowth'],
+  filters: [gte('createdAt', '2026-07-01'), lt('createdAt', '2026-11-01')],
+});
+```
+</CodeBlock>
+
+| period | revenue | revenueLastMonth | momGrowth | revenueLastYear | yoyGrowth |
+| --- | --- | --- | --- | --- | --- |
+| 2026-07-01 | 343792.08 | 313057.2 | 0.0982 | 117864.86 | 1.9168 |
+| 2026-08-01 | 358642.08 | 343792.08 | 0.0432 | 138602.76 | 1.5876 |
+| 2026-09-01 | 372218.7 | 358642.08 | 0.0379 | 153474.31 | 1.4253 |
+| 2026-10-01 | 399128.37 | 372218.7 | 0.0723 | 177432 | 1.2495 |
+
+The query filters July to October, yet `revenueLastMonth` for July still reads June. hypequery fetches the earlier period itself. Shift queries need a grain (`by`) and a bounded time range. See [Period comparisons](/docs/datasets/measures#period-comparisons).
+
+## Rolling 7-day, month-to-date and running totals
+
+**Use it for:** smoothing a noisy daily chart, pacing against a monthly target, cumulative revenue.
+
+<CodeBlock>
+```typescript
+// Orders.measures
+revenue7d: measure.trailing('revenue', { amount: 7, unit: 'day' }),
+revenueMtd: measure.toDate('revenue', 'month'),
+revenueRunningTotal: measure.cumulative('revenue'),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'day',
+  measures: ['revenue', 'revenue7d', 'revenueMtd', 'revenueRunningTotal'],
+  filters: [gte('createdAt', '2026-10-01'), lt('createdAt', '2026-10-08')],
+});
+```
+</CodeBlock>
+
+| period | revenue | revenue7d | revenueMtd | revenueRunningTotal |
+| --- | --- | --- | --- | --- |
+| 2026-10-01 00:00:00 | 13580.8 | 90468.3 | 13580.8 | 4020976.14 |
+| 2026-10-02 00:00:00 | 13540.85 | 91157.6 | 27121.65 | 4034516.99 |
+| 2026-10-03 00:00:00 | 11673.62 | 90309.86 | 38795.27 | 4046190.61 |
+| … | | | | |
+| 2026-10-07 00:00:00 | 12530.44 | 90343.09 | 90343.09 | 4097738.43 |
+
+The first row's `revenue7d` already covers September 25 to October 1, and the running total starts from the first order in 2025. The time filter picks which rows come back. Windows still read the history they need. See [Window measures](/docs/datasets/measures#window-measures).
+
+## Daily, weekly and monthly active users
+
+**Use it for:** engagement dashboards, DAU/MAU stickiness.
+
+Active users is a distinct count. A trailing window over a distinct count re-counts users across the whole window, so someone active on five days of the week counts once in WAU.
+
+<CodeBlock>
+```typescript
+// Events.measures
+dau: measure.countDistinct('userId'),
+wau: measure.trailing('dau', { amount: 7, unit: 'day' }),
+mau: measure.trailing('dau', { amount: 28, unit: 'day' }),
+stickiness: measure.derived({
+  uses: { dau: 'dau', mau: 'mau' },
+  formula: ({ dau, mau }) => round(divide(dau, nullIfZero(mau)), 3),
+}),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Events, {
+  by: 'day',
+  measures: ['dau', 'wau', 'mau', 'stickiness'],
+  filters: [gte('occurredAt', '2026-10-24'), lt('occurredAt', '2026-10-31')],
+});
+```
+</CodeBlock>
+
+| period | dau | wau | mau | stickiness |
+| --- | --- | --- | --- | --- |
+| 2026-10-24 00:00:00 | 848 | 2707 | 2999 | 0.283 |
+| 2026-10-25 00:00:00 | 855 | 2707 | 2999 | 0.285 |
+| 2026-10-26 00:00:00 | 850 | 2717 | 2999 | 0.283 |
+| … | | | | |
+| 2026-10-30 00:00:00 | 843 | 2696 | 3000 | 0.281 |
+
+A 28-day window always covers four whole weeks, so MAU doesn't move with month length. On very large event tables, use `measure.approxCountDistinct('userId')` for a faster estimate. If you already keep a daily `uniqState` rollup, read it with `measure.merge` instead (see [Aggregate-state tables](/docs/datasets/measures#aggregate-state-tables)).
+
+## Break down by a related table
+
+**Use it for:** slicing facts by attributes that live in another table, such as revenue by customer country or plan.
+
+The `customer` relationship in the setup lets an `Orders` query use any customer field as `customer.<field>`, in dimensions, filters and ordering.
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['customer.country'],
+  measures: ['revenue', 'customer.customers'],
+  filters: [
+    eq('customer.tier', 'enterprise'),
+    between('createdAt', '2026-01-01', '2026-10-31 23:59:59'),
+  ],
+  orderBy: [desc('revenue')],
+});
+```
+</CodeBlock>
+
+| customer.country | revenue | customer.customers |
+| --- | --- | --- |
+| US | 89916.13 | 6 |
+| CA | 77334.1 | 5 |
+| UK | 63810.51 | 4 |
+| FR | 29934.46 | 2 |
+| DE | 29114.51 | 2 |
+
+hypequery joins with `LEFT ANY JOIN`, so a duplicate customer row can't double the revenue. Through a `belongsTo` you can only select measures on the related table that duplicates can't inflate, such as `countDistinct`, `min` and `max`. See [Relationships](/docs/datasets/relationships).
+
+## Named populations with segments
+
+**Use it for:** definitions the business argues about once, such as "active account", "large order" or "enterprise".
+
+A segment is a named filter on the dataset. Callers pick it by name and never see or edit the condition.
+
+<CodeBlock>
+```typescript
+// Orders config, next to measures
+segments: {
+  completed: {
+    label: 'Completed orders',
+    filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
+  },
+  large: {
+    label: 'Large orders',
+    description: 'Orders of 150 or more',
+    filters: [{ field: 'amount', operator: 'gte', value: 150 }],
+  },
+},
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'quarter',
+  measures: ['revenue', 'orders'],
+  segments: ['completed', 'large'],
+  filters: [between('createdAt', '2026-01-01', '2026-09-30 23:59:59')],
+});
+```
+</CodeBlock>
+
+| period | revenue | orders |
+| --- | --- | --- |
+| 2026-01-01 | 281982.36 | 1623 |
+| 2026-04-01 | 348967.01 | 1987 |
+| 2026-07-01 | 418163.37 | 2389 |
+
+Selected segments combine with AND. If the threshold changes, edit the segment once and every API, dashboard and agent query picks it up. See [Segments](/docs/datasets/segments).
+
+## Top N with a minimum threshold
+
+**Use it for:** leaderboards that ignore small samples, such as top customers with real order history or top pages with enough traffic.
+
+`filters` narrow rows before aggregation. `having` filters the groups after it.
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['customer.name'],
+  measures: ['revenue', 'orders'],
+  filters: [
+    eq('status', 'completed'),
+    between('createdAt', '2026-01-01', '2026-10-31 23:59:59'),
+  ],
+  having: [{ measure: 'orders', operator: 'gte', value: 140 }],
+  orderBy: [desc('revenue')],
+  limit: 5,
+});
+```
+</CodeBlock>
+
+| customer.name | revenue | orders |
+| --- | --- | --- |
+| Customer 144 | 18313.08 | 152 |
+| Customer 99 | 17697.46 | 156 |
+| Customer 78 | 17305.76 | 158 |
+| Customer 16 | 17293.85 | 149 |
+| Customer 32 | 17015.27 | 159 |
+
+A `having` condition must name a selected measure. For the top N *within each group*, such as the top 3 products per country, use ClickHouse's `LIMIT BY` ([recipe](/recipes/top-n-per-group-limit-by)).
+
+## Report on a different date
+
+**Use it for:** fulfilment and finance reports that bucket by ship, delivery or payment date instead of the order date.
+
+List the other timestamp in `timeKeys`, then pick it per query with `timeKey`. A SQL-backed measure covers time to ship.
+
+<CodeBlock>
+```typescript
+// Orders config
+timeKey: 'createdAt',
+timeKeys: ['shippedAt'],
+
+// Orders.measures
+hoursToShip: measure.avg('shippedAt', { sql: "dateDiff('hour', created_at, shipped_at)" }),
+avgHoursToShip: measure.derived({
+  uses: { hours: 'hoursToShip' },
+  formula: ({ hours }) => round(hours, 1),
+}),
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  by: 'month',
+  timeKey: 'shippedAt',
+  measures: ['revenue', 'avgHoursToShip'],
+  filters: [
+    eq('status', 'completed'),
+    between('shippedAt', '2026-08-01', '2026-10-31 23:59:59'),
+  ],
+});
+```
+</CodeBlock>
+
+| period | revenue (by ship month) | revenue (by order month) | avgHoursToShip |
+| --- | --- | --- | --- |
+| 2026-08-01 | 312129.43 | 314434.03 | 59.2 |
+| 2026-09-01 | 325254.45 | 325661.37 | 59.3 |
+| 2026-10-01 | 349651.03 | 351887.29 | 59.7 |
+
+The "by order month" column is the same query without `timeKey`, filtered on `createdAt`. Orders placed late in a month ship in the next one, so the two columns differ. Alternate time keys need the query-builder client and aren't yet available over MCP. See [Multiple time keys](/docs/datasets/time-grains#multiple-time-keys).
+
+## Values for a filter dropdown
+
+**Use it for:** populating a select box with the values a dimension can take.
+
+Pass `measures: []` to get a plain distinct list. If you leave `measures` out, the dataset's base measures are added too.
+
+<CodeBlock>
+```typescript
+const { data } = await analytics.execute(Customers, {
+  dimensions: ['country'],
+  measures: [],
+  orderBy: [asc('country')],
+});
+// [{ country: 'CA' }, { country: 'DE' }, { country: 'FR' }, { country: 'UK' }, { country: 'US' }]
+```
+</CodeBlock>
+
+The query is `SELECT country FROM customers GROUP BY country ORDER BY country`. Add a `limit` for high-cardinality fields, and a `like` filter for type-ahead search.
+
+<Callout title="Imports used on this page">
+  `eq`, `between`, `gte`, `lt`, `asc`, `desc`, `divide`, `nullIfZero`, `round` and `subtract` all come from `@hypequery/datasets`.
+</Callout>
+
+## Where to go next
+
+- [Measures](/docs/datasets/measures): every aggregation helper, windows and shifts in full.
+- [Serve integration](/docs/datasets/serve-integration): publish any of these queries as a typed HTTP endpoint.
+- [Recipes](/recipes): runnable ClickHouse recipes for [funnels](/recipes/funnel-windowfunnel), [retention cohorts](/recipes/retention-cohorts), [sessionization](/recipes/sessionization), [p95 latency](/recipes/p95-latency) and [latest-row upserts](/recipes/replacingmergetree-upserts).
