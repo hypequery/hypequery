@@ -37,6 +37,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
     title: 'Use Cases',
     links: [
       { label: 'ClickHouse Dashboard', href: '/clickhouse-dashboard' },
+      { label: 'Postgres to ClickHouse', href: '/postgres-to-clickhouse' },
       { label: 'Product Analytics', href: '/clickhouse-product-analytics' },
       { label: 'Real-Time Analytics', href: '/clickhouse-real-time-analytics' },
       { label: 'Audit Log', href: '/clickhouse-audit-log' },

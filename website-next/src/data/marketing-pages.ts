@@ -38,6 +38,7 @@ export const marketingPages: readonly string[] = [
   '/clickhouse-python-multi-tenant',
   '/clickhouse-python-mcp',
   '/clickhouse-pydantic',
+  '/postgres-to-clickhouse',
   '/fastapi-react-analytics',
   '/clickhouse-django',
   '/clickhouse-flask',
