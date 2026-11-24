@@ -174,6 +174,19 @@ describe('compiled CLI telemetry regression', () => {
     expect(JSON.stringify(typo)).not.toContain('PRIVATE');
   }, 20_000);
 
+  it.each([
+    [[], 'root'],
+    [['projects'], 'cloud-operation'],
+  ])('records implicit help for %j as shown help while keeping exit code 1', async (args, topic) => {
+    const off = await run(args, 'off');
+    const on = await run(args, 'debug');
+    expect(off.code).toBe(1);
+    expect({ code: on.code, stdout: on.stdout, stderr: on.stderr }).toEqual({ code: off.code, stdout: off.stdout, stderr: off.stderr });
+    expect(on.events).toHaveLength(1);
+    expect(on.events[0].properties).toMatchObject({ command: 'help', help_topic: topic, outcome: 'success' });
+    expect(on.events[0].properties).not.toHaveProperty('error_code');
+  }, 10_000);
+
   it('never emits on telemetry disable or with the global opt-out, even in debug mode', async () => {
     expect((await run(['telemetry', 'disable'], 'debug')).events).toHaveLength(0);
     await run(['telemetry', 'enable'], 'off');
