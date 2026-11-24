@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.33.1
+
+### Patch Changes
+
+- 859a062: Telemetry no longer counts running `hypequery` (or a command group such as `hypequery projects`) without a subcommand as a failed command. The help is recorded as shown; the exit code is still 1.
+
 ## 1.33.0
 
 ### Minor Changes
