@@ -125,10 +125,13 @@ import { createAnalyticsHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '../analytics/api';
 import manifest from '../analytics/hypequery-manifest.json';
+import { getSessionToken } from './auth'; // your auth library's current-user token
 
 export const { useDataset } = createAnalyticsHooks<InferApiType<typeof api>>({
   baseUrl: '/api/analytics',
   manifest,
+  // Sent as Authorization: Bearer <token>, which the API's verifySession reads
+  token: () => getSessionToken(),
 });`;
 
 const reactCode = `import { useDataset } from '../lib/analytics';
@@ -165,6 +168,9 @@ const rows = await pgdb
   .select()
   .from(accounts)
   .where(eq(accounts.plan, plan));
+
+// An empty in-list is rejected, so return early when no account matches
+if (rows.length === 0) return [];
 
 const usage = await analytics.execute(AccountUsage, {
   dimensions: ['tenantId'],
