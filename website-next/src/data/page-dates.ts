@@ -7,6 +7,7 @@
  */
 const pageUpdated: Record<string, string> = {
   '/embedded-analytics': '2026-11-23',
+  '/postgres-to-clickhouse': '2026-11-24',
   '/compare/embedded-analytics-typescript': '2026-11-14',
   '/compare/embedded-analytics-platforms': '2026-11-18',
   '/compare/embedded-analytics-pricing': '2026-11-12',

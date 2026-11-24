@@ -1,10 +1,10 @@
 ---
 title: "Tinybird vs ClickHouse Cloud: Is Tinybird More Expensive?"
 description: "Not at the entry level: Tinybird starts at $25/month, while the smallest ClickHouse Cloud service costs about $160/month in compute running around the clock. The pricing side by side, how each one bills, and where each one wins."
-seoTitle: "Is Tinybird More Expensive Than ClickHouse Cloud? (2026)"
-seoDescription: "Not at the entry level: Tinybird starts at $25/month; an always-on ClickHouse Cloud Basic service is about $160/month. Pricing table and when each wins."
+seoTitle: "Is Tinybird Better or More Expensive Than ClickHouse Cloud?"
+seoDescription: "Tinybird starts at $25/month; always-on ClickHouse Cloud Basic is about $160. Tinybird wins on hosted API endpoints, ClickHouse Cloud on raw database access."
 pubDate: 2026-08-22
-updatedAt: 2026-11-18
+updatedAt: 2026-11-24
 heroImage: ""
 slug: clickhouse-cloud-vs-tinybird
 status: published
