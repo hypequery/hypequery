@@ -29,6 +29,8 @@ export const marketingPages: readonly string[] = [
   '/clickhouse-orm',
   '/clickhouse-openapi',
   '/clickhouse-saas-analytics',
+  '/saas-analytics-backend',
+  '/postgres-analytics',
   '/clickhouse-schema',
   '/clickhouse-typescript',
   '/clickhouse-python',

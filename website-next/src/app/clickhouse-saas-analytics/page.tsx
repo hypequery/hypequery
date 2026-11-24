@@ -253,6 +253,11 @@ const faqItems: FaqItem[] = [
       'Set limits in a settings profile for the reader user (max_execution_time, max_rows_to_read, max_memory_usage, max_result_rows) with MAX constraints so queries cannot raise them, add a quota for query counts, and cache results per tenant so a busy dashboard does not repeat the same query.',
   },
   {
+    question: 'My app runs on Postgres. How do I get its data into ClickHouse?',
+    answer:
+      'Write product events straight to ClickHouse in batches, and replicate the Postgres tables your analytics need with CDC, such as PeerDB or ClickPipes. CDC lands changes in ReplacingMergeTree tables, so read them with FINAL. For small tables, a scheduled INSERT ... SELECT from the postgresql() table function is enough to start.',
+  },
+  {
     question: 'Is hypequery free?',
     answer:
       'Yes, the libraries are. Every hypequery package is Apache 2.0 and you deploy it with your own backend. hypequery cloud, the hosted option, is in early access with a waitlist and no published price.',
@@ -260,6 +265,11 @@ const faqItems: FaqItem[] = [
 ];
 
 const nextLinks: HubLink[] = [
+  {
+    href: '/saas-analytics-backend',
+    title: 'SaaS analytics backend in TypeScript',
+    description: 'The full architecture from a Postgres app to tenant-scoped dashboards.',
+  },
   {
     href: '/embedded-analytics',
     title: 'Embedded analytics for developers',
@@ -536,6 +546,18 @@ export default async function ClickHouseEmbeddedAnalyticsPage() {
           </p>
         }
       >
+        <div className="mb-10 max-w-[760px] rounded-xl border border-border-strong bg-bg-card p-6 text-body text-text-muted">
+          <h3 className="text-lg font-medium text-text">
+            How do you serve customer-facing analytics from ClickHouse with tenant isolation?
+          </h3>
+          <p className="mt-3">
+            Put the tenant column first in every table’s <code className={inlineCode}>ORDER BY</code>, connect the app
+            as a read-only ClickHouse user with a settings profile and row policies, and apply the per-request tenant
+            filter in exactly one layer that takes the tenant from the verified session. Then test it: seed two tenants
+            with different row counts and assert that each sees only its own. The three layers below show the SQL and
+            code for each.
+          </p>
+        </div>
         <div className="max-w-[760px] space-y-4 text-body text-text-muted">
           <h3 className="text-lg font-medium text-text">1. Sort by tenant first</h3>
           <p>
@@ -761,6 +783,35 @@ export default async function ClickHouseEmbeddedAnalyticsPage() {
       />
 
       <HubSection
+        id="from-postgres"
+        eyebrow="From Postgres"
+        title="If your app runs on Postgres"
+        intro={
+          <>
+            <p>
+              Most SaaS products reach ClickHouse from a Postgres app. Keep Postgres as the system of record and send
+              ClickHouse the data you aggregate. Write product events straight to ClickHouse in batches, and copy
+              tables such as orders or subscriptions with CDC (PeerDB, or ClickPipes in ClickHouse Cloud). CDC lands
+              each change as a new row version in a <code className={inlineCode}>ReplacingMergeTree</code>, so read
+              those tables with <code className={inlineCode}>FINAL</code> or counts drift up between merges.
+            </p>
+            <p>
+              Keep the tenant column the same on both sides, so the id a customer has in Postgres is the tenant key in
+              ClickHouse. The{' '}
+              <Link href="/saas-analytics-backend" className={inlineLink}>
+                SaaS analytics backend guide
+              </Link>{' '}
+              walks through the whole setup in TypeScript, and{' '}
+              <Link href="/postgres-analytics" className={inlineLink}>
+                slow Postgres analytics
+              </Link>{' '}
+              covers the fixes to try before adding ClickHouse at all.
+            </p>
+          </>
+        }
+      />
+
+      <HubSection
         id="quickstart"
         eyebrow="Quickstart"
         title="Quickstart: one tenant-scoped dataset on ClickHouse"
@@ -802,7 +853,10 @@ export default async function ClickHouseEmbeddedAnalyticsPage() {
           <>
             <p>hypequery is infrastructure for engineers, not a dashboard product. It is the wrong choice when:</p>
             <ul className="list-disc space-y-2 pl-5">
-              <li>Your data is in Postgres, BigQuery or Snowflake. hypequery is ClickHouse-only today.</li>
+              <li>
+                Your analytics must stay in Postgres, BigQuery or Snowflake. hypequery queries ClickHouse only, so
+                Postgres data has to be copied into ClickHouse first.
+              </li>
               <li>
                 Non-engineers need to build and change customer dashboards in a drag-and-drop editor. Embedded BI tools
                 do that.
