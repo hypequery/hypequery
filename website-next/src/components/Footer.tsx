@@ -69,6 +69,8 @@ const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
       { label: 'Newsletter', href: '/blog#newsletter' },
       { label: 'RSS', href: '/blog/rss.xml' },
       { label: 'Contact', href: '/contact-us' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
       { label: 'Book a call', href: 'https://cal.com/luke-reilly-jdi9su/hypequery-chat', external: true, track: 'book_call' },
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
       { label: 'X / Twitter', href: 'https://x.com/hypequery', external: true },

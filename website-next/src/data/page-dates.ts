@@ -75,6 +75,8 @@ const pageUpdated: Record<string, string> = {
   '/use-cases/multi-tenant-saas': '2026-11-01',
   '/tinybird-alternative': '2026-11-14',
   '/contact-us': '2026-07-13',
+  '/privacy': '2026-11-24',
+  '/terms': '2026-11-24',
 };
 
 /** The page's last update (YYYY-MM-DD). Throws at build time when a page is missing from the map. */

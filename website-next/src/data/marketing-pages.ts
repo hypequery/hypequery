@@ -60,4 +60,6 @@ export const marketingPages: readonly string[] = [
   '/tinybird-alternative',
   '/clickhouse-cloud-pricing',
   '/contact-us',
+  '/privacy',
+  '/terms',
 ];
