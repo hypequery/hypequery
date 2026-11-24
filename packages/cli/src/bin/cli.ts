@@ -92,7 +92,11 @@ async function main() {
       const topic = named && isCloudOperationGroup(named) ? 'cloud-operation' : named;
       await lifecycle.begin('help');
       const code = commander.exitCode ?? 0;
-      await lifecycle.finish(new CommandExit(code, code ? 'failure' : 'success', code ? 'validation_failed' : undefined), topic)
+      // A non-zero help exit is Commander's implicit help: `hypequery`, or a
+      // command group, run without a subcommand. The person still gets the help
+      // they need, so the exit code stays conventional but telemetry records the
+      // help as shown rather than as a failed command.
+      await lifecycle.finish(new CommandExit(code, 'success'), topic)
         .catch(() => undefined);
       process.exitCode = code;
       await settleTelemetrySettings();
