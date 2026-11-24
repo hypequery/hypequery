@@ -46,6 +46,8 @@ On the seed, the `avg(latency_ms)` query read 5.0 MB from ClickHouse, against 45
 - Analytics traffic does not compete with transactions. A read replica for reporting solves this for a long time.
 - You need transactional consistency between the app's writes and the numbers on screen.
 
+If some of these hold but the dashboards are still slow, the [slow Postgres analytics guide](/postgres-analytics) goes through the fixes to try inside Postgres first: indexes and work_mem, rollups, partitioning, a read replica and analytics extensions.
+
 ## Signs it is time to add ClickHouse
 
 - Dashboard queries scan most of a table that grows by millions of rows a month, and you keep adding indexes or rollup tables to stay ahead.
@@ -172,6 +174,8 @@ Yes, with the `postgresql()` table function or the `PostgreSQL` table engine. Fi
 
 ## Related
 
+- [Postgres analytics getting slow?](/postgres-analytics): the fixes to try, cheapest first, before adding ClickHouse.
+- [Build a SaaS analytics backend in TypeScript](/saas-analytics-backend): the full architecture once ClickHouse is in.
 - [Run ClickHouse with Docker Compose](/guides/clickhouse-docker-compose): the local setup these numbers came from.
 - [Top N per group with LIMIT BY](/recipes/top-n-per-group-limit-by): the `row_number()` replacement from the table above.
 - [Materialized view rollups](/examples/materialized-view-rollups): precompute the heaviest dashboards on the ClickHouse side too.

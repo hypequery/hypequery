@@ -43,6 +43,8 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'Time Series', href: '/clickhouse-time-series' },
       { label: 'SaaS Analytics', href: '/clickhouse-saas-analytics' },
       { label: 'Multi-Tenant Analytics', href: '/clickhouse-multi-tenant-analytics' },
+      { label: 'SaaS Analytics Backend', href: '/saas-analytics-backend' },
+      { label: 'Postgres Analytics', href: '/postgres-analytics' },
     ],
   },
   {
