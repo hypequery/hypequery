@@ -36,7 +36,7 @@ noticed them.
 2. **Every publish is verified.**
    - Before publishing, the job records the versions it will publish.
    - Afterwards, each version must resolve with `npm view`, and its tarball must
-     download and match `dist.integrity`. The check retries for up to 5 minutes
+     download and match `dist.integrity`. The check retries for up to 15 minutes
      for CDN lag, and then the job fails.
    - The stable job also verifies versions on `main` that npm lacks.
      changesets/action doesn't retry those while changesets are queued.

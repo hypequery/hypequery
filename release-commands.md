@@ -137,7 +137,7 @@ versions it recorded before publishing. Those are:
 
 For each version, `npm view <pkg>@<version> version` must resolve, and the
 tarball must download and match `dist.integrity`. The script retries for up to
-5 minutes to allow for registry and CDN lag, then fails the job.
+15 minutes to allow for registry and CDN lag, then fails the job.
 
 The stable list also catches a stable version whose earlier publish failed.
 changesets/action doesn't retry such a version while other changesets are

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Fail unless every listed version resolves on npm and its tarball downloads
-// and matches dist.integrity. Retries for registry/CDN lag (default 5 min).
+// and matches dist.integrity. Retries for registry/CDN lag (default 15 min).
 //
 //   --packages-file <file>  JSON [{ name, version }] (repeatable; missing files are an error)
 //   --packages-json <json>  the same, inline (e.g. changesets' publishedPackages)
-//   --timeout-seconds <n>   total retry budget (default 300)
+//   --timeout-seconds <n>   total retry budget (default 900)
 
 import { appendFileSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
