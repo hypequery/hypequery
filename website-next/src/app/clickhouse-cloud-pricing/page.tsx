@@ -7,15 +7,17 @@ import { faqJsonLd, techArticleJsonLd, type FaqItem } from '@/lib/structured-dat
 import { updatedFor } from '@/data/page-dates';
 
 // RE-VERIFY QUARTERLY. Every ClickHouse Cloud figure below comes from clickhouse.com/pricing
-// (AWS us-east-1, list prices). Re-check them, update VERIFIED_ON and this page's date in
+// (AWS us-east-1, list prices); EC2 and EBS figures come from AWS's us-east-1 on-demand rates. Re-check them, update VERIFIED_ON and this page's date in
 // src/data/page-dates.ts. Next check due: February 2027.
 const PATH = '/clickhouse-cloud-pricing';
-const TITLE = 'ClickHouse Cloud Pricing (2026): Costs and Worked Examples';
+const TITLE = 'ClickHouse Pricing (2026): Cloud Plans vs Self-Hosted Cost';
 const DESCRIPTION =
-  'ClickHouse Cloud bills compute per minute at $0.2181-$0.3903 per unit-hour and storage at $25.30 per TB-month. Plans, worked monthly costs and alternatives.';
+  'ClickHouse is free to self-host. ClickHouse Cloud bills compute at $0.2181-$0.3903 per unit-hour plus $25.30 per TB-month. Worked monthly costs for both.';
 const PUBLISHED = '2026-11-14';
 const UPDATED = updatedFor(PATH);
 const VERIFIED_ON = 'November 14, 2026';
+// ClickHouse Cloud rates re-read and unchanged on this date; EC2/EBS rates for the self-hosting table read on it too.
+const SELF_HOSTED_CHECKED = 'November 25, 2026';
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -59,11 +61,31 @@ const alternativeRows = [
   ['Self-hosted ClickHouse', 'Open source (Apache 2.0)', 'No licence fee; you pay for servers and operations', <a key="oss" href="https://github.com/ClickHouse/ClickHouse" rel="noopener nofollow" className={extLink}>github.com/ClickHouse</a>],
 ];
 
+// Same workload both ways: 32 GiB RAM and 8 vCPU per replica, 500 GB of compressed data, us-east-1.
+// m7i.2xlarge = 8 vCPU / 32 GiB at $0.4032/hour on demand; gp3 = $0.08 per GB-month. Cloud Scale = $0.2985 per
+// unit-hour, 4 units (32 GiB) per replica; services above 12 GiB need 2+ replicas.
+const selfHostedRows = [
+  ['Self-hosted, one server', '1 × m7i.2xlarge (730 h × $0.4032) + 500 GB gp3 (× $0.08)', 'about $334', 'No replica and no failover. Backups, monitoring and upgrades are yours to run'],
+  ['Self-hosted, two replicas', '2 × the server above', 'about $668', 'Plus ClickHouse Keeper (usually three small nodes) to coordinate replication'],
+  ['ClickHouse Cloud Scale, always on', '2 replicas × 4 units × 730 h × $0.2985 + 0.5 TB × $25.30', 'about $1,756', 'Replication, backups and upgrades included'],
+  ['ClickHouse Cloud Scale, 8 h × 22 days', '2 replicas × 4 units × 176 h × $0.2985 + 0.5 TB × $25.30', 'about $433', 'Only if the service idles to zero outside working hours'],
+];
+
 const faqItems: FaqItem[] = [
   {
     question: 'How much does ClickHouse Cloud cost?',
     answer:
       'Compute is billed per minute in compute units of 8 GiB RAM and 2 vCPUs. On AWS us-east-1 the rate is $0.2181 per unit-hour on Basic, $0.2985 on Scale and $0.3903 on Enterprise. Storage is $25.30 per TB-month of compressed data on every plan. One Basic unit running all month is about $159 of compute. Prices checked on clickhouse.com/pricing on November 14, 2026.',
+  },
+  {
+    question: 'Is ClickHouse free?',
+    answer:
+      'The ClickHouse database is open source under the Apache 2.0 licence, so self-hosting it has no licence fee: you pay for servers, storage and the time to run them. ClickHouse Cloud, the managed service from ClickHouse Inc., is paid, with $300 in trial credits for 30 days.',
+  },
+  {
+    question: 'Is self-hosted ClickHouse cheaper than ClickHouse Cloud?',
+    answer:
+      'On infrastructure alone, usually, for a service that runs all day. In our us-east-1 example, two m7i.2xlarge replicas with 500 GB of gp3 storage cost about $668 a month against about $1,756 for the same memory on ClickHouse Cloud Scale. The self-hosted figure leaves out ClickHouse Keeper, backups, monitoring and the engineering time to run them. A Cloud service that idles outside working hours came to about $433.',
   },
   {
     question: 'Is there a free tier for ClickHouse Cloud?',
@@ -104,6 +126,7 @@ const sources = [
   { vendor: 'Tinybird', urls: ['https://www.tinybird.co/pricing'] },
   { vendor: 'Aiven', urls: ['https://aiven.io/clickhouse'] },
   { vendor: 'Altinity', urls: ['https://altinity.com/clickhouse-pricing/'] },
+  { vendor: 'AWS', urls: ['https://aws.amazon.com/ec2/pricing/on-demand/', 'https://aws.amazon.com/ebs/pricing/'] },
 ];
 
 export default function ClickHouseCloudPricingPage() {
@@ -123,8 +146,12 @@ export default function ClickHouseCloudPricingPage() {
           ClickHouse Cloud bills compute and storage separately. Compute is metered per minute in units of 8 GiB RAM and 2
           vCPUs, at $0.2181 per unit-hour on Basic, $0.2985 on Scale and $0.3903 on Enterprise (AWS us-east-1), and
           scales to zero when idle. Storage is $25.30 per TB-month of compressed data on every plan. One Basic unit
-          running all month is about $159 of compute. New organizations get $300 in credits for 30 days. Every figure was
-          checked on{' '}
+          running all month is about $159 of compute. New organizations get $300 in credits for 30 days. ClickHouse itself
+          is open source with no licence fee, and{' '}
+          <a href="#self-hosted" className={inlineLink}>
+            what self-hosting costs in servers
+          </a>{' '}
+          is compared below. Every Cloud figure was checked on{' '}
           <a href={PRICING_URL} rel="noopener nofollow" className={inlineLink}>
             clickhouse.com/pricing
           </a>{' '}
@@ -181,6 +208,39 @@ export default function ClickHouseCloudPricingPage() {
       </HubSection>
 
       <HubSection
+        id="self-hosted"
+        eyebrow="Self-hosted"
+        title="Self-hosted ClickHouse vs ClickHouse Cloud: what each costs"
+        intro={
+          <p>
+            ClickHouse itself is free: the database is open source under Apache 2.0, so self-hosting has no licence fee.
+            What you pay for is servers, disks and the time to run them. The table prices the same workload both ways
+            on AWS us-east-1: 32 GiB of RAM and 8 vCPUs per replica and 500 GB of compressed data. Self-hosting uses
+            an m7i.2xlarge at $0.4032 an hour on demand and gp3 storage at $0.08 per GB-month. ClickHouse Cloud services
+            larger than 12 GiB need at least two replicas, so the Cloud rows use two. Rates read on {SELF_HOSTED_CHECKED}.
+          </p>
+        }
+      >
+        <HubTable
+          caption={`Self-hosted ClickHouse and ClickHouse Cloud monthly cost, AWS us-east-1, ${SELF_HOSTED_CHECKED}`}
+          columns={['Setup', 'Arithmetic', 'Monthly cost', 'What it leaves out']}
+          rows={selfHostedRows}
+        />
+        <p className="mt-4 text-sm leading-6 text-text-muted">
+          On infrastructure alone, self-hosting an always-on service cost about 40% of ClickHouse Cloud here. The
+          self-hosted rows leave out ClickHouse Keeper, S3 for backups, monitoring, and the engineer who upgrades the
+          cluster and responds when a node fails. Reserved instances or savings plans would lower the EC2 rows. A service that is busy only in working hours turns the
+          comparison around, because Cloud compute scales to zero and an EC2 server bills every hour it runs. For
+          hosted options other than ClickHouse Cloud, see the{' '}
+          <Link href="/blog/managed-clickhouse-services-compared" className={inlineLink}>
+            managed ClickHouse services comparison
+          </Link>
+          .
+        </p>
+      </HubSection>
+
+      <HubSection
+        band
         eyebrow="Keeping it down"
         title="How to keep a ClickHouse Cloud bill down"
         intro={
@@ -195,7 +255,6 @@ export default function ClickHouseCloudPricingPage() {
       />
 
       <HubSection
-        band
         eyebrow="Alternatives"
         title="ClickHouse Cloud vs other ways to run ClickHouse"
         intro={
@@ -215,7 +274,7 @@ export default function ClickHouseCloudPricingPage() {
         />
       </HubSection>
 
-      <HubSection eyebrow="Using it" title="Building on ClickHouse Cloud">
+      <HubSection band eyebrow="Using it" title="Building on ClickHouse Cloud">
         <div className={marketing.card}>
           <p className="text-sm leading-6 text-text-muted">
             hypequery runs on ClickHouse Cloud, self-hosted ClickHouse and chDB with the same code. It adds typed datasets,
@@ -232,7 +291,7 @@ export default function ClickHouseCloudPricingPage() {
         </div>
       </HubSection>
 
-      <HubSection band eyebrow="Questions" title="ClickHouse Cloud pricing FAQ">
+      <HubSection eyebrow="Questions" title="ClickHouse pricing FAQ">
         <HubFaq items={faqItems} />
       </HubSection>
 

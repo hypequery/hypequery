@@ -460,7 +460,7 @@ ALTER TABLE visits MATERIALIZE INDEX idx_user SETTINGS mutations_sync = 1;
 EXPLAIN indexes = 1 SELECT count() FROM visits WHERE user_id = 4242;
 ```
 
-Before `MATERIALIZE INDEX` the skip index section showed `Granules: 245/245`; after, `Granules: 22/245`. Use skip indexes for columns you filter on that are not in the sorting key.
+Before `MATERIALIZE INDEX` the skip index section showed `Granules: 245/245`; after, `Granules: 22/245`. Use skip indexes for columns you filter on that are not in the sorting key. When one of those filters is frequent enough to need its own sort order, a [ClickHouse projection](/blog/clickhouse-projections-vs-materialized-views) stores a re-sorted copy inside the same table, and queries use it without being rewritten.
 
 ## How do you show a table schema in ClickHouse?
 

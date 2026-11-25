@@ -1,10 +1,10 @@
 ---
 title: "ClickHouse vs DuckDB: Which Analytical Database Should You Use?"
-description: "ClickHouse vs DuckDB in 2026: a shared analytical server versus an engine inside your process, what DuckDB's new Quack protocol changes, where chDB fits, and how to choose."
-seoTitle: "ClickHouse vs DuckDB (2026): Server, In-Process, or Both"
-seoDescription: "ClickHouse is a shared analytical server; DuckDB runs inside your process. What DuckDB's Quack protocol changes, where chDB fits, and how to choose."
+description: "ClickHouse vs DuckDB in 2026: a shared server or an engine inside your process, a 50-million-row test on both, SQL differences, Quack and chDB."
+seoTitle: "ClickHouse vs DuckDB (2026): Benchmark, SQL and Use Cases"
+seoDescription: "ClickHouse is a shared analytical server; DuckDB runs inside your process. A 50M-row test on both, SQL differences, Quack, chDB, and how to choose."
 pubDate: 2026-11-14
-updatedAt: 2026-11-14
+updatedAt: 2026-11-25
 heroImage: ""
 slug: clickhouse-vs-duckdb
 status: published
@@ -16,13 +16,13 @@ tags:
 
 Use ClickHouse when many users, services or dashboards query the same large, constantly updated dataset, and DuckDB when one process (a notebook, a script, a data pipeline step, a desktop app) analyses data it can reach directly. Both are column-oriented SQL engines built for analytics, and both are open source. The real difference is where the engine runs: ClickHouse is a server that clients connect to, and DuckDB is a library that runs inside your process.
 
-That line moved in 2026. DuckDB's Quack protocol lets DuckDB run as a server too, and chDB runs the ClickHouse engine inside a Python process. This guide covers both, with every DuckDB claim checked on duckdb.org on 14 November 2026.
+That line moved in 2026. DuckDB's Quack protocol lets DuckDB run as a server too, and chDB runs the ClickHouse engine inside a Python process. This guide covers both, with every DuckDB claim checked on duckdb.org on 14 November 2026, and a test of six queries on the same 50-million-row file in both engines, run on 25 November 2026.
 
 ## Quick answers
 
 ### Is ClickHouse faster than DuckDB?
 
-It depends on the workload, and published benchmarks rarely match yours. DuckDB on one machine is fast on data that fits that machine. ClickHouse spreads queries across a cluster of servers, which DuckDB does not do. No benchmarks were run for this guide; test both on your own data and queries.
+On one machine, neither won every query in our test. Reading a Parquet file directly, DuckDB was 5 to 9 times faster on simple aggregations. With each engine using its own storage, ClickHouse was faster on an exact distinct count and on grouping by day, and DuckDB on small group-bys. A filter on ClickHouse's sort key took about 1 ms. The [test below](#clickhouse-vs-duckdb-performance-a-test-on-one-laptop) has the numbers. What one laptop can't show is ClickHouse spreading queries across a cluster, which DuckDB does not do.
 
 ### Can DuckDB replace ClickHouse?
 
@@ -62,6 +62,44 @@ chDB. It packages the ClickHouse engine as a library for Python and other langua
 - **Continuously arriving data.** Events, logs and metrics inserted all day while queries run.
 - **Data that outgrows one server.** Shards spread the data, replicas spread the reads.
 - **Shared access.** One database that several services, a BI tool and an AI agent all query.
+
+## ClickHouse vs DuckDB performance: a test on one laptop
+
+We ran six common analytical queries on the same data in both engines, once against a Parquet file and once in each engine's own storage. It is one machine and one dataset, so treat it as a check on the pattern. Your own data and queries may come out differently.
+
+**Setup.** An Apple M1 with 8 cores and 16 GB of RAM. ClickHouse 26.6.2 as `clickhouse local`, and DuckDB 2.0.1 from Python. Both used all cores, with default settings. The data was 50,000,000 synthetic events with 1,000,000 users, 4 event types, 8 countries and 83 days, written to one 357 MB Parquet file. For native storage we loaded the same rows into a ClickHouse MergeTree table with `ORDER BY (event_type, event_time)` and into a DuckDB database file. Each query ran once to warm up and then five times, and we took the median. The whole script ran five times, and the table shows the median of those five medians, rounded. The laptop was busy with other work during the runs, and some cells moved by up to 2× from one run to the next. Compare the engines, and don't read much into exact milliseconds. Both engines returned identical results for all six queries.
+
+| Query (median ms) | ClickHouse on Parquet | ClickHouse MergeTree | DuckDB on Parquet | DuckDB table |
+| --- | --- | --- | --- | --- |
+| `count()` where `event_type = 'purchase'` | 470 | 1 | 50 | 40 |
+| `sum(revenue)` by country (8 groups) | 470 | 190 | 80 | 50 |
+| Events by day and type (332 groups) | 1,050 | 500 | 1,070 | 960 |
+| Purchases and purchase revenue by country (`countIf` / `FILTER`) | 930 | 230 | 180 | 130 |
+| `count(DISTINCT user_id)` (1,000,000 users) | 460 | 310 | 720 | 530 |
+| Top 10 users by revenue (1,000,000 groups) | 1,160 | 830 | 970 | 790 |
+
+What the numbers show:
+
+- Straight off Parquet, DuckDB was faster on the filter and the small group-bys, by about 5 to 9 times. If your workflow is "point SQL at files", DuckDB is the stronger tool on one machine.
+- For the filtered count, the sort key mattered more than the engine. The MergeTree table is sorted by `event_type`, so ClickHouse used the primary index to pick 1,527 of 6,104 granules. It then counted the exact ranges without reading the column (`_exact_count_projection` in `EXPLAIN`). With `optimize_use_implicit_projections = 0`, the same query took 16 ms.
+- In native storage the results were mixed. ClickHouse was faster on the exact distinct count and on grouping by day. DuckDB was faster on the 8-group aggregations. The 1,000,000-group top-10 query was close.
+- Storage was similar. The Parquet file was 357 MB, the DuckDB file 389 MB and the MergeTree table 533 MB, all with each engine's default compression. ClickHouse's default codec is LZ4, and ZSTD column codecs would make its table smaller.
+
+None of this tests what decides most production choices, such as dozens of users querying at once, inserts arriving while queries run, and data larger than one server. That is where ClickHouse's server and cluster design applies, and where DuckDB's FAQ says Quack does not go.
+
+## SQL differences between ClickHouse and DuckDB
+
+Most analytical SQL runs on both engines. These were the differences that mattered in the test above. We checked each one on ClickHouse 26.6.2 and DuckDB 2.0.1.
+
+| Task | ClickHouse | DuckDB |
+| --- | --- | --- |
+| Read a Parquet file | `FROM file('events.parquet')`. `clickhouse local` also accepts `FROM 'events.parquet'` | `FROM 'events.parquet'` or `read_parquet(...)` |
+| Truncate a timestamp to a date | `toDate(ts)`. `CAST(ts AS DATE)` also works | `CAST(ts AS DATE)`. `toDate` does not exist |
+| Conditional count | `countIf(cond)` or `count() FILTER (WHERE cond)` | `count(*) FILTER (WHERE cond)`, `count_if(cond)` or `countIf(cond)` |
+| Approximate distinct count | `uniq(col)` | `approx_count_distinct(col)`. ClickHouse has no function by that name |
+| 90th percentile | `quantile(0.9)(col)` is approximate (sampled), and can change between runs. Use `quantileExact(0.9)(col)` for an exact value | `quantile_cont(col, 0.9)` is exact, interpolated |
+
+The last two rows matter most if you move queries between engines. On the same 50,000,000 rows, ClickHouse's `quantile(0.9)(revenue)` returned 89.68 on one run and 90.29 on the next, while `quantileExact(0.9)(revenue)` and DuckDB's `quantile_cont(revenue, 0.9)` both returned 90. The approximate distinct counts were 1,001,943 (`uniq`) and 982,272 (`approx_count_distinct`), against an exact 1,000,000. Both answers are correct for their functions, but a dashboard tested on one engine and served from the other will show different numbers. The same SQL on chDB and ClickHouse avoids this, as described [below](#where-chdb-fits).
 
 ## What Quack changes, and what it doesn't
 
