@@ -18,6 +18,7 @@ import { StatementParameters, type PlannedStatement } from './statement-paramete
 import { formulaExpressionSql } from './derived-measure-sql.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
+import { metricMeasureFilterFields } from './measure-filter-relationships.js';
 import { segmentFilters } from './segments.js';
 import type { DerivedMetricSpec } from '../types.js';
 import { validateSQLIdentifier } from '../sql-utils.js';
@@ -38,7 +39,7 @@ export function buildDerivedMetricSql(
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ref.dataset, dialect);
   const ds = datasetOnTimeKey(ref.dataset, query.timeKey);
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect, metricMeasureFilterFields(ds, spec));
 
   // Build the CTE inner query using the builder
   let cteBuilder: QueryBuilderLike = scopedDatasetSource({ builderFactory, ds, context, joinCtx, dialect, timezone: query.timezone });

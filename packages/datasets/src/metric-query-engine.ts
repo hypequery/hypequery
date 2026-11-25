@@ -1,6 +1,7 @@
 /** Metric validation, compilation orchestration and execution. */
 import { queryReadsFinal, withFinalSafety } from './utils/dataset-source.js';
 import { buildRelationshipBuilderContext } from './utils/relationship-builder-plan.js';
+import { metricMeasureFilterFields } from './utils/measure-filter-relationships.js';
 import { resolveDatasetSqlDialect } from './utils/dataset-sql-dialect.js';
 import type { MetricRef, GrainedMetricRef, MetricQuery, MetricResult, ExecutionContext } from './types.js';
 import type { QueryBuilderFactoryLike, QueryBuilderFactoryInput } from './query-builder-protocol.js';
@@ -156,7 +157,9 @@ export class MetricQueryEngine {
       // After planning, which validates the query; rawQuery drops builder settings.
       const readsFinal = queryReadsFinal(
         ref.dataset,
-        buildRelationshipBuilderContext(ref.dataset, buildQuery, context, resolveDatasetSqlDialect(activeBuilderFactory)),
+        buildRelationshipBuilderContext(
+          ref.dataset, buildQuery, context, resolveDatasetSqlDialect(activeBuilderFactory), metricMeasureFilterFields(ref.dataset, spec),
+        ),
       );
       const statement = withFinalSafety(readsFinal, planned);
       return {

@@ -3,7 +3,9 @@ import type {
   AggregationSpec,
   AnyDatasetInstance,
   DerivedMetricConfig,
+  MetricFilter,
 } from '../types.js';
+import { isQualifiedField, resolveQualifiedField } from './relationship-fields.js';
 import { validateFilterValue } from '../validation.js';
 import { validatePercentileLevel } from '../measure.js';
 import { assertAggregateStateFunction } from './aggregate-state-functions.js';
@@ -65,6 +67,10 @@ export function validateBaseMetric(
   }
 
   for (const filter of filterLeaves(spec.filters)) {
+    if (isQualifiedField(filter.field)) {
+      validateQualifiedMetricFilter(ds, metricName, filter);
+      continue;
+    }
     const filterDefinition = ds.filters[filter.field];
     const resolvedField = filterDefinition?.field ?? filter.field;
     const fieldType = ds.dimensions[resolvedField]?.fieldType;
@@ -85,6 +91,30 @@ export function validateBaseMetric(
     if (filterError) {
       throw new Error(`Invalid metric "${metricName}": ${filterError}`);
     }
+  }
+}
+
+/**
+ * A measure filter on `<relationship>.<field>` (K-17) reads a to-one target's
+ * dimension through the join the planner adds for it. A target that is not
+ * defined yet (a relationship thunk read before its dataset's declaration)
+ * is left to query-time validation, which reports the same errors.
+ */
+function validateQualifiedMetricFilter(ds: AnyDatasetInstance, metricName: string, filter: MetricFilter): void {
+  let resolution: ReturnType<typeof resolveQualifiedField>;
+  try {
+    resolution = resolveQualifiedField(ds, filter.field);
+  } catch (error) {
+    if (error instanceof ReferenceError) return;
+    throw error;
+  }
+  if (!resolution) return;
+  if (!resolution.resolved) {
+    throw new Error(`Invalid metric "${metricName}": measure filter field "${filter.field}": ${resolution.error}`);
+  }
+  const filterError = validateFilterValue(filter, resolution.resolved.targetDimension.fieldType);
+  if (filterError) {
+    throw new Error(`Invalid metric "${metricName}": ${filterError}`);
   }
 }
 

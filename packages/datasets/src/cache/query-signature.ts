@@ -30,6 +30,7 @@ import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
 import { runtimeConstraints } from '../utils/row-scope.js';
 import { buildRelationshipBuilderContext } from '../utils/relationship-builder-plan.js';
+import { metricMeasureFilterFields } from '../utils/measure-filter-relationships.js';
 import { stableStringify } from '../utils/canonical-json.js';
 
 export { stableStringify };
@@ -84,8 +85,9 @@ function activatesTenantScopedJoin(
   ds: AnyDatasetInstance,
   query: JoinDrivingQuery,
   context?: ExecutionContext,
+  measureFilterFields?: readonly string[],
 ): boolean {
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, undefined, measureFilterFields);
   return !!joinCtx && joinCtx.joins.some((join) => join.scope.length > 0);
 }
 
@@ -100,10 +102,12 @@ function tenantSignature(
   ds: AnyDatasetInstance,
   query: JoinDrivingQuery,
   context?: ExecutionContext,
+  /** A metric's measure filter fields; a dataset query's are derived from it. */
+  measureFilterFields?: readonly string[],
 ) {
   const predicate = getRuntimeTenantPredicate(context);
   if (!ds.tenantKey) {
-    if (predicate && activatesTenantScopedJoin(ds, query, context)) {
+    if (predicate && activatesTenantScopedJoin(ds, query, context, measureFilterFields)) {
       return { joinScoped: true, operator: predicate.operator, value: predicate.value };
     }
     return null;
@@ -199,7 +203,7 @@ export function buildMetricQuerySignature(
     ...(query.timezone === undefined ? {} : { timezone: query.timezone }),
     limit: query.limit ?? null,
     offset: query.offset ?? null,
-    tenant: tenantSignature(ref.dataset, query, context),
+    tenant: tenantSignature(ref.dataset, query, context, metricMeasureFilterFields(ref.dataset, ref.spec)),
     ...constraintSignature(context),
     scope: scopeSignature(context),
   });

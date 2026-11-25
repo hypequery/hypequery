@@ -17,6 +17,7 @@ import { applyFilterTree } from './filter-predicate-tree.js';
 import { filterLeaves } from './filter-tree.js';
 import { isTenantScopedFilter } from './metric-handle.js';
 import { buildRelationshipBuilderContext } from './relationship-builder-plan.js';
+import { metricMeasureFilterFields } from './measure-filter-relationships.js';
 import { segmentFilters } from './segments.js';
 import { datasetOnTimeKey } from './dataset-time-keys.js';
 import type { AggregationSpec, AnyDatasetInstance } from '../types.js';
@@ -35,7 +36,7 @@ export function buildMetricQueryBuilder(
   const ds = datasetOnTimeKey(dataset, query.timeKey);
   const dialect = resolveDatasetSqlDialect(builderFactory);
   assertRawSqlForDialect(ds, dialect);
-  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect);
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context, dialect, metricMeasureFilterFields(ds, spec));
   let qb: QueryBuilderLike = scopedDatasetSource({ builderFactory, ds, context, joinCtx, dialect, timezone: query.timezone });
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(
     ds,
