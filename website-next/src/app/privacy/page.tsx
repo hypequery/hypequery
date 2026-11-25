@@ -201,7 +201,7 @@ export default function PrivacyPage() {
         The app uses a cookie to keep you signed in. On this website, we measure visits with cookieless analytics (Umami
         and PostHog) that store nothing on your device. Google Analytics, PostHog cookies and session recording, and
         Leadfeeder (which identifies visiting companies) run only if you accept them in the cookie banner. You can change
-        your choice at any time from the banner&apos;s settings.
+        your choice at any time with the Cookie settings button at the bottom of every page.
       </p>
       <p>
         In the app, PostHog (hosted in the EU) records page views and clicks against your user ID, without page text,

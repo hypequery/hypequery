@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import CookieSettingsButton from '@/components/CookieSettingsButton';
 import ThemeToggle from '@/components/ThemeToggle';
 import { HypequeryMascotIcon } from '@/components/HypequeryMascotIcon';
 
@@ -133,7 +134,10 @@ export default function Footer() {
 
       <div className="mx-auto mt-12 max-w-[1280px] footer-bottom border-t border-border pt-6 text-xs text-text-dim">
         <span>© {year} hypequery. All rights reserved.</span>
-        <ThemeToggle />
+        <div className="flex items-center gap-4">
+          <CookieSettingsButton />
+          <ThemeToggle />
+        </div>
       </div>
     </footer>
   );
