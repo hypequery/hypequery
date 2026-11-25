@@ -122,6 +122,11 @@ const sqlGuides: HubLink[] = [
     description: 'Why ClickHouse materialized views are insert triggers, not cached results, and how to use them.',
   },
   {
+    href: '/blog/clickhouse-projections-vs-materialized-views',
+    title: 'ClickHouse projections',
+    description: 'A second sort order or rollup inside the same table, which queries use without changes.',
+  },
+  {
     href: '/blog/clickhouse-prewhere-vs-where',
     title: 'PREWHERE vs WHERE',
     description: 'When moving a filter into PREWHERE cuts the data ClickHouse reads, and when it does not.',
@@ -221,6 +226,16 @@ const comparisonLinks: HubLink[] = [
     href: '/compare/hypequery-vs-kysely',
     title: 'hypequery vs Kysely',
     description: 'Two different bets on type safety, and where ClickHouse changes the tradeoffs.',
+  },
+  {
+    href: '/blog/clickhouse-vs-duckdb',
+    title: 'ClickHouse vs DuckDB',
+    description: 'A server or an engine inside your process, with a 50-million-row test on both.',
+  },
+  {
+    href: '/clickhouse-cloud-pricing',
+    title: 'ClickHouse Cloud pricing',
+    description: 'Per-minute compute, storage per TB and worked monthly costs, next to self-hosting.',
   },
   {
     href: '/compare',
@@ -380,11 +395,11 @@ export default function ClickHouseHubPage() {
 
       <HubSection
         eyebrow="Choosing tools"
-        title="Compare ClickHouse clients and layers"
+        title="Compare ClickHouse clients, engines and costs"
         intro={
           <p>
-            If you are still choosing a stack, these comparisons cover the official drivers, general SQL builders and
-            hosted platforms.
+            If you are still choosing a stack, these comparisons cover the official drivers, general SQL builders,
+            hosted platforms, DuckDB, and what ClickHouse Cloud costs.
           </p>
         }
       >

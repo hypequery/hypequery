@@ -20,7 +20,7 @@ const pageUpdated: Record<string, string> = {
   '/clickhouse-saas-analytics': '2026-11-24',
   '/saas-analytics-backend': '2026-11-24',
   '/postgres-analytics': '2026-11-24',
-  '/clickhouse-cloud-pricing': '2026-11-14',
+  '/clickhouse-cloud-pricing': '2026-11-25',
   '/semantic-layer': '2026-11-22',
   '/semantic-layer/dbt-metricflow': '2026-11-16',
   '/semantic-layer/snowflake-semantic-views': '2026-11-16',

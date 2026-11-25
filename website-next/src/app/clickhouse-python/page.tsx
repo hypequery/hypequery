@@ -605,6 +605,11 @@ export default function ClickHousePythonPage() {
           description: 'Run ClickHouse SQL inside a Python process, with no server.',
         },
         {
+          href: '/blog/clickhouse-vs-duckdb',
+          title: 'ClickHouse vs DuckDB',
+          description: 'A 50-million-row test on both engines, and the SQL differences that change results.',
+        },
+        {
           href: '/docs/python',
           title: 'hypequery Python docs',
           description: 'Datasets, filters, execution and serving on top of clickhouse-connect.',

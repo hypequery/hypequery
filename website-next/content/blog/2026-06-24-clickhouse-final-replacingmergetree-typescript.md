@@ -113,7 +113,7 @@ const [row] = await db
 
 ### What FINAL costs
 
-`FINAL` is not free. To dedup at read time, ClickHouse has to look at all parts that might contain a given sort key, merge-sort them, and collapse duplicates before the rest of the query runs. That means extra CPU, extra memory, and less freedom to parallelize the read. Recent ClickHouse releases have improved `FINAL` substantially (parallel processing of non-overlapping ranges, skipping parts that are already fully merged), so old advice like "never use FINAL" is outdated — but it is still meaningfully slower than a plain read on large tables, and the gap grows with the number of unmerged parts.
+`FINAL` is not free. To dedup at read time, ClickHouse has to look at all parts that might contain a given sort key, merge-sort them, and collapse duplicates before the rest of the query runs. That means extra CPU, extra memory, and less freedom to parallelize the read. Recent ClickHouse releases have improved `FINAL` substantially (parallel processing of non-overlapping ranges, skipping parts that are already fully merged), so old advice like "never use FINAL" is outdated — but it is still meaningfully slower than a plain read on large tables, and the gap grows with the number of unmerged parts. `FINAL` also stops a query from using [ClickHouse projections](/blog/clickhouse-projections-vs-materialized-views): on 26.6 a `FINAL` query read the base table even when a projection matched it.
 
 One setting worth knowing: if your partitioning scheme guarantees that all versions of a row land in the same partition (for example, partitioning by tenant, not by event date), you can tell ClickHouse not to merge across partitions:
 
