@@ -335,7 +335,7 @@ export default function OpenSemanticInterchangePage() {
               <strong className="text-text">dbt</strong>: v1.12 reads Ossie JSON files as an alternative to YAML;
               support in dbt v2 is &ldquo;coming soon&rdquo;. See{' '}
               <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
-                dbt MetricFlow
+                the dbt Semantic Layer guide
               </Link>
               .
             </li>

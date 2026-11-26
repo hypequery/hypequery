@@ -299,6 +299,11 @@ npx hypequery mcp --http --tenant acme
           description: 'Where NL2SQL agents go wrong, where they are the right tool, and how to combine them.',
         },
         {
+          href: '/blog/agentic-analytics',
+          title: 'What is agentic analytics?',
+          description: 'The agent loop, how it differs from dashboards and text-to-SQL, and what it needs in production.',
+        },
+        {
           href: '/compare/hypequery-vs-clickhouse-agents',
           title: 'hypequery vs ClickHouse Agents',
           description: 'An agent for your team, or an agent in your product.',

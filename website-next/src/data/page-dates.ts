@@ -22,7 +22,7 @@ const pageUpdated: Record<string, string> = {
   '/postgres-analytics': '2026-11-24',
   '/clickhouse-cloud-pricing': '2026-11-25',
   '/semantic-layer': '2026-11-22',
-  '/semantic-layer/dbt-metricflow': '2026-11-16',
+  '/semantic-layer/dbt-metricflow': '2026-11-26',
   '/semantic-layer/snowflake-semantic-views': '2026-11-16',
   '/semantic-layer/databricks-metric-views': '2026-11-16',
   '/semantic-layer/open-semantic-interchange': '2026-11-10',

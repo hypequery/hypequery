@@ -284,7 +284,7 @@ export default function DbtSemanticLayerAlternativesPage() {
               </Link>
               . The{' '}
               <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
-                dbt MetricFlow guide
+                dbt Semantic Layer guide
               </Link>{' '}
               maps each MetricFlow concept to its hypequery equivalent.
             </p>

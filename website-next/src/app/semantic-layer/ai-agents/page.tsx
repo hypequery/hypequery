@@ -267,7 +267,11 @@ export default function SemanticLayerAiAgentsPage() {
               It is the same <Link href="/semantic-layer" className={inlineLink}>semantic layer</Link> your dashboards use, exposed to an agent as tools. Instead of reading table
               schemas and writing SQL, the agent lists the metrics and dimensions you defined, reads their descriptions,
               and asks for one by name, such as revenue by country, by month. The layer writes the SQL, applies access rules and
-              returns rows.
+              returns rows. It is what makes{' '}
+              <Link href="/blog/agentic-analytics" className={inlineLink}>
+                agentic analytics
+              </Link>{' '}
+              dependable, where the agent chains several of these queries to answer one question.
             </p>
             <p>
               Most agents connect through MCP, the Model Context Protocol. What matters is what the tools allow. Can the agent
@@ -392,7 +396,7 @@ export default function SemanticLayerAiAgentsPage() {
         <p className="mt-4 text-sm leading-6 text-text-muted">
           For the models themselves, see the guides to{' '}
           <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
-            dbt MetricFlow
+            the dbt Semantic Layer
           </Link>
           ,{' '}
           <Link href="/semantic-layer/snowflake-semantic-views" className={inlineLink}>

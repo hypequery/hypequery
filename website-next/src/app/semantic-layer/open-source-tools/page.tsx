@@ -85,7 +85,7 @@ const tools: Tool[] = [
         The engine behind the dbt Semantic Layer. It reads metrics defined in YAML in a dbt project and compiles metric
         requests into SQL. It moved to Apache 2.0 at version 0.209.0, after earlier AGPL and BSL releases. See the{' '}
         <Link href="/semantic-layer/dbt-metricflow" className={inlineLink}>
-          dbt MetricFlow guide
+          dbt Semantic Layer guide
         </Link>
         .
       </>
