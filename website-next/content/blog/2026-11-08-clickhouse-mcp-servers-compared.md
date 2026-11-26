@@ -21,7 +21,7 @@ This guide compares them, shows the setup for Claude Code, Claude Desktop and Cu
 
 A ClickHouse MCP server is a small process that holds a ClickHouse connection and advertises tools (for example "list tables" or "run this query") to an MCP client such as Claude Desktop, Claude Code, Cursor or VS Code. The model never connects to ClickHouse itself. It asks the client to call a tool, the client forwards the call to the server, and the server runs it and returns JSON.
 
-What the server's tools accept decides what the agent can do. A tool that takes a SQL string lets the agent run anything the ClickHouse user is allowed to run. A tool that takes a metric name and a list of dimensions only lets it ask for what you defined. That split is the main difference between the options below.
+What the server's tools accept decides what the agent can do. A tool that takes a SQL string lets the agent run anything the ClickHouse user is allowed to run. A tool that takes a metric name and a list of dimensions only lets it ask for what you defined. That split is the main difference between the options below. It matters more when an agent chains several calls to answer one question, which is what [agentic analytics](/blog/agentic-analytics) means: each extra step is another chance to compute a metric differently.
 
 ## Which ClickHouse MCP servers are there?
 

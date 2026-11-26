@@ -340,7 +340,7 @@ const guideLinks: HubLink[] = [
   },
   {
     href: '/semantic-layer/dbt-metricflow',
-    title: 'dbt MetricFlow vs a code-defined layer',
+    title: 'dbt Semantic Layer vs a code-defined layer',
     description: 'Semantic models and metric types in dbt, mapped onto datasets defined in code.',
   },
   {
@@ -623,7 +623,7 @@ export default function ClickHouseSemanticLayerPage() {
             </Link>
             ,{' '}
             <Link href="/semantic-layer/dbt-metricflow" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">
-              dbt MetricFlow vs a code-defined layer
+              dbt Semantic Layer vs a code-defined layer
             </Link>{' '}
             and{' '}
             <Link href="/semantic-layer/ai-agents" className="font-medium text-text underline decoration-border underline-offset-2 hover:decoration-accent">

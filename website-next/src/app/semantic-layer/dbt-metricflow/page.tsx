@@ -15,9 +15,9 @@ import { faqJsonLd, type FaqItem } from '@/lib/structured-data';
 import { updatedFor } from '@/data/page-dates';
 
 const PATH = '/semantic-layer/dbt-metricflow';
-const TITLE = 'dbt Semantic Layer and MetricFlow: How It Works in 2026';
+const TITLE = 'dbt Semantic Layer: How It Works with MetricFlow (2026)';
 const DESCRIPTION =
-  'How the dbt Semantic Layer and MetricFlow work in 2026: the YAML spec, metric types, APIs, pricing and warehouses, compared with a semantic layer in code.';
+  'What the dbt Semantic Layer is, how to build one with MetricFlow, what it costs and which warehouses it supports, compared with a semantic layer in code.';
 const VERIFIED_ON = 'November 10, 2026';
 
 export const metadata = spokeMetadata({ path: PATH, title: TITLE, description: DESCRIPTION });
@@ -173,6 +173,21 @@ const faqItems: FaqItem[] = [
       'It is included from the Starter plan, $100 per user per month, which allows 5,000 queried metrics a month. Enterprise and Enterprise+ are custom priced and allow 20,000. The free Developer plan does not list it. You can run MetricFlow from the command line for free, without the APIs.',
   },
   {
+    question: 'Is the dbt Semantic Layer free?',
+    answer:
+      'The hosted Semantic Layer is not. Its APIs and integrations need a Starter, Enterprise or Enterprise+ plan. MetricFlow, the engine underneath, is free under Apache 2.0, so you can define metrics in your project and query them from the command line without a plan.',
+  },
+  {
+    question: 'Can I use the dbt Semantic Layer with dbt Core?',
+    answer:
+      'Partly. You can define semantic models and metrics in a dbt Core (dbt v1) project and query them locally with the MetricFlow CLI (mf query). The APIs and BI integrations that let other tools query those metrics need a dbt platform plan.',
+  },
+  {
+    question: 'What is MetricFlow?',
+    answer:
+      'MetricFlow is the open-source engine behind the dbt Semantic Layer. It reads semantic models and metrics from your dbt YAML, works out the joins between models from their entities, and compiles each metric request into SQL for your warehouse.',
+  },
+  {
     question: 'Does the dbt Semantic Layer support ClickHouse?',
     answer:
       'Not the hosted Semantic Layer. dbt lists Snowflake, BigQuery, Databricks, Redshift, Postgres and Trino. Open-source MetricFlow merged experimental ClickHouse support on September 29, 2026, after its latest release, and that change leaves out FINAL handling for ReplacingMergeTree tables.',
@@ -220,12 +235,12 @@ export default function DbtMetricFlowPage() {
   return (
     <HubShell
       path={PATH}
-      breadcrumbs={spokeBreadcrumbs('dbt MetricFlow')}
-      title="How the dbt Semantic Layer and MetricFlow work"
+      breadcrumbs={spokeBreadcrumbs('dbt Semantic Layer')}
+      title="The dbt Semantic Layer: how it works with MetricFlow"
       lead={
         <p>
-          How dbt defines metrics after the 2026 spec changes, how they are queried and priced, which warehouses they
-          run on, and how the same model looks when it is defined in application code instead.
+          How the dbt Semantic Layer defines metrics after the 2026 spec changes, how to build one step by step, how
+          it is queried and priced, which warehouses it runs on, and how the same model looks in application code.
         </p>
       }
       primaryCta={{ href: '#how-it-works', label: 'How it works', target: 'dbt_how_it_works' }}
@@ -285,6 +300,44 @@ export default function DbtMetricFlowPage() {
           dimension. Add <code className={inlineCode}>--compile</code> (dbt) or{' '}
           <code className={inlineCode}>--explain</code> (mf) to see the generated SQL.
         </p>
+        <div id="build" className="mt-12 scroll-mt-24">
+          <h2 className="text-2xl font-normal tracking-[-0.03em] text-text">How to build a semantic layer in dbt</h2>
+          <div className="mt-4 space-y-4 text-sm leading-6 text-text-muted">
+            <ol className="list-decimal space-y-2 pl-5">
+              <li>
+                <strong className="text-text">Add a semantic model</strong> to an existing dbt model&rsquo;s YAML: turn
+                on <code className={inlineCode}>semantic_model</code>, set{' '}
+                <code className={inlineCode}>agg_time_dimension</code>, and mark entities and dimensions on its
+                columns.
+              </li>
+              <li>
+                <strong className="text-text">Define metrics.</strong> Simple metrics go on the model. Ratio, derived
+                and cumulative metrics that combine them go in the top-level{' '}
+                <code className={inlineCode}>metrics</code> block.
+              </li>
+              <li>
+                <strong className="text-text">Parse and validate.</strong> Run <code className={inlineCode}>dbt parse</code>,
+                then <code className={inlineCode}>dbt sl validate</code> on the dbt platform or{' '}
+                <code className={inlineCode}>mf validate-configs</code> with self-hosted MetricFlow.
+              </li>
+              <li>
+                <strong className="text-text">Query it locally.</strong>{' '}
+                <code className={inlineCode}>dbt sl list metrics</code> and{' '}
+                <code className={inlineCode}>dbt sl query</code>, or <code className={inlineCode}>mf list metrics</code>{' '}
+                and <code className={inlineCode}>mf query</code>. This step is free.
+              </li>
+              <li>
+                <strong className="text-text">Serve it.</strong> To reach BI tools, spreadsheets, apps and agents,
+                configure the Semantic Layer for a deployment environment in the dbt platform, map a warehouse
+                credential to service tokens, and connect an integration or one of the APIs. This needs a Starter,
+                Enterprise or Enterprise+ plan.
+              </li>
+            </ol>
+            <p>
+              Steps one to four work in a dbt Core (dbt v1) project. Step five is what the paid plan adds.
+            </p>
+          </div>
+        </div>
       </HubSection>
 
       <HubSection
