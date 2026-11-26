@@ -32,6 +32,11 @@ export const semanticLayerSpokes: SemanticLayerPage[] = [
     description: 'Unity Catalog metric views in YAML, the MEASURE() function and Genie, compared with a semantic layer defined in code.',
   },
   {
+    href: '/semantic-layer/cube',
+    label: 'Cube semantic layer',
+    description: 'Cubes, views, measures and joins in YAML, the REST, GraphQL and SQL APIs, and pre-aggregations, compared with a semantic layer defined in code.',
+  },
+  {
     href: '/semantic-layer/open-semantic-interchange',
     label: 'Apache Ossie (Open Semantic Interchange)',
     description: 'Apache Ossie, formerly OSI, the vendor-neutral spec for exchanging semantic models: who is behind it, what the format covers and what it leaves out.',

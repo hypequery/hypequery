@@ -309,7 +309,11 @@ export default function CubeAlternativesPage() {
               Cube is the most widely adopted open-source semantic layer: about 21,200 stars on GitHub, and Cube Core is
               Apache 2.0. Models are YAML or JavaScript files that define measures, dimensions, joins and access rules
               once, and Cube serves them over REST, GraphQL and a SQL API that speaks the Postgres wire protocol, so BI
-              tools that connect to Postgres can connect to Cube.
+              tools that connect to Postgres can connect to Cube. The{' '}
+              <Link href="/semantic-layer/cube" className={inlineLink}>
+                Cube semantic layer guide
+              </Link>{' '}
+              walks through the model and each API.
             </p>
             <p>
               Its data sources page lists 29 connectors (about 26 distinct engines, ClickHouse included). Pre-aggregations,
