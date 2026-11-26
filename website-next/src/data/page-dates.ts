@@ -25,6 +25,7 @@ const pageUpdated: Record<string, string> = {
   '/semantic-layer/dbt-metricflow': '2026-11-26',
   '/semantic-layer/snowflake-semantic-views': '2026-11-16',
   '/semantic-layer/databricks-metric-views': '2026-11-16',
+  '/semantic-layer/cube': '2026-11-26',
   '/semantic-layer/open-semantic-interchange': '2026-11-10',
   '/semantic-layer/open-source-tools': '2026-11-13',
   '/semantic-layer/ai-agents': '2026-11-14',

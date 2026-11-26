@@ -332,7 +332,11 @@ export default function OpenSourceSemanticLayerToolsPage() {
         intro={
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong className="text-text">Many databases and BI tools on one model:</strong> Cube Core.
+              <strong className="text-text">Many databases and BI tools on one model:</strong> Cube Core. See{' '}
+              <Link href="/semantic-layer/cube" className={inlineLink}>
+                how the Cube semantic layer works
+              </Link>
+              .
             </li>
             <li>
               <strong className="text-text">Already modelling in dbt:</strong> dbt MetricFlow, or Lightdash if you also
