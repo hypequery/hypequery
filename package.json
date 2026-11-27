@@ -60,10 +60,10 @@
     "@changesets/cli": "^2.29.8",
     "@microsoft/api-extractor": "^7.60.1",
     "@type-challenges/utils": "^0.1.1",
-    "@typescript-eslint/eslint-plugin": "^8.72.1",
-    "@typescript-eslint/parser": "^8.72.1",
-    "eslint": "^10.14.0",
-    "turbo": "^2.11.10",
+    "@typescript-eslint/eslint-plugin": "^8.74.0",
+    "@typescript-eslint/parser": "^8.74.0",
+    "eslint": "^10.15.0",
+    "turbo": "^2.11.13",
     "typescript": "^6.0.3"
   },
   "pnpm": {
