@@ -106,6 +106,32 @@ const result = await analytics.execute(Orders, {
 
 Result rows key joined columns by their qualified name (`'customer.country'`), and the row types include them, so projections stay fully typed end to end — including through Serve endpoints and the React hooks.
 
+## Filtering a measure on a related field
+
+A base measure's fixed `filters` can also read a to-one related dimension. The measure then counts only the rows whose related row matches:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  // ...
+  measures: {
+    revenue: measure.sum('amount'),
+    enterpriseRevenue: measure.sum('amount', {
+      filters: [{ field: 'customer.tier', operator: 'eq', value: 'enterprise' }],
+    }),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+  },
+});
+
+// Joins customers even though the query names no customer field.
+await analytics.execute(Orders, { dimensions: ['status'], measures: ['revenue', 'enterpriseRevenue'] });
+```
+</CodeBlock>
+
+Selecting the measure plans the same join as a query filter on `customer.tier`. This also applies when you select the measure through a derived, window or shift measure, through a metric, or by omitting `measures`. Only that measure is narrowed: `revenue` above still sums every order. An order with no matching customer, or one outside the customer dataset's row scope, fails the filter. The usual rules apply. The filter must name one hop over a `belongsTo` or `hasOne` relationship and a column-backed dimension of its target. A query that breaks these rules fails validation and names the measure, and publishing refuses the measure. The filter publishes as a qualified reference, so a deployed contract keeps it.
+
 ## Querying related measures
 
 Dataset queries can select one-hop target base measures as `<relationship>.<measure>` through `createDatasetClient({ queryBuilder: db })`:

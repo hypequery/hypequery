@@ -30,6 +30,11 @@ export function resolveRelationshipMeasure(ds: AnyDatasetInstance, name: string)
     throw new Error(`Measure "${name}" cannot use ${definition.aggregation} through belongsTo: repeated target rows would inflate the aggregation. Use a duplicate-insensitive measure or query the target dataset.`);
   }
   const referenced = [definition.field, definition.argField, ...filterLeaves(definition.filters).map(filter => target.filters[filter.field]?.field ?? filter.field)];
+  // The target measure's own relationship filter would be a second hop.
+  const hop = referenced.find(field => field !== undefined && field.includes('.'));
+  if (hop !== undefined) {
+    throw new Error(`Measure "${name}" cannot be traversed through a relationship: its input "${hop}" reads the target's own relationship, which would be a second hop. Query the target dataset directly.`);
+  }
   if (definition.sql || referenced.some(field => field && target.dimensions[field]?.sql)) {
     throw new Error(`SQL-backed measure "${name}" or its inputs cannot be traversed through relationships.`);
   }

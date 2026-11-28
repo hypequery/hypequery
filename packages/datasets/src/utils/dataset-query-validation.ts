@@ -25,6 +25,7 @@ import { queryFilterErrors } from './query-filter-errors.js';
 import { hasQueryCalculations } from './query-calculation-outputs.js';
 import { calculatedDatasetQueryErrors } from './compile-calculated-dataset-query.js';
 import { filterLeafCount, filterTreeErrors } from './filter-tree.js';
+import { selectedMeasureFilterErrors } from './measure-filter-relationships.js';
 
 export function validateDatasetQueryInput(
   dataset: AnyDatasetInstance,
@@ -104,6 +105,8 @@ export function validateDatasetQueryInput(
       }
     }
   }
+  // A measure's fixed filter may read a relationship field the query never names.
+  errors.push(...selectedMeasureFilterErrors(ds, selectedMeasures));
 
   // A malformed tree is reported once, by the syntax check; its leaves are not read.
   if (query.filters && filterTreeErrors(query.filters).length === 0) {

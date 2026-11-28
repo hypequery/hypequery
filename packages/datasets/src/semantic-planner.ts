@@ -32,6 +32,7 @@ import { datasetRowScope, runtimeConstraints } from './utils/row-scope.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 import { segmentFilters } from './utils/segments.js';
 import { selectsAlternateTimeKey } from './utils/dataset-time-keys.js';
+import { metricMeasureFilterFields, selectedMeasureFilterFields } from './utils/measure-filter-relationships.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -104,11 +105,6 @@ function normalizeFilters(
 }
 
 /**
- * Collects deduped to-one LEFT JOINs for every relationship referenced by the
- * query's dimensions, filters, or orderBy, scoping each joined target with the
- * runtime tenant predicate when the target declares a `tenantKey`.
- */
-/**
  * Semantic backends receive a source name, not SQL, so they cannot apply
  * `FINAL`. Running a final dataset there would count unmerged row versions.
  */
@@ -147,17 +143,25 @@ function planRowScope(
   return { field: column, ...predicate };
 }
 
+/**
+ * Collects deduped to-one LEFT JOINs for every relationship referenced by the
+ * query's dimensions, filters, or orderBy, or by a computed measure's fixed
+ * filters, scoping each joined target with the runtime tenant predicate when
+ * the target declares a `tenantKey`.
+ */
 function collectJoins(
   ds: AnyDatasetInstance,
   dimensions: string[] = [],
   filters: MetricFilter[] = [],
   orderBy: MetricOrderBy[] = [],
   context?: ExecutionContext,
+  measureFilterFields: readonly string[] = [],
 ): SemanticJoinPlan[] | undefined {
   const referenced = [
     ...dimensions,
     ...filters.map((filter) => filter.field),
     ...orderBy.map((order) => order.field),
+    ...measureFilterFields,
   ].filter(isQualifiedField);
   if (referenced.length === 0) {
     return undefined;
@@ -234,7 +238,9 @@ function aggregatePlan(
   ds: AnyDatasetInstance,
   query: DatasetQuery,
   aggregations: SemanticAggregationPlan[],
-  context?: ExecutionContext,
+  context: ExecutionContext | undefined,
+  /** Relationship fields the aggregations' fixed filters read, as authored. */
+  measureFilterFields: readonly string[],
 ): PlanNode {
   return {
     kind: 'aggregate',
@@ -250,7 +256,7 @@ function aggregatePlan(
     limit: query.limit,
     offset: query.offset,
     tenant: planRowScope(ds, context),
-    joins: collectJoins(ds, query.dimensions, flatFilters(query.filters), query.orderBy, context),
+    joins: collectJoins(ds, query.dimensions, flatFilters(query.filters), query.orderBy, context, measureFilterFields),
   };
 }
 
@@ -280,6 +286,7 @@ export function buildDatasetPlan(
     query,
     measures.map((name) => aggregationForMeasure(ds, name)),
     context,
+    selectedMeasureFilterFields(ds, measures),
   );
 }
 
@@ -315,6 +322,7 @@ function buildBaseMetricPlan(
       filters: normalizeFilters(metric.dataset, spec.filters),
     }],
     context,
+    metricMeasureFilterFields(metric.dataset, spec),
   );
 }
 
@@ -345,7 +353,8 @@ function buildDerivedMetricPlan(
       field: resolveField(metric.dataset, baseSpec.field),
       argField: baseSpec.argField != null ? resolveField(metric.dataset, baseSpec.argField) : undefined,
       level: baseSpec.level,
-      filters: baseSpec.filters === undefined ? undefined : flatFilters(baseSpec.filters),
+      // Resolved like a base metric's, so a joined filter reads the joined column.
+      filters: baseSpec.filters === undefined ? undefined : normalizeFilters(metric.dataset, baseSpec.filters),
     };
   });
 
@@ -364,6 +373,7 @@ function buildDerivedMetricPlan(
       },
       inputAggregations,
       context,
+      metricMeasureFilterFields(metric.dataset, spec),
     ),
     metrics: [{ name: metric.name, expression }],
     orderBy: query.orderBy,

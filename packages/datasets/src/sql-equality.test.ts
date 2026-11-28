@@ -89,6 +89,11 @@ const Orders = dataset('orders', {
     // `revenue` would make the two indistinguishable in the contract, which
     // rehydration correctly refuses rather than guesses at.
     rawUnits: measure.sum('units', { sql: 'sum(unit_count) / 2', dependencies: ['unit_count'] }),
+    // K-17: a fixed filter on a to-one relationship's field, which joins the
+    // relationship although the query never names it. Kept out of the
+    // combinatorial measure axis (a join refuses the SQL-backed `region`
+    // inputs), and covered by the join, tenant and metric cases instead.
+    goldRevenue: measure.sum('amount', { filters: [eq('customer.tier', 'gold')] }),
   },
   filters: {
     status: { __type: 'filter_definition', field: 'status', operators: ['eq', 'neq', 'in', 'notIn', 'like'] },
@@ -110,6 +115,7 @@ const PUBLIC_ENDPOINT = { access: { kind: 'public' }, tenant: { kind: 'not-requi
 const revenueInput = Orders.metric('revenue', { measure: 'revenue' });
 const ordersInput = Orders.metric('orders', { measure: 'orderCount' });
 const avgInput = Orders.metric('avgAmount', { measure: 'avgAmount' });
+const goldInput = Orders.metric('gold', { measure: 'goldRevenue' });
 
 const authoredMetrics: Record<string, MetricHandle> = {
   totalRevenue: Orders.metric('totalRevenue', { measure: 'revenue' }) as MetricHandle,
@@ -117,6 +123,12 @@ const authoredMetrics: Record<string, MetricHandle> = {
     by(grain: TimeGrain): MetricHandle;
   }).by('month'),
   paidRevenue: Orders.metric('paidRevenue', { measure: 'paidRevenue' }) as MetricHandle,
+  // K-17: metrics whose aggregate filters on a relationship field.
+  goldRevenue: Orders.metric('goldRevenue', { measure: 'goldRevenue' }) as MetricHandle,
+  goldShare: Orders.metric('goldShare', {
+    uses: { gold: goldInput, revenue: revenueInput },
+    formula: ({ gold, revenue }) => divide(gold, nullIfZero(revenue)),
+  }) as MetricHandle,
   // Every formula helper, so no rendering rule is covered only by inspection:
   // division guarded against zero, rounding to a literal precision, a coalesce
   // fallback, the three remaining arithmetic operators, and both truncations.
@@ -172,7 +184,7 @@ const rehydratedClient = createDatasetClient({ queryBuilder: createRenderingBuil
 
 const GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
 const GROUPABLE = ['createdAt', 'customerId', 'status', 'region', 'channel'];
-const MEASURES = Object.keys(Orders.measures);
+const MEASURES = Object.keys(Orders.measures).filter(name => name !== 'goldRevenue');
 const TENANTS = [
   { label: 'single tenant', runtime: 'acme' },
   { label: 'tenant object', runtime: { id: 'acme' } },
@@ -285,6 +297,16 @@ function corpus(): Case[] {
         orderBy: [{ field: 'customer.country', direction: 'desc' }],
       },
     },
+    // K-17: only the measure's fixed filter names the relationship.
+    { name: 'join from a measure filter', query: { dimensions: ['status'], measures: ['goldRevenue'] } },
+    {
+      name: 'join from a measure filter beside plain measures',
+      query: { dimensions: ['status'], measures: ['revenue', 'goldRevenue', 'paidRevenue'] },
+    },
+    {
+      name: 'join from a measure filter and a joined dimension',
+      query: { dimensions: ['customer.country'], measures: ['goldRevenue'], by: 'month' },
+    },
   );
 
   // Tenant predicates, including the joined-tenant case.
@@ -297,6 +319,11 @@ function corpus(): Case[] {
     cases.push({
       name: `tenant ${tenant.label} over a join`,
       query: { dimensions: ['customer.country'], measures: ['revenue'] },
+      tenant: tenant.runtime,
+    });
+    cases.push({
+      name: `tenant ${tenant.label} over a measure-filter join`,
+      query: { dimensions: ['status'], measures: ['goldRevenue'] },
       tenant: tenant.runtime,
     });
   }
@@ -421,6 +448,15 @@ describe('rehydrated catalogs emit byte-identical SQL', () => {
     expect(sql).toContain('JOIN');
     expect(sql).toContain('tenant_id');
     expect(sql).toContain('LIMIT 10');
+  });
+
+  it('joins for a measure filter on a relationship field (K-17)', () => {
+    const testCase = CASES.find(entry => entry.name === 'join from a measure filter')!;
+    for (const [client, target] of [[authoredClient, Orders], [rehydratedClient, rehydrated.orders]] as const) {
+      const sql = compile(client, target, testCase);
+      expect(sql).toContain('LEFT ANY JOIN');
+      expect(sql).toContain('if(isNotNull(customer._hq_match), customer.tier, NULL)');
+    }
   });
 
   it('shows a derived metric\'s aliases are load-bearing, not cosmetic', () => {

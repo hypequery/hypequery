@@ -52,7 +52,7 @@ export function buildEventSourceSql(
   const joinCtx = buildRelationshipBuilderContext(ds, {
     dimensions: [request.entity, ...request.breakdown],
     filters: [...request.filters],
-  }, options.context, dialect);
+  }, options.context, dialect, []);
   let raw = scopedDatasetSource({
     builderFactory: options.builderFactory, ds, context: options.context, joinCtx, dialect, timezone: request.timezone,
   });

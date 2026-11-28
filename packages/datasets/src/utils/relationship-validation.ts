@@ -2,6 +2,7 @@ import { filterLeaves } from './filter-tree.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
 import { effectiveFilters } from './effective-filters.js';
+import { datasetQueryMeasureFilterFields } from './measure-filter-relationships.js';
 /**
  * Shared validation for relationship-qualified filters, used by both the
  * dataset-query and metric-query validators.
@@ -33,12 +34,15 @@ type RelationshipQuery = Pick<
 /**
  * Tenant-less base datasets may still reach tenant-scoped data through a
  * relationship. Require either a concrete runtime tenant or the trusted
- * cross-tenant scope whenever a query activates such a join.
+ * cross-tenant scope whenever a query activates such a join, including one a
+ * computed measure's fixed filter activates (`measureFilterFields`, defaulting
+ * to a dataset query's, as in `buildRelationshipBuilderContext`).
  */
 export function validateRelationshipTenantRuntime(
   ds: AnyDatasetInstance,
   query: RelationshipQuery,
   context?: ExecutionContext,
+  measureFilterFields: readonly string[] = datasetQueryMeasureFilterFields(ds, query),
 ): string | undefined {
   if (ds.tenantKey || hasTenantRuntime(context)) {
     return undefined;
@@ -51,9 +55,12 @@ export function validateRelationshipTenantRuntime(
     ...(query.orderBy ?? []).map((order) => order.field),
     ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);
+  const resolutions = [
+    ...referenced.map(name => resolveRelationshipReference(ds, name, query.measures)),
+    ...measureFilterFields.filter(isQualifiedField).map(name => resolveQualifiedField(ds, name)),
+  ];
 
-  for (const name of referenced) {
-    const resolution = resolveRelationshipReference(ds, name, query.measures);
+  for (const resolution of resolutions) {
     if (resolution?.resolved?.target.tenantKey) {
       return `Dataset "${ds.name}" requires runtime tenant scoping because relationship "${resolution.resolved.relationshipName}" targets a tenant-scoped dataset.`;
     }

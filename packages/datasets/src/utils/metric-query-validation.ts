@@ -18,6 +18,7 @@ import { enforcedConstraintErrors } from './enforced-constraints.js';
 import { filterAllowsOperator } from './filter-operator-policy.js';
 import { SEMANTIC_FILTER_OPERATORS } from '../constants.js';
 import { effectiveFilters } from './effective-filters.js';
+import { metricMeasureFilterErrors, metricMeasureFilterFields } from './measure-filter-relationships.js';
 
 export function validateMetricQueryInput(
   metric: MetricHandle,
@@ -43,10 +44,11 @@ export function validateMetricQueryInput(
   if (tenantRuntimeError) {
     errors.push(tenantRuntimeError);
   }
-  const relationshipTenantError = validateRelationshipTenantRuntime(ds, query, context);
+  const relationshipTenantError = validateRelationshipTenantRuntime(ds, query, context, metricMeasureFilterFields(ds, ref.spec));
   if (relationshipTenantError) {
     errors.push(relationshipTenantError);
   }
+  errors.push(...metricMeasureFilterErrors(ds, ref.name, ref.spec));
   errors.push(...enforcedConstraintErrors(ds, context, filterLeafCount(query.filters)));
 
   if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {

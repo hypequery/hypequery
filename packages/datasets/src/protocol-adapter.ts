@@ -25,6 +25,7 @@ import { assertPublishableTimeGrains, isPortableTimeGrain, requirePortableTimeGr
 import { requirePublishableMeasureAggregation } from './utils/portable-aggregations.js';
 import { isApproximateBaseMeasure } from './utils/approximate-measures.js';
 import { assertNoPublishedSegments } from './utils/segments.js';
+import { selectedMeasureFilterErrors } from './utils/measure-filter-relationships.js';
 
 export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
@@ -155,6 +156,12 @@ export function protocolDatasetRecord(
 ): ProtocolDatasetContract {
   const { base: baseMeasures } = splitDatasetMeasures(dataset.measures);
   assertPublishableTimeGrains(dataset);
+  // A relationship field in a measure filter publishes as a plain reference;
+  // refuse one no runtime could join rather than ship a measure that fails.
+  const measureFilterErrors = selectedMeasureFilterErrors(dataset, Object.keys(baseMeasures));
+  if (measureFilterErrors.length > 0) {
+    throw new Error(`Dataset "${dataset.name}": ${measureFilterErrors.join('; ')}`);
+  }
   if (dataset.limits?.maxStreamRows !== undefined) {
     // The contract's limits cannot carry it, so a deployment would quietly
     // fall back to maxResultSize: refuse rather than lose the ceiling.

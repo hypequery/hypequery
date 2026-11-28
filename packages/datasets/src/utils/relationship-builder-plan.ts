@@ -6,6 +6,7 @@ import type { DatasetSqlDialectRules } from '../dataset-sql-dialect.js';
 import { clickhouseDatasetSqlDialect } from './clickhouse-dataset-sql-dialect.js';
 import { resolveRelationshipReference } from './relationship-measures.js';
 import { joinsWithinTenant } from './tenant-runtime.js';
+import { datasetQueryMeasureFilterFields } from './measure-filter-relationships.js';
 /**
  * Query-builder-path planning for to-one relationship joins.
  *
@@ -64,15 +65,22 @@ type QueryLike = Pick<DatasetQuery & MetricQuery, 'dimensions' | 'filters' | 'or
 
 /**
  * Builds the join context for a query, or returns undefined when neither the
- * query nor the call's enforced constraints reference a relationship-qualified
- * field. Validation runs first, so any qualified name that fails to resolve
- * here is skipped defensively.
+ * query, the fixed filters of the measures it computes, nor the call's
+ * enforced constraints reference a relationship-qualified field. Validation
+ * runs first, so any qualified name that fails to resolve here is skipped
+ * defensively.
+ *
+ * `measureFilterFields` are the relationship fields the computed measures'
+ * fixed filters read. They default to a dataset query's (its selected
+ * measures, or every base measure when omitted); a metric query passes its
+ * metric's, and a statement that computes no measure passes `[]`.
  */
 export function buildRelationshipBuilderContext(
   ds: AnyDatasetInstance,
   query: QueryLike,
   context?: ExecutionContext,
   dialect: DatasetSqlDialectRules = clickhouseDatasetSqlDialect,
+  measureFilterFields: readonly string[] = datasetQueryMeasureFilterFields(ds, query),
 ): RelationshipBuilderContext | undefined {
   const referenced = [
     ...(query.dimensions ?? []),
@@ -81,15 +89,20 @@ export function buildRelationshipBuilderContext(
     ...(query.orderBy ?? []).map((order) => order.field),
     ...runtimeConstraints(context).map((constraint) => constraint.field),
   ].filter(isQualifiedField);
+  // A measure filter names a target dimension, never a relationship measure.
+  const filterFields = measureFilterFields.filter(isQualifiedField);
 
-  if (referenced.length === 0) {
+  if (referenced.length === 0 && filterFields.length === 0) {
     return undefined;
   }
 
   const joinByRelationship = new Map<string, ResolvedBuilderJoin>();
+  const resolutions = [
+    ...referenced.map(name => resolveRelationshipReference(ds, name, query.measures)),
+    ...filterFields.map(name => resolveQualifiedField(ds, name)),
+  ];
 
-  for (const name of referenced) {
-    const resolution = resolveRelationshipReference(ds, name, query.measures);
+  for (const resolution of resolutions) {
     if (!resolution || !resolution.resolved) {
       continue;
     }
