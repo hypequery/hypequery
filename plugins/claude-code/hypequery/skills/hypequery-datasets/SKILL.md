@@ -135,5 +135,7 @@ result = client.execute(
   `add_dataset_endpoint` (Python). Pass `client_profile=ClientQueryProfile()` and
   call `add_client_contract_endpoint(api)` to publish a client contract.
 - AI agents over MCP: `npx --no-install hypequery mcp` (TypeScript project) or
-  `hypequery mcp app:api` (Python, `pip install "hypequery[mcp]"`); add
-  `--print-config` for the Claude or Cursor entry.
+  `hypequery mcp app:api` (Python, `pip install "hypequery[mcp]"`). In a
+  TypeScript project, `npx --no-install hypequery mcp:install` adds the server
+  to Claude Code, Cursor, Codex or Claude Desktop; in Python, add
+  `--print-config` to print the entry.

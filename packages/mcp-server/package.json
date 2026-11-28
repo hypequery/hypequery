@@ -41,6 +41,9 @@
     "!dist/**/tests/**",
     "!dist/**/type-tests/**"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "prepack": "npm run build",
     "prebuild": "node scripts/generate-version.mjs",

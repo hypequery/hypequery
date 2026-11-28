@@ -2,6 +2,10 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { mcpCommand, type McpOptions } from './commands/mcp.js';
 import { skillCommand, type SkillOptions } from './commands/skill.js';
+import { mcpInstallCommand, type McpInstallOptions } from './commands/mcp-install.js';
+import { doctorCommand } from './commands/doctor.js';
+import { nextCommand } from './commands/next.js';
+import { startCommand, type StartOptions } from './commands/start.js';
 import { onboardCommand, schemaCommand, type OnboardOptions } from './commands/onboard.js';
 import { examplesListCommand, type ExamplesListOptions } from './commands/examples.js';
 import { createCommand, type CreateOptions } from './commands/create.js';
@@ -120,6 +124,7 @@ program
   .option('--device', 'Sign in by approving a code in any browser (headless machines, SSH, coding agents)')
   .option('--project <slug>', 'With --device: limit the token to this Cloud project')
   .option('--capabilities <list>', 'With --device: cap the token to these capabilities (comma-separated)')
+  .option('--no-wait', 'With --device: print the link and code and exit; run again after approving to finish (for coding agents)')
   .action(runCommand(async (options: LoginOptions) => {
     await loginCommand(options);
   }));
@@ -326,10 +331,52 @@ program
   }));
 
 program
+  .command('mcp:install')
+  .description('Add hypequery\'s MCP server to Claude Code, Cursor, Codex or Claude Desktop (local server, or --hosted)')
+  .option('--agent <agents>', 'claude-code, cursor, codex, claude-desktop, a comma-separated list, or all (default: the agents found on this machine)')
+  .option('--scope <scope>', 'project (default for the local server) or user (default for --hosted)')
+  .option('--hosted', 'Add the hosted hypequery app connector (OAuth) instead of the local server')
+  .option('--force', 'Replace a server of the same name that hypequery did not write')
+  .option('--dry-run', 'Show what would change without writing')
+  .option('--remove', 'Remove the server this command added')
+  .option('--tenant <id>', 'Trusted tenant for tenant-scoped datasets (passed to hypequery mcp --tenant)')
+  .action(runCommand(async (options: McpInstallOptions) => {
+    await mcpInstallCommand(options);
+  }));
+
+program
+  .command('start')
+  .description('Set up hypequery for coding agents in one step: skills, MCP server, then the next step; never prompts')
+  .option('--hosted', 'Add the hosted hypequery app connector instead of the local server')
+  .option('--agent <agents>', 'Agents for the MCP server (default: the agents found on this machine)')
+  .option('--scope <scope>', 'Scope for the MCP server: project or user')
+  .option('--no-mcp', 'Leave agents\' MCP configuration alone')
+  .option('--no-skills', 'Leave the agent skills alone')
+  .option('--tenant <id>', 'Trusted tenant for tenant-scoped datasets (see mcp:install --tenant)')
+  .option('--dry-run', 'Show what would change without writing')
+  .action(runCommand(async (options: StartOptions) => {
+    await startCommand(options);
+  }));
+
+program
+  .command('doctor')
+  .description('Check Node, the ClickHouse connection, .env, datasets, Cloud sign-in, agents\' MCP entries and skills; each problem names its fix')
+  .action(runCommand(async () => {
+    await doctorCommand();
+  }));
+
+program
+  .command('next')
+  .description('Show the one onboarding step that is due, with instructions for a coding agent')
+  .action(runCommand(async () => {
+    await nextCommand();
+  }));
+
+program
   .command('skill [action]')
   .description('Install hypequery agent skills for Claude Code, Cursor and Codex (install)')
   .option('--agent <agent>', 'claude, cursor, codex or all (default: all)')
-  .option('--scope <scope>', 'project (default) or user')
+  .option('--scope <scope>', 'user (default: ~/.claude/skills and ~/.agents/skills) or project')
   .option('--force', 'Replace skills that were edited or are out of date')
   .option('--check', 'Exit 1 if a skill is missing or out of date, without writing')
   .action(runCommand(async (action: string | undefined, options: SkillOptions) => {
@@ -534,7 +581,12 @@ program.on('--help', () => {
   console.log('  hypequery telemetry disable');
   console.log('  hypequery --no-telemetry init');
   console.log('  hypequery login');
+  console.log('  hypequery start');
+  console.log('  hypequery next --json');
+  console.log('  hypequery doctor');
+  console.log('  hypequery mcp:install --agent claude-code');
   console.log('  hypequery login --device');
+  console.log('  hypequery login --device --no-wait');
   console.log('  hypequery logout');
   console.log('  hypequery init');
   console.log('  hypequery dev');
