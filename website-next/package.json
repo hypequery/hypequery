@@ -54,7 +54,7 @@
     "tailwindcss": "^4",
     "tsx": "~4.23.15",
     "typescript": "^5",
-    "vercel": "^65.17.0"
+    "vercel": "^66.6.0"
   },
   "overrides": {
     "@babel/core": "^7.29.6",
