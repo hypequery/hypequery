@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { marketing } from '../ui/marketing';
-import { DeployWaitlist } from './DeployWaitlist';
+import { DeployWaitlist, TryWithCsv } from './DeployWaitlist';
 import { SetupCommand } from './SetupCommand';
 
 // The section hubs for readers still comparing options. The homepage is the
@@ -28,6 +28,7 @@ export function FinalCTA() {
           Get started <span aria-hidden="true">→</span>
         </Link>
         <DeployWaitlist location="final" className={marketing.secondaryButton} />
+          <TryWithCsv location="final" className="text-sm font-medium text-text-muted underline decoration-border-strong underline-offset-4 transition hover:text-accent hover:decoration-accent" />
       </div>
       <SetupCommand className="mt-4 justify-center" />
       <nav aria-label="Guides for evaluating hypequery" className="mt-8 text-sm text-text-muted">

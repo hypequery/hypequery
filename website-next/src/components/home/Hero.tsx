@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DeployWaitlist } from './DeployWaitlist';
+import { DeployWaitlist, TryWithCsv } from './DeployWaitlist';
 import { SetupCommand } from './SetupCommand';
 import { SiClickhouse } from 'react-icons/si';
 import { Inter } from 'next/font/google';
@@ -36,6 +36,7 @@ export function Hero({ npmDownloads }: { npmDownloads: NpmDownloadCounts }) {
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link href="/docs" className={marketing.primaryButton}>Get started <span aria-hidden="true">→</span></Link>
           <DeployWaitlist location="hero" className={marketing.secondaryButton} />
+          <TryWithCsv location="hero" className="text-sm font-medium text-text-muted underline decoration-border-strong underline-offset-4 transition hover:text-accent hover:decoration-accent" />
         </div>
         <SetupCommand className="mt-4" />
       </div>
