@@ -3,6 +3,7 @@
   "pages": [
     "datasets/overview",
     "datasets/defining-datasets",
+    "datasets/recipes",
     "---Modeling---",
     "datasets/dimensions",
     "datasets/measures",
